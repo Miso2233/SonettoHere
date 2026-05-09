@@ -22,7 +22,7 @@ class SonettoCLI:
         settings = get_settings()
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
         self.llm = ChatOpenAI(
-            model="deepseek-chat",
+            model="deepseek-v4-flash",
             api_key=settings.deepseek_api_key,
             base_url=settings.deepseek_base_url,
             temperature=0.7,
