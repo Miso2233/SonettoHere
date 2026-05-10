@@ -7,12 +7,10 @@ from datetime import datetime
 from langchain_openai import ChatOpenAI
 
 from agent.graph import build_agent
-from agent.prompts import build_system_prompt
+from agent.prompts import build_enhanced_prompt, build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
 from memory.extractor import extract_from_messages, save_extracted
-from memory.long_term import retrieve_long_term_context
-from memory.preference import get_stable_preferences
 from memory.short_term import ShortTermMemory
 from skills import get_all_skills
 
@@ -82,7 +80,7 @@ class SonettoCLI:
                 continue
 
             # 注入长期记忆
-            enhanced_prompt = self._build_enhanced_prompt(user_input)
+            enhanced_prompt = build_enhanced_prompt(self.system_prompt, user_input)
 
             self.graph = build_agent(
                 model=self.llm,
@@ -97,7 +95,7 @@ class SonettoCLI:
             self._turn_messages = [{"role": "user", "content": user_input}]
 
             print()
-            await self._stream_events(
+            await self._run_stream_events(
                 {"messages": [{"role": "user", "content": user_input}]},
                 config,
             )
@@ -105,33 +103,7 @@ class SonettoCLI:
 
             self._save_turn()
 
-    def _build_enhanced_prompt(self, user_input: str) -> str:
-        """检索长期记忆和用户偏好，拼接增强后的系统提示词。"""
-        prompt = self.system_prompt
-        try:
-            retrieved = retrieve_long_term_context(user_input, top_k=10)
-            stable = get_stable_preferences()
-
-            if retrieved.get("error_rules"):
-                rules = "\n".join(
-                    f"- {r.get('correction', r.get('mistake', str(r)))}"
-                    for r in retrieved["error_rules"][:5]
-                )
-                prompt += f"\n\n## 错误规避规则\n{rules}"
-            if retrieved.get("preference_rules"):
-                prefs = "\n".join(
-                    f"- {p.get('habit', str(p))}"
-                    for p in retrieved["preference_rules"][:5]
-                )
-                prompt += f"\n\n## 用户偏好\n{prefs}"
-            if stable:
-                lines = [f"- {k} = {v.get('value', '')}" for k, v in stable.items()]
-                prompt += f"\n\n## 稳定偏好\n" + "\n".join(lines[:5])
-        except Exception:
-            pass
-        return prompt
-
-    async def _stream_events(self, inputs: dict, config: dict) -> None:
+    async def _run_stream_events(self, inputs: dict, config: dict) -> None:
         """流式消费 Agent 图事件，收集工具输出和最终回复到 _turn_messages。"""
 
         final_output = None

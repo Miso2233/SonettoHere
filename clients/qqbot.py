@@ -9,11 +9,9 @@ from botpy.types.message import Message
 from langchain_openai import ChatOpenAI
 
 from agent.graph import build_agent
-from agent.prompts import build_system_prompt
+from agent.prompts import build_enhanced_prompt, build_system_prompt
 from config.settings import get_settings
 from memory.extractor import extract_from_messages, save_extracted
-from memory.long_term import retrieve_long_term_context
-from memory.preference import get_stable_preferences
 from memory.short_term import ShortTermMemory
 from skills import get_all_skills
 
@@ -55,7 +53,7 @@ class SonettoQQBot(botpy.Client):
         session = self._get_session(user_id)
 
         # 注入长期记忆构建增强提示词
-        enhanced_prompt = self._build_enhanced_prompt(user_input)
+        enhanced_prompt = build_enhanced_prompt(self.system_prompt, user_input)
 
         # 每条消息使用独立的 graph，共享 thread_id 以维持对话上下文
         graph = build_agent(
@@ -95,33 +93,6 @@ class SonettoQQBot(botpy.Client):
             save_extracted(extracted, source="qqbot", session_id=session["thread_id"])
         except Exception:
             pass
-
-    def _build_enhanced_prompt(self, user_input: str) -> str:
-        """检索长期记忆和用户偏好，拼接增强后的系统提示词。"""
-        prompt = self.system_prompt
-        try:
-            retrieved = retrieve_long_term_context(user_input, top_k=10)
-            stable = get_stable_preferences()
-
-            if retrieved.get("error_rules"):
-                rules = "\n".join(
-                    f"- {r.get('correction', r.get('mistake', str(r)))}"
-                    for r in retrieved["error_rules"][:5]
-                )
-                prompt += f"\n\n## 错误规避规则\n{rules}"
-            if retrieved.get("preference_rules"):
-                prefs = "\n".join(
-                    f"- {p.get('habit', str(p))}"
-                    for p in retrieved["preference_rules"][:5]
-                )
-                prompt += f"\n\n## 用户偏好\n{prefs}"
-            if stable:
-                lines = [f"- {k} = {v.get('value', '')}" for k, v in stable.items()]
-                prompt += f"\n\n## 稳定偏好\n" + "\n".join(lines[:5])
-        except Exception:
-            pass
-        return prompt
-
 
 def create_client_from_config() -> SonettoQQBot:
     """从 Settings 读取 QQ Bot 配置并创建客户端实例。"""
