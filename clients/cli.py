@@ -40,15 +40,17 @@ class SonettoCLI:
         )
         self.memory = ShortTermMemory()
         self._turn_messages: list[dict] = []
+        self._private_mode = False
 
     async def run(self) -> None:
         """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
         print("SonettoHere v2.0.0 — LangGraph ReAct Agent")
-        print("输入 /exit 退出，/clear 清空对话\n")
+        print("输入 /exit 退出，/clear 清空对话，/private 切换私密模式\n")
 
         while True:
             try:
-                user_input = input(">>> ").strip()
+                prompt = "[私密] >>> " if self._private_mode else ">>> "
+                user_input = input(prompt).strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n再见！")
                 break
@@ -62,6 +64,11 @@ class SonettoCLI:
                 self.memory.clear()
                 self._turn_messages.clear()
                 print("对话已清空。")
+                continue
+            if user_input == "/private":
+                self._private_mode = not self._private_mode
+                status = "已开启" if self._private_mode else "已关闭"
+                print(f"私密模式{status}。")
                 continue
 
             # 注入长期记忆
@@ -141,6 +148,8 @@ class SonettoCLI:
 
     def _save_turn(self) -> None:
         """将本轮消息交给记忆提取器，持久化错误规则和偏好。"""
+        if self._private_mode:
+            return
         if not self._turn_messages:
             return
         try:
