@@ -18,7 +18,10 @@ from skills import get_all_skills
 
 
 class SonettoCLI:
+    """异步命令行对话界面，基于 LangGraph ReAct Agent。"""
+
     def __init__(self):
+        """初始化会话 ID、LLM 客户端、系统提示词、工具集、Agent 图和短期记忆。"""
         settings = get_settings()
         self.session_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
         self.llm = ChatOpenAI(
@@ -39,6 +42,7 @@ class SonettoCLI:
         self._turn_messages: list[dict] = []
 
     async def run(self) -> None:
+        """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
         print("SonettoHere v2.0.0 — LangGraph ReAct Agent")
         print("输入 /exit 退出，/clear 清空对话\n")
 
@@ -85,6 +89,7 @@ class SonettoCLI:
             self._save_turn()
 
     def _build_enhanced_prompt(self, user_input: str) -> str:
+        """检索长期记忆和用户偏好，拼接增强后的系统提示词。"""
         prompt = self.system_prompt
         try:
             retrieved = retrieve_long_term_context(user_input, top_k=10)
@@ -110,7 +115,7 @@ class SonettoCLI:
         return prompt
 
     async def _stream_events(self, inputs: dict, config: dict) -> None:
-        final_output = ""
+        """流式消费 Agent 图事件，收集工具输出和最终回复到 _turn_messages。"""
 
         async for event in self.graph.astream_events(inputs, config=config, version="v2"):
             kind = event["event"]
@@ -135,6 +140,7 @@ class SonettoCLI:
             self._turn_messages.append({"role": "assistant", "content": final_output})
 
     def _save_turn(self) -> None:
+        """将本轮消息交给记忆提取器，持久化错误规则和偏好。"""
         if not self._turn_messages:
             return
         try:
@@ -145,6 +151,7 @@ class SonettoCLI:
 
 
 def main():
+    """CLI 入口函数，以 asyncio 启动 SonettoCLI。"""
     asyncio.run(SonettoCLI().run())
 
 
