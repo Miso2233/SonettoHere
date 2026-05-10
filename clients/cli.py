@@ -30,6 +30,7 @@ class SonettoCLI:
             base_url=settings.deepseek_base_url,
             temperature=0.7,
             streaming=True,
+            extra_body={"thinking": {"type": "disabled"}},
         )
         self.system_prompt = build_system_prompt()
         self.tools = get_all_skills()
