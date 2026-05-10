@@ -134,6 +134,8 @@ class SonettoCLI:
     async def _stream_events(self, inputs: dict, config: dict) -> None:
         """流式消费 Agent 图事件，收集工具输出和最终回复到 _turn_messages。"""
 
+        final_output = None
+
         async for event in self.graph.astream_events(inputs, config=config, version="v2"):
             kind = event["event"]
             name = event.get("name", "")
