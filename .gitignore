@@ -26,6 +26,7 @@ Thumbs.db
 .DS_Store
 
 # Project specific
+botpy.log
 *.dll
 extracted/
 .claude/settings.local.json
