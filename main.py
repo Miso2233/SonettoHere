@@ -14,8 +14,8 @@ def main():
         from clients.cli import main as cli_main
         cli_main()
     elif mode == "qqbot":
-        from clients.qqbot import SonettoBot
-        SonettoBot()
+        from clients.qqbot import main as qqbot_main
+        qqbot_main()
     else:
         print(f"未知模式: {mode}，可选: cli / qqbot")
 
