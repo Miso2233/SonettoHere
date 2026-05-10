@@ -45,7 +45,7 @@ class SonettoCLI:
     async def run(self) -> None:
         """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
         print("SonettoHere v2.0.0 — LangGraph ReAct Agent")
-        print("输入 /exit 退出，/clear 清空对话，/private 切换私密模式\n")
+        print("输入 /help 或 / 查看可用命令\n")
 
         while True:
             try:
@@ -69,6 +69,15 @@ class SonettoCLI:
                 self._private_mode = not self._private_mode
                 status = "已开启" if self._private_mode else "已关闭"
                 print(f"私密模式{status}。")
+                continue
+            if user_input in ("/", "/help"):
+                print("""
+可用命令:
+  /exit      退出程序
+  /clear     清空当前对话
+  /private   切换私密模式（开启后对话不被记录）
+  /help      显示此帮助信息
+""")
                 continue
 
             # 注入长期记忆
