@@ -10,7 +10,6 @@ from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt, build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
-from memory.extractor import extract_from_messages, save_extracted
 from memory.short_term import ShortTermMemory
 from skills import get_all_skills
 
@@ -39,7 +38,6 @@ class SonettoCLI:
         )
         self.memory = ShortTermMemory()
         self._turn_messages: list[dict] = []
-        self._private_mode = False
 
     async def run(self) -> None:
         """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
@@ -48,7 +46,7 @@ class SonettoCLI:
 
         while True:
             try:
-                prompt = "[私密] >>> " if self._private_mode else ">>> "
+                prompt = ">>> "
                 user_input = input(prompt).strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n再见！")
@@ -64,17 +62,11 @@ class SonettoCLI:
                 self._turn_messages.clear()
                 print("对话已清空。")
                 continue
-            if user_input == "/private":
-                self._private_mode = not self._private_mode
-                status = "已开启" if self._private_mode else "已关闭"
-                print(f"私密模式{status}。")
-                continue
             if user_input in ("/", "/help"):
                 print("""
 可用命令:
   /exit      退出程序
   /clear     清空当前对话
-  /private   切换私密模式（开启后对话不被记录）
   /help      显示此帮助信息
 """)
                 continue
@@ -101,7 +93,7 @@ class SonettoCLI:
             )
             print()
 
-            self._save_turn()
+            self._turn_messages.clear()
 
     async def _run_stream_events(self, inputs: dict, config: dict) -> None:
         """流式消费 Agent 图事件，收集工具输出和最终回复到 _turn_messages。"""
@@ -129,18 +121,6 @@ class SonettoCLI:
 
         if final_output:
             self._turn_messages.append({"role": "assistant", "content": final_output})
-
-    def _save_turn(self) -> None:
-        """将本轮消息交给记忆提取器，持久化错误规则和偏好。"""
-        if self._private_mode:
-            return
-        if not self._turn_messages:
-            return
-        try:
-            extracted = extract_from_messages(self._turn_messages, self.llm)
-            save_extracted(extracted, session_id=self.session_id)
-        except Exception:
-            pass
 
 
 def main():
