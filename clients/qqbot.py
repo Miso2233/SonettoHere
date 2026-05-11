@@ -12,6 +12,7 @@ from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt, build_system_prompt
 from config.settings import get_settings
 from memory.short_term import ShortTermMemory
+from memory.narrative import update_narrative
 from skills import get_all_skills
 
 
@@ -81,6 +82,12 @@ class SonettoQQBot(botpy.Client):
             final_answer = final_answer[:1980] + "\n\n...（回复过长已截断）"
 
         await message.reply(content=final_answer)
+
+        turn_messages = [
+            {"role": "user", "content": user_input},
+            {"role": "assistant", "content": final_answer},
+        ]
+        update_narrative(self.llm, turn_messages)
 
 
 def create_client_from_config() -> SonettoQQBot:

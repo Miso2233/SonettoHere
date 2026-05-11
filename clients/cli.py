@@ -11,6 +11,7 @@ from agent.prompts import build_enhanced_prompt, build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
 from memory.short_term import ShortTermMemory
+from memory.narrative import update_narrative
 from skills import get_all_skills
 
 
@@ -65,10 +66,19 @@ class SonettoCLI:
             if user_input in ("/", "/help"):
                 print("""
 可用命令:
-  /exit      退出程序
-  /clear     清空当前对话
-  /help      显示此帮助信息
+  /exit       退出程序
+  /clear      清空当前对话
+  /narrative  查看当前记忆叙事
+  /help       显示此帮助信息
 """)
+                continue
+            if user_input == "/narrative":
+                from memory.narrative import get_narrative
+                narrative = get_narrative()
+                if narrative:
+                    print(f"\n{narrative}\n")
+                else:
+                    print("\n暂无记忆叙事。\n")
                 continue
 
             # 注入长期记忆
@@ -93,6 +103,7 @@ class SonettoCLI:
             )
             print()
 
+            update_narrative(self.llm, self._turn_messages)
             self._turn_messages.clear()
 
     async def _run_stream_events(self, inputs: dict, config: dict) -> None:
