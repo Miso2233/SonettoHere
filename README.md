@@ -1,4 +1,4 @@
-# SonettoHere v2.0
+# SonettoHere v2.0.0
 
 基于 LangChain + LangGraph 的 ReAct AI Agent，支持 CLI 和 QQ Bot 双入口。
 
@@ -37,7 +37,7 @@ source .venv/bin/activate   # Linux/macOS
 # .venv\Scripts\activate    # Windows
 
 # 安装依赖
-pip install -e .
+pip install -r requirements.txt
 ```
 
 ## 配置
@@ -86,7 +86,11 @@ python main.py cli
 python main.py qqbot
 ```
 
-> QQ Bot 适配器目前为骨架，待 botpy SDK 集成。
+基于 `qq-botpy` SDK 的完整 QQ 机器人实现，支持：
+- **C2C 私聊**：自动响应私聊消息，通过 LangGraph ReAct Agent 生成回复
+- **多用户会话隔离**：每个用户独立 `thread_id`（LangGraph 状态持久化）和短期记忆
+- **长期记忆**：异步写入 narrative 长期记忆，跨会话保持用户上下文
+- **长度截断**：自动处理 QQ 2000 字符消息限制
 
 ### 编程调用
 
@@ -107,6 +111,7 @@ asyncio.run(main())
 SonettoHere/
 ├── main.py                  # 入口选择器 (cli / qqbot)
 ├── pyproject.toml           # 项目元数据与依赖
+├── requirements.txt         # Pip 安装依赖
 ├── .env.example             # 环境变量模板
 │
 ├── config/
@@ -136,16 +141,29 @@ SonettoHere/
 │
 ├── memory/
 │   ├── short_term.py        # 短期记忆（token 自动裁剪）
-│   ├── long_term.py         # 长期记忆（关键词评分检索）
-│   ├── extractor.py         # 对话回合摘要提取
-│   └── preference.py        # 用户偏好画像
+│   ├── narrative.py         # 长期记忆（narrative 引擎 + 异步持久化）
+│   └── user_init.py         # 用户初始化与画像加载
 │
 ├── callbacks/
 │   └── printer.py           # 彩色终端输出
 │
-└── clients/
-    ├── cli.py               # 异步 CLI 入口
-    └── qqbot.py             # QQ Bot 适配器（骨架）
+├── clients/
+│   ├── cli.py               # 异步 CLI 入口
+│   └── qqbot.py             # QQ Bot 适配器（botpy SDK）
+│
+├── tests/
+│   ├── test_memory/         # 记忆系统测试
+│   ├── test_skills/         # Skill 系统测试
+│   └── test_agent/          # Agent 图测试
+│
+└── docs/
+    ├── 00-结构总览.md
+    ├── 01-ReAct-Agent核心原理.md
+    ├── 02-LangGraph状态图与状态管理.md
+    ├── 03-Tool与Skill系统.md
+    ├── 04-记忆系统.md
+    ├── 05-提示词与人设系统.md
+    └── 06-客户端与回调系统.md
 ```
 
 ## 架构
@@ -159,8 +177,9 @@ SonettoHere/
 
 - **LLM 后端**：DeepSeek Chat（OpenAI 兼容 tool calling）
 - **Agent 框架**：LangGraph `create_react_agent` + MemorySaver 状态持久化
-- **记忆系统**：短期记忆（token 阈值自动裁剪）+ 长期记忆（关键词+置信度+时间衰减评分检索）
+- **记忆系统**：短期记忆（token 阈值自动裁剪）+ narrative 长期记忆（异步持久化、跨会话上下文保持）
 - **Skill 模式**：每个 Skill = `SKILL.md`（领域知识）+ `skill_*.py`（执行代码），通过 `get_doc=true` 按需加载文档
+- **QQ Bot**：基于 `qq-botpy` SDK，独立线程运行长期记忆引擎，多用户 session 隔离
 
 ## License
 
