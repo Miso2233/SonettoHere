@@ -1,0 +1,22 @@
+{
+  "name": "sonettohere-web",
+  "private": true,
+  "version": "2.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "marked": "^12.0.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vue-tsc": "^2.0.0"
+  }
+}
