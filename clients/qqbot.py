@@ -11,8 +11,8 @@ from langchain_openai import ChatOpenAI
 from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt, build_system_prompt
 from config.settings import get_settings
-from memory.extractor import extract_from_messages, save_extracted
 from memory.short_term import ShortTermMemory
+from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
 
 
@@ -36,6 +36,7 @@ class SonettoQQBot(botpy.Client):
         self.system_prompt = build_system_prompt()
         self.tools = get_all_skills()
         self._sessions: dict[str, dict] = {}
+        self.ltm = LongTermMemoryInterface(MEMORY_PATH)
 
     def _get_session(self, user_id: str) -> dict:
         """获取或创建用户会话（thread_id + 短期记忆）。"""
@@ -83,16 +84,20 @@ class SonettoQQBot(botpy.Client):
 
         await message.reply(content=final_answer)
 
-        # 保存本轮对话到记忆
         turn_messages = [
             {"role": "user", "content": user_input},
             {"role": "assistant", "content": final_answer},
         ]
+        await self.ltm.send_history(turn_messages)
+
+    async def run(self, *args, **kwargs):
+        """启动 QQ Bot，接管 run 生命周期以管理 LongTermMemoryInterface。"""
+        self.ltm.start_listening(self.llm)
         try:
-            extracted = extract_from_messages(turn_messages, self.llm)
-            save_extracted(extracted, source="qqbot", session_id=session["thread_id"])
-        except Exception:
-            pass
+            await super().run(*args, **kwargs)
+        finally:
+            await self.ltm.stop_listening()
+
 
 def create_client_from_config() -> SonettoQQBot:
     """从 Settings 读取 QQ Bot 配置并创建客户端实例。"""

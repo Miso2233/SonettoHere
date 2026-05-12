@@ -30,3 +30,5 @@ botpy.log
 *.dll
 extracted/
 .claude/settings.local.json
+config/personas/USER.md
+config/personas/MEMORY.md

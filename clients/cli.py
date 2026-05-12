@@ -10,8 +10,8 @@ from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt, build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
-from memory.extractor import extract_from_messages, save_extracted
 from memory.short_term import ShortTermMemory
+from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
 
 
@@ -39,19 +39,30 @@ class SonettoCLI:
         )
         self.memory = ShortTermMemory()
         self._turn_messages: list[dict] = []
-        self._private_mode = False
+        self.ltm = LongTermMemoryInterface(MEMORY_PATH)
 
     async def run(self) -> None:
         """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
         print("SonettoHere v2.0.0 — LangGraph ReAct Agent")
         print("输入 /help 或 / 查看可用命令\n")
 
+        self.ltm.start_listening(self.llm)
+        try:
+            await self._repl()
+        finally:
+            await self.ltm.stop_listening()
+
+    async def _repl(self) -> None:
+        """REPL 主循环体。"""
+        loop = asyncio.get_running_loop()
         while True:
             try:
-                prompt = "[私密] >>> " if self._private_mode else ">>> "
-                user_input = input(prompt).strip()
+                prompt = ">>> "
+                user_input = (await loop.run_in_executor(None, input, prompt)).strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n再见！")
+                break
+            except asyncio.CancelledError:
                 break
 
             if not user_input:
@@ -64,22 +75,25 @@ class SonettoCLI:
                 self._turn_messages.clear()
                 print("对话已清空。")
                 continue
-            if user_input == "/private":
-                self._private_mode = not self._private_mode
-                status = "已开启" if self._private_mode else "已关闭"
-                print(f"私密模式{status}。")
-                continue
             if user_input in ("/", "/help"):
                 print("""
 可用命令:
-  /exit      退出程序
-  /clear     清空当前对话
-  /private   切换私密模式（开启后对话不被记录）
-  /help      显示此帮助信息
+  /exit       退出程序
+  /clear      清空当前对话
+  /narrative  查看当前记忆叙事
+  /help       显示此帮助信息
 """)
                 continue
+            if user_input == "/narrative":
+                from memory.narrative import get_narrative
+                narrative = get_narrative()
+                if narrative:
+                    print(f"\n{narrative}\n")
+                else:
+                    print("\n暂无记忆叙事。\n")
+                continue
 
-            # 注入长期记忆
+            # 生成提示词
             enhanced_prompt = build_enhanced_prompt(self.system_prompt, user_input)
 
             self.graph = build_agent(
@@ -101,7 +115,8 @@ class SonettoCLI:
             )
             print()
 
-            self._save_turn()
+            await self.ltm.send_history(self._turn_messages)
+            self._turn_messages.clear()
 
     async def _run_stream_events(self, inputs: dict, config: dict) -> None:
         """流式消费 Agent 图事件，收集工具输出和最终回复到 _turn_messages。"""
@@ -129,18 +144,6 @@ class SonettoCLI:
 
         if final_output:
             self._turn_messages.append({"role": "assistant", "content": final_output})
-
-    def _save_turn(self) -> None:
-        """将本轮消息交给记忆提取器，持久化错误规则和偏好。"""
-        if self._private_mode:
-            return
-        if not self._turn_messages:
-            return
-        try:
-            extracted = extract_from_messages(self._turn_messages, self.llm)
-            save_extracted(extracted, session_id=self.session_id)
-        except Exception:
-            pass
 
 
 def main():
