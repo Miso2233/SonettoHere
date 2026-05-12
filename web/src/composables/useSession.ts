@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { api } from '@/api'
+import { removeTurnsFromStorage } from '@/composables/useChat'
 import type { SessionInfo } from '@/types'
 
 const STORAGE_KEY = 'sonetto_session_id'
@@ -54,6 +55,7 @@ async function switchSession(id: string) {
 
 async function deleteSession(id: string) {
   await api.deleteSession(id)
+  removeTurnsFromStorage(id)
   if (sessionId.value === id) {
     await refreshSessions()
     if (sessions.value.length > 0) {

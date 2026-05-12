@@ -1,8 +1,37 @@
 import { ref, reactive, watch, onUnmounted, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall } from '@/types'
 
-// 会话级消息缓存，切换会话时保留消息
-const turnsCache = new Map<string, ChatTurn[]>()
+const TURNS_KEY_PREFIX = 'sonetto_turns_'
+
+// 从 localStorage 恢复所有会话的消息缓存（页面刷新后仍保留）
+function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
+  const map = new Map<string, ChatTurn[]>()
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (key && key.startsWith(TURNS_KEY_PREFIX)) {
+      const sid = key.slice(TURNS_KEY_PREFIX.length)
+      try {
+        const data = JSON.parse(localStorage.getItem(key) || '[]')
+        if (Array.isArray(data)) {
+          map.set(sid, data)
+        }
+      } catch { /* 忽略解析错误 */ }
+    }
+  }
+  return map
+}
+
+function saveTurnsToStorage(sid: string, data: ChatTurn[]) {
+  try {
+    localStorage.setItem(TURNS_KEY_PREFIX + sid, JSON.stringify(data))
+  } catch { /* storage 满时静默失败 */ }
+}
+
+export function removeTurnsFromStorage(sid: string) {
+  localStorage.removeItem(TURNS_KEY_PREFIX + sid)
+}
+
+const turnsCache = loadAllTurnsFromStorage()
 
 export function useChat(sessionId: Ref<string>) {
   const ws = ref<WebSocket | null>(null)
@@ -12,6 +41,12 @@ export function useChat(sessionId: Ref<string>) {
   const currentTurn = ref<ChatTurn | null>(null)
   const error = ref<string | null>(null)
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+  function persistTurns() {
+    const snapshot = [...turns]
+    turnsCache.set(sessionId.value, snapshot)
+    saveTurnsToStorage(sessionId.value, snapshot)
+  }
 
   function connect() {
     if (ws.value?.readyState === WebSocket.OPEN) return
@@ -31,7 +66,6 @@ export function useChat(sessionId: Ref<string>) {
 
     ws.value.onclose = () => {
       connected.value = false
-      // 自动重连
       reconnectTimer = setTimeout(connect, 3000)
     }
 
@@ -127,6 +161,7 @@ export function useChat(sessionId: Ref<string>) {
           currentTurn.value = null
         }
         isStreaming.value = false
+        persistTurns()
         break
 
       case 'error':
@@ -149,16 +184,16 @@ export function useChat(sessionId: Ref<string>) {
     connected.value = false
   }
 
-  // sessionId 变化时保存当前会话消息到缓存，恢复目标会话消息
   watch(
     sessionId,
     (newId, oldId) => {
-      // 保存旧会话的 turns
+      // 切出旧会话前持久化
       if (oldId) {
         turnsCache.set(oldId, [...turns])
+        saveTurnsToStorage(oldId, [...turns])
       }
       disconnect()
-      // 恢复新会话的 turns
+      // 恢复新会话消息（优先内存缓存，其次 localStorage 已在模块加载时读入）
       const cached = newId ? turnsCache.get(newId) : undefined
       turns.splice(0, turns.length)
       if (cached) {
@@ -179,7 +214,6 @@ export function useChat(sessionId: Ref<string>) {
 }
 
 function findRunningTool(toolCalls: ToolCall[], toolName: string): ToolCall | undefined {
-  // 从后往前找匹配名称且状态为 running 的工具调用
   for (let i = toolCalls.length - 1; i >= 0; i--) {
     if (toolCalls[i].name === toolName && toolCalls[i].status === 'running') {
       return toolCalls[i]
