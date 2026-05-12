@@ -1,6 +1,9 @@
 import { ref, reactive, watch, onUnmounted, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall } from '@/types'
 
+// 会话级消息缓存，切换会话时保留消息
+const turnsCache = new Map<string, ChatTurn[]>()
+
 export function useChat(sessionId: Ref<string>) {
   const ws = ref<WebSocket | null>(null)
   const connected = ref(false)
@@ -146,15 +149,24 @@ export function useChat(sessionId: Ref<string>) {
     connected.value = false
   }
 
-  // sessionId 变化时重连
+  // sessionId 变化时保存当前会话消息到缓存，恢复目标会话消息
   watch(
     sessionId,
-    () => {
+    (newId, oldId) => {
+      // 保存旧会话的 turns
+      if (oldId) {
+        turnsCache.set(oldId, [...turns])
+      }
       disconnect()
-      turns.splice(0)
+      // 恢复新会话的 turns
+      const cached = newId ? turnsCache.get(newId) : undefined
+      turns.splice(0, turns.length)
+      if (cached) {
+        turns.push(...cached)
+      }
       currentTurn.value = null
       error.value = null
-      if (sessionId.value) {
+      if (newId) {
         connect()
       }
     },

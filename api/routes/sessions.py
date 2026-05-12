@@ -31,6 +31,15 @@ async def get_session(session_id: str, request: Request):
     }
 
 
+@router.get("/sessions/{session_id}/messages")
+async def get_messages(session_id: str, request: Request):
+    sm = request.app.state.session_manager
+    session = sm.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"session_id": session_id, "messages": session.short_term_memory.to_dict_list()}
+
+
 @router.delete("/sessions/{session_id}")
 async def delete_session(session_id: str, request: Request):
     sm = request.app.state.session_manager
