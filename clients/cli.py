@@ -11,7 +11,7 @@ from agent.prompts import build_enhanced_prompt, build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
 from memory.short_term import ShortTermMemory
-from memory.narrative import update_narrative
+from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
 
 
@@ -39,18 +39,30 @@ class SonettoCLI:
         )
         self.memory = ShortTermMemory()
         self._turn_messages: list[dict] = []
+        self.ltm = LongTermMemoryInterface(MEMORY_PATH)
 
     async def run(self) -> None:
         """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
         print("SonettoHere v2.0.0 — LangGraph ReAct Agent")
         print("输入 /help 或 / 查看可用命令\n")
 
+        self.ltm.start_listening(self.llm)
+        try:
+            await self._repl()
+        finally:
+            await self.ltm.stop_listening()
+
+    async def _repl(self) -> None:
+        """REPL 主循环体。"""
+        loop = asyncio.get_running_loop()
         while True:
             try:
                 prompt = ">>> "
-                user_input = input(prompt).strip()
+                user_input = (await loop.run_in_executor(None, input, prompt)).strip()
             except (EOFError, KeyboardInterrupt):
                 print("\n再见！")
+                break
+            except asyncio.CancelledError:
                 break
 
             if not user_input:
@@ -81,7 +93,7 @@ class SonettoCLI:
                     print("\n暂无记忆叙事。\n")
                 continue
 
-            # 注入长期记忆
+            # 生成提示词
             enhanced_prompt = build_enhanced_prompt(self.system_prompt, user_input)
 
             self.graph = build_agent(
@@ -103,7 +115,7 @@ class SonettoCLI:
             )
             print()
 
-            update_narrative(self.llm, self._turn_messages)
+            await self.ltm.send_history(self._turn_messages)
             self._turn_messages.clear()
 
     async def _run_stream_events(self, inputs: dict, config: dict) -> None:
