@@ -4,11 +4,9 @@
       <!-- 已完成的消息轮次 -->
       <template v-for="turn in turns" :key="turn.id">
         <MessageBubble role="user" :content="turn.userMessage" />
-        <template v-for="(block, i) in turn.thinking" :key="'think-' + i">
-          <ThinkingBlock :block="block" />
-        </template>
-        <template v-for="(tc, i) in turn.toolCalls" :key="'tool-' + i">
-          <ToolCallCard :tool-call="tc" />
+        <template v-for="(ev, i) in turn.events" :key="i">
+          <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
+          <ToolCallCard v-else :tool-call="ev" />
         </template>
         <MessageBubble
           v-if="turn.finalAnswer"
@@ -20,11 +18,9 @@
       <!-- 当前正在流式生成的消息 -->
       <template v-if="currentTurn">
         <MessageBubble role="user" :content="currentTurn.userMessage" />
-        <template v-for="(block, i) in currentTurn.thinking" :key="'cur-think-' + i">
-          <ThinkingBlock :block="block" />
-        </template>
-        <template v-for="(tc, i) in currentTurn.toolCalls" :key="'cur-tool-' + i">
-          <ToolCallCard :tool-call="tc" />
+        <template v-for="(ev, i) in currentTurn.events" :key="i">
+          <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
+          <ToolCallCard v-else :tool-call="ev" />
         </template>
       </template>
 
@@ -64,12 +60,9 @@ function scrollToBottom() {
   })
 }
 
+watch(() => props.turns.length, () => scrollToBottom())
 watch(
-  () => props.turns.length,
-  () => scrollToBottom()
-)
-watch(
-  () => props.currentTurn?.thinking.length,
+  () => props.currentTurn?.events.length,
   () => scrollToBottom()
 )
 watch(

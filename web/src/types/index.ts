@@ -84,11 +84,13 @@ export type ClientMessage = ChatMessage | CancelMessage | PingMessage
 // === 前端 UI 状态类型 ===
 
 export interface ThinkingBlock {
+  kind: 'thinking'
   tokens: string
   done: boolean
 }
 
 export interface ToolCall {
+  kind: 'tool'
   name: string
   input: string
   output: string | null
@@ -96,11 +98,12 @@ export interface ToolCall {
   status: 'running' | 'done' | 'error'
 }
 
+export type TurnEvent = ThinkingBlock | ToolCall
+
 export interface ChatTurn {
   id: string
   userMessage: string
-  thinking: ThinkingBlock[]
-  toolCalls: ToolCall[]
+  events: TurnEvent[]
   finalAnswer: string | null
 }
 

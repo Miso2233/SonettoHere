@@ -1,5 +1,5 @@
 import { ref, reactive, watch, onUnmounted, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall } from '@/types'
+import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent } from '@/types'
 
 const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
@@ -83,8 +83,7 @@ export function useChat(sessionId: Ref<string>) {
     const turn: ChatTurn = {
       id: crypto.randomUUID(),
       userMessage: message,
-      thinking: [],
-      toolCalls: [],
+      events: [],
       finalAnswer: null,
     }
     currentTurn.value = turn
@@ -105,36 +104,39 @@ export function useChat(sessionId: Ref<string>) {
 
     switch (event.type) {
       case 'thinking_start':
-        turn.thinking.push({ tokens: '', done: false })
+        turn.events.push({ kind: 'thinking', tokens: '', done: false })
         break
 
-      case 'token':
-        if (turn.thinking.length > 0) {
-          const last = turn.thinking[turn.thinking.length - 1]
-          last.tokens += event.payload.token
+      case 'token': {
+        const lastThink = findLastThinking(turn.events)
+        if (lastThink) {
+          lastThink.tokens += event.payload.token
         }
         break
+      }
 
-      case 'thinking_end':
-        if (turn.thinking.length > 0) {
-          turn.thinking[turn.thinking.length - 1].done = true
+      case 'thinking_end': {
+        const lastThink = findLastThinking(turn.events)
+        if (lastThink) {
+          lastThink.done = true
         }
         break
+      }
 
       case 'tool_start': {
-        const tc: ToolCall = {
+        turn.events.push({
+          kind: 'tool',
           name: event.payload.tool_name,
           input: event.payload.input,
           output: null,
           elapsed: null,
           status: 'running',
-        }
-        turn.toolCalls.push(tc)
+        })
         break
       }
 
       case 'tool_end': {
-        const tc = findRunningTool(turn.toolCalls, event.payload.tool_name)
+        const tc = findRunningTool(turn.events, event.payload.tool_name)
         if (tc) {
           tc.output = event.payload.output
           tc.elapsed = event.payload.elapsed
@@ -144,7 +146,7 @@ export function useChat(sessionId: Ref<string>) {
       }
 
       case 'tool_error': {
-        const tc = findRunningTool(turn.toolCalls, event.payload.tool_name)
+        const tc = findRunningTool(turn.events, event.payload.tool_name)
         if (tc) {
           tc.status = 'error'
         }
@@ -213,10 +215,20 @@ export function useChat(sessionId: Ref<string>) {
   return { connected, isStreaming, turns, currentTurn, error, send, cancel, connect, disconnect }
 }
 
-function findRunningTool(toolCalls: ToolCall[], toolName: string): ToolCall | undefined {
-  for (let i = toolCalls.length - 1; i >= 0; i--) {
-    if (toolCalls[i].name === toolName && toolCalls[i].status === 'running') {
-      return toolCalls[i]
+function findLastThinking(events: TurnEvent[]): ThinkingBlock | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i].kind === 'thinking') {
+      return events[i] as ThinkingBlock
+    }
+  }
+  return undefined
+}
+
+function findRunningTool(events: TurnEvent[], toolName: string): ToolCall | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    if (e.kind === 'tool' && e.name === toolName && e.status === 'running') {
+      return e as ToolCall
     }
   }
   return undefined
