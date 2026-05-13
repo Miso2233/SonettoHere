@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+import yaml
 
 import memory.narrative as narrative
 from memory.narrative import LongTermMemoryInterface
@@ -136,7 +137,12 @@ class TestCrudTools:
         narrative._current_entries = {}
         narrative._next_id = 1
 
-    def test_create_memory(self):
+    def teardown_method(self):
+        narrative._current_entries = {}
+        narrative._next_id = 1
+
+    def test_create_memory(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
         result = narrative.create_memory.invoke({"content": "用户叫Miso。"})
         assert "已创建 [1]" in result
         assert narrative._current_entries["1"] == "用户叫Miso。"
@@ -152,25 +158,110 @@ class TestCrudTools:
         assert "[1] A" in result
         assert "[2] B" in result
 
-    def test_update_memory_success(self):
+    def test_update_memory_success(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
         narrative._current_entries = {"1": "旧内容"}
-        result = narrative.update_memory.invoke({"id": "1", "content": "新内容"})
+        result = narrative.update_memory.invoke({
+            "id": "1", "content": "新内容",
+            "reason": "信息过时，需要更新",
+            "origin_content": "旧内容",
+        })
         assert "已更新 [1]" in result
         assert narrative._current_entries["1"] == "新内容"
 
-    def test_update_memory_not_found(self):
-        result = narrative.update_memory.invoke({"id": "99", "content": "x"})
+    def test_update_memory_not_found(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
+        result = narrative.update_memory.invoke({
+            "id": "99", "content": "x",
+            "reason": "测试", "origin_content": "不存在",
+        })
         assert "错误" in result
 
-    def test_delete_memory_success(self):
+    def test_delete_memory_success(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
         narrative._current_entries = {"1": "删除我"}
-        result = narrative.delete_memory.invoke({"id": "1"})
+        result = narrative.delete_memory.invoke({
+            "id": "1", "reason": "信息已过时", "origin_content": "删除我",
+        })
         assert "已删除 [1]" in result
         assert "1" not in narrative._current_entries
 
-    def test_delete_memory_not_found(self):
-        result = narrative.delete_memory.invoke({"id": "99"})
+    def test_delete_memory_not_found(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
+        result = narrative.delete_memory.invoke({
+            "id": "99", "reason": "测试", "origin_content": "不存在",
+        })
         assert "错误" in result
+
+    # ── 日志测试 ──────────────────────────────────────────────
+
+    def test_log_created_on_create(self, monkeypatch, tmp_path):
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative.create_memory.invoke({"content": "用户叫Miso。"})
+        assert log_path.exists()
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 1
+        assert data[0]["operation"] == "create_memory"
+        assert data[0]["params"]["content"] == "用户叫Miso。"
+        assert "id" not in data[0]["params"]
+
+    def test_log_created_on_update(self, monkeypatch, tmp_path):
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative._current_entries = {"1": "旧内容"}
+        narrative.update_memory.invoke({
+            "id": "1", "content": "新内容",
+            "reason": "信息过时", "origin_content": "旧内容",
+        })
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 1
+        assert data[0]["operation"] == "update_memory"
+        assert data[0]["params"]["content"] == "新内容"
+        assert data[0]["params"]["reason"] == "信息过时"
+        assert data[0]["params"]["origin_content"] == "旧内容"
+        assert "id" not in data[0]["params"]
+
+    def test_log_created_on_delete(self, monkeypatch, tmp_path):
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative._current_entries = {"1": "删除我"}
+        narrative.delete_memory.invoke({
+            "id": "1", "reason": "已过时", "origin_content": "删除我",
+        })
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 1
+        assert data[0]["operation"] == "delete_memory"
+        assert data[0]["params"]["reason"] == "已过时"
+        assert data[0]["params"]["origin_content"] == "删除我"
+        assert "id" not in data[0]["params"]
+
+    def test_log_not_created_on_error(self, monkeypatch, tmp_path):
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative.update_memory.invoke({
+            "id": "99", "content": "x",
+            "reason": "测试", "origin_content": "不存在",
+        })
+        assert not log_path.exists()
+
+    def test_log_appends_multiple_entries(self, monkeypatch, tmp_path):
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative.create_memory.invoke({"content": "第一条。"})
+        narrative._current_entries["1"] = "第一条。"
+        narrative.update_memory.invoke({
+            "id": "1", "content": "第一条已改。",
+            "reason": "修正", "origin_content": "第一条。",
+        })
+        narrative.delete_memory.invoke({
+            "id": "1", "reason": "不再需要", "origin_content": "第一条已改。",
+        })
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 3
+        assert data[0]["operation"] == "create_memory"
+        assert data[1]["operation"] == "update_memory"
+        assert data[2]["operation"] == "delete_memory"
 
 
 # ── TestGetNarrative ──────────────────────────────────────────

@@ -2,8 +2,10 @@
 
 import asyncio
 import traceback
+from datetime import datetime
 from pathlib import Path
 
+import yaml
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
@@ -13,6 +15,7 @@ DEBUG = True  # 调试开关，排查 MEMORY.md 未更新的问题
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 MEMORY_PATH = PERSONAS_DIR / "MEMORY.md"
+LOG_PATH = PERSONAS_DIR / "memory_operations.yaml"
 
 # CRUD 工具操作的当前会话状态，每次 _consumer 迭代前重置
 _current_entries: dict[str, str] = {}
@@ -86,6 +89,22 @@ def _serialize_memory(entries: dict[str, str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _log_operation(operation: str, params: dict) -> None:
+    """追加一条操作记录到 YAML 日志文件。"""
+    entry = {
+        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "operation": operation,
+        "params": params,
+    }
+    if LOG_PATH.exists():
+        existing = yaml.safe_load(LOG_PATH.read_text(encoding="utf-8")) or []
+    else:
+        existing = []
+    existing.append(entry)
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    LOG_PATH.write_text(yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8")
+
+
 # ── CRUD 工具 ──────────────────────────────────────────────────
 
 @tool
@@ -99,6 +118,7 @@ def create_memory(content: str) -> str:
     eid = str(_next_id)
     _current_entries[eid] = content
     _next_id += 1
+    _log_operation("create_memory", {"content": content})
     result = f"已创建 [{eid}]: {content}"
     if DEBUG:
         print(f"[LTM-TOOL] create_memory → [{eid}] {content[:80]}...")
@@ -120,12 +140,14 @@ def read_memories() -> str:
 
 
 @tool
-def update_memory(id: str, content: str) -> str:
+def update_memory(id: str, content: str, reason: str, origin_content: str) -> str:
     """根据 ID 更新一条已有记忆。
 
     Args:
         id: 要更新的记忆 ID（来自 read_memories 的输出）。
         content: 更新后的完整内容。
+        reason: 修改原因，说明为什么要更新这条记忆。
+        origin_content: 修改前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
     if id not in _current_entries:
         if DEBUG:
@@ -133,25 +155,36 @@ def update_memory(id: str, content: str) -> str:
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
     old = _current_entries[id]
     _current_entries[id] = content
+    _log_operation("update_memory", {
+        "content": content,
+        "reason": reason,
+        "origin_content": origin_content,
+    })
     if DEBUG:
-        print(f"[LTM-TOOL] update_memory [{id}] 旧→新")
+        print(f"[LTM-TOOL] update_memory [{id}] 旧→新 | 原因: {reason[:60]}")
     return f"已更新 [{id}]\n  旧: {old}\n  新: {content}"
 
 
 @tool
-def delete_memory(id: str) -> str:
+def delete_memory(id: str, reason: str, origin_content: str) -> str:
     """根据 ID 删除一条记忆。
 
     Args:
         id: 要删除的记忆 ID（来自 read_memories 的输出）。
+        reason: 删除原因，说明为什么要删除这条记忆。
+        origin_content: 删除前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
     if id not in _current_entries:
         if DEBUG:
             print(f"[LTM-TOOL] delete_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
     removed = _current_entries.pop(id)
+    _log_operation("delete_memory", {
+        "reason": reason,
+        "origin_content": origin_content,
+    })
     if DEBUG:
-        print(f"[LTM-TOOL] delete_memory [{id}] 已删除")
+        print(f"[LTM-TOOL] delete_memory [{id}] 已删除 | 原因: {reason[:60]}")
     return f"已删除 [{id}]: {removed}"
 
 
