@@ -11,15 +11,11 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
-DEBUG = True  # 调试开关，排查 MEMORY.md 未更新的问题
+DEBUG = False  # 调试开关，排查 MEMORY.md 未更新的问题
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 MEMORY_PATH = PERSONAS_DIR / "MEMORY.md"
 LOG_PATH = PERSONAS_DIR / "memory_operations.yaml"
-
-# CRUD 工具操作的当前会话状态，每次 _consumer 迭代前重置
-_current_entries: dict[str, str] = {}
-_next_id: int = 1
 
 COLD_START_SYSTEM = """你是一位"记忆叙事师"。根据对话记录，用第三人称撰写关于用户的简洁中文记忆。
 
@@ -68,44 +64,132 @@ def _format_messages(messages: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _parse_memory(content: str) -> tuple[dict[str, str], int]:
-    """解析 MEMORY.md 文本为带自增 ID 的字典。
+# ── MemorySerializer ──────────────────────────────────────────
 
-    返回 ({id: content}, next_id)。跳过不以 "- " 开头的行。
+
+class MemorySerializer:
+    """MEMORY.md 格式 ↔ 条目字典 双向转换。"""
+
+    @staticmethod
+    def parse(content: str) -> tuple[dict[str, str], int]:
+        """解析 "- " 列表为 {id: content} 字典。
+
+        返回 ({id: content}, next_id)。跳过不以 "- " 开头的行。
+        """
+        entries: dict[str, str] = {}
+        next_id = 1
+        for line in content.strip().split("\n"):
+            line = line.strip()
+            if line.startswith("- "):
+                entries[str(next_id)] = line[2:].strip()
+                next_id += 1
+        return entries, next_id
+
+    @staticmethod
+    def serialize(entries: dict[str, str]) -> str:
+        """将 {id: content} 字典序列化为 MEMORY.md 格式。"""
+        lines = [f"- {text}" for text in entries.values()]
+        return "\n".join(lines) + "\n"
+
+
+# ── MemoryLogger ──────────────────────────────────────────────
+
+
+class MemoryLogger:
+    """YAML 操作日志记录器。"""
+
+    @staticmethod
+    def log(operation: str, params: dict) -> None:
+        """追加一条操作记录到 YAML 日志文件。"""
+        entry = {
+            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "operation": operation,
+            "params": params,
+        }
+        if LOG_PATH.exists():
+            existing = yaml.safe_load(LOG_PATH.read_text(encoding="utf-8")) or []
+        else:
+            existing = []
+        existing.append(entry)
+        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        LOG_PATH.write_text(
+            yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8"
+        )
+
+
+# ── MemoryStore（单例）────────────────────────────────────────
+
+
+class MemoryStore:
+    """记忆条目存储器（单例）。
+
+    持有当前会话的条目字典和自增 ID 计数器，提供 CRUD 操作。
     """
-    entries: dict[str, str] = {}
-    next_id = 1
-    for line in content.strip().split("\n"):
-        line = line.strip()
-        if line.startswith("- "):
-            entries[str(next_id)] = line[2:].strip()
-            next_id += 1
-    return entries, next_id
+
+    _instance: "MemoryStore | None" = None
+
+    def __new__(cls) -> "MemoryStore":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self) -> None:
+        if not hasattr(self, "_initialized"):
+            self._initialized = True
+            self.entries: dict[str, str] = {}
+            self.next_id: int = 1
+
+    def reset(self) -> None:
+        """重置为初始状态。"""
+        self.entries.clear()
+        self.next_id = 1
+
+    def load(self, content: str) -> None:
+        """从 MEMORY.md 文本解析并加载条目。"""
+        self.entries, self.next_id = MemorySerializer.parse(content)
+
+    def create(self, content: str) -> str:
+        """添加一条记忆条目，返回结果消息。"""
+        eid = str(self.next_id)
+        self.entries[eid] = content
+        self.next_id += 1
+        return f"已创建 [{eid}]: {content}"
+
+    def read_all(self) -> str:
+        """返回所有条目的格式化文本。"""
+        if not self.entries:
+            return "（暂无记忆条目）"
+        lines = [f"[{eid}] {text}" for eid, text in self.entries.items()]
+        return "\n".join(lines)
+
+    def update(self, id: str, content: str) -> str:
+        """根据 ID 更新一条条目，返回结果消息。"""
+        if id not in self.entries:
+            return (
+                f"错误：未找到 ID 为 {id} 的记忆条目。"
+                "请先调用 read_memories 确认 ID。"
+            )
+        old = self.entries[id]
+        self.entries[id] = content
+        return f"已更新 [{id}]\n  旧: {old}\n  新: {content}"
+
+    def delete(self, id: str) -> str:
+        """根据 ID 删除一条条目，返回结果消息。"""
+        if id not in self.entries:
+            return (
+                f"错误：未找到 ID 为 {id} 的记忆条目。"
+                "请先调用 read_memories 确认 ID。"
+            )
+        removed = self.entries.pop(id)
+        return f"已删除 [{id}]: {removed}"
+
+    def serialize(self) -> str:
+        """将当前条目序列化为 MEMORY.md 格式。"""
+        return MemorySerializer.serialize(self.entries)
 
 
-def _serialize_memory(entries: dict[str, str]) -> str:
-    """将 {id: content} 字典序列化为 MEMORY.md 格式。"""
-    lines = [f"- {text}" for text in entries.values()]
-    return "\n".join(lines) + "\n"
+# ── CRUD 工具（模块级 @tool，委托给 MemoryStore 单例）───────
 
-
-def _log_operation(operation: str, params: dict) -> None:
-    """追加一条操作记录到 YAML 日志文件。"""
-    entry = {
-        "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-        "operation": operation,
-        "params": params,
-    }
-    if LOG_PATH.exists():
-        existing = yaml.safe_load(LOG_PATH.read_text(encoding="utf-8")) or []
-    else:
-        existing = []
-    existing.append(entry)
-    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-    LOG_PATH.write_text(yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8")
-
-
-# ── CRUD 工具 ──────────────────────────────────────────────────
 
 @tool
 def create_memory(content: str) -> str:
@@ -114,13 +198,11 @@ def create_memory(content: str) -> str:
     Args:
         content: 记忆内容，用第三人称中文描述用户的一个事实。
     """
-    global _current_entries, _next_id
-    eid = str(_next_id)
-    _current_entries[eid] = content
-    _next_id += 1
-    _log_operation("create_memory", {"content": content})
-    result = f"已创建 [{eid}]: {content}"
+    store = MemoryStore()
+    result = store.create(content)
+    MemoryLogger.log("create_memory", {"content": content})
     if DEBUG:
+        eid = str(store.next_id - 1)
         print(f"[LTM-TOOL] create_memory → [{eid}] {content[:80]}...")
     return result
 
@@ -128,14 +210,10 @@ def create_memory(content: str) -> str:
 @tool
 def read_memories() -> str:
     """查看当前所有记忆条目及其 ID。在增删改之前必须先调用此工具了解现有条目。"""
-    if not _current_entries:
-        if DEBUG:
-            print("[LTM-TOOL] read_memories → (空)")
-        return "（暂无记忆条目）"
-    lines = [f"[{eid}] {text}" for eid, text in _current_entries.items()]
-    result = "\n".join(lines)
+    store = MemoryStore()
+    result = store.read_all()
     if DEBUG:
-        print(f"[LTM-TOOL] read_memories → {len(_current_entries)} 条")
+        print(f"[LTM-TOOL] read_memories → {len(store.entries)} 条")
     return result
 
 
@@ -149,20 +227,20 @@ def update_memory(id: str, content: str, reason: str, origin_content: str) -> st
         reason: 修改原因，说明为什么要更新这条记忆。
         origin_content: 修改前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
-    if id not in _current_entries:
+    store = MemoryStore()
+    if id not in store.entries:
         if DEBUG:
             print(f"[LTM-TOOL] update_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    old = _current_entries[id]
-    _current_entries[id] = content
-    _log_operation("update_memory", {
+    result = store.update(id, content)
+    MemoryLogger.log("update_memory", {
         "content": content,
         "reason": reason,
         "origin_content": origin_content,
     })
     if DEBUG:
         print(f"[LTM-TOOL] update_memory [{id}] 旧→新 | 原因: {reason[:60]}")
-    return f"已更新 [{id}]\n  旧: {old}\n  新: {content}"
+    return result
 
 
 @tool
@@ -174,18 +252,22 @@ def delete_memory(id: str, reason: str, origin_content: str) -> str:
         reason: 删除原因，说明为什么要删除这条记忆。
         origin_content: 删除前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
-    if id not in _current_entries:
+    store = MemoryStore()
+    if id not in store.entries:
         if DEBUG:
             print(f"[LTM-TOOL] delete_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    removed = _current_entries.pop(id)
-    _log_operation("delete_memory", {
+    result = store.delete(id)
+    MemoryLogger.log("delete_memory", {
         "reason": reason,
         "origin_content": origin_content,
     })
     if DEBUG:
         print(f"[LTM-TOOL] delete_memory [{id}] 已删除 | 原因: {reason[:60]}")
-    return f"已删除 [{id}]: {removed}"
+    return result
+
+
+# ── LongTermMemoryInterface ───────────────────────────────────
 
 
 class LongTermMemoryInterface:
@@ -235,7 +317,7 @@ class LongTermMemoryInterface:
 
     async def _consumer(self, llm) -> None:
         """后台消费者协程：从队列取消息，调用 CRUD Agent，写入 MEMORY.md。"""
-        global _current_entries, _next_id
+        store = MemoryStore()
 
         while True:
             turn_messages = await self._queue.get()
@@ -254,17 +336,17 @@ class LongTermMemoryInterface:
                 messages_text = _format_messages(turn_messages)
 
                 if old_narrative:
-                    _current_entries, _next_id = _parse_memory(old_narrative)
+                    store.load(old_narrative)
                     system_prompt = UPDATE_SYSTEM
                     user_prompt = (
                         f"## 新一轮对话\n{messages_text}"
                     )
                     if DEBUG:
-                        print(f"[LTM-CONSUMER] 模式: 更新 (解析到 {len(_current_entries)} 条旧记忆)")
-                        for eid, text in _current_entries.items():
+                        print(f"[LTM-CONSUMER] 模式: 更新 (解析到 {len(store.entries)} 条旧记忆)")
+                        for eid, text in store.entries.items():
                             print(f"[LTM-CONSUMER]   旧 [{eid}]: {text[:60]}...")
                 else:
-                    _current_entries, _next_id = {}, 1
+                    store.reset()
                     system_prompt = COLD_START_SYSTEM
                     user_prompt = messages_text
                     if DEBUG:
@@ -292,16 +374,15 @@ class LongTermMemoryInterface:
                 if DEBUG:
                     msg_count = len(result.get("messages", []))
                     print(f"[LTM-CONSUMER] Agent 返回 {msg_count} 条消息")
-                    # 打印最后一条非工具消息（Agent 的最终回复）
                     for m in reversed(result.get("messages", [])):
                         if hasattr(m, "content") and getattr(m, "type", "") != "tool":
                             print(f"[LTM-CONSUMER] Agent 最终回复: {str(m.content)[:200]}")
                             break
-                    print(f"[LTM-CONSUMER] 操作后 _current_entries: {len(_current_entries)} 条")
-                    for eid, text in _current_entries.items():
+                    print(f"[LTM-CONSUMER] 操作后 entries: {len(store.entries)} 条")
+                    for eid, text in store.entries.items():
                         print(f"[LTM-CONSUMER]   新 [{eid}]: {text[:60]}...")
 
-                new_narrative = _serialize_memory(_current_entries)
+                new_narrative = store.serialize()
                 if new_narrative.strip():
                     self._memory_path.parent.mkdir(parents=True, exist_ok=True)
                     self._memory_path.write_text(new_narrative, encoding="utf-8")

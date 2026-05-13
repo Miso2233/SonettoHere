@@ -88,42 +88,42 @@ class TestParseSerialize:
     """_parse_memory / _serialize_memory 单元测试。"""
 
     def test_parse_empty(self):
-        entries, next_id = narrative._parse_memory("")
+        entries, next_id = narrative.MemorySerializer.parse("")
         assert entries == {}
         assert next_id == 1
 
     def test_parse_single_entry(self):
-        entries, next_id = narrative._parse_memory("- 用户叫Miso。")
+        entries, next_id = narrative.MemorySerializer.parse("- 用户叫Miso。")
         assert entries == {"1": "用户叫Miso。"}
         assert next_id == 2
 
     def test_parse_multiple_entries(self):
         content = "- 第一条。\n- 第二条。\n- 第三条。"
-        entries, next_id = narrative._parse_memory(content)
+        entries, next_id = narrative.MemorySerializer.parse(content)
         assert entries == {"1": "第一条。", "2": "第二条。", "3": "第三条。"}
         assert next_id == 4
 
     def test_parse_skips_non_dash_lines(self):
         content = "前言\n- 条目A\n空行\n- 条目B"
-        entries, next_id = narrative._parse_memory(content)
+        entries, next_id = narrative.MemorySerializer.parse(content)
         assert entries == {"1": "条目A", "2": "条目B"}
         assert next_id == 3
 
     def test_serialize_empty(self):
-        result = narrative._serialize_memory({})
+        result = narrative.MemorySerializer.serialize({})
         assert result == "\n"
 
     def test_serialize_with_entries(self):
         entries = {"1": "A", "2": "B"}
-        result = narrative._serialize_memory(entries)
+        result = narrative.MemorySerializer.serialize(entries)
         assert result == "- A\n- B\n"
 
     def test_roundtrip(self):
         """序列化后解析应得到相同条目。"""
         original = "- 事实1。\n- 事实2。\n"
-        entries, _ = narrative._parse_memory(original)
-        serialized = narrative._serialize_memory(entries)
-        entries2, _ = narrative._parse_memory(serialized)
+        entries, _ = narrative.MemorySerializer.parse(original)
+        serialized = narrative.MemorySerializer.serialize(entries)
+        entries2, _ = narrative.MemorySerializer.parse(serialized)
         assert entries == entries2
 
 
@@ -134,40 +134,38 @@ class TestCrudTools:
     """CRUD 工具函数单元测试。"""
 
     def setup_method(self):
-        narrative._current_entries = {}
-        narrative._next_id = 1
+        narrative.MemoryStore().reset()
 
     def teardown_method(self):
-        narrative._current_entries = {}
-        narrative._next_id = 1
+        narrative.MemoryStore().reset()
 
     def test_create_memory(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
         result = narrative.create_memory.invoke({"content": "用户叫Miso。"})
         assert "已创建 [1]" in result
-        assert narrative._current_entries["1"] == "用户叫Miso。"
-        assert narrative._next_id == 2
+        assert narrative.MemoryStore().entries["1"] == "用户叫Miso。"
+        assert narrative.MemoryStore().next_id == 2
 
     def test_read_memories_empty(self):
         result = narrative.read_memories.invoke({})
         assert "暂无记忆条目" in result
 
     def test_read_memories_with_entries(self):
-        narrative._current_entries = {"1": "A", "2": "B"}
+        narrative.MemoryStore().entries = {"1": "A", "2": "B"}
         result = narrative.read_memories.invoke({})
         assert "[1] A" in result
         assert "[2] B" in result
 
     def test_update_memory_success(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
-        narrative._current_entries = {"1": "旧内容"}
+        narrative.MemoryStore().entries = {"1": "旧内容"}
         result = narrative.update_memory.invoke({
             "id": "1", "content": "新内容",
             "reason": "信息过时，需要更新",
             "origin_content": "旧内容",
         })
         assert "已更新 [1]" in result
-        assert narrative._current_entries["1"] == "新内容"
+        assert narrative.MemoryStore().entries["1"] == "新内容"
 
     def test_update_memory_not_found(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
@@ -179,12 +177,12 @@ class TestCrudTools:
 
     def test_delete_memory_success(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
-        narrative._current_entries = {"1": "删除我"}
+        narrative.MemoryStore().entries = {"1": "删除我"}
         result = narrative.delete_memory.invoke({
             "id": "1", "reason": "信息已过时", "origin_content": "删除我",
         })
         assert "已删除 [1]" in result
-        assert "1" not in narrative._current_entries
+        assert "1" not in narrative.MemoryStore().entries
 
     def test_delete_memory_not_found(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
@@ -209,7 +207,7 @@ class TestCrudTools:
     def test_log_created_on_update(self, monkeypatch, tmp_path):
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative._current_entries = {"1": "旧内容"}
+        narrative.MemoryStore().entries = {"1": "旧内容"}
         narrative.update_memory.invoke({
             "id": "1", "content": "新内容",
             "reason": "信息过时", "origin_content": "旧内容",
@@ -225,7 +223,7 @@ class TestCrudTools:
     def test_log_created_on_delete(self, monkeypatch, tmp_path):
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative._current_entries = {"1": "删除我"}
+        narrative.MemoryStore().entries = {"1": "删除我"}
         narrative.delete_memory.invoke({
             "id": "1", "reason": "已过时", "origin_content": "删除我",
         })
@@ -249,7 +247,7 @@ class TestCrudTools:
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
         narrative.create_memory.invoke({"content": "第一条。"})
-        narrative._current_entries["1"] = "第一条。"
+        narrative.MemoryStore().entries["1"] = "第一条。"
         narrative.update_memory.invoke({
             "id": "1", "content": "第一条已改。",
             "reason": "修正", "origin_content": "第一条。",
@@ -296,13 +294,11 @@ class TestLongTermMemoryInterface:
 
     def setup_method(self):
         """每个测试前重置模块级状态。"""
-        narrative._current_entries = {}
-        narrative._next_id = 1
+        narrative.MemoryStore().reset()
 
     def teardown_method(self):
         """每个测试后清理模块级状态。"""
-        narrative._current_entries = {}
-        narrative._next_id = 1
+        narrative.MemoryStore().reset()
 
     # ── get_narrative（实例方法） ──────────────────────────────
 
@@ -372,7 +368,7 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "MEMORY.md"
 
         def agent_populates_entries():
-            narrative._current_entries["1"] = "Miso 是一名学生。"
+            narrative.MemoryStore().entries["1"] = "Miso 是一名学生。"
 
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
         monkeypatch.setattr(narrative, "create_react_agent", lambda **kw: fake_agent)
@@ -419,7 +415,7 @@ class TestLongTermMemoryInterface:
             captured_prompt.append(kwargs.get("prompt", ""))
             # 模拟 Agent 更新了一条记忆
             def update_entries():
-                narrative._current_entries["1"] = "更新后的记忆内容。"
+                narrative.MemoryStore().entries["1"] = "更新后的记忆内容。"
             return _fake_agent_factory(entries_setup=update_entries)
 
         monkeypatch.setattr(narrative, "create_react_agent", capture_agent)
@@ -448,12 +444,12 @@ class TestLongTermMemoryInterface:
             call_count[0] += 1
             if call_count[0] == 1:
                 def setup1():
-                    narrative._current_entries["1"] = "第一轮记忆。"
+                    narrative.MemoryStore().entries["1"] = "第一轮记忆。"
                 return _fake_agent_factory(entries_setup=setup1)
             else:
                 def setup2():
-                    narrative._current_entries["1"] = "第一轮记忆。"
-                    narrative._current_entries["2"] = "第二轮补充。"
+                    narrative.MemoryStore().entries["1"] = "第一轮记忆。"
+                    narrative.MemoryStore().entries["2"] = "第二轮补充。"
                 return _fake_agent_factory(entries_setup=setup2)
 
         monkeypatch.setattr(narrative, "create_react_agent", capture_agent)
@@ -535,7 +531,7 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "MEMORY.md"
 
         fake_agent = _fake_agent_factory(
-            entries_setup=lambda: narrative._current_entries.update({"1": "记忆。"})
+            entries_setup=lambda: narrative.MemoryStore().entries.update({"1": "记忆。"})
         )
         monkeypatch.setattr(narrative, "create_react_agent", lambda **kw: fake_agent)
 
