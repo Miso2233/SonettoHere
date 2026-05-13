@@ -11,6 +11,7 @@ from api.dependencies import get_llm, get_system_prompt, get_tools
 from api.routes import chat, memory, sessions
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
+from version import __version__
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
@@ -34,7 +35,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(
         title="SonettoHere API",
-        version="2.1.0",
+        version=__version__,
         lifespan=lifespan,
     )
 
@@ -56,7 +57,7 @@ def create_app() -> FastAPI:
     # 健康检查
     @app.get("/api/health")
     async def health():
-        return {"status": "ok", "version": "2.1.0"}
+        return {"status": "ok", "version": __version__}
 
     # 生产模式：serve 前端静态文件
     if WEB_DIR.exists():
