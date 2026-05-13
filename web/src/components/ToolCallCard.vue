@@ -13,13 +13,35 @@
     </div>
     <div class="tool-body-wrapper" ref="bodyWrapper">
       <div class="tool-body" ref="bodyInner">
+        <!-- 参数 section -->
         <div class="tool-section" v-if="toolCall.input && toolCall.input !== '{}'">
-          <div class="tool-section-label">参数</div>
-          <div class="markdown-body" v-html="renderedInput"></div>
+          <div class="tool-section-title">参数</div>
+          <template v-if="inputDisplay.type === 'kv'">
+            <div class="kv-list">
+              <div class="kv-row" v-for="(item, idx) in inputDisplay.pairs" :key="idx">
+                <span class="kv-key">{{ item.key }}</span>
+                <span class="kv-value" v-if="item.primitive">{{ item.value }}</span>
+                <pre class="kv-nested" v-else>{{ item.value }}</pre>
+              </div>
+            </div>
+          </template>
+          <div v-if="inputDisplay.type === 'markdown'" class="markdown-body" v-html="inputDisplay.html"></div>
         </div>
+
+        <!-- 结果 section -->
         <div class="tool-section" v-if="toolCall.output">
-          <div class="tool-section-label">结果</div>
-          <div class="markdown-body" v-html="renderedOutput"></div>
+          <div class="tool-section-title">结果</div>
+          <template v-if="outputDisplay.type === 'kv'">
+            <div class="kv-list">
+              <div class="kv-row" v-for="(item, idx) in outputDisplay.pairs" :key="idx">
+                <span class="kv-key">{{ item.key }}</span>
+                <span class="kv-value" v-if="item.primitive">{{ item.value }}</span>
+                <pre class="kv-nested" v-else>{{ item.value }}</pre>
+              </div>
+            </div>
+          </template>
+          <pre v-else-if="outputDisplay.type === 'code'" class="code-block">{{ outputDisplay.raw }}</pre>
+          <div v-if="outputDisplay.type === 'markdown'" class="markdown-body" v-html="outputDisplay.html"></div>
         </div>
       </div>
     </div>
@@ -37,9 +59,86 @@ const isOpen = ref(false)
 const bodyWrapper = ref<HTMLElement | null>(null)
 const bodyInner = ref<HTMLElement | null>(null)
 
-const renderedInput = computed(() => renderMarkdown(props.toolCall.input))
-const renderedOutput = computed(() => renderMarkdown(props.toolCall.output ?? ''))
+// ── JSON KV parsing ──
+interface KvPair {
+  key: string
+  value: string
+  primitive: boolean
+}
 
+interface KvDisplay {
+  type: 'kv'
+  pairs: KvPair[]
+}
+
+interface CodeDisplay {
+  type: 'code'
+  raw: string
+  lang: string
+  lines: number
+}
+
+interface MarkdownDisplay {
+  type: 'markdown'
+  html: string
+}
+
+type SectionDisplay = KvDisplay | CodeDisplay | MarkdownDisplay
+
+function parseJsonKv(raw: string): KvDisplay | null {
+  // LangChain may pass Python-style dict strings (True/False/None, single quotes)
+  const candidates = [
+    raw,
+    raw.replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false').replace(/\bNone\b/g, 'null'),
+    raw.replace(/'/g, '"').replace(/\bTrue\b/g, 'true').replace(/\bFalse\b/g, 'false').replace(/\bNone\b/g, 'null'),
+  ]
+  for (const candidate of candidates) {
+    try {
+      const obj = JSON.parse(candidate)
+      if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) return null
+      const pairs: KvPair[] = Object.entries(obj).map(([key, val]) => {
+        const primitive = typeof val !== 'object' || val === null
+        return {
+          key,
+          value: primitive ? String(val) : JSON.stringify(val, null, 2),
+          primitive,
+        }
+      })
+      return pairs.length > 0 ? { type: 'kv', pairs } : null
+    } catch { /* try next candidate */ }
+  }
+  return null
+}
+
+function detectCodeDisplay(raw: string): CodeDisplay {
+  const lines = raw.split('\n').length
+  const trimmed = raw.trimStart()
+  let lang = 'TEXT'
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) lang = 'JSON'
+  else if (trimmed.startsWith('```')) {
+    const firstLine = trimmed.split('\n')[0]
+    const tag = firstLine.slice(3).trim()
+    if (tag) lang = tag.toUpperCase()
+  }
+  return { type: 'code', raw: raw, lang, lines }
+}
+
+const inputDisplay = computed<SectionDisplay>(() => {
+  const kv = parseJsonKv(props.toolCall.input)
+  if (kv) return kv
+  return { type: 'markdown', html: renderMarkdown(props.toolCall.input) }
+})
+
+const outputDisplay = computed<SectionDisplay>(() => {
+  if (!props.toolCall.output) {
+    return { type: 'markdown', html: '' }
+  }
+  const kv = parseJsonKv(props.toolCall.output)
+  if (kv) return kv
+  return detectCodeDisplay(props.toolCall.output)
+})
+
+// ── Expand / collapse ──
 function toggle() {
   if (props.toolCall.status === 'running') return
   isOpen.value = !isOpen.value
@@ -121,43 +220,112 @@ watch(() => props.toolCall.output, () => {
   font-size: 12px;
   color: var(--text-secondary);
 }
+
+/* ── Body ── */
 .tool-body-wrapper {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s cubic-bezier(0, 0.3, 0, 1);
+  transition: max-height 0.3s cubic-bezier(0, 0.3, 0, 1),
+              opacity 0.25s ease;
+  opacity: 0;
+}
+.tool-card.open > .tool-body-wrapper {
+  opacity: 1;
 }
 .tool-body {
   border-top: 1px solid var(--border);
-  padding: 8px 14px 12px;
+  padding: 12px 16px 16px;
 }
+
+/* ── Section ── */
 .tool-section {
-  margin-bottom: 8px;
+  margin-bottom: 14px;
 }
 .tool-section:last-child {
   margin-bottom: 0;
 }
-.tool-section-label {
-  font-size: 11px;
+.tool-section-title {
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
-/* ── Compact markdown code blocks inside tool cards ── */
+/* ── KV list ── */
+.kv-list {
+  background: var(--bg-primary);
+  border-radius: 6px;
+  padding: 8px 14px;
+}
+.kv-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 3px 0;
+  line-height: 1.6;
+}
+.kv-key {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  min-width: 6em;
+}
+.kv-key::after {
+  content: ':';
+}
+.kv-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.kv-nested {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  background: var(--bg-secondary);
+  padding: 6px 10px;
+  border-radius: 4px;
+  flex: 1;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* ── Output code block ── */
+.code-block {
+  margin: 0;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ── Compact markdown overrides inside tool cards ── */
 .tool-section :deep(.markdown-body) {
   font-size: 13px;
   line-height: 1.5;
 }
 .tool-section :deep(.markdown-body pre) {
   font-size: 12px;
-  padding: 8px;
+  padding: 10px 12px;
   border-radius: 6px;
   margin: 4px 0;
   max-height: 200px;
   overflow-y: auto;
-  background: var(--bg-primary);
+  border-left: 2px solid var(--accent);
 }
 .tool-section :deep(.markdown-body code) {
   font-size: 12px;
