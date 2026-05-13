@@ -6,12 +6,18 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
+from filelock import FileLock
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 DEBUG = False  # 调试开关，排查 MEMORY.md 未更新的问题
+
+
+def _sanitize(text: str) -> str:
+    """将多行文本折叠为单行，防止破坏 YAML/Markdown 行格式。"""
+    return text.replace("\n", " ").replace("\r", " ")
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 MEMORY_PATH = PERSONAS_DIR / "MEMORY.md"
@@ -96,7 +102,22 @@ class MemorySerializer:
 
 
 class MemoryLogger:
-    """YAML 操作日志记录器。"""
+    """YAML 操作日志记录器（线程/进程安全）。"""
+
+    _lock = FileLock(str(LOG_PATH) + ".lock")
+
+    @staticmethod
+    def _sanitize_params(params: dict) -> dict:
+        """递归清理参数中所有字符串的换行符。"""
+        result = {}
+        for k, v in params.items():
+            if isinstance(v, str):
+                result[k] = _sanitize(v)
+            elif isinstance(v, dict):
+                result[k] = MemoryLogger._sanitize_params(v)
+            else:
+                result[k] = v
+        return result
 
     @staticmethod
     def log(operation: str, params: dict) -> None:
@@ -104,17 +125,21 @@ class MemoryLogger:
         entry = {
             "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
             "operation": operation,
-            "params": params,
+            "params": MemoryLogger._sanitize_params(params),
         }
-        if LOG_PATH.exists():
-            existing = yaml.safe_load(LOG_PATH.read_text(encoding="utf-8")) or []
-        else:
-            existing = []
-        existing.append(entry)
-        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        LOG_PATH.write_text(
-            yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8"
-        )
+        with MemoryLogger._lock:
+            if LOG_PATH.exists():
+                try:
+                    existing = yaml.safe_load(LOG_PATH.read_text(encoding="utf-8")) or []
+                except yaml.YAMLError:
+                    existing = []
+            else:
+                existing = []
+            existing.append(entry)
+            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            LOG_PATH.write_text(
+                yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8"
+            )
 
 
 # ── MemoryStore（单例）────────────────────────────────────────
@@ -150,6 +175,7 @@ class MemoryStore:
 
     def create(self, content: str) -> str:
         """添加一条记忆条目，返回结果消息。"""
+        content = _sanitize(content)
         eid = str(self.next_id)
         self.entries[eid] = content
         self.next_id += 1
@@ -164,6 +190,7 @@ class MemoryStore:
 
     def update(self, id: str, content: str) -> str:
         """根据 ID 更新一条条目，返回结果消息。"""
+        content = _sanitize(content)
         if id not in self.entries:
             return (
                 f"错误：未找到 ID 为 {id} 的记忆条目。"

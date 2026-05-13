@@ -261,6 +261,51 @@ class TestCrudTools:
         assert data[1]["operation"] == "update_memory"
         assert data[2]["operation"] == "delete_memory"
 
+    def test_multiline_content_is_sanitized(self, monkeypatch, tmp_path):
+        """含换行符的内容在写入 YAML 日志前被折叠为单行。"""
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative.create_memory.invoke({
+            "content": "用户是广东人。\n会让他回想起小时候在家乡的夏天。",
+        })
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 1
+        content = data[0]["params"]["content"]
+        assert "\n" not in content
+        assert "\r" not in content
+        assert "用户是广东人。 会让他回想起小时候在家乡的夏天。" in content
+
+    def test_multiline_in_update_and_delete_is_sanitized(self, monkeypatch, tmp_path):
+        """update/delete 中的 reason/origin_content 含换行也被清理。"""
+        log_path = tmp_path / "ops.yaml"
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        narrative.MemoryStore().entries["1"] = "旧内容没有换行"
+        narrative.update_memory.invoke({
+            "id": "1", "content": "新内容也没有换行",
+            "reason": "用户提供了\n更准确的信息",
+            "origin_content": "旧内容没有换行",
+        })
+        narrative.delete_memory.invoke({
+            "id": "1",
+            "reason": "信息已\n过时",
+            "origin_content": "新内容也没有换行",
+        })
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 2
+        assert "\n" not in data[0]["params"]["reason"]
+        assert "\n" not in data[1]["params"]["reason"]
+
+    def test_corrupted_yaml_is_recovered(self, monkeypatch, tmp_path):
+        """已被破坏的 YAML 文件不会导致 log() 崩溃。"""
+        log_path = tmp_path / "ops.yaml"
+        log_path.write_text("::: invalid yaml :::\n  - dangling", encoding="utf-8")
+        monkeypatch.setattr(narrative, "LOG_PATH", log_path)
+        # 不应抛出异常
+        narrative.create_memory.invoke({"content": "一条新记忆。"})
+        data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
+        assert len(data) == 1
+        assert data[0]["operation"] == "create_memory"
+
 
 # ── TestGetNarrative ──────────────────────────────────────────
 
