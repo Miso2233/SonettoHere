@@ -87,6 +87,7 @@ export interface ThinkingBlock {
   kind: 'thinking'
   tokens: string
   done: boolean
+  becameAnswer: boolean
 }
 
 export interface ToolCall {

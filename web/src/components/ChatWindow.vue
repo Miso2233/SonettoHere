@@ -9,7 +9,7 @@
           <ToolCallCard v-else :tool-call="ev" />
         </template>
         <MessageBubble
-          v-if="turn.finalAnswer"
+          v-if="turn.finalAnswer && !hasAnswerBlock(turn)"
           role="assistant"
           :content="turn.finalAnswer"
         />
@@ -50,6 +50,10 @@ const props = defineProps<{
 }>()
 
 const windowRef = ref<HTMLElement | null>(null)
+
+function hasAnswerBlock(turn: ChatTurn): boolean {
+  return turn.events.some(e => e.kind === 'thinking' && e.becameAnswer)
+}
 
 function scrollToBottom() {
   nextTick(() => {
