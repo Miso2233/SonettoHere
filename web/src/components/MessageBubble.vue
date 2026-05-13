@@ -1,13 +1,18 @@
 <template>
   <div class="message-row" :class="role">
     <div class="bubble" :class="role">
-      <div class="bubble-text">{{ content }}</div>
+      <div class="markdown-body" v-html="rendered"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{ role: 'user' | 'assistant'; content: string }>()
+import { computed } from 'vue'
+import { renderMarkdown } from '@/utils/markdown'
+
+const props = defineProps<{ role: 'user' | 'assistant'; content: string }>()
+
+const rendered = computed(() => renderMarkdown(props.content))
 </script>
 
 <style scoped>
@@ -27,7 +32,6 @@ defineProps<{ role: 'user' | 'assistant'; content: string }>()
   border-radius: 14px;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 .bubble.user {

@@ -15,11 +15,11 @@
       <div class="tool-body" ref="bodyInner">
         <div class="tool-section" v-if="toolCall.input && toolCall.input !== '{}'">
           <div class="tool-section-label">参数</div>
-          <pre>{{ toolCall.input }}</pre>
+          <div class="markdown-body" v-html="renderedInput"></div>
         </div>
         <div class="tool-section" v-if="toolCall.output">
           <div class="tool-section-label">结果</div>
-          <pre>{{ toolCall.output }}</pre>
+          <div class="markdown-body" v-html="renderedOutput"></div>
         </div>
       </div>
     </div>
@@ -27,14 +27,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, computed } from 'vue'
 import type { ToolCall } from '@/types'
+import { renderMarkdown } from '@/utils/markdown'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 
 const isOpen = ref(false)
 const bodyWrapper = ref<HTMLElement | null>(null)
 const bodyInner = ref<HTMLElement | null>(null)
+
+const renderedInput = computed(() => renderMarkdown(props.toolCall.input))
+const renderedOutput = computed(() => renderMarkdown(props.toolCall.output ?? ''))
 
 function toggle() {
   if (props.toolCall.status === 'running') return
@@ -140,18 +144,28 @@ watch(() => props.toolCall.output, () => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.tool-section pre {
-  font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 12px;
+
+/* ── Compact markdown code blocks inside tool cards ── */
+.tool-section :deep(.markdown-body) {
+  font-size: 13px;
   line-height: 1.5;
-  color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
-  background: var(--bg-primary);
+}
+.tool-section :deep(.markdown-body pre) {
+  font-size: 12px;
   padding: 8px;
   border-radius: 6px;
+  margin: 4px 0;
   max-height: 200px;
   overflow-y: auto;
+  background: var(--bg-primary);
+}
+.tool-section :deep(.markdown-body code) {
+  font-size: 12px;
+}
+.tool-section :deep(.markdown-body) > *:first-child {
+  margin-top: 0;
+}
+.tool-section :deep(.markdown-body) > *:last-child {
+  margin-bottom: 0;
 }
 </style>

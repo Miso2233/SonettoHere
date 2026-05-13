@@ -7,15 +7,19 @@
       </span>
     </div>
     <div class="thinking-body" v-if="block.tokens">
-      <pre>{{ block.tokens }}</pre>
+      <div class="thinking-content markdown-body" v-html="renderedTokens"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ThinkingBlock as ThinkingBlockType } from '@/types'
+import { renderMarkdown } from '@/utils/markdown'
 
-defineProps<{ block: ThinkingBlockType }>()
+const props = defineProps<{ block: ThinkingBlockType }>()
+
+const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
 </script>
 
 <style scoped>
@@ -81,13 +85,7 @@ defineProps<{ block: ThinkingBlockType }>()
   border-top: 1px solid var(--border);
   transition: all 0.4s ease;
 }
-.thinking-body pre {
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.6;
+.thinking-content {
   color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
 }
 </style>
