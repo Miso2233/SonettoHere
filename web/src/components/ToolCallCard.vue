@@ -1,6 +1,6 @@
 <template>
-  <details class="tool-card" :class="toolCall.status" :open="toolCall.status === 'running'">
-    <summary class="tool-header">
+  <div class="tool-card" :class="[toolCall.status, { open: isOpen }]">
+    <div class="tool-header" @click="toggle" role="button" :aria-expanded="isOpen">
       <span class="tool-icon">
         <span v-if="toolCall.status === 'running'" class="spinner-sm"></span>
         <span v-else-if="toolCall.status === 'done'">&#10003;</span>
@@ -10,24 +10,61 @@
       <span class="tool-elapsed" v-if="toolCall.elapsed !== null">
         {{ toolCall.elapsed }}s
       </span>
-    </summary>
-    <div class="tool-body">
-      <div class="tool-section" v-if="toolCall.input && toolCall.input !== '{}'">
-        <div class="tool-section-label">参数</div>
-        <pre>{{ toolCall.input }}</pre>
-      </div>
-      <div class="tool-section" v-if="toolCall.output">
-        <div class="tool-section-label">结果</div>
-        <pre>{{ toolCall.output }}</pre>
+    </div>
+    <div class="tool-body-wrapper" ref="bodyWrapper">
+      <div class="tool-body" ref="bodyInner">
+        <div class="tool-section" v-if="toolCall.input && toolCall.input !== '{}'">
+          <div class="tool-section-label">参数</div>
+          <pre>{{ toolCall.input }}</pre>
+        </div>
+        <div class="tool-section" v-if="toolCall.output">
+          <div class="tool-section-label">结果</div>
+          <pre>{{ toolCall.output }}</pre>
+        </div>
       </div>
     </div>
-  </details>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { ref, watch, nextTick } from 'vue'
 import type { ToolCall } from '@/types'
 
-defineProps<{ toolCall: ToolCall }>()
+const props = defineProps<{ toolCall: ToolCall }>()
+
+const isOpen = ref(false)
+const bodyWrapper = ref<HTMLElement | null>(null)
+const bodyInner = ref<HTMLElement | null>(null)
+
+function toggle() {
+  if (props.toolCall.status === 'running') return
+  isOpen.value = !isOpen.value
+}
+
+watch(isOpen, (open) => {
+  if (!bodyWrapper.value) return
+  if (open) {
+    bodyWrapper.value.style.maxHeight = bodyWrapper.value.scrollHeight + 'px'
+  } else {
+    bodyWrapper.value.style.maxHeight = bodyWrapper.value.scrollHeight + 'px'
+    void bodyWrapper.value.offsetHeight
+    bodyWrapper.value.style.maxHeight = '0px'
+  }
+})
+
+watch(() => props.toolCall.status, (s) => {
+  if (s === 'running') {
+    isOpen.value = true
+  }
+})
+
+watch(() => props.toolCall.output, () => {
+  nextTick(() => {
+    if (isOpen.value && bodyWrapper.value) {
+      bodyWrapper.value.style.maxHeight = bodyWrapper.value.scrollHeight + 'px'
+    }
+  })
+})
 </script>
 
 <style scoped>
@@ -53,10 +90,6 @@ defineProps<{ toolCall: ToolCall }>()
   gap: 8px;
   cursor: pointer;
   user-select: none;
-  list-style: none;
-}
-.tool-header::-webkit-details-marker {
-  display: none;
 }
 .tool-icon {
   font-size: 12px;
@@ -83,6 +116,11 @@ defineProps<{ toolCall: ToolCall }>()
   margin-left: auto;
   font-size: 12px;
   color: var(--text-secondary);
+}
+.tool-body-wrapper {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0, 0.3, 0, 1);
 }
 .tool-body {
   border-top: 1px solid var(--border);
