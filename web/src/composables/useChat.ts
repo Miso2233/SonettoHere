@@ -1,4 +1,4 @@
-import { ref, reactive, watch, onUnmounted, type Ref } from 'vue'
+import { ref, reactive, watch, onUnmounted, nextTick, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent } from '@/types'
 
 const TURNS_KEY_PREFIX = 'sonetto_turns_'
@@ -104,7 +104,7 @@ export function useChat(sessionId: Ref<string>) {
 
     switch (event.type) {
       case 'thinking_start':
-        turn.events.push({ kind: 'thinking', tokens: '', done: false })
+        turn.events.push({ kind: 'thinking', tokens: '', done: false, becameAnswer: false })
         break
 
       case 'token': {
@@ -153,17 +153,38 @@ export function useChat(sessionId: Ref<string>) {
         break
       }
 
-      case 'answer':
+      case 'answer': {
+        const lastThink = findLastThinking(turn.events)
+        if (lastThink) {
+          lastThink.becameAnswer = true
+        }
         turn.finalAnswer = event.payload.content
         break
+      }
 
       case 'done':
         if (currentTurn.value) {
-          turns.push(currentTurn.value)
-          currentTurn.value = null
+          const lastThink = findLastThinking(currentTurn.value.events)
+          if (lastThink?.becameAnswer) {
+            void nextTick(() => {
+              setTimeout(() => {
+                if (currentTurn.value) {
+                  turns.push(currentTurn.value)
+                  currentTurn.value = null
+                }
+                isStreaming.value = false
+                persistTurns()
+              }, 420)
+            })
+          } else {
+            turns.push(currentTurn.value)
+            currentTurn.value = null
+            isStreaming.value = false
+            persistTurns()
+          }
+        } else {
+          isStreaming.value = false
         }
-        isStreaming.value = false
-        persistTurns()
         break
 
       case 'error':

@@ -1,5 +1,5 @@
 <template>
-  <div class="thinking-block" :class="{ done: block.done }">
+  <div class="thinking-block" :class="{ done: block.done, 'became-answer': block.becameAnswer }">
     <div class="thinking-header">
       <span class="thinking-label">
         <span class="spinner" v-if="!block.done"></span>
@@ -7,15 +7,19 @@
       </span>
     </div>
     <div class="thinking-body" v-if="block.tokens">
-      <pre>{{ block.tokens }}</pre>
+      <div class="thinking-content markdown-body" v-html="renderedTokens"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ThinkingBlock as ThinkingBlockType } from '@/types'
+import { renderMarkdown } from '@/utils/markdown'
 
-defineProps<{ block: ThinkingBlockType }>()
+const props = defineProps<{ block: ThinkingBlockType }>()
+
+const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
 </script>
 
 <style scoped>
@@ -25,9 +29,30 @@ defineProps<{ block: ThinkingBlockType }>()
   border-radius: var(--radius);
   background: var(--bg-secondary);
   overflow: hidden;
+  transition: all 0.4s ease;
 }
 .thinking-block.done {
   opacity: 0.7;
+}
+.thinking-block.became-answer {
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  max-width: 72%;
+  margin: 4px 0;
+  opacity: 1;
+}
+.thinking-block.became-answer .thinking-header {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+.thinking-block.became-answer .thinking-body {
+  border-top: none;
+  padding: 10px 16px;
 }
 .thinking-header {
   padding: 8px 14px;
@@ -36,6 +61,8 @@ defineProps<{ block: ThinkingBlockType }>()
   display: flex;
   align-items: center;
   gap: 6px;
+  max-height: 50px;
+  transition: all 0.4s ease;
 }
 .thinking-label {
   display: inline-flex;
@@ -56,14 +83,9 @@ defineProps<{ block: ThinkingBlockType }>()
 .thinking-body {
   padding: 8px 14px 12px;
   border-top: 1px solid var(--border);
+  transition: all 0.4s ease;
 }
-.thinking-body pre {
-  font-family: inherit;
-  font-size: 14px;
-  line-height: 1.6;
+.thinking-content {
   color: var(--text-primary);
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin: 0;
 }
 </style>

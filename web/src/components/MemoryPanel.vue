@@ -10,7 +10,7 @@
       <div v-if="loading && !narrative" class="memory-loading">
         加载中……
       </div>
-      <div v-else-if="narrative" class="narrative-content" v-html="rendered"></div>
+      <div v-else-if="narrative" class="markdown-body" v-html="rendered"></div>
       <div v-else class="memory-empty">
         暂无记忆叙事。开始一段对话后，AI 会自动生成关于你的记忆。
       </div>
@@ -20,14 +20,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { marked } from 'marked'
+import { renderMarkdown } from '@/utils/markdown'
 import { api } from '@/api'
 
 const narrative = ref('')
 const loading = ref(false)
 
 const rendered = computed(() => {
-  return marked.parse(narrative.value || '') as string
+  return renderMarkdown(narrative.value)
 })
 
 async function refresh() {
@@ -81,39 +81,8 @@ onMounted(() => refresh())
   border-radius: var(--radius);
   padding: 24px;
 }
-.narrative-content {
-  font-size: 14px;
+.memory-body .markdown-body {
   line-height: 1.8;
-  color: var(--text-primary);
-}
-.narrative-content :deep(h1),
-.narrative-content :deep(h2),
-.narrative-content :deep(h3) {
-  margin: 16px 0 8px;
-  font-weight: 600;
-}
-.narrative-content :deep(p) {
-  margin: 8px 0;
-}
-.narrative-content :deep(ul),
-.narrative-content :deep(ol) {
-  padding-left: 20px;
-  margin: 8px 0;
-}
-.narrative-content :deep(li) {
-  margin: 4px 0;
-}
-.narrative-content :deep(code) {
-  background: var(--bg-primary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-.narrative-content :deep(pre) {
-  background: var(--bg-primary);
-  padding: 12px;
-  border-radius: 8px;
-  overflow-x: auto;
 }
 .memory-empty,
 .memory-loading {
