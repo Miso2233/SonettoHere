@@ -149,11 +149,14 @@ class TestParseSerialize:
             "2": {"section": "音乐", "content": "用户最喜欢《海边城》。"},
         }
 
-    def test_parse_skips_unknown_section(self):
-        content = "## 未知分区\n- 这条应被跳过。\n## 身份\n- 用户叫Miso。\n"
+    def test_parse_accepts_custom_section(self):
+        content = "## 未知分区\n- 这条应被保留。\n## 身份\n- 用户叫Miso。\n"
         entries, next_id = narrative.MemorySerializer.parse(content)
-        assert entries == {"1": {"section": "身份", "content": "用户叫Miso。"}}
-        assert next_id == 2
+        assert entries == {
+            "1": {"section": "未知分区", "content": "这条应被保留。"},
+            "2": {"section": "身份", "content": "用户叫Miso。"},
+        }
+        assert next_id == 3
 
     def test_serialize_empty(self):
         result = narrative.MemorySerializer.serialize({})
@@ -194,6 +197,41 @@ class TestParseSerialize:
         entries2, _ = narrative.MemorySerializer.parse(serialized)
         assert entries == entries2
 
+    def test_serialize_includes_custom_sections(self):
+        entries = {
+            "1": {"section": "身份", "content": "用户叫Miso。"},
+            "2": {"section": "健康", "content": "用户有季节性过敏。"},
+        }
+        result = narrative.MemorySerializer.serialize(entries)
+        assert "## 身份" in result
+        assert "## 健康" in result
+        assert "- [身份](#身份)" in result
+        assert "- [健康](#健康)" in result
+
+    def test_roundtrip_with_custom_sections(self):
+        original = (
+            "## 身份\n"
+            "- 用户叫Miso。\n"
+            "\n"
+            "## 健康\n"
+            "- 用户有过敏。\n"
+        )
+        entries, _ = narrative.MemorySerializer.parse(original)
+        serialized = narrative.MemorySerializer.serialize(entries)
+        entries2, _ = narrative.MemorySerializer.parse(serialized)
+        assert entries == entries2
+
+    def test_serialize_section_order_by_first_appearance(self):
+        entries = {
+            "2": {"section": "音乐", "content": "B"},
+            "1": {"section": "身份", "content": "A"},
+            "3": {"section": "音乐", "content": "C"},
+        }
+        result = narrative.MemorySerializer.serialize(entries)
+        pos_yinyue = result.index("## 音乐")
+        pos_shenfen = result.index("## 身份")
+        assert pos_shenfen < pos_yinyue  # 身份(ID=1) appears before 音乐(ID=2)
+
 
 # ── TestCrudTools ──────────────────────────────────────────────
 
@@ -215,9 +253,16 @@ class TestCrudTools:
         assert narrative.MemoryStore().entries["1"] == {"section": "身份", "content": "用户叫Miso。"}
         assert narrative.MemoryStore().next_id == 2
 
-    def test_create_memory_invalid_section_fallback(self, monkeypatch, tmp_path):
+    def test_create_memory_custom_section_preserved(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
-        result = narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "不存在的分区"})
+        result = narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "健康"})
+        assert "已创建 [1]" in result
+        assert "健康" in result
+        assert narrative.MemoryStore().entries["1"]["section"] == "健康"
+
+    def test_create_memory_empty_section_fallback(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
+        result = narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "   "})
         assert "已创建 [1]" in result
         assert narrative.MemoryStore().entries["1"]["section"] == "身份"
 
@@ -234,6 +279,17 @@ class TestCrudTools:
         assert "## 身份" in result
         assert "[1] A" in result
         assert "## 音乐" in result
+        assert "[2] B" in result
+
+    def test_read_memories_with_custom_sections(self):
+        narrative.MemoryStore().entries = {
+            "1": {"section": "身份", "content": "A"},
+            "2": {"section": "健康", "content": "B"},
+        }
+        result = narrative.read_memories.invoke({})
+        assert "## 身份" in result
+        assert "[1] A" in result
+        assert "## 健康" in result
         assert "[2] B" in result
 
     def test_update_memory_success(self, monkeypatch, tmp_path):

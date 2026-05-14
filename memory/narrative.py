@@ -19,19 +19,6 @@ def _sanitize(text: str) -> str:
     """将多行文本折叠为单行，防止破坏 YAML/Markdown 行格式。"""
     return text.replace("\n", " ").replace("\r", " ")
 
-# ── 分区常量 ──────────────────────────────────────────────────
-
-CANONICAL_SECTIONS = ["身份", "音乐", "品味", "地点与路径", "瞬间", "时效待办"]
-
-SECTION_DESCRIPTIONS = {
-    "身份": "基本身份信息——教育背景、职业、家乡、年龄等稳定事实。极少变化。",
-    "音乐": "音乐相关——虚拟歌手与声库、歌曲与专辑、作曲/作词/编曲/曲绘老师。追加为主。",
-    "品味": "通用品味和偏好——电影、美食、UP主、节目、品牌偏好、生活方式。缓慢演变。",
-    "地点与路径": "具体地点（餐厅、商店、区域）和文件系统路径。追加为主。",
-    "瞬间": "即时观察和感受——天气描述、正在做的事、一闪而过的念头。短暂，轮替。",
-    "时效待办": "有截止日期的事项——作业截止日、预约、考试日期。到期后应删除。",
-}
-
 DEFAULT_SECTION = "身份"
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
@@ -45,13 +32,7 @@ COLD_START_SYSTEM = """你是一位"记忆叙事师"。根据对话记录，用�
 - 使用 create_memory 逐条添加新事实，每次必须指定 section 参数
 - 无需调用 update_memory 或 delete_memory（冷启动时没有旧记忆）
 
-记忆分区（section 参数必须是以下6个之一）：
-  * "身份" — 用户的基本身份信息（教育背景、职业、家乡、年龄等）。稳定，极少变化。
-  * "音乐" — 音乐相关（虚拟歌手、声库偏好、歌曲、专辑、作曲/作词/编曲/曲绘老师）。追加为主。
-  * "品味" — 通用品味和偏好（电影、美食、UP主、节目、品牌偏好、生活方式）。缓慢演变。
-  * "地点与路径" — 具体地点（餐厅、商店、区域）和文件系统路径。追加为主。
-  * "瞬间" — 即时观察和感受（天气描述、正在做的事、一闪而过的念头、当前状态）。短暂，轮替。
-  * "时效待办" — 有截止日期的事项（作业截止日、预约、考试日期）。到期后应删除。
+由于当前记忆为空，你必须创建新分区（1-4字中文名词）
 
 核心原则：
 1. 只写用户明确说过的事实，绝不编造、推测或补全任何信息
@@ -67,13 +48,7 @@ UPDATE_SYSTEM = """你是一位"记忆叙事师"。以下是当前记忆（每�
 - 已有信息需要修正或补充时用 update_memory（通过 ID 指定）
 - 与新信息矛盾或已过时的条目用 delete_memory 删除
 
-记忆分区（section 参数必须是以下6个之一）：
-  * "身份" — 用户的基本身份信息（教育背景、职业、家乡、年龄等）。稳定，极少变化。
-  * "音乐" — 音乐相关（虚拟歌手、声库偏好、歌曲、专辑、作曲/作词/编曲/曲绘老师）。追加为主。
-  * "品味" — 通用品味和偏好（电影、美食、UP主、节目、品牌偏好、生活方式）。缓慢演变。
-  * "地点与路径" — 具体地点（餐厅、商店、区域）和文件系统路径。追加为主。
-  * "瞬间" — 即时观察和感受（天气描述、正在做的事、一闪而过的念头、当前状态）。短暂，轮替。
-  * "时效待办" — 有截止日期的事项（作业截止日、预约、考试日期）。到期后应删除。
+记忆分区（优先使用已有分区；若记忆不适合任何已有分区或用户明确要求新建，可以创建新分区（1-4字中文名词））
 
 核心原则：
 1. 只写用户明确说过的事实，绝不编造、推测或补全任何信息
@@ -128,7 +103,7 @@ class MemorySerializer:
                 section_name = stripped[3:].strip()
                 if "<!--" in section_name:
                     section_name = section_name.split("<!--")[0].strip()
-                current_section = section_name if section_name in CANONICAL_SECTIONS else None
+                current_section = section_name
             elif stripped.startswith("### "):
                 pass
             elif stripped.startswith("- ") and current_section is not None:
@@ -140,6 +115,16 @@ class MemorySerializer:
         return entries, next_id
 
     @staticmethod
+    def _section_order(entries: dict[str, dict[str, str]]) -> list[str]:
+        """按条目 ID 顺序返回 section 首次出现的顺序。"""
+        seen: list[str] = []
+        for eid in sorted(entries.keys(), key=int):
+            sec = entries[eid]["section"]
+            if sec not in seen:
+                seen.append(sec)
+        return seen
+
+    @staticmethod
     def serialize(entries: dict[str, dict[str, str]]) -> str:
         """将 {id: {section, content}} 序列化为带 TOC 的分区 MEMORY.md。"""
         if not entries:
@@ -149,17 +134,16 @@ class MemorySerializer:
             sec = entry.get("section", DEFAULT_SECTION)
             by_section.setdefault(sec, []).append(entry["content"])
 
+        section_order = MemorySerializer._section_order(entries)
+
         lines = ["# 长期记忆索引"]
-        for section in CANONICAL_SECTIONS:
-            if section in by_section:
-                lines.append(f"- [{section}](#{section})")
+        for section in section_order:
+            lines.append(f"- [{section}](#{section})")
         lines.append("")
         lines.append("---")
         lines.append("")
 
-        for section in CANONICAL_SECTIONS:
-            if section not in by_section:
-                continue
+        for section in section_order:
             lines.append(f"## {section}")
             for content in by_section[section]:
                 lines.append(f"- {content}")
@@ -245,7 +229,7 @@ class MemoryStore:
     def create(self, content: str, section: str = DEFAULT_SECTION) -> str:
         """添加一条记忆条目到指定分区，返回结果消息。"""
         content = _sanitize(content)
-        if section not in CANONICAL_SECTIONS:
+        if not section.strip():
             section = DEFAULT_SECTION
         eid = str(self.next_id)
         self.entries[eid] = {"section": section, "content": content}
@@ -261,7 +245,7 @@ class MemoryStore:
             sec = entry.get("section", DEFAULT_SECTION)
             by_section.setdefault(sec, []).append((eid, entry["content"]))
         lines = []
-        for section in CANONICAL_SECTIONS:
+        for section in MemorySerializer._section_order(self.entries):
             if section in by_section:
                 lines.append(f"## {section}")
                 for eid, content in by_section[section]:
@@ -305,7 +289,7 @@ def create_memory(content: str, section: str) -> str:
 
     Args:
         content: 记忆内容，用第三人称中文描述用户的一个事实。
-        section: 记忆分区。必须是以下之一：
+        section: 记忆分区。优先使用已有分区；若不适合任何已有分区或用户明确要求新建，可创建新分区（1-4字中文）：
             - "身份"（用户的基本身份信息：教育、职业、家乡等）
             - "音乐"（虚拟歌手、声库、歌曲、专辑、创作者）
             - "品味"（电影、美食、UP主、品牌偏好等）
