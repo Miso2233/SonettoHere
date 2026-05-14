@@ -19,6 +19,21 @@ def _sanitize(text: str) -> str:
     """将多行文本折叠为单行，防止破坏 YAML/Markdown 行格式。"""
     return text.replace("\n", " ").replace("\r", " ")
 
+# ── 分区常量 ──────────────────────────────────────────────────
+
+CANONICAL_SECTIONS = ["身份", "音乐", "品味", "地点与路径", "瞬间", "时效待办"]
+
+SECTION_DESCRIPTIONS = {
+    "身份": "基本身份信息——教育背景、职业、家乡、年龄等稳定事实。极少变化。",
+    "音乐": "音乐相关——虚拟歌手与声库、歌曲与专辑、作曲/作词/编曲/曲绘老师。追加为主。",
+    "品味": "通用品味和偏好——电影、美食、UP主、节目、品牌偏好、生活方式。缓慢演变。",
+    "地点与路径": "具体地点（餐厅、商店、区域）和文件系统路径。追加为主。",
+    "瞬间": "即时观察和感受——天气描述、正在做的事、一闪而过的念头。短暂，轮替。",
+    "时效待办": "有截止日期的事项——作业截止日、预约、考试日期。到期后应删除。",
+}
+
+DEFAULT_SECTION = "身份"
+
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 MEMORY_PATH = PERSONAS_DIR / "MEMORY.md"
 LOG_PATH = PERSONAS_DIR / "memory_operations.yaml"
@@ -27,28 +42,45 @@ COLD_START_SYSTEM = """你是一位"记忆叙事师"。根据对话记录，用�
 
 你必须使用提供的工具来管理记忆：
 - 先调用 read_memories 查看当前记忆（冷启动时为空）
-- 使用 create_memory 逐条添加新事实
+- 使用 create_memory 逐条添加新事实，每次必须指定 section 参数
 - 无需调用 update_memory 或 delete_memory（冷启动时没有旧记忆）
+
+记忆分区（section 参数必须是以下6个之一）：
+  * "身份" — 用户的基本身份信息（教育背景、职业、家乡、年龄等）。稳定，极少变化。
+  * "音乐" — 音乐相关（虚拟歌手、声库偏好、歌曲、专辑、作曲/作词/编曲/曲绘老师）。追加为主。
+  * "品味" — 通用品味和偏好（电影、美食、UP主、节目、品牌偏好、生活方式）。缓慢演变。
+  * "地点与路径" — 具体地点（餐厅、商店、区域）和文件系统路径。追加为主。
+  * "瞬间" — 即时观察和感受（天气描述、正在做的事、一闪而过的念头、当前状态）。短暂，轮替。
+  * "时效待办" — 有截止日期的事项（作业截止日、预约、考试日期）。到期后应删除。
 
 核心原则：
 1. 只写用户明确说过的事实，绝不编造、推测或补全任何信息
-2. 每条记忆一个独立事实，用 create_memory 逐条添加
+2. 每条记忆一个独立事实，用 create_memory 逐条添加，每次必须提供正确的 section
 3. 用户说了什么就记什么，信息少就少写，不要凑字数
 4. 用第三人称自然语言描述"""
 
-UPDATE_SYSTEM = """你是一位"记忆叙事师"。以下是当前记忆（每条带唯一ID）和一轮新对话。请对比新旧信息，更新记忆。
+UPDATE_SYSTEM = """你是一位"记忆叙事师"。以下是当前记忆（每条带唯一ID和分区）和一轮新对话。请对比新旧信息，更新记忆。
 
 你必须使用提供的工具来管理记忆：
-- 先调用 read_memories 查看所有当前记忆
-- 新信息用 create_memory 逐条添加
+- 先调用 read_memories 查看所有当前记忆（注意每条记忆的分区）
+- 新信息用 create_memory 逐条添加，每次必须指定 section 参数
 - 已有信息需要修正或补充时用 update_memory（通过 ID 指定）
 - 与新信息矛盾或已过时的条目用 delete_memory 删除
+
+记忆分区（section 参数必须是以下6个之一）：
+  * "身份" — 用户的基本身份信息（教育背景、职业、家乡、年龄等）。稳定，极少变化。
+  * "音乐" — 音乐相关（虚拟歌手、声库偏好、歌曲、专辑、作曲/作词/编曲/曲绘老师）。追加为主。
+  * "品味" — 通用品味和偏好（电影、美食、UP主、节目、品牌偏好、生活方式）。缓慢演变。
+  * "地点与路径" — 具体地点（餐厅、商店、区域）和文件系统路径。追加为主。
+  * "瞬间" — 即时观察和感受（天气描述、正在做的事、一闪而过的念头、当前状态）。短暂，轮替。
+  * "时效待办" — 有截止日期的事项（作业截止日、预约、考试日期）。到期后应删除。
 
 核心原则：
 1. 只写用户明确说过的事实，绝不编造、推测或补全任何信息
 2. 保留正确的已有信息；新信息优先于旧信息；矛盾时以新信息为准
-3. 每条记忆一个独立事实
-4. 用第三人称自然语言描述"""
+3. 每条记忆一个独立事实，每次 create_memory 必须提供正确的 section
+4. 用第三人称自然语言描述
+5. 对于"瞬间"分区的条目，如果内容不再有意义可以删除；对于"时效待办"，到期后务必删除"""
 
 
 def get_narrative() -> str:
@@ -74,27 +106,64 @@ def _format_messages(messages: list[dict]) -> str:
 
 
 class MemorySerializer:
-    """MEMORY.md 格式 ↔ 条目字典 双向转换。"""
+    """MEMORY.md 分区格式 ↔ 条目字典 双向转换。"""
 
     @staticmethod
-    def parse(content: str) -> tuple[dict[str, str], int]:
-        """解析 "- " 列表为 {id: content} 字典。
+    def parse(content: str) -> tuple[dict[str, dict[str, str]], int]:
+        """解析分区格式 MEMORY.md 为 {id: {section, content}} 字典。
 
-        返回 ({id: content}, next_id)。跳过不以 "- " 开头的行。
+        返回 ({id: {section, content}}, next_id)。
+        跳过 TOC、---、HTML 注释、### 子标题和非 "- " 行。
         """
-        entries: dict[str, str] = {}
+        entries: dict[str, dict[str, str]] = {}
         next_id = 1
+        current_section: str | None = None
         for line in content.strip().split("\n"):
-            line = line.strip()
-            if line.startswith("- "):
-                entries[str(next_id)] = line[2:].strip()
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("# ") or stripped.startswith("---"):
+                continue
+            if stripped.startswith("## "):
+                section_name = stripped[3:].strip()
+                if "<!--" in section_name:
+                    section_name = section_name.split("<!--")[0].strip()
+                current_section = section_name if section_name in CANONICAL_SECTIONS else None
+            elif stripped.startswith("### "):
+                pass
+            elif stripped.startswith("- ") and current_section is not None:
+                entries[str(next_id)] = {
+                    "section": current_section,
+                    "content": stripped[2:].strip(),
+                }
                 next_id += 1
         return entries, next_id
 
     @staticmethod
-    def serialize(entries: dict[str, str]) -> str:
-        """将 {id: content} 字典序列化为 MEMORY.md 格式。"""
-        lines = [f"- {text}" for text in entries.values()]
+    def serialize(entries: dict[str, dict[str, str]]) -> str:
+        """将 {id: {section, content}} 序列化为带 TOC 的分区 MEMORY.md。"""
+        if not entries:
+            return "\n"
+        by_section: dict[str, list[str]] = {}
+        for entry in entries.values():
+            sec = entry.get("section", DEFAULT_SECTION)
+            by_section.setdefault(sec, []).append(entry["content"])
+
+        lines = ["# 长期记忆索引"]
+        for section in CANONICAL_SECTIONS:
+            if section in by_section:
+                lines.append(f"- [{section}](#{section})")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        for section in CANONICAL_SECTIONS:
+            if section not in by_section:
+                continue
+            lines.append(f"## {section}")
+            for content in by_section[section]:
+                lines.append(f"- {content}")
+            lines.append("")
         return "\n".join(lines) + "\n"
 
 
@@ -161,7 +230,7 @@ class MemoryStore:
     def __init__(self) -> None:
         if not hasattr(self, "_initialized"):
             self._initialized = True
-            self.entries: dict[str, str] = {}
+            self.entries: dict[str, dict[str, str]] = {}
             self.next_id: int = 1
 
     def reset(self) -> None:
@@ -173,20 +242,32 @@ class MemoryStore:
         """从 MEMORY.md 文本解析并加载条目。"""
         self.entries, self.next_id = MemorySerializer.parse(content)
 
-    def create(self, content: str) -> str:
-        """添加一条记忆条目，返回结果消息。"""
+    def create(self, content: str, section: str = DEFAULT_SECTION) -> str:
+        """添加一条记忆条目到指定分区，返回结果消息。"""
         content = _sanitize(content)
+        if section not in CANONICAL_SECTIONS:
+            section = DEFAULT_SECTION
         eid = str(self.next_id)
-        self.entries[eid] = content
+        self.entries[eid] = {"section": section, "content": content}
         self.next_id += 1
-        return f"已创建 [{eid}]: {content}"
+        return f"已创建 [{eid}] ({section}): {content}"
 
     def read_all(self) -> str:
-        """返回所有条目的格式化文本。"""
+        """返回所有条目的格式化文本，按分区归类。"""
         if not self.entries:
             return "（暂无记忆条目）"
-        lines = [f"[{eid}] {text}" for eid, text in self.entries.items()]
-        return "\n".join(lines)
+        by_section: dict[str, list[tuple[str, str]]] = {}
+        for eid, entry in self.entries.items():
+            sec = entry.get("section", DEFAULT_SECTION)
+            by_section.setdefault(sec, []).append((eid, entry["content"]))
+        lines = []
+        for section in CANONICAL_SECTIONS:
+            if section in by_section:
+                lines.append(f"## {section}")
+                for eid, content in by_section[section]:
+                    lines.append(f"  [{eid}] {content}")
+                lines.append("")
+        return "\n".join(lines).strip()
 
     def update(self, id: str, content: str) -> str:
         """根据 ID 更新一条条目，返回结果消息。"""
@@ -196,8 +277,8 @@ class MemoryStore:
                 f"错误：未找到 ID 为 {id} 的记忆条目。"
                 "请先调用 read_memories 确认 ID。"
             )
-        old = self.entries[id]
-        self.entries[id] = content
+        old = self.entries[id]["content"]
+        self.entries[id]["content"] = content
         return f"已更新 [{id}]\n  旧: {old}\n  新: {content}"
 
     def delete(self, id: str) -> str:
@@ -207,7 +288,7 @@ class MemoryStore:
                 f"错误：未找到 ID 为 {id} 的记忆条目。"
                 "请先调用 read_memories 确认 ID。"
             )
-        removed = self.entries.pop(id)
+        removed = self.entries.pop(id)["content"]
         return f"已删除 [{id}]: {removed}"
 
     def serialize(self) -> str:
@@ -219,24 +300,31 @@ class MemoryStore:
 
 
 @tool
-def create_memory(content: str) -> str:
-    """添加一条新的记忆条目。调用后返回该条目的唯一 ID。
+def create_memory(content: str, section: str) -> str:
+    """添加一条新的记忆条目到指定分区。调用后返回该条目的唯一 ID。
 
     Args:
         content: 记忆内容，用第三人称中文描述用户的一个事实。
+        section: 记忆分区。必须是以下之一：
+            - "身份"（用户的基本身份信息：教育、职业、家乡等）
+            - "音乐"（虚拟歌手、声库、歌曲、专辑、创作者）
+            - "品味"（电影、美食、UP主、品牌偏好等）
+            - "地点与路径"（具体地点和文件系统路径）
+            - "瞬间"（即时观察和感受：天气、正在做的事、念头）
+            - "时效待办"（有截止日期的事项：作业、预约、考试）
     """
     store = MemoryStore()
-    result = store.create(content)
-    MemoryLogger.log("create_memory", {"content": content})
+    result = store.create(content, section)
+    MemoryLogger.log("create_memory", {"content": content, "section": section})
     if DEBUG:
         eid = str(store.next_id - 1)
-        print(f"[LTM-TOOL] create_memory → [{eid}] {content[:80]}...")
+        print(f"[LTM-TOOL] create_memory → [{eid}] ({section}) {content[:80]}...")
     return result
 
 
 @tool
 def read_memories() -> str:
-    """查看当前所有记忆条目及其 ID。在增删改之前必须先调用此工具了解现有条目。"""
+    """查看当前所有记忆条目及其 ID 和分区。在增删改之前必须先调用此工具了解现有条目。"""
     store = MemoryStore()
     result = store.read_all()
     if DEBUG:
@@ -370,8 +458,8 @@ class LongTermMemoryInterface:
                     )
                     if DEBUG:
                         print(f"[LTM-CONSUMER] 模式: 更新 (解析到 {len(store.entries)} 条旧记忆)")
-                        for eid, text in store.entries.items():
-                            print(f"[LTM-CONSUMER]   旧 [{eid}]: {text[:60]}...")
+                        for eid, entry in store.entries.items():
+                            print(f"[LTM-CONSUMER]   旧 [{eid}] ({entry['section']}): {entry['content'][:60]}...")
                 else:
                     store.reset()
                     system_prompt = COLD_START_SYSTEM
@@ -406,8 +494,8 @@ class LongTermMemoryInterface:
                             print(f"[LTM-CONSUMER] Agent 最终回复: {str(m.content)[:200]}")
                             break
                     print(f"[LTM-CONSUMER] 操作后 entries: {len(store.entries)} 条")
-                    for eid, text in store.entries.items():
-                        print(f"[LTM-CONSUMER]   新 [{eid}]: {text[:60]}...")
+                    for eid, entry in store.entries.items():
+                        print(f"[LTM-CONSUMER]   新 [{eid}] ({entry['section']}): {entry['content'][:60]}...")
 
                 new_narrative = store.serialize()
                 if new_narrative.strip():
