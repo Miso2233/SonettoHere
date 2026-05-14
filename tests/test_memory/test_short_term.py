@@ -1,74 +1,40 @@
-"""memory/short_term.py 测试。"""
+"""短��记忆测试 — 直接使用 LangChain 内置 InMemoryChatMessageHistory。"""
 
-from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
+from langchain_core.chat_history import InMemoryChatMessageHistory
+from langchain_core.messages import HumanMessage, AIMessage
 
-from memory.short_term import ShortTermMemory
 
-
-class TestShortTermMemory:
-    """ShortTermMemory 单元测试。"""
+class TestInMemoryChatMessageHistory:
+    """验证 InMemoryChatMessageHistory 基本行为。"""
 
     def test_initial_state(self):
-        memory = ShortTermMemory()
-        assert memory.messages == []
-        assert memory.to_dict_list() == []
+        m = InMemoryChatMessageHistory()
+        assert m.messages == []
 
     def test_add_message(self):
-        memory = ShortTermMemory()
-        msg = HumanMessage(content="你好")
-        memory.add_message(msg)
-        assert len(memory.messages) == 1
-        assert memory.messages[0].content == "你好"
+        m = InMemoryChatMessageHistory()
+        m.add_message(HumanMessage(content="你好"))
+        assert len(m.messages) == 1
+        assert m.messages[0].content == "你好"
+        assert m.messages[0].type == "human"
 
     def test_add_messages(self):
-        memory = ShortTermMemory()
-        msgs = [
+        m = InMemoryChatMessageHistory()
+        m.add_messages([
             HumanMessage(content="你好"),
-            AIMessage(content="你好！有什么可以帮助你的？"),
-        ]
-        memory.add_messages(msgs)
-        assert len(memory.messages) == 2
+            AIMessage(content="你好！"),
+        ])
+        assert len(m.messages) == 2
 
     def test_clear(self):
-        memory = ShortTermMemory()
-        memory.add_message(HumanMessage(content="你好"))
-        memory.clear()
-        assert memory.messages == []
+        m = InMemoryChatMessageHistory()
+        m.add_message(HumanMessage(content="你好"))
+        m.clear()
+        assert m.messages == []
 
-    def test_to_dict_list(self):
-        memory = ShortTermMemory()
-        memory.add_message(HumanMessage(content="你好"))
-        memory.add_message(AIMessage(content="你好！"))
-        result = memory.to_dict_list()
-        assert result == [
-            {"role": "human", "content": "你好"},
-            {"role": "ai", "content": "你好！"},
-        ]
-
-    def test_trim_removes_oldest_first(self):
-        """超过 token 限制时从头部删除最旧消息。"""
-        memory = ShortTermMemory(max_tokens=50)
-        # 添加三条足以超限的消息
-        long_msg = HumanMessage(content="A" * 30)  # ~34 tokens
-        memory.add_message(long_msg)
-        assert len(memory.messages) >= 1
-
-    def test_trim_preserves_last_two(self):
-        """即使超限也保留至少 2 条消息。"""
-        memory = ShortTermMemory(max_tokens=1)  # 极低限制
-        msg1 = HumanMessage(content="第一条")
-        msg2 = AIMessage(content="第二条")
-        msg3 = HumanMessage(content="第三条")
-        memory.add_messages([msg1, msg2, msg3])
-        # 至少保留 2 条（trim 循环中 len(msgs) > 2 才继续删）
-        assert len(memory.messages) >= 2
-
-    def test_trim_not_triggered_under_limit(self):
-        """未超 token 限制时不裁剪。"""
-        memory = ShortTermMemory(max_tokens=100000)
-        msgs = [
-            HumanMessage(content="短消息1"),
-            AIMessage(content="短消息2"),
-        ]
-        memory.add_messages(msgs)
-        assert len(memory.messages) == 2
+    def test_messages_preserved_without_trimming(self):
+        """1M 上下文窗口下不做 token 裁剪，消息应完整保留。"""
+        m = InMemoryChatMessageHistory()
+        msgs = [HumanMessage(content=f"消息{i}") for i in range(100)]
+        m.add_messages(msgs)
+        assert len(m.messages) == 100

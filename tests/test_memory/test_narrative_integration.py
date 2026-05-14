@@ -44,16 +44,16 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
 
         if call_count[0] == 1:
             def setup1():
-                narrative.MemoryStore().entries["1"] = "第1轮记忆：用户打了招呼。"
+                narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "第1轮记忆：用户打了招呼。"}
             return _make_fake_agent(entries_setup=setup1)
         elif call_count[0] == 2:
             def setup2():
-                narrative.MemoryStore().entries["1"] = "第1轮记忆：用户打了招呼。"
-                narrative.MemoryStore().entries["2"] = "第2轮补充：用户叫Miso，在北京学习网络安全。"
+                narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "第1轮记忆：用户打了招呼。"}
+                narrative.MemoryStore().entries["2"] = {"section": "身份", "content": "第2轮补充：用户叫Miso，在北京学习网络安全。"}
             return _make_fake_agent(entries_setup=setup2)
         else:
             def setup3():
-                narrative.MemoryStore().entries["1"] = f"第{call_count[0]}轮记忆：已更新。"
+                narrative.MemoryStore().entries["1"] = {"section": "身份", "content": f"第{call_count[0]}轮记忆：已更新。"}
             return _make_fake_agent(entries_setup=setup3)
 
     monkeypatch.setattr(narrative, "create_react_agent", agent_factory)
@@ -117,7 +117,7 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
     def agent_factory(**kwargs):
         def setup():
             processed_count[0] += 1
-            narrative.MemoryStore().entries[str(processed_count[0])] = f"记忆{processed_count[0]}。"
+            narrative.MemoryStore().entries[str(processed_count[0])] = {"section": "身份", "content": f"记忆{processed_count[0]}。"}
         return _make_fake_agent(entries_setup=setup)
 
     monkeypatch.setattr(narrative, "create_react_agent", agent_factory)
@@ -147,7 +147,7 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
 
     async def slow_ainvoke(_input, config=None):
         await asyncio.sleep(0.1)
-        narrative.MemoryStore().entries["1"] = "慢慢来。"
+        narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "慢慢来。"}
         return {"messages": []}
 
     fake_agent = MagicMock()

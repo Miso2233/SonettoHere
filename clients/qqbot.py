@@ -11,7 +11,6 @@ from langchain_openai import ChatOpenAI
 from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt, build_system_prompt
 from config.settings import get_settings
-from memory.short_term import ShortTermMemory
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
 
@@ -43,7 +42,6 @@ class SonettoQQBot(botpy.Client):
         if user_id not in self._sessions:
             self._sessions[user_id] = {
                 "thread_id": uuid.uuid4().hex,
-                "memory": ShortTermMemory(),
             }
         return self._sessions[user_id]
 

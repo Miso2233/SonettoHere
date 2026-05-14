@@ -5,7 +5,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 
-from memory.short_term import ShortTermMemory
+from langchain_core.chat_history import InMemoryChatMessageHistory
 
 
 @dataclass
@@ -13,7 +13,7 @@ class SessionState:
     session_id: str
     created_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
-    short_term_memory: ShortTermMemory = field(default_factory=ShortTermMemory)
+    short_term_memory: InMemoryChatMessageHistory = field(default_factory=InMemoryChatMessageHistory)
     message_history: list[dict] = field(default_factory=list)
     _active_task: asyncio.Task | None = field(default=None, repr=False)
 

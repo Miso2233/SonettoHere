@@ -85,28 +85,77 @@ class TestFormatMessages:
 
 
 class TestParseSerialize:
-    """_parse_memory / _serialize_memory 单元测试。"""
+    """MemorySerializer 分区格式 单元测试。"""
 
     def test_parse_empty(self):
         entries, next_id = narrative.MemorySerializer.parse("")
         assert entries == {}
         assert next_id == 1
 
-    def test_parse_single_entry(self):
-        entries, next_id = narrative.MemorySerializer.parse("- 用户叫Miso。")
-        assert entries == {"1": "用户叫Miso。"}
+    def test_parse_single_section_single_entry(self):
+        content = "## 身份\n- 用户叫Miso。\n"
+        entries, next_id = narrative.MemorySerializer.parse(content)
+        assert entries == {"1": {"section": "身份", "content": "用户叫Miso。"}}
         assert next_id == 2
 
-    def test_parse_multiple_entries(self):
-        content = "- 第一条。\n- 第二条。\n- 第三条。"
+    def test_parse_multi_section(self):
+        content = (
+            "## 身份\n"
+            "- 用户叫Miso。\n"
+            "\n"
+            "## 音乐\n"
+            "- 用户喜欢洛天依。\n"
+            "- 用户关注TUNO桐音。\n"
+        )
         entries, next_id = narrative.MemorySerializer.parse(content)
-        assert entries == {"1": "第一条。", "2": "第二条。", "3": "第三条。"}
+        assert entries == {
+            "1": {"section": "身份", "content": "用户叫Miso。"},
+            "2": {"section": "音乐", "content": "用户喜欢洛天依。"},
+            "3": {"section": "音乐", "content": "用户关注TUNO桐音。"},
+        }
         assert next_id == 4
 
-    def test_parse_skips_non_dash_lines(self):
-        content = "前言\n- 条目A\n空行\n- 条目B"
+    def test_parse_skips_toc_and_separators(self):
+        content = (
+            "# 长期记忆索引\n"
+            "- [身份](#身份)\n"
+            "\n"
+            "---\n"
+            "\n"
+            "## 身份\n"
+            "- 用户叫Miso。\n"
+        )
         entries, next_id = narrative.MemorySerializer.parse(content)
-        assert entries == {"1": "条目A", "2": "条目B"}
+        assert entries == {"1": {"section": "身份", "content": "用户叫Miso。"}}
+        assert next_id == 2
+
+    def test_parse_skips_html_comments(self):
+        content = "## 身份 <!-- stable -->\n- 用户叫Miso。\n"
+        entries, next_id = narrative.MemorySerializer.parse(content)
+        assert entries == {"1": {"section": "身份", "content": "用户叫Miso。"}}
+        assert next_id == 2
+
+    def test_parse_subsections_dont_change_section(self):
+        content = (
+            "## 音乐\n"
+            "### 虚拟歌手\n"
+            "- 用户喜欢洛天依。\n"
+            "### 歌曲\n"
+            "- 用户最喜欢《海边城》。\n"
+        )
+        entries, next_id = narrative.MemorySerializer.parse(content)
+        assert entries == {
+            "1": {"section": "音乐", "content": "用户喜欢洛天依。"},
+            "2": {"section": "音乐", "content": "用户最喜欢《海边城》。"},
+        }
+
+    def test_parse_accepts_custom_section(self):
+        content = "## 未知分区\n- 这条应被保留。\n## 身份\n- 用户叫Miso。\n"
+        entries, next_id = narrative.MemorySerializer.parse(content)
+        assert entries == {
+            "1": {"section": "未知分区", "content": "这条应被保留。"},
+            "2": {"section": "身份", "content": "用户叫Miso。"},
+        }
         assert next_id == 3
 
     def test_serialize_empty(self):
@@ -114,17 +163,74 @@ class TestParseSerialize:
         assert result == "\n"
 
     def test_serialize_with_entries(self):
-        entries = {"1": "A", "2": "B"}
+        entries = {
+            "1": {"section": "身份", "content": "用户叫Miso。"},
+            "2": {"section": "音乐", "content": "用户喜欢洛天依。"},
+        }
         result = narrative.MemorySerializer.serialize(entries)
-        assert result == "- A\n- B\n"
+        assert "# 长期记忆索引" in result
+        assert "- [身份](#身份)" in result
+        assert "- [音乐](#音乐)" in result
+        assert "---" in result
+        assert "## 身份" in result
+        assert "- 用户叫Miso。" in result
+        assert "## 音乐" in result
+        assert "- 用户喜欢洛天依。" in result
+
+    def test_serialize_omits_empty_sections(self):
+        entries = {"1": {"section": "身份", "content": "用户叫Miso。"}}
+        result = narrative.MemorySerializer.serialize(entries)
+        assert "## 音乐" not in result
+        assert "## 品味" not in result
 
     def test_roundtrip(self):
-        """序列化后解析应得到相同条目。"""
-        original = "- 事实1。\n- 事实2。\n"
+        """分区格式序列化后解析应得到相同条目。"""
+        original = (
+            "## 身份\n"
+            "- 用户叫Miso。\n"
+            "\n"
+            "## 音乐\n"
+            "- 用户喜欢洛天依。\n"
+        )
         entries, _ = narrative.MemorySerializer.parse(original)
         serialized = narrative.MemorySerializer.serialize(entries)
         entries2, _ = narrative.MemorySerializer.parse(serialized)
         assert entries == entries2
+
+    def test_serialize_includes_custom_sections(self):
+        entries = {
+            "1": {"section": "身份", "content": "用户叫Miso。"},
+            "2": {"section": "健康", "content": "用户有季节性过敏。"},
+        }
+        result = narrative.MemorySerializer.serialize(entries)
+        assert "## 身份" in result
+        assert "## 健康" in result
+        assert "- [身份](#身份)" in result
+        assert "- [健康](#健康)" in result
+
+    def test_roundtrip_with_custom_sections(self):
+        original = (
+            "## 身份\n"
+            "- 用户叫Miso。\n"
+            "\n"
+            "## 健康\n"
+            "- 用户有过敏。\n"
+        )
+        entries, _ = narrative.MemorySerializer.parse(original)
+        serialized = narrative.MemorySerializer.serialize(entries)
+        entries2, _ = narrative.MemorySerializer.parse(serialized)
+        assert entries == entries2
+
+    def test_serialize_section_order_by_first_appearance(self):
+        entries = {
+            "2": {"section": "音乐", "content": "B"},
+            "1": {"section": "身份", "content": "A"},
+            "3": {"section": "音乐", "content": "C"},
+        }
+        result = narrative.MemorySerializer.serialize(entries)
+        pos_yinyue = result.index("## 音乐")
+        pos_shenfen = result.index("## 身份")
+        assert pos_shenfen < pos_yinyue  # 身份(ID=1) appears before 音乐(ID=2)
 
 
 # ── TestCrudTools ──────────────────────────────────────────────
@@ -141,31 +247,61 @@ class TestCrudTools:
 
     def test_create_memory(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
-        result = narrative.create_memory.invoke({"content": "用户叫Miso。"})
+        result = narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "身份"})
         assert "已创建 [1]" in result
-        assert narrative.MemoryStore().entries["1"] == "用户叫Miso。"
+        assert "身份" in result
+        assert narrative.MemoryStore().entries["1"] == {"section": "身份", "content": "用户叫Miso。"}
         assert narrative.MemoryStore().next_id == 2
+
+    def test_create_memory_custom_section_preserved(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
+        result = narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "健康"})
+        assert "已创建 [1]" in result
+        assert "健康" in result
+        assert narrative.MemoryStore().entries["1"]["section"] == "健康"
+
+    def test_create_memory_empty_section_fallback(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
+        result = narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "   "})
+        assert "已创建 [1]" in result
+        assert narrative.MemoryStore().entries["1"]["section"] == "身份"
 
     def test_read_memories_empty(self):
         result = narrative.read_memories.invoke({})
         assert "暂无记忆条目" in result
 
     def test_read_memories_with_entries(self):
-        narrative.MemoryStore().entries = {"1": "A", "2": "B"}
+        narrative.MemoryStore().entries = {
+            "1": {"section": "身份", "content": "A"},
+            "2": {"section": "音乐", "content": "B"},
+        }
         result = narrative.read_memories.invoke({})
+        assert "## 身份" in result
         assert "[1] A" in result
+        assert "## 音乐" in result
+        assert "[2] B" in result
+
+    def test_read_memories_with_custom_sections(self):
+        narrative.MemoryStore().entries = {
+            "1": {"section": "身份", "content": "A"},
+            "2": {"section": "健康", "content": "B"},
+        }
+        result = narrative.read_memories.invoke({})
+        assert "## 身份" in result
+        assert "[1] A" in result
+        assert "## 健康" in result
         assert "[2] B" in result
 
     def test_update_memory_success(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
-        narrative.MemoryStore().entries = {"1": "旧内容"}
+        narrative.MemoryStore().entries = {"1": {"section": "身份", "content": "旧内容"}}
         result = narrative.update_memory.invoke({
             "id": "1", "content": "新内容",
             "reason": "信息过时，需要更新",
             "origin_content": "旧内容",
         })
         assert "已更新 [1]" in result
-        assert narrative.MemoryStore().entries["1"] == "新内容"
+        assert narrative.MemoryStore().entries["1"] == {"section": "身份", "content": "新内容"}
 
     def test_update_memory_not_found(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
@@ -177,7 +313,7 @@ class TestCrudTools:
 
     def test_delete_memory_success(self, monkeypatch, tmp_path):
         monkeypatch.setattr(narrative, "LOG_PATH", tmp_path / "ops.yaml")
-        narrative.MemoryStore().entries = {"1": "删除我"}
+        narrative.MemoryStore().entries = {"1": {"section": "身份", "content": "删除我"}}
         result = narrative.delete_memory.invoke({
             "id": "1", "reason": "信息已过时", "origin_content": "删除我",
         })
@@ -196,18 +332,19 @@ class TestCrudTools:
     def test_log_created_on_create(self, monkeypatch, tmp_path):
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative.create_memory.invoke({"content": "用户叫Miso。"})
+        narrative.create_memory.invoke({"content": "用户叫Miso。", "section": "身份"})
         assert log_path.exists()
         data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
         assert len(data) == 1
         assert data[0]["operation"] == "create_memory"
         assert data[0]["params"]["content"] == "用户叫Miso。"
+        assert data[0]["params"]["section"] == "身份"
         assert "id" not in data[0]["params"]
 
     def test_log_created_on_update(self, monkeypatch, tmp_path):
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative.MemoryStore().entries = {"1": "旧内容"}
+        narrative.MemoryStore().entries = {"1": {"section": "身份", "content": "旧内容"}}
         narrative.update_memory.invoke({
             "id": "1", "content": "新内容",
             "reason": "信息过时", "origin_content": "旧内容",
@@ -223,7 +360,7 @@ class TestCrudTools:
     def test_log_created_on_delete(self, monkeypatch, tmp_path):
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative.MemoryStore().entries = {"1": "删除我"}
+        narrative.MemoryStore().entries = {"1": {"section": "身份", "content": "删除我"}}
         narrative.delete_memory.invoke({
             "id": "1", "reason": "已过时", "origin_content": "删除我",
         })
@@ -246,8 +383,8 @@ class TestCrudTools:
     def test_log_appends_multiple_entries(self, monkeypatch, tmp_path):
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative.create_memory.invoke({"content": "第一条。"})
-        narrative.MemoryStore().entries["1"] = "第一条。"
+        narrative.create_memory.invoke({"content": "第一条。", "section": "身份"})
+        narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "第一条。"}
         narrative.update_memory.invoke({
             "id": "1", "content": "第一条已改。",
             "reason": "修正", "origin_content": "第一条。",
@@ -267,6 +404,7 @@ class TestCrudTools:
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
         narrative.create_memory.invoke({
             "content": "用户是广东人。\n会让他回想起小时候在家乡的夏天。",
+            "section": "身份",
         })
         data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
         assert len(data) == 1
@@ -279,7 +417,7 @@ class TestCrudTools:
         """update/delete 中的 reason/origin_content 含换行也被清理。"""
         log_path = tmp_path / "ops.yaml"
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        narrative.MemoryStore().entries["1"] = "旧内容没有换行"
+        narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "旧内容没有换行"}
         narrative.update_memory.invoke({
             "id": "1", "content": "新内容也没有换行",
             "reason": "用户提供了\n更准确的信息",
@@ -300,8 +438,7 @@ class TestCrudTools:
         log_path = tmp_path / "ops.yaml"
         log_path.write_text("::: invalid yaml :::\n  - dangling", encoding="utf-8")
         monkeypatch.setattr(narrative, "LOG_PATH", log_path)
-        # 不应抛出异常
-        narrative.create_memory.invoke({"content": "一条新记忆。"})
+        narrative.create_memory.invoke({"content": "一条新记忆。", "section": "身份"})
         data = yaml.safe_load(log_path.read_text(encoding="utf-8"))
         assert len(data) == 1
         assert data[0]["operation"] == "create_memory"
@@ -413,7 +550,7 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "MEMORY.md"
 
         def agent_populates_entries():
-            narrative.MemoryStore().entries["1"] = "Miso 是一名学生。"
+            narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "Miso 是一名学生。"}
 
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
         monkeypatch.setattr(narrative, "create_react_agent", lambda **kw: fake_agent)
@@ -453,14 +590,14 @@ class TestLongTermMemoryInterface:
     async def test_normal_update_preserves_old_narrative(self, tmp_path, monkeypatch):
         """常态更新：已有 MEMORY.md 被传入 Agent，Agent 修改后保存。"""
         path = tmp_path / "MEMORY.md"
-        path.write_text("- 旧记忆。\n", encoding="utf-8")
+        path.write_text("## 身份\n- 旧记忆。\n", encoding="utf-8")
 
         captured_prompt = []
         def capture_agent(**kwargs):
             captured_prompt.append(kwargs.get("prompt", ""))
             # 模拟 Agent 更新了一条记忆
             def update_entries():
-                narrative.MemoryStore().entries["1"] = "更新后的记忆内容。"
+                narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "更新后的记忆内容。"}
             return _fake_agent_factory(entries_setup=update_entries)
 
         monkeypatch.setattr(narrative, "create_react_agent", capture_agent)
@@ -489,12 +626,12 @@ class TestLongTermMemoryInterface:
             call_count[0] += 1
             if call_count[0] == 1:
                 def setup1():
-                    narrative.MemoryStore().entries["1"] = "第一轮记忆。"
+                    narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "第一轮记忆。"}
                 return _fake_agent_factory(entries_setup=setup1)
             else:
                 def setup2():
-                    narrative.MemoryStore().entries["1"] = "第一轮记忆。"
-                    narrative.MemoryStore().entries["2"] = "第二轮补充。"
+                    narrative.MemoryStore().entries["1"] = {"section": "身份", "content": "第一轮记忆。"}
+                    narrative.MemoryStore().entries["2"] = {"section": "身份", "content": "第二轮补充。"}
                 return _fake_agent_factory(entries_setup=setup2)
 
         monkeypatch.setattr(narrative, "create_react_agent", capture_agent)
@@ -554,7 +691,7 @@ class TestLongTermMemoryInterface:
     async def test_agent_keeps_entries_unchanged_on_update(self, tmp_path, monkeypatch):
         """更新模式下 Agent 不改动条目，原内容被保留（幂等重写）。"""
         path = tmp_path / "MEMORY.md"
-        original = "- 原始记忆。\n"
+        original = "## 身份\n- 原始记忆。\n"
         path.write_text(original, encoding="utf-8")
 
         # 无 entries_setup → parse 出的条目保持不变
@@ -576,7 +713,7 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "MEMORY.md"
 
         fake_agent = _fake_agent_factory(
-            entries_setup=lambda: narrative.MemoryStore().entries.update({"1": "记忆。"})
+            entries_setup=lambda: narrative.MemoryStore().entries.update({"1": {"section": "身份", "content": "记忆。"}})
         )
         monkeypatch.setattr(narrative, "create_react_agent", lambda **kw: fake_agent)
 

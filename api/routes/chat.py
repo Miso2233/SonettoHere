@@ -48,9 +48,9 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                     system_prompt=enhanced_prompt,
                 )
 
-                history = session.short_term_memory.to_dict_list()
+                history = session.short_term_memory.messages
                 inputs = {
-                    "messages": history + [{"role": "user", "content": user_message}]
+                    "messages": history + [HumanMessage(content=user_message)]
                 }
 
                 config = {
