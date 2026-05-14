@@ -37,7 +37,7 @@ export interface AnswerEvent {
 
 export interface DoneEvent {
   type: 'done'
-  payload: { turn_id: string }
+  payload: { turn_id: string; context_usage?: ContextUsage }
 }
 
 export interface ErrorEvent {
@@ -48,6 +48,11 @@ export interface ErrorEvent {
 export interface PongEvent {
   type: 'pong'
   payload: Record<string, never>
+}
+
+export interface ContextUsageEvent {
+  type: 'context_usage'
+  payload: ContextUsage
 }
 
 export type ServerEvent =
@@ -61,6 +66,7 @@ export type ServerEvent =
   | DoneEvent
   | ErrorEvent
   | PongEvent
+  | ContextUsageEvent
 
 // === WebSocket 客户端 → 服务端消息 ===
 
@@ -128,4 +134,13 @@ export interface ListSessionsResponse {
 
 export interface NarrativeResponse {
   narrative: string
+}
+
+// === 上下文窗口用量 ===
+
+export interface ContextUsage {
+  current_tokens: number
+  max_tokens: number
+  usage_percent: number
+  model_name: string
 }

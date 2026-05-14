@@ -1,5 +1,5 @@
 import { ref, reactive, watch, onUnmounted, nextTick, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent } from '@/types'
+import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage } from '@/types'
 
 const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
@@ -40,6 +40,7 @@ export function useChat(sessionId: Ref<string>) {
   const turns = reactive<ChatTurn[]>([])
   const currentTurn = ref<ChatTurn | null>(null)
   const error = ref<string | null>(null)
+  const contextUsage = ref<ContextUsage | null>(null)
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   function persistTurns() {
@@ -99,6 +100,12 @@ export function useChat(sessionId: Ref<string>) {
   }
 
   function handleEvent(event: ServerEvent) {
+    // context_usage 可以在无活跃轮次时接收（如连接初始化）
+    if (event.type === 'context_usage') {
+      contextUsage.value = event.payload
+      return
+    }
+
     const turn = currentTurn.value
     if (!turn) return
 
@@ -163,6 +170,9 @@ export function useChat(sessionId: Ref<string>) {
       }
 
       case 'done':
+        if (event.payload.context_usage) {
+          contextUsage.value = event.payload.context_usage
+        }
         if (currentTurn.value) {
           const lastThink = findLastThinking(currentTurn.value.events)
           if (lastThink?.becameAnswer) {
@@ -233,7 +243,7 @@ export function useChat(sessionId: Ref<string>) {
 
   onUnmounted(() => disconnect())
 
-  return { connected, isStreaming, turns, currentTurn, error, send, cancel, connect, disconnect }
+  return { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, connect, disconnect }
 }
 
 function findLastThinking(events: TurnEvent[]): ThinkingBlock | undefined {
