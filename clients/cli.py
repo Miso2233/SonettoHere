@@ -10,7 +10,6 @@ from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt, build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
-from memory.short_term import ShortTermMemory
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
 
@@ -37,7 +36,6 @@ class SonettoCLI:
             tools=self.tools,
             system_prompt=self.system_prompt,
         )
-        self.memory = ShortTermMemory()
         self._turn_messages: list[dict] = []
         self.ltm = LongTermMemoryInterface(MEMORY_PATH)
 
@@ -71,7 +69,6 @@ class SonettoCLI:
                 print("再见！")
                 break
             if user_input == "/clear":
-                self.memory.clear()
                 self._turn_messages.clear()
                 print("对话已清空。")
                 continue
