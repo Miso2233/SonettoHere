@@ -3,6 +3,7 @@ import type {
   ListSessionsResponse,
   SessionInfo,
   NarrativeResponse,
+  ContextUsage,
 } from '@/types'
 
 const BASE = '/api'
@@ -33,4 +34,7 @@ export const api = {
 
   getNarrative: () =>
     request<NarrativeResponse>('/narrative'),
+
+  getContextUsage: (sessionId: string) =>
+    request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),
 }

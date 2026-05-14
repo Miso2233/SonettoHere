@@ -2,6 +2,7 @@
   <div class="chat-view">
     <header class="chat-header">
       <StatusBadge :connected="connected" />
+      <ContextUsageBadge :usage="contextUsage" />
     </header>
 
     <ChatWindow
@@ -23,11 +24,12 @@
 import { useSession } from '@/composables/useSession'
 import { useChat } from '@/composables/useChat'
 import StatusBadge from '@/components/StatusBadge.vue'
+import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import ChatWindow from '@/components/ChatWindow.vue'
 import ChatInput from '@/components/ChatInput.vue'
 
 const { sessionId } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, send, cancel } =
+const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel } =
   useChat(sessionId)
 </script>
 
@@ -41,6 +43,7 @@ const { connected, isStreaming, turns, currentTurn, error, send, cancel } =
 .chat-header {
   display: flex;
   align-items: center;
+  gap: 20px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
