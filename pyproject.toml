@@ -24,6 +24,7 @@ dependencies = [
     "tiktoken>=0.7.0",
     "httpx>=0.23.0",
     "moviepy>=1.0.3",
+    "playwright>=1.40.0",
 ]
 
 [project.optional-dependencies]
