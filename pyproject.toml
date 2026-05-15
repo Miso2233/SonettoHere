@@ -22,6 +22,8 @@ dependencies = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.27.0",
     "tiktoken>=0.7.0",
+    "httpx>=0.23.0",
+    "moviepy>=1.0.3",
 ]
 
 [project.optional-dependencies]

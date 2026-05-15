@@ -181,6 +181,10 @@ SonettoHere/
 - **Skill 模式**：每个 Skill = `SKILL.md`（领域知识）+ `skill_*.py`（执行代码），通过 `get_doc=true` 按需加载文档
 - **QQ Bot**：基于 `qq-botpy` SDK，独立线程运行长期记忆引擎，多用户 session 隔离
 
+## 致谢
+
+- [bilibili-downloader](https://github.com/tyokyo320/bilibili-downloader) — B 站视频下载核心逻辑基于此项目适配，感谢作者的开源贡献。
+
 ## License
 
 MIT
