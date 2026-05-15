@@ -57,16 +57,16 @@ class BilibiliDownloader:
 
     # ── 公开入口 ──────────────────────────────────────────────
 
-    async def run(self, url: str, quality: str = "highest", connections: int = 3) -> VideoInfo:
+    async def run(self, url: str, quality: str = "highest") -> VideoInfo:
         """完整下载流水线：抓取信息 → 下载流 → 合并 → 返回 VideoInfo。"""
         url = self._normalize_url(url)
         video = await self._fetch_video_info(url, quality)
-        logger.info("开始下载: %s [%s] (连接数: %d)", video.title, video.get_quality_name(), connections)
+        logger.info("开始下载: %s [%s]", video.title, video.get_quality_name())
 
         self.temp_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        await self._download_video(video, connections)
+        await self._download_video(video)
         video.output_path = self._merge(video)
         self._cleanup(video)
 
@@ -176,31 +176,23 @@ class BilibiliDownloader:
 
     # ── 下载 ──────────────────────────────────────────────────
 
-    async def _download_video(self, video: VideoInfo, connections: int) -> None:
+    async def _download_video(self, video: VideoInfo) -> None:
         base = self.temp_dir / video.title
         video_path = f"{base}.mp4"
         audio_path = f"{base}.mp3"
 
         async with httpx.AsyncClient() as client:
             if video.is_durl:
-                await self._download(client, video.video_url, video_path, "视频", connections)
+                await self._download(client, video.video_url, video_path, "视频")
             else:
                 results = await asyncio.gather(
-                    self._download(client, video.video_url, video_path, "视频", connections),
-                    self._download(client, video.audio_url, audio_path, "音频", connections),
+                    self._download(client, video.video_url, video_path, "视频"),
+                    self._download(client, video.audio_url, audio_path, "音频"),
                 )
                 if not all(results):
                     raise RuntimeError("视频或音频下载失败")
 
     async def _download(
-        self, client: httpx.AsyncClient, url: str, filename: str,
-        label: str = "文件", connections: int = 1, max_retries: int = 5,
-    ) -> bool:
-        if connections <= 1:
-            return await self._download_sequential(client, url, filename, label, max_retries)
-        return await self._download_segmented(client, url, filename, label, connections, max_retries)
-
-    async def _download_sequential(
         self, client: httpx.AsyncClient, url: str, filename: str,
         label: str = "文件", max_retries: int = 5,
     ) -> bool:
@@ -234,99 +226,6 @@ class BilibiliDownloader:
                     await asyncio.sleep(retry_delay)
 
         logger.error("%s 下载失败，已达最大重试次数", label)
-        return False
-
-    async def _download_segmented(
-        self, client: httpx.AsyncClient, url: str, filename: str,
-        label: str = "文件", connections: int = 3, max_retries: int = 5,
-    ) -> bool:
-        """多连接分段下载：通过 HEAD 获取文件大小，拆成 N 段并发拉取后拼接。"""
-
-        # 1. 通过 HEAD 获取总大小
-        try:
-            head_resp = await client.head(url, headers=self._headers)
-            total_size = int(head_resp.headers.get("content-length", 0))
-        except Exception:
-            total_size = 0
-
-        if total_size <= 0:
-            logger.warning("%s 无法获取文件大小，降级为单连接下载", label)
-            return await self._download_sequential(client, url, filename, label, max_retries)
-
-        # 2. 计算分段
-        chunk_size = total_size // connections
-        ranges = []
-        for i in range(connections):
-            start = i * chunk_size
-            end = start + chunk_size - 1 if i < connections - 1 else total_size - 1
-            ranges.append((start, end))
-
-        logger.info("%s 分段下载: %.1f MB / %d 段", label, total_size / 1048576, connections)
-
-        # 3. 并发下载所有分段
-        part_files = [f"{filename}.part{i}" for i in range(connections)]
-        tasks = []
-        for i, (start, end) in enumerate(ranges):
-            tasks.append(self._download_part(
-                client, url, part_files[i], start, end,
-                f"{label}[{i + 1}/{connections}]", max_retries,
-            ))
-
-        results = await asyncio.gather(*tasks)
-        if not all(results):
-            # 清理已下载的分段
-            for pf in part_files:
-                try:
-                    os.remove(pf)
-                except OSError:
-                    pass
-            return False
-
-        # 4. 拼接分段
-        total_written = 0
-        with open(filename, "wb") as out:
-            for pf in part_files:
-                with open(pf, "rb") as pfh:
-                    while True:
-                        chunk = pfh.read(4 * 1024 * 1024)
-                        if not chunk:
-                            break
-                        out.write(chunk)
-                        total_written += len(chunk)
-                os.remove(pf)
-
-        logger.info("%s 分段合并完成 (%.1f MB)", label, total_written / 1048576)
-        return True
-
-    async def _download_part(
-        self, client: httpx.AsyncClient, url: str, filename: str,
-        start: int, end: int, label: str, max_retries: int = 5,
-    ) -> bool:
-        """下载单个分段，支持重试和断点续传。"""
-        retry_delay = 3
-        for attempt in range(max_retries):
-            try:
-                downloaded = os.path.getsize(filename) if os.path.exists(filename) else 0
-                current_start = start + downloaded
-                if current_start > end:
-                    return True  # 本段已完成
-
-                headers = {**self._headers, "Range": f"bytes={current_start}-{end}"}
-                async with client.stream("GET", url, headers=headers) as resp:
-                    if resp.status_code == 416:
-                        return True
-                    mode = "ab" if downloaded > 0 else "wb"
-                    with open(filename, mode) as f:
-                        async for chunk in resp.aiter_bytes():
-                            if chunk:
-                                f.write(chunk)
-                return True
-            except (httpx.RemoteProtocolError, httpx.RequestError) as e:
-                logger.warning("%s 出错: %s，重试 (%d/%d)", label, e, attempt + 1, max_retries)
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(retry_delay)
-
-        logger.error("%s 下载失败", label)
         return False
 
     # ── 合并 ──────────────────────────────────────────────────

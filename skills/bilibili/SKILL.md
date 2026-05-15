@@ -21,7 +21,6 @@ Cookie 保存在本地文件中，不会上传到任何服务器。
   - https://www.bilibili.com/video/BVxxx/?p=2（多 P 视频指定分 P）
   - https://www.bilibili.com/video/avxxx/
 - quality: 画质偏好，默认 "highest"（自动选最高可用画质）
-- connections: 并发下载连接数 (1-8)，默认 3。较大值可加速下载，但消耗更多带宽
 
 ### 画质选项
 | 选项 | 说明 |

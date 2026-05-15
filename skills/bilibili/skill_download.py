@@ -21,10 +21,6 @@ class BilibiliDownloadInput(BaseModel):
         default="highest",
         description="画质: highest（自动最高）/ 1080P / 720P / 480P / 360P / 4K / 8K",
     )
-    connections: int = Field(
-        default=3, ge=1, le=8,
-        description="并发下载连接数 (1-8)，默认 3。多连接可加速下载",
-    )
 
 
 class BilibiliDownloadSkill(SkillBase):
@@ -33,12 +29,11 @@ class BilibiliDownloadSkill(SkillBase):
         "下载 B 站 (Bilibili) 视频。支持 /video/BV* 和 /video/av* 格式。"
         "需要先用 bilibili_set_cookie 设置有效的 Cookie（约 30 天过期）。"
         "画质默认选最高可用，未登录时自动降级到 360P。"
-        "connections 参数控制并发连接数 (1-8)，默认 3。"
         "★ 首次使用先 get_doc=true。"
     )
     args_schema: type[BaseModel] = BilibiliDownloadInput
 
-    def _run(self, get_doc: bool = False, url: str = "", quality: str = "highest", connections: int = 3) -> str:
+    def _run(self, get_doc: bool = False, url: str = "", quality: str = "highest") -> str:
         if get_doc:
             return self._load_doc()
         if not url.strip():
@@ -59,7 +54,7 @@ class BilibiliDownloadSkill(SkillBase):
         downloader = BilibiliDownloader(cookie=cookie, output_dir=str(output_dir))
 
         try:
-            video = asyncio.run(downloader.run(url, quality, connections))
+            video = asyncio.run(downloader.run(url, quality))
             return format_success({
                 "title": video.title,
                 "quality": video.get_quality_name(),
