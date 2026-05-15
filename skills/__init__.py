@@ -67,6 +67,10 @@ def get_all_skills() -> list[BaseTool]:
     from skills.entertainment.skill_answer_book import AnswerBookSkill
     from skills.entertainment.skill_tarot import TarotSkill
 
+    # Bilibili
+    from skills.bilibili.skill_download import BilibiliDownloadSkill
+    from skills.bilibili.skill_set_cookie import BilibiliSetCookieSkill
+
     return [
         # System
         TimeSkill(client=client),
@@ -107,4 +111,7 @@ def get_all_skills() -> list[BaseTool]:
         # Entertainment
         AnswerBookSkill(client=client),
         TarotSkill(client=client),
+        # Bilibili
+        BilibiliSetCookieSkill(client=client),
+        BilibiliDownloadSkill(client=client),
     ]
