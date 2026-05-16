@@ -59,6 +59,7 @@ class BilibiliDownloadSkill(SkillBase):
                 "title": video.title,
                 "quality": video.get_quality_name(),
                 "file_path": video.output_path,
+                "cover_path": video.cover_path,
             })
         except Exception as e:
             logger.exception("下载失败: %s", url)

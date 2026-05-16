@@ -68,6 +68,7 @@ class BilibiliDownloader:
 
         await self._download_video(video)
         video.output_path = self._merge(video)
+        video.cover_path = self._extract_cover_frame(video)
         self._cleanup(video)
 
         logger.info("下载完成: %s", video.title)
@@ -269,6 +270,31 @@ class BilibiliDownloader:
         return self.output_dir / f"{title}_{i}.mp4"
 
     # ── 清理 ──────────────────────────────────────────────────
+
+    def _extract_cover_frame(self, video: VideoInfo) -> str:
+        """提取视频第一帧作为封面图（优先 ffmpeg，回退到 moviepy）。"""
+        cover_path = str(self.output_dir / f"{video.title}_cover.jpg")
+        try:
+            if shutil.which("ffmpeg"):
+                result = subprocess.run(
+                    ["ffmpeg", "-i", video.output_path, "-vframes", "1",
+                     "-q:v", "2", cover_path, "-y"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=30,
+                )
+                if result.returncode == 0:
+                    return cover_path
+                logger.warning("封面提取失败 (ffmpeg 退出码 %d)", result.returncode)
+            else:
+                logger.info("使用 moviepy 提取封面...")
+                from moviepy import VideoFileClip
+                clip = VideoFileClip(video.output_path)
+                clip.save_frame(cover_path, t=0)
+                clip.close()
+                return cover_path
+        except Exception as e:
+            logger.warning("封面提取异常: %s", e)
+        return ""
 
     def _cleanup(self, video: VideoInfo) -> None:
         base = self.temp_dir / video.title

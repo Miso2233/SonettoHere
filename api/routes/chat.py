@@ -9,7 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt
-from api.callbacks.websocket_callback import WebSocketCallback
+from api.callbacks.websocket_callback import WebSocketCallback, _extract_content
 from api.context_usage import estimate_context_usage
 from config.settings import get_settings
 
@@ -88,7 +88,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
 
                         if kind == "on_tool_end":
                             output = event["data"].get("output", "")
-                            out_str = str(output) if not isinstance(output, str) else output
+                            out_str = _extract_content(output)
                             if len(out_str) > 300:
                                 out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
                             session.message_history.append(

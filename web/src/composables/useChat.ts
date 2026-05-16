@@ -148,6 +148,9 @@ export function useChat(sessionId: Ref<string>) {
           tc.output = event.payload.output
           tc.elapsed = event.payload.elapsed
           tc.status = 'done'
+          if (event.payload.tool_data) {
+            tc.toolData = event.payload.tool_data
+          }
         }
         break
       }

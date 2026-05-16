@@ -40,6 +40,7 @@ class VideoInfo(BaseModel):
     is_durl: bool = False
     part_number: int = 1
     output_path: str = ""
+    cover_path: str = ""
 
     def get_quality_name(self) -> str:
         return QUALITY_MAP.get(self.quality_id, f"未知 (ID={self.quality_id})")

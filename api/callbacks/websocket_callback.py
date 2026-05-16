@@ -1,11 +1,25 @@
 """WebSocket 回调 — 将 LangChain 事件转为结构化 JSON 推送到前端。"""
 
+import json
 import time
 from typing import Any
 
 from fastapi import WebSocket
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
+
+
+def _extract_content(output: Any) -> str:
+    """从工具输出中提取字符串内容。
+
+    LangChain ToolMessage 的 __str__ 会返回 "content='...' name='...' tool_call_id='...'"
+    这种无法解析的格式，需要取其 .content 属性获取真正的 JSON。
+    """
+    if hasattr(output, 'content'):
+        return str(output.content)
+    if not isinstance(output, str):
+        return str(output)
+    return output
 
 
 class WebSocketCallback(BaseCallbackHandler):
@@ -15,6 +29,29 @@ class WebSocketCallback(BaseCallbackHandler):
         self._thinking_started = False
         self._tool_start_time: dict[str, float] = {}
         self._tool_names: dict[str, str] = {}
+
+    @staticmethod
+    def _extract_tool_data(tool_name: str, output: Any) -> dict[str, Any] | None:
+        """从工具输出中提取前端专属气泡所需的结构化数据。"""
+        out_str = _extract_content(output)
+        try:
+            parsed = json.loads(out_str)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
+        if tool_name == "bilibili_download":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            cover_path = data.get("cover_path", "")
+            return {
+                "video_title": data.get("title"),
+                "cover_url": f"/api/file?path={cover_path}" if cover_path else None,
+                "file_path": data.get("file_path"),
+                "quality": data.get("quality"),
+            }
+
+        return None
 
     async def on_llm_start(
         self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any
@@ -60,7 +97,11 @@ class WebSocketCallback(BaseCallbackHandler):
         elapsed = time.time() - self._tool_start_time.pop(run_id, time.time())
         tool_name = self._tool_names.pop(run_id, "unknown")
 
-        out_str = str(output) if not isinstance(output, str) else output
+        out_str = _extract_content(output)
+
+        # 提取工具专属结构化数据
+        tool_data = self._extract_tool_data(tool_name, output)
+
         if len(out_str) > 300:
             out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
 
@@ -70,6 +111,7 @@ class WebSocketCallback(BaseCallbackHandler):
                 "tool_name": tool_name,
                 "output": out_str,
                 "elapsed": round(elapsed, 2),
+                "tool_data": tool_data,
             },
         })
 

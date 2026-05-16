@@ -6,7 +6,7 @@
         <MessageBubble role="user" :content="turn.userMessage" />
         <template v-for="(ev, i) in turn.events" :key="i">
           <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
-          <ToolCallCard v-else :tool-call="ev" />
+          <ToolBubbleRouter v-else :tool-call="ev" />
         </template>
         <MessageBubble
           v-if="turn.finalAnswer && !hasAnswerBlock(turn)"
@@ -20,7 +20,7 @@
         <MessageBubble role="user" :content="currentTurn.userMessage" />
         <template v-for="(ev, i) in currentTurn.events" :key="i">
           <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
-          <ToolCallCard v-else :tool-call="ev" />
+          <ToolBubbleRouter v-else :tool-call="ev" />
         </template>
       </template>
 
@@ -41,7 +41,7 @@ import { watch, ref, nextTick } from 'vue'
 import type { ChatTurn } from '@/types'
 import MessageBubble from './MessageBubble.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
-import ToolCallCard from './ToolCallCard.vue'
+import ToolBubbleRouter from './ToolBubbleRouter.vue'
 
 const props = defineProps<{
   turns: ChatTurn[]
