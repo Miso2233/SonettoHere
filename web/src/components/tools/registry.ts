@@ -9,6 +9,9 @@ import AnswerBookBubble from './AnswerBookBubble.vue'
 import MapBubble from './MapBubble.vue'
 import WeatherBubble from './WeatherBubble.vue'
 import HolidayBubble from './HolidayBubble.vue'
+import TimeBubble from './TimeBubble.vue'
+import SyntaxBubble from './SyntaxBubble.vue'
+import CookieBubble from './CookieBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -36,6 +39,9 @@ const registry: Record<string, Component> = {
   'get_cycling_route': MapBubble,
   'get_current_weather': WeatherBubble,
   'holiday_calendar': HolidayBubble,
+  'time_skill': TimeBubble,
+  'syntax_checker': SyntaxBubble,
+  'bilibili_set_cookie': CookieBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {

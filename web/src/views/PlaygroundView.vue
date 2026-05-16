@@ -161,6 +161,9 @@ function getBubbleComponentName(name: string): string {
     'get_cycling_route': 'MapBubble.vue',
     'get_current_weather': 'WeatherBubble.vue',
     'holiday_calendar': 'HolidayBubble.vue',
+    'time_skill': 'TimeBubble.vue',
+    'syntax_checker': 'SyntaxBubble.vue',
+    'bilibili_set_cookie': 'CookieBubble.vue',
   }
   return map[name] ?? name
 }
@@ -734,6 +737,59 @@ const mockTemplates: Record<string, MockTemplate> = {
       tool_type: 'answer_book',
       question: '我今天的面试会顺利吗？',
       answer: '答案是肯定的',
+    },
+  },
+  time_skill: {
+    input: {},
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        datetime: '2026-05-16 14:32:00',
+        date: '2026-05-16',
+        time: '14:32:00',
+        weekday: 'Saturday',
+        timezone: 'Asia/Shanghai',
+      },
+    }),
+    toolData: {
+      tool_type: 'time',
+      datetime: '2026-05-16 14:32:00',
+      date: '2026-05-16',
+      time: '14:32:00',
+      weekday: 'Saturday',
+      timezone: 'Asia/Shanghai',
+    },
+  },
+  syntax_checker: {
+    input: { language: 'python', code: 'def foo():\n  print("hello"\n' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        language: 'python',
+        errors: [
+          { line: 1, column: 23, message: 'SyntaxError: incomplete input. Expected an indented block after function definition', type: 'SyntaxError' },
+        ],
+        warnings: [],
+      },
+    }),
+    toolData: {
+      tool_type: 'syntax_check',
+      language: 'python',
+      errors: [
+        { line: 1, column: 23, message: 'SyntaxError: incomplete input. Expected an indented block after function definition', type: 'SyntaxError' },
+      ],
+      warnings: [],
+    },
+  },
+  bilibili_set_cookie: {
+    input: { cookie: 'SESSDATA=abc123; bili_jct=def456;' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { message: 'Cookie 已保存' },
+    }),
+    toolData: {
+      tool_type: 'set_cookie',
+      message: 'Cookie 已保存',
     },
   },
 }

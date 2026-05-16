@@ -423,6 +423,42 @@ class WebSocketCallback(BaseCallbackHandler):
                 ]
             return result
 
+        # ── 时间查询 ──
+        if tool_name == "time_skill":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            return {
+                "tool_type": "time",
+                "datetime": data.get("datetime", ""),
+                "date": data.get("date", ""),
+                "time": data.get("time", ""),
+                "weekday": data.get("weekday", ""),
+                "timezone": data.get("timezone", ""),
+            }
+
+        # ── 语法检查 ──
+        if tool_name == "syntax_checker":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            return {
+                "tool_type": "syntax_check",
+                "language": data.get("language", ""),
+                "errors": data.get("errors", []),
+                "warnings": data.get("warnings", []),
+            }
+
+        # ── B站 Cookie 设置 ──
+        if tool_name == "bilibili_set_cookie":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            return {
+                "tool_type": "set_cookie",
+                "message": data.get("message", ""),
+            }
+
         # ── 节假日查询 ──
         if tool_name == "holiday_calendar":
             data = parsed.get("data", {})
