@@ -5,7 +5,7 @@
 |-------|------|---------|
 | `get_current_weather` | 实时天气/预报/生活指数 | UAPI misc.get_misc_weather |
 | `smart_search` | 网络搜索 | UAPI zhi_neng_sou_suo.post_search_aggregate |
-| `scrape_webpage` | 网页内容抓取 | 直接 HTTP + BeautifulSoup |
+| `scrape_webpage` | 网页内容抓取 | Playwright 真实 Chromium 浏览器（有头模式） |
 | `holiday_calendar` | 节假日/万年历查询 | UAPI misc.get_misc_holiday_calendar |
 
 ## 技能协作流程
@@ -16,6 +16,6 @@
 ## 常见陷阱
 - **天气 city vs adcode**：传城市名时不要同时传 adcode，避免API混淆
 - **smart_search 的 fetch_full**：本 Skill 不支持 fetch_full 参数。如需全文，先用 smart_search 获取 URL 列表，再逐条调用 scrape_webpage
-- **scrape_webpage 超时**：部分网站反爬或加载慢，默认 10 秒超时
+- **scrape_webpage 人机验证**：使用有头 Chromium 浏览器，用户可在浏览器窗口中手动完成 CAPTCHA/Turnstile/登录等验证。默认有 5 秒额外等待时间，可通过 `wait_ms` 参数调整。导航超时 60 秒。
 - **holiday_calendar 参数互斥**：date / month / year 三选一，不要同时传多个
 - **天气 minutely 仅国内**：分钟级降水预报仅支持中国大陆城市
