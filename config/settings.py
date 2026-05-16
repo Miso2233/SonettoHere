@@ -6,6 +6,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """全局配置，所有 API Key 从环境变量/.env 加载。"""
 
+    # ZhiPu AI (GLM-5V-Turbo 图片理解)
+    zhipuai_api_key: str = ""
+
     # DeepSeek
     deepseek_api_key: str = ""
     deepseek_base_url: str = "https://api.deepseek.com/v1"

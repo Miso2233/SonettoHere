@@ -7,6 +7,7 @@
 | `smart_search` | 网络搜索 | UAPI zhi_neng_sou_suo.post_search_aggregate |
 | `scrape_webpage` | 网页内容抓取 | Playwright 真实 Chromium 浏览器（有头模式） |
 | `holiday_calendar` | 节假日/万年历查询 | UAPI misc.get_misc_holiday_calendar |
+| `analyze_image` | 图片理解/OCR/描述 | GLM-5V-Turbo 多模态模型 |
 
 ## 技能协作流程
 - **天气 + 节假日**：用户问"国庆节北京天气如何"时，先调 `holiday_calendar` 确认日期，再调 `get_current_weather`
@@ -18,4 +19,5 @@
 - **smart_search 的 fetch_full**：本 Skill 不支持 fetch_full 参数。如需全文，先用 smart_search 获取 URL 列表，再逐条调用 scrape_webpage
 - **scrape_webpage 人机验证**：使用有头 Chromium 浏览器，用户可在浏览器窗口中手动完成 CAPTCHA/Turnstile/登录等验证。默认有 5 秒额外等待时间，可通过 `wait_ms` 参数调整。导航超时 60 秒。
 - **holiday_calendar 参数互斥**：date / month / year 三选一，不要同时传多个
+- **analyze_image 图片来源**：本地用 `local:绝对路径`，网络用 `url:https://...`。prompt 默认"请描述这张图片"，可自定义提问如"文字是啥？""这是什么物体？"
 - **天气 minutely 仅国内**：分钟级降水预报仅支持中国大陆城市

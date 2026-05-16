@@ -45,6 +45,7 @@ def get_all_skills() -> list[BaseTool]:
     from skills.network.skill_search import SmartSearchSkill
     from skills.network.skill_scraper import WebScraperSkill
     from skills.network.skill_holiday import HolidayCalendarSkill
+    from skills.network.skill_image_understand import ImageUnderstandSkill
 
     # Files
     from skills.files.skill_file_ops import FileOperationsSkill
@@ -95,6 +96,7 @@ def get_all_skills() -> list[BaseTool]:
         SmartSearchSkill(client=client),
         WebScraperSkill(client=client),
         HolidayCalendarSkill(client=client),
+        ImageUnderstandSkill(client=client),
         # Files
         FileOperationsSkill(client=client),
         PDFReaderSkill(client=client),
