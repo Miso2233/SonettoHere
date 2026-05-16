@@ -459,6 +459,16 @@ class WebSocketCallback(BaseCallbackHandler):
                 "message": data.get("message", ""),
             }
 
+        # ── 图片理解 ──
+        if tool_name == "analyze_image":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            return {
+                "tool_type": "analyze_image",
+                "response": data.get("response", ""),
+            }
+
         # ── 节假日查询 ──
         if tool_name == "holiday_calendar":
             data = parsed.get("data", {})

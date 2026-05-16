@@ -164,6 +164,7 @@ function getBubbleComponentName(name: string): string {
     'time_skill': 'TimeBubble.vue',
     'syntax_checker': 'SyntaxBubble.vue',
     'bilibili_set_cookie': 'CookieBubble.vue',
+    'analyze_image': 'ImageBubble.vue',
   }
   return map[name] ?? name
 }
@@ -790,6 +791,17 @@ const mockTemplates: Record<string, MockTemplate> = {
     toolData: {
       tool_type: 'set_cookie',
       message: 'Cookie 已保存',
+    },
+  },
+  analyze_image: {
+    input: { image_source: 'url:https://example.com/photo.jpg', prompt: '请描述这张图片' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { response: '这张图片展示了一片宁静的竹林小径，阳光透过竹叶洒落在地面上形成斑驳的光影。小径蜿蜒伸向远方，两旁是高耸的翠竹。画面整体色调清新自然，给人一种幽静深远的感觉，仿佛置身于京都岚山的竹林之中。' },
+    }),
+    toolData: {
+      tool_type: 'analyze_image',
+      response: '这张图片展示了一片宁静的竹林小径，阳光透过竹叶洒落在地面上形成斑驳的光影。小径蜿蜒伸向远方，两旁是高耸的翠竹。画面整体色调清新自然，给人一种幽静深远的感觉，仿佛置身于京都岚山的竹林之中。',
     },
   },
 }

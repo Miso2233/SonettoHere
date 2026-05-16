@@ -8,6 +8,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   scraper: '网页抓取',
   holiday: '节假日查询',
   image_understand: '图片理解',
+  analyze_image: '图片理解',
   map_nearby: '周边搜索',
   map_geocode: '地理编码',
   map_transit: '公交换乘',

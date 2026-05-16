@@ -12,6 +12,7 @@ import HolidayBubble from './HolidayBubble.vue'
 import TimeBubble from './TimeBubble.vue'
 import SyntaxBubble from './SyntaxBubble.vue'
 import CookieBubble from './CookieBubble.vue'
+import ImageBubble from './ImageBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -42,6 +43,7 @@ const registry: Record<string, Component> = {
   'time_skill': TimeBubble,
   'syntax_checker': SyntaxBubble,
   'bilibili_set_cookie': CookieBubble,
+  'analyze_image': ImageBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {
