@@ -276,70 +276,63 @@ export const toolMocks: Record<string, ToolCall[]> = {
 ### 7.1 新增一个工具气泡的完整流程
 
 ```
-1. 后端：在 tool_end 事件中添加 tool_data
+1. 后端：在 _extract_tool_data 中添加新工具分支
    └── api/callbacks/websocket_callback.py
+   └── ★ 必须用 _extract_content(output) 获取内容，不能直接 str(output)
 
-2. 前端类型：更新 ToolCall 和 WebSocket 事件类型
-   └── web/src/types/index.ts
+2. 后端：如有资源文件需要前端访问，添加 /api/file 或专用端点
+   └── api/routes/files.py（已有 /api/file 端点）
 
 3. 前端组件：创建 tools/XxxBubble.vue
    └── web/src/components/tools/XxxBubble.vue
+   └── Props: { toolCall: ToolCall }, Emits: { action: { action, data? } }
 
-4. 注册：在 ToolBubbleRouter 的 registry 中注册
-   └── web/src/components/ToolBubbleRouter.vue
+4. 注册：在 registry.ts 中注册工具名 → 组件映射
+   └── web/src/components/tools/registry.ts
 
-5. Mock 数据：添加 Playground 用的 mock 数据
-   └── web/src/components/tools/__mocks__/index.ts
+5. Mock 数据：在 PlaygroundView.vue 的 mockTemplates 中添加 mock
+   └── web/src/views/PlaygroundView.vue
+   └── ★ done 状态必须提供完整的 toolData
 
-6. Playground 验收：在 /playground 页面逐项检查验收清单
+6. Playground 验收：在 /playground 页面逐项检查验收清单（见 6.4）
 
-7. 部署：确认通过后，合并到 main 分支，部署到 WebUI
+7. 全链路验证：重启后端 + 浏览器硬刷新，触发真实工具调用，检查：
+   └── DevTools Console 无报错
+   └── WebSocket 帧中 tool_data 不为 null
+   └── ChatWindow 中显示专属气泡（非 ToolCallCard 兜底）
 ```
 
 ### 7.2 示例：实现 bilibili_download 气泡
 
 #### Step 1 — 后端扩展 tool_data
 
+> **⚠️ 关键：`on_tool_end` 的 `output` 参数是 LangChain `ToolMessage` 对象，不是 `str`。
+> 必须使用 `_extract_content(output)` 获取真实内容字符串，详见 [第十二节](#十二经验教训与排错指南)。**
+
 ```python
-# api/callbacks/websocket_callback.py — on_tool_end 修改
+# api/callbacks/websocket_callback.py — _extract_tool_data 新增分支
 
-import json
-
-async def on_tool_end(self, output: str, **kwargs: Any) -> None:
-    run_id = str(kwargs.get("run_id", ""))
-    elapsed = time.time() - self._tool_start_time.pop(run_id, time.time())
-    tool_name = self._tool_names.pop(run_id, "unknown")
-
-    out_str = str(output) if not isinstance(output, str) else output
-
-    # 提取工具输出的结构化数据
-    tool_data = None
+@staticmethod
+def _extract_tool_data(tool_name: str, output: Any) -> dict[str, Any] | None:
+    out_str = _extract_content(output)  # ★ 关键：先提取内容
     try:
-        if tool_name == "bilibili_download":
-            data = json.loads(output) if isinstance(output, str) else output
-            tool_data = {
-                "video_title": data.get("title"),
-                "cover_url": data.get("cover_url"),
-                "file_path": data.get("file_path"),
-                "duration": data.get("duration"),
-                "filesize_mb": data.get("filesize_mb"),
-            }
-        # elif tool_name == "weather": ...
-    except (json.JSONDecodeError, AttributeError):
-        pass
+        parsed = json.loads(out_str)
+    except (json.JSONDecodeError, TypeError):
+        return None
 
-    if len(out_str) > 300:
-        out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
-
-    await self._ws.send_json({
-        "type": "tool_end",
-        "payload": {
-            "tool_name": tool_name,
-            "output": out_str,
-            "elapsed": round(elapsed, 2),
-            "tool_data": tool_data,  # ★ 新增
-        },
-    })
+    if tool_name == "bilibili_download":
+        data = parsed.get("data", {})
+        if not isinstance(data, dict):
+            return None
+        cover_path = data.get("cover_path", "")
+        return {
+            "video_title": data.get("title"),
+            "cover_url": f"/api/file?path={cover_path}" if cover_path else None,
+            "file_path": data.get("file_path"),
+            "quality": data.get("quality"),
+        }
+    # elif tool_name == "weather": ...
+    return None
 ```
 
 #### Step 2 — 更新前端类型
@@ -472,7 +465,27 @@ const registry: Record<string, Component> = {
 
 ### 8.1 WebSocket 回调扩展点
 
-[websocket_callback.py](../api/callbacks/websocket_callback.py) 的 `on_tool_end` 方法需要支持提取工具专属的 `tool_data`。推荐方式：为每个工具提供一个轻量的数据提取函数。
+[websocket_callback.py](../api/callbacks/websocket_callback.py) 的 `on_tool_end` 方法需要支持提取工具专属的 `tool_data`。
+
+**⚠️ 关键陷阱：LangChain 的 `on_tool_end` 回调接收的 `output` 参数不是 `str`，而是 `ToolMessage` 对象。** 直接对 `output` 调 `str()` 或 `json.loads()` 会得到 `content='...' name='...' tool_call_id='...'` 这种无法解析的格式。必须通过 `_extract_content()` 辅助函数从其 `.content` 属性提取真正的 JSON 字符串。
+
+```python
+# _extract_content — 所有 tool_data 提取的前置处理
+
+def _extract_content(output: Any) -> str:
+    """从工具输出中提取字符串内容。
+
+    LangChain ToolMessage 的 __str__ 会返回 "content='...' name='...' tool_call_id='...'"
+    这种无法解析的格式，需要取其 .content 属性获取真正的 JSON。
+    """
+    if hasattr(output, 'content'):
+        return str(output.content)
+    if not isinstance(output, str):
+        return str(output)
+    return output
+```
+
+推荐为每个工具提供轻量的数据提取函数：
 
 ```python
 # 建议的文件结构（可选，根据复杂度决定）
@@ -486,11 +499,13 @@ api/callbacks/
 
 import json
 from typing import Any
+from api.callbacks.websocket_callback import _extract_content
 
-def extract_bilibili_download(output: str) -> dict[str, Any] | None:
+def extract_bilibili_download(output: Any) -> dict[str, Any] | None:
     """从 bilibili_download 工具的输出中提取结构化数据。"""
     try:
-        data = json.loads(output) if isinstance(output, str) else output
+        out_str = _extract_content(output)  # ★ 关键：先提取内容
+        data = json.loads(out_str)
         return {
             "video_title": data.get("title"),
             "cover_url": data.get("cover_url"),
@@ -498,7 +513,7 @@ def extract_bilibili_download(output: str) -> dict[str, Any] | None:
             "duration": data.get("duration"),
             "filesize_mb": data.get("filesize_mb"),
         }
-    except (json.JSONDecodeError, AttributeError):
+    except (json.JSONDecodeError, AttributeError, TypeError):
         return None
 
 
@@ -516,6 +531,7 @@ EXTRACTORS: dict[str, callable] = {
 1. **输出应为 JSON 字符串**，而非自然语言描述
 2. **JSON 中包含前端需要的所有字段**（标题、路径、缩略图 URL 等）
 3. **字段命名使用 snake_case**（Python 惯例），在 tool_data 提取时转为 camelCase 给前端
+4. **所有 `tool_data` 提取函数必须优先调用 `_extract_content()`**，不能假定 `output` 是 `str`
 
 ---
 
@@ -620,3 +636,104 @@ EXTRACTORS: dict[str, callable] = {
 > **任何一个工具气泡必须在 Playground 中通过全部验收清单后，才能部署到 WebUI。**
 
 Playground 是 Kaleidoscope Project 的质量门禁。不允许绕过 Playground 直接修改 WebUI 中的工具展示逻辑。
+
+---
+
+## 十二、经验教训与排错指南
+
+### 12.1 本次排错案例回顾（2026-05-16）
+
+**症状**：Playground 正常显示 BilibiliDownloadBubble，ChatWindow 仍然显示旧版 ToolCallCard。
+
+**排错过程**：
+
+1. 猜测前端构建缓存 → 排除（dist hash 已更新）
+2. 猜测 ToolBubbleRouter 路由失效 → 排除（Playground 正常，说明路由和注册表没问题）
+3. **关键突破**：在 `useChat.ts` 和 `ToolBubbleRouter.vue` 同时加 Console 日志，发现 `tool_data: null`
+4. 检查 WebSocket 帧中 `output` 的实际内容，发现格式为 `content='...' name='...' tool_call_id='...'`
+5. 定位根因：LangChain 传给 `on_tool_end` 的是 `ToolMessage` 对象，`str()` 不可解析
+
+**根因**：`_extract_tool_data()` 对 `ToolMessage` 对象调 `str()` 后尝试 `json.loads()`，解析失败静默返回 `None`。
+
+**修复**：新增 `_extract_content()` 辅助函数，检测 `hasattr(output, 'content')` 后取 `.content` 属性。
+
+### 12.2 Playground 先行策略的价值验证
+
+这次排错完美验证了 Playground 先行的设计决策：
+
+```
+Playground（mock 数据）→ 正常  ─┐
+                                   ├→ 问题不在前端组件层，在后端数据管道
+ChatWindow（真实 WebSocket）→ 异常 ┘
+```
+
+Playground 用 mock 数据绕过了 WebSocket → `on_tool_end` → `_extract_tool_data` → `useChat` 的数据管道，正好帮我们隔离了问题层级。**以后遇到类似问题，第一步就是打开 Playground 确认组件是否正常。**
+
+### 12.3 后续工具气泡开发的排错检查清单
+
+当 ChatWindow 中新工具气泡不显示或显示异常时，按以下顺序排查：
+
+| 检查点 | 验证方法 | 常见问题 |
+|--------|---------|---------|
+| ① Playground | 在 `/playground` 切换到对应工具，切换状态 | 组件渲染逻辑错误 |
+| ② WebSocket 帧 | DevTools → Network → WS → 查看 `tool_end` 帧 | `tool_data` 为 `null` |
+| ③ `_extract_tool_data` | 在后端加 `logger.info` 打印解析结果 | JSON 解析失败、字段不匹配 |
+| ④ `_extract_content` | 确认 output 类型，检查 `.content` 属性 | 直接对 ToolMessage 调 `str()` |
+| ⑤ `useChat.ts` | Console 查看 `toolData` 是否赋值成功 | `findRunningTool` 未找到 |
+| ⑥ ToolBubbleRouter | Console 查看组件解析结果 | 工具名未注册 |
+| ⑦ 辅助端点 | 直接访问 `/api/file?path=...` | 端点未挂载、路径安全校验拒绝 |
+
+### 12.4 后续工具气泡的"一键部署"流程
+
+基于本次经验，新增工具气泡的标准流程精炼如下：
+
+```
+1. 后端 Skill 输出 JSON
+   └── 确保 format_success({...}) 中的字段是前端需要的
+
+2. 在 _extract_tool_data 中添加分支
+   └── ★ 必须使用 _extract_content(output) 获取字符串，不要直接 str(output)
+   └── 字段映射：后端 snake_case → tool_data camelCase
+
+3. 在 /api/file 或新端点提供资源服务
+   └── 如缩略图、文件下载等
+
+4. 创建 tools/XxxBubble.vue
+   └── Props: { toolCall: ToolCall }
+   └── Emits: { action: { action: string; data?: unknown } }
+
+5. 在 registry.ts 中注册
+   └── 'tool_name': XxxBubble
+
+6. 在 PlaygroundView.vue 的 mockTemplates 中添加 mock 数据
+   └── ★ 必须给 done 状态提供完整的 toolData
+
+7. Playground 验收
+   └── running / done / error 三种状态
+   └── toolData 缺失时的降级展示
+   └── 交互按钮的 action 事件
+
+8. 后端重启 + 浏览器硬刷新
+   └── ★ 双端都要用最新代码
+```
+
+### 12.5 调试日志的添加模式
+
+当需要排查数据管道问题时，在以下位置添加临时 Console 日志（排查完毕后移除）：
+
+```typescript
+// ① useChat.ts — tool_end case
+console.log('[useChat] tool_data 是否存在:', !!event.payload.tool_data, event.payload.tool_data)
+
+// ② ToolBubbleRouter.vue — computed bubbleComponent
+console.log('[ToolBubbleRouter] toolCall.name:', props.toolCall.name,
+  '解析到:', comp ? '专属组件' : 'null → 回退')
+```
+
+```python
+# ③ websocket_callback.py — _extract_tool_data
+logger.info("tool_data extracted for %s: %s", tool_name, tool_data)
+
+# ④ websocket_callback.py — on_tool_end
+logger.info("on_tool_end output type: %s, content preview: %.200s", type(output), str(output))
+```
