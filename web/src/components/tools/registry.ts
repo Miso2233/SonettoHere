@@ -3,6 +3,7 @@ import BilibiliDownloadBubble from './BilibiliDownloadBubble.vue'
 import TodoBubble from './TodoBubble.vue'
 import TaskTrackerBubble from './TaskTrackerBubble.vue'
 import PythonBubble from './PythonBubble.vue'
+import FilesBubble from './FilesBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -17,6 +18,10 @@ const registry: Record<string, Component> = {
   'todo_list_projects': TodoBubble,
   'task_tracker': TaskTrackerBubble,
   'run_python': PythonBubble,
+  'file_read': FilesBubble,
+  'file_write': FilesBubble,
+  'file_list': FilesBubble,
+  'file_operations': FilesBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {

@@ -14,6 +14,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   file_read: '读取文件',
   file_write: '写入文件',
   file_list: '文件列表',
+  file_operations: '文件操作',
   pdf_reader: 'PDF 阅读',
   doc_reader: '文档阅读',
   syntax_check: '语法检查',

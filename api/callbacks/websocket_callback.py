@@ -125,6 +125,84 @@ class WebSocketCallback(BaseCallbackHandler):
                             result["code"] = code
             return result
 
+        # ── 文件操作 ──
+        if tool_name == "file_operations":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            # 从输入端获取操作类型（LangChain 传入的是 Python repr 格式）
+            operation = ""
+            if tool_input:
+                try:
+                    input_parsed = ast.literal_eval(tool_input)
+                except (ValueError, SyntaxError, TypeError):
+                    pass
+                else:
+                    if isinstance(input_parsed, dict):
+                        operation = str(input_parsed.get("operation", "") or "")
+
+            if operation == "read_file":
+                file_path = data.get("file_info", {}).get("path", "")
+                content = data.get("content", "")
+                size = data.get("file_info", {}).get("size", 0)
+                return {
+                    "operation": "read_file",
+                    "file_path": file_path,
+                    "file_name": file_path.split("/")[-1].split("\\")[-1] or "unknown",
+                    "size_bytes": size,
+                    "line_count": content.count("\n") + 1 if isinstance(content, str) else 0,
+                    "content": content,
+                }
+
+            if operation == "write_file":
+                file_path = data.get("file_path", "")
+                size = data.get("size", 0)
+                return {
+                    "operation": "write_file",
+                    "file_path": file_path,
+                    "file_name": file_path.split("/")[-1].split("\\")[-1] or "unknown",
+                    "size_bytes": size,
+                    "line_count": size,
+                    "success": True,
+                }
+
+            if operation in ("list_directory",):
+                directory = data.get("directory", "")
+                items_raw = data.get("items", [])
+                items = []
+                for item in items_raw if isinstance(items_raw, list) else []:
+                    items.append({
+                        "name": item.get("name", ""),
+                        "type": "directory" if item.get("is_dir") else "file",
+                        "size_bytes": item.get("size", 0),
+                    })
+                return {
+                    "operation": "list_directory",
+                    "directory_path": directory,
+                    "total_items": data.get("count", len(items)),
+                    "items": items,
+                }
+
+            if operation == "search_files":
+                directory = data.get("search_directory", "")
+                items_raw = data.get("found_files", [])
+                items = []
+                for item in items_raw if isinstance(items_raw, list) else []:
+                    items.append({
+                        "name": item.get("name", ""),
+                        "type": "directory" if item.get("is_dir") else "file",
+                        "size_bytes": item.get("size", 0),
+                    })
+                return {
+                    "operation": "search_files",
+                    "search_directory": directory,
+                    "total_items": data.get("count", len(items)),
+                    "items": items,
+                }
+
+            return None
+
         return None
 
     async def on_llm_start(
