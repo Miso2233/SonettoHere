@@ -30,6 +30,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   todo_list_projects: '项目列表',
   time: '时间查询',
   python: 'Python 执行',
+  run_python: 'Python 执行',
   tarot: '塔罗牌',
   answer_book: '答案之书',
   ask_user: '询问用户',

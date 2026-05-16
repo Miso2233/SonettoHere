@@ -147,6 +147,7 @@ function getBubbleComponentName(name: string): string {
     'todo_query': 'TodoBubble.vue',
     'todo_list_projects': 'TodoBubble.vue',
     'task_tracker': 'TaskTrackerBubble.vue',
+    'run_python': 'PythonBubble.vue',
   }
   return map[name] ?? name
 }
@@ -385,6 +386,20 @@ const mockTemplates: Record<string, MockTemplate> = {
       current_step: 2,
       current_task: '设计数据库结构',
       tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'],
+    },
+  },
+  run_python: {
+    input: {
+      code: 'import json\nfrom pathlib import Path\n\ndata = {"name": "岚山", "visitors": 1200}\nprint(f"地点: {data[\'name\']}")\nprint(f"游客数: {data[\'visitors\']}")\n\n# 写入文件\npath = Path("/tmp/report.json")\npath.write_text(json.dumps(data, ensure_ascii=False, indent=2))\nprint(f"报告已保存至 {path}")',
+    },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { output: '地点: 岚山\n游客数: 1200\n报告已保存至 /tmp/report.json' },
+    }),
+    toolData: {
+      tool_type: 'run_python',
+      stdout: '地点: 岚山\n游客数: 1200\n报告已保存至 /tmp/report.json',
+      code: 'import json\nfrom pathlib import Path\n\ndata = {"name": "岚山", "visitors": 1200}\nprint(f"地点: {data[\'name\']}")\nprint(f"游客数: {data[\'visitors\']}")\n\n# 写入文件\npath = Path("/tmp/report.json")\npath.write_text(json.dumps(data, ensure_ascii=False, indent=2))\nprint(f"报告已保存至 {path}")',
     },
   },
 }

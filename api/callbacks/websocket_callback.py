@@ -1,5 +1,6 @@
 """WebSocket 回调 — 将 LangChain 事件转为结构化 JSON 推送到前端。"""
 
+import ast
 import json
 import time
 from typing import Any
@@ -29,9 +30,10 @@ class WebSocketCallback(BaseCallbackHandler):
         self._thinking_started = False
         self._tool_start_time: dict[str, float] = {}
         self._tool_names: dict[str, str] = {}
+        self._tool_inputs: dict[str, str] = {}
 
     @staticmethod
-    def _extract_tool_data(tool_name: str, output: Any) -> dict[str, Any] | None:
+    def _extract_tool_data(tool_name: str, output: Any, tool_input: str | None = None) -> dict[str, Any] | None:
         """从工具输出中提取前端专属气泡所需的结构化数据。"""
         out_str = _extract_content(output)
         try:
@@ -101,6 +103,28 @@ class WebSocketCallback(BaseCallbackHandler):
                 result["message"] = data["message"]
             return result
 
+        # ── Python 执行 ──
+        if tool_name == "run_python":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            result: dict[str, Any] = {
+                "tool_type": "run_python",
+                "stdout": data.get("output", ""),
+            }
+            # 从输入端提取代码（LangChain 传入的是 Python repr 格式，非 JSON）
+            if tool_input:
+                try:
+                    input_parsed = ast.literal_eval(tool_input)
+                except (ValueError, SyntaxError, TypeError):
+                    pass
+                else:
+                    if isinstance(input_parsed, dict):
+                        code = input_parsed.get("code", "")
+                        if isinstance(code, str) and code:
+                            result["code"] = code
+            return result
+
         return None
 
     async def on_llm_start(
@@ -133,6 +157,7 @@ class WebSocketCallback(BaseCallbackHandler):
         run_id = str(kwargs.get("run_id", ""))
         self._tool_start_time[run_id] = time.time()
         self._tool_names[run_id] = tool_name
+        self._tool_inputs[run_id] = input_str
 
         await self._ws.send_json({
             "type": "tool_start",
@@ -146,11 +171,12 @@ class WebSocketCallback(BaseCallbackHandler):
         run_id = str(kwargs.get("run_id", ""))
         elapsed = time.time() - self._tool_start_time.pop(run_id, time.time())
         tool_name = self._tool_names.pop(run_id, "unknown")
+        tool_input = self._tool_inputs.pop(run_id, None)
 
         out_str = _extract_content(output)
 
         # 提取工具专属结构化数据
-        tool_data = self._extract_tool_data(tool_name, output)
+        tool_data = self._extract_tool_data(tool_name, output, tool_input)
 
         if len(out_str) > 300:
             out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
@@ -168,6 +194,7 @@ class WebSocketCallback(BaseCallbackHandler):
     async def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
         self._tool_start_time.pop(run_id, None)
+        self._tool_inputs.pop(run_id, None)
         tool_name = self._tool_names.pop(run_id, "unknown")
         await self._ws.send_json({
             "type": "tool_error",
