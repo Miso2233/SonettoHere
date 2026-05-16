@@ -138,6 +138,14 @@ function stateLabel(s: ToolStatus): string {
 function getBubbleComponentName(name: string): string {
   const map: Record<string, string> = {
     'bilibili_download': 'BilibiliDownloadBubble.vue',
+    'todo_add': 'TodoBubble.vue',
+    'todo_list': 'TodoBubble.vue',
+    'todo_complete': 'TodoBubble.vue',
+    'todo_uncomplete': 'TodoBubble.vue',
+    'todo_delete': 'TodoBubble.vue',
+    'todo_update': 'TodoBubble.vue',
+    'todo_query': 'TodoBubble.vue',
+    'todo_list_projects': 'TodoBubble.vue',
   }
   return map[name] ?? name
 }
@@ -225,11 +233,137 @@ const mockTemplates: Record<string, MockTemplate> = {
     }),
   },
   todo_add: {
-    input: { content: '在岚山竹林拍一张全景照', project: '旅行计划', priority: 3 },
+    input: { content: '在岚山竹林拍一张全景照', project_name: '旅行计划', priority: 3 },
     doneOutput: JSON.stringify({
       success: true,
-      data: { task_id: '12345678', content: '在岚山竹林拍一张全景照', project: '旅行计划', priority: 3 },
+      data: { task_id: '12345678', content: '在岚山竹林拍一张全景照', due_date: '2026-05-20', priority: 3, project: '旅行计划' },
     }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '12345678',
+      content: '在岚山竹林拍一张全景照',
+      due_date: '2026-05-20',
+      priority: 3,
+      project: '旅行计划',
+    },
+  },
+  todo_list: {
+    input: {},
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        total: 4,
+        tasks: [
+          { task_id: '111', content: '预订京都酒店', due_date: '2026-05-25', priority: 4, project: '旅行计划', is_completed: false },
+          { task_id: '222', content: '整理岚山攻略', due_date: '2026-05-18', priority: 2, project: '旅行计划', is_completed: false },
+          { task_id: '333', content: '写周报', due_date: '2026-05-16', priority: 1, project: '工作', is_completed: true },
+          { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
+        ],
+      },
+    }),
+    toolData: {
+      tool_type: 'task_list',
+      total: 4,
+      tasks: [
+        { task_id: '111', content: '预订京都酒店', due_date: '2026-05-25', priority: 4, project: '旅行计划', is_completed: false },
+        { task_id: '222', content: '整理岚山攻略', due_date: '2026-05-18', priority: 2, project: '旅行计划', is_completed: false },
+        { task_id: '333', content: '写周报', due_date: '2026-05-16', priority: 1, project: '工作', is_completed: true },
+        { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
+      ],
+    },
+  },
+  todo_complete: {
+    input: { task_id: '111' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '111', message: '任务已标记为完成' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '111',
+      content: '预订京都酒店',
+      message: '任务已标记为完成',
+    },
+  },
+  todo_uncomplete: {
+    input: { task_id: '111' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '111', message: '任务已重新打开' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '111',
+      content: '预订京都酒店',
+      message: '任务已重新打开',
+    },
+  },
+  todo_delete: {
+    input: { task_id: '222' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '222', message: '任务删除成功' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '222',
+      content: '整理岚山攻略',
+      message: '任务删除成功',
+    },
+  },
+  todo_update: {
+    input: { task_id: '333', content: '写双周报', priority: 2 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '333', content: '写双周报', due_date: '2026-05-20', priority: 2, project: '工作' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '333',
+      content: '写双周报',
+      due_date: '2026-05-20',
+      priority: 2,
+      project: '工作',
+    },
+  },
+  todo_query: {
+    input: { task_id: '444' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '444',
+      content: '买机票',
+      due_date: null,
+      priority: 3,
+      project: '旅行计划',
+      is_completed: false,
+    },
+  },
+  todo_list_projects: {
+    input: {},
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        total: 3,
+        projects: [
+          { project_id: '23456789', name: '旅行计划' },
+          { project_id: '34567890', name: '工作' },
+          { project_id: '45678901', name: 'Inbox' },
+        ],
+      },
+    }),
+    toolData: {
+      tool_type: 'project_list',
+      total: 3,
+      projects: [
+        { project_id: '23456789', name: '旅行计划' },
+        { project_id: '34567890', name: '工作' },
+        { project_id: '45678901', name: 'Inbox' },
+      ],
+    },
   },
 }
 

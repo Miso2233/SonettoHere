@@ -51,6 +51,37 @@ class WebSocketCallback(BaseCallbackHandler):
                 "quality": data.get("quality"),
             }
 
+        # ── Todo 系列工具 ──
+        if tool_name.startswith("todo_"):
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            if tool_name == "todo_list":
+                tool_type = "task_list"
+            elif tool_name == "todo_list_projects":
+                tool_type = "project_list"
+            else:
+                tool_type = "single_task"
+
+            result: dict[str, Any] = {"tool_type": tool_type}
+            if tool_type == "task_list":
+                result["total"] = data.get("total")
+                tasks = data.get("tasks", [])
+                if isinstance(tasks, list):
+                    result["tasks"] = tasks
+            elif tool_type == "project_list":
+                result["total"] = data.get("total")
+                projects = data.get("projects", [])
+                if isinstance(projects, list):
+                    result["projects"] = projects
+            else:
+                for field in ("task_id", "content", "due_date", "priority",
+                              "project", "message", "is_completed"):
+                    if field in data:
+                        result[field] = data[field]
+            return result
+
         return None
 
     async def on_llm_start(
