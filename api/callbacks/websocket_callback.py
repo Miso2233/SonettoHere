@@ -203,6 +203,48 @@ class WebSocketCallback(BaseCallbackHandler):
 
             return None
 
+        # ── 塔罗占卜 ──
+        if tool_name == "tarot":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            cards_raw = data.get("cards", [])
+            cards = []
+            if isinstance(cards_raw, list):
+                for card in cards_raw:
+                    if not isinstance(card, dict):
+                        continue
+                    cards.append({
+                        "name": card.get("name", ""),
+                        "name_en": card.get("name_en", ""),
+                        "suit": card.get("suit", ""),
+                        "element": card.get("element", ""),
+                        "keywords": card.get("keywords", []),
+                        "position": card.get("position", ""),
+                        "status": card.get("status", ""),
+                        "meaning": card.get("meaning", []),
+                        "description": card.get("description", ""),
+                    })
+            return {
+                "tool_type": "tarot",
+                "question": data.get("question", ""),
+                "spread_type": data.get("spread_type", ""),
+                "spread_name": data.get("spread_name", ""),
+                "cards_count": data.get("cards_count", len(cards)),
+                "cards": cards,
+            }
+
+        # ── 答案之书 ──
+        if tool_name == "answer_book":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            return {
+                "tool_type": "answer_book",
+                "question": data.get("question", ""),
+                "answer": data.get("answer", ""),
+            }
+
         return None
 
     async def on_llm_start(

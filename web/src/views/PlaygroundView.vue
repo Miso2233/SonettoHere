@@ -152,6 +152,8 @@ function getBubbleComponentName(name: string): string {
     'file_write': 'FilesBubble.vue',
     'file_list': 'FilesBubble.vue',
     'file_operations': 'FilesBubble.vue',
+    'tarot': 'TarotBubble.vue',
+    'answer_book': 'AnswerBookBubble.vue',
   }
   return map[name] ?? name
 }
@@ -228,15 +230,50 @@ const mockTemplates: Record<string, MockTemplate> = {
     doneOutput: '京都红叶最佳观赏期为**11月中旬至12月上旬**。\n\n推荐地点：\n- 岚山（竹林+红叶）\n- 永观堂（夜枫名所）\n- 东福寺（通天桥）\n- 清水寺（夜间特别参拜）',
   },
   tarot: {
-    input: { question: '今天适合开始新项目吗？', spread: 'single' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        card_name: 'The Fool · 愚者',
-        card_meaning: '新的开始、冒险、天真',
-        interpretation: '这张牌暗示现在是踏上新征程的好时机。保持开放的心态，勇敢迈出第一步。',
-      },
-    }),
+    input: { question: '我最近的事业运如何？', spread_type: 'three' },
+    doneOutput: JSON.stringify({ success: true, data: { spread_name: '三牌占卜', cards: [] } }),
+    toolData: {
+      tool_type: 'tarot',
+      question: '我最近的事业运如何？',
+      spread_type: 'three',
+      spread_name: '三牌占卜',
+      cards_count: 3,
+      cards: [
+        {
+          name: '愚人',
+          name_en: 'The Fool',
+          suit: '大阿尔卡纳',
+          element: '风',
+          keywords: ['新的开始', '自发行动', '不虑后果'],
+          position: '过去',
+          status: '正位',
+          meaning: ['新的开始', '冒险精神', '无限可能'],
+          description: '愚人（正位）— 新的开始，自发行动，不虑后果',
+        },
+        {
+          name: '命运之轮',
+          name_en: 'Wheel of Fortune',
+          suit: '大阿尔卡纳',
+          element: '火',
+          keywords: ['转变', '命运', '循环'],
+          position: '现在',
+          status: '正位',
+          meaning: ['好运降临', '命运转折点', '新的机遇'],
+          description: '命运之轮（正位）— 转变，命运，循环',
+        },
+        {
+          name: '星星',
+          name_en: 'The Star',
+          suit: '大阿尔卡纳',
+          element: '水',
+          keywords: ['希望', '灵感', '平静'],
+          position: '未来',
+          status: '正位',
+          meaning: ['充满希望', '灵感的源泉', '内心的平静'],
+          description: '星星（正位）— 希望，灵感，平静',
+        },
+      ],
+    },
   },
   todo_add: {
     input: { content: '在岚山竹林拍一张全景照', project_name: '旅行计划', priority: 3 },
@@ -471,6 +508,15 @@ const mockTemplates: Record<string, MockTemplate> = {
         { name: 'App.vue', type: 'file', size_bytes: 2890, modified: '05-08' },
         { name: 'BaseCard.vue', type: 'file', size_bytes: 2100, modified: '04-25' },
       ],
+    },
+  },
+  answer_book: {
+    input: { question: '我今天的面试会顺利吗？' },
+    doneOutput: JSON.stringify({ success: true, data: { question: '我今天的面试会顺利吗？', answer: '答案是肯定的' } }),
+    toolData: {
+      tool_type: 'answer_book',
+      question: '我今天的面试会顺利吗？',
+      answer: '答案是肯定的',
     },
   },
 }

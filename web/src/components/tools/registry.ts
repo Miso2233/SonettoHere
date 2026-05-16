@@ -4,6 +4,8 @@ import TodoBubble from './TodoBubble.vue'
 import TaskTrackerBubble from './TaskTrackerBubble.vue'
 import PythonBubble from './PythonBubble.vue'
 import FilesBubble from './FilesBubble.vue'
+import TarotBubble from './TarotBubble.vue'
+import AnswerBookBubble from './AnswerBookBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -22,6 +24,8 @@ const registry: Record<string, Component> = {
   'file_write': FilesBubble,
   'file_list': FilesBubble,
   'file_operations': FilesBubble,
+  'tarot': TarotBubble,
+  'answer_book': AnswerBookBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {
