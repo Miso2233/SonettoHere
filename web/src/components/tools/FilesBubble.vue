@@ -1,7 +1,6 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <div class="bubble-content-wrap">
-      <!-- 运行中 -->
+    <!-- 运行中 -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
       <span class="spinner"></span>
       <span>{{ runningLabel }}</span>
@@ -46,13 +45,6 @@
             </div>
           </div>
           <div class="file-actions">
-            <button
-              v-if="td.file_path"
-              class="action-btn"
-              @click="openFile"
-            >
-              打开文件
-            </button>
             <button
               v-if="td.file_path"
               class="action-btn"
@@ -144,31 +136,16 @@
       <!-- 无 toolData 降级 -->
       <div v-else class="raw-output">{{ toolCall.output }}</div>
     </template>
-
-    <!-- 即时反馈 Toast -->
-    <transition name="toast-fade">
-      <div v-if="feedbackMsg" class="toast-banner">{{ feedbackMsg }}</div>
-    </transition>
-    </div>
   </BubbleChrome>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
-
-// ── 即时反馈 ──
-const feedbackMsg = ref('')
-let feedbackTimer: ReturnType<typeof setTimeout> | null = null
-function showFeedback(msg: string) {
-  if (feedbackTimer) clearTimeout(feedbackTimer)
-  feedbackMsg.value = msg
-  feedbackTimer = setTimeout(() => { feedbackMsg.value = '' }, 1500)
-}
 
 // ── 工具数据 ──
 const td = computed(() => props.toolCall.toolData ?? {})
@@ -255,7 +232,6 @@ function copyPath() {
     || ''
   if (!path) return
   navigator.clipboard.writeText(path)
-  showFeedback('路径已复制')
   emit('action', { action: 'copy-path', data: { path } })
 }
 
@@ -263,24 +239,18 @@ function copyContent() {
   const content = td.value.content as string | undefined
   if (!content) return
   navigator.clipboard.writeText(content)
-  showFeedback('内容已复制')
   emit('action', { action: 'copy-content', data: { length: content.length } })
 }
 
 function openFile() {
   const path = td.value.file_path as string | undefined
   if (!path) return
-  showFeedback('已发送打开请求')
   emit('action', { action: 'open-file', data: { path } })
 }
 </script>
 
 <style scoped>
 /* ── 文件操作气泡内容 ── */
-.bubble-content-wrap {
-  position: relative;
-}
-
 .files-result {
   display: flex;
   flex-direction: column;
@@ -588,32 +558,5 @@ function openFile() {
   padding: 8px 12px;
   background: var(--bg-primary);
   border-radius: 6px;
-}
-
-/* ── Toast 提示横幅 ── */
-.toast-banner {
-  position: absolute;
-  bottom: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  padding: 4px 16px;
-  border-radius: 100px;
-  background: var(--text-primary);
-  color: var(--bg-primary);
-  font-weight: 500;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(6px);
 }
 </style>
