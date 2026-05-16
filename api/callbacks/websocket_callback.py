@@ -245,6 +245,132 @@ class WebSocketCallback(BaseCallbackHandler):
                 "answer": data.get("answer", ""),
             }
 
+        # ── 地图系列 ──
+        if tool_name in ("nearby_search", "fuzzy_address_search"):
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            pois_raw = data.get("pois", [])
+            pois = []
+            if isinstance(pois_raw, list):
+                for poi in pois_raw:
+                    if not isinstance(poi, dict):
+                        continue
+                    pois.append({
+                        "name": poi.get("name", ""),
+                        "address": poi.get("address", ""),
+                        "location": poi.get("location", ""),
+                        "cityname": poi.get("cityname", ""),
+                        "adname": poi.get("adname", ""),
+                        "type": poi.get("type", ""),
+                    })
+            result = {
+                "count": data.get("count", len(pois)),
+                "pois": pois,
+            }
+            if tool_name == "nearby_search":
+                result["location"] = data.get("location", "")
+                result["keywords"] = data.get("keywords", "")
+                result["radius"] = data.get("radius", 0)
+            else:
+                result["keywords"] = data.get("keywords", "")
+                result["city"] = data.get("city", "")
+            return result
+
+        if tool_name == "geocode_address":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            return {
+                "address": data.get("address", ""),
+                "location": data.get("location", ""),
+            }
+
+        if tool_name == "get_transit_route":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            routes_raw = data.get("routes", [])
+            routes = []
+            if isinstance(routes_raw, list):
+                for route in routes_raw:
+                    if not isinstance(route, dict):
+                        continue
+                    segments = []
+                    for seg in route.get("segments", []):
+                        if not isinstance(seg, dict):
+                            continue
+                        seg_info: dict[str, Any] = {}
+                        walking = seg.get("walking")
+                        if isinstance(walking, dict):
+                            seg_info["walking"] = {
+                                "distance": walking.get("distance", 0),
+                            }
+                        bus = seg.get("bus")
+                        if isinstance(bus, dict):
+                            lines = []
+                            for line in bus.get("lines", []):
+                                if not isinstance(line, dict):
+                                    continue
+                                lines.append({
+                                    "type": line.get("type", ""),
+                                    "name": line.get("name", ""),
+                                    "departure_stop": line.get("departure_stop", ""),
+                                    "arrival_stop": line.get("arrival_stop", ""),
+                                    "via_num": line.get("via_num", 0),
+                                    "distance": line.get("distance", 0),
+                                    "duration": line.get("duration", 0),
+                                })
+                            seg_info["bus"] = {"lines": lines}
+                        segments.append(seg_info)
+                    routes.append({
+                        "cost": route.get("cost", 0),
+                        "duration": route.get("duration", 0),
+                        "walking_distance": route.get("walking_distance", 0),
+                        "segments": segments,
+                    })
+            return {
+                "origin": data.get("origin", ""),
+                "destination": data.get("destination", ""),
+                "origin_city": data.get("origin_city", ""),
+                "destination_city": data.get("destination_city", ""),
+                "route_count": data.get("route_count", len(routes)),
+                "routes": routes,
+            }
+
+        if tool_name == "get_cycling_route":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            paths_raw = data.get("paths", [])
+            paths = []
+            if isinstance(paths_raw, list):
+                for path in paths_raw:
+                    if not isinstance(path, dict):
+                        continue
+                    steps = []
+                    for step in path.get("steps", []):
+                        if not isinstance(step, dict):
+                            continue
+                        steps.append({
+                            "instruction": step.get("instruction", ""),
+                            "orientation": step.get("orientation", ""),
+                            "road": step.get("road", ""),
+                            "distance": step.get("distance", 0),
+                            "duration": step.get("duration", 0),
+                        })
+                    paths.append({
+                        "distance": path.get("distance", 0),
+                        "duration": path.get("duration", 0),
+                        "steps": steps,
+                    })
+            return {
+                "origin": data.get("origin", ""),
+                "destination": data.get("destination", ""),
+                "path_count": data.get("path_count", len(paths)),
+                "paths": paths,
+            }
+
         return None
 
     async def on_llm_start(

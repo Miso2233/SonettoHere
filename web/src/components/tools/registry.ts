@@ -6,6 +6,7 @@ import PythonBubble from './PythonBubble.vue'
 import FilesBubble from './FilesBubble.vue'
 import TarotBubble from './TarotBubble.vue'
 import AnswerBookBubble from './AnswerBookBubble.vue'
+import MapBubble from './MapBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -26,6 +27,11 @@ const registry: Record<string, Component> = {
   'file_operations': FilesBubble,
   'tarot': TarotBubble,
   'answer_book': AnswerBookBubble,
+  'nearby_search': MapBubble,
+  'fuzzy_address_search': MapBubble,
+  'geocode_address': MapBubble,
+  'get_transit_route': MapBubble,
+  'get_cycling_route': MapBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {

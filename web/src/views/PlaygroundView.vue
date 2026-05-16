@@ -154,6 +154,11 @@ function getBubbleComponentName(name: string): string {
     'file_operations': 'FilesBubble.vue',
     'tarot': 'TarotBubble.vue',
     'answer_book': 'AnswerBookBubble.vue',
+    'nearby_search': 'MapBubble.vue',
+    'fuzzy_address_search': 'MapBubble.vue',
+    'geocode_address': 'MapBubble.vue',
+    'get_transit_route': 'MapBubble.vue',
+    'get_cycling_route': 'MapBubble.vue',
   }
   return map[name] ?? name
 }
@@ -224,6 +229,131 @@ const mockTemplates: Record<string, MockTemplate> = {
         ],
       },
     }),
+  },
+  nearby_search: {
+    input: { location: '116.481028,39.989643', radius: 2000, keywords: '咖啡' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        location: '116.481028,39.989643',
+        keywords: '咖啡',
+        radius: 2000,
+        count: 3,
+        pois: [
+          { id: 'POI001', name: '星巴克（望京SOHO店）', location: '116.480,39.990', address: '北京市朝阳区望京SOHO T1一层', cityname: '北京市', adname: '朝阳区', type: '餐饮服务;咖啡厅' },
+          { id: 'POI002', name: '瑞幸咖啡（融科店）', location: '116.483,39.987', address: '北京市海淀区科学院南路2号', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+          { id: 'POI003', name: 'Costa Coffee（中关村店）', location: '116.485,39.985', address: '北京市海淀区中关村大街15号', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+        ],
+      },
+    }),
+    toolData: {
+      location: '116.481028,39.989643',
+      keywords: '咖啡',
+      radius: 2000,
+      count: 3,
+      pois: [
+        { name: '星巴克（望京SOHO店）', address: '北京市朝阳区望京SOHO T1一层', location: '116.480,39.990', cityname: '北京市', adname: '朝阳区', type: '餐饮服务;咖啡厅' },
+        { name: '瑞幸咖啡（融科店）', address: '北京市海淀区科学院南路2号', location: '116.483,39.987', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+        { name: 'Costa Coffee（中关村店）', address: '北京市海淀区中关村大街15号', location: '116.485,39.985', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+      ],
+    },
+  },
+  fuzzy_address_search: {
+    input: { keywords: '北京大学', city: '北京' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        keywords: '北京大学',
+        city: '北京',
+        count: 2,
+        pois: [
+          { id: 'POI010', name: '北京大学', location: '116.310,39.992', address: '北京市海淀区颐和园路5号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+          { id: 'POI011', name: '北京大学医学部', location: '116.353,39.977', address: '北京市海淀区学院路38号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+        ],
+      },
+    }),
+    toolData: {
+      keywords: '北京大学',
+      city: '北京',
+      count: 2,
+      pois: [
+        { name: '北京大学', location: '116.310,39.992', address: '北京市海淀区颐和园路5号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+        { name: '北京大学医学部', location: '116.353,39.977', address: '北京市海淀区学院路38号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+      ],
+    },
+  },
+  geocode_address: {
+    input: { address: '北京市海淀区中关村大街' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { address: '北京市海淀区中关村大街', location: '116.324,39.951' },
+    }),
+    toolData: {
+      address: '北京市海淀区中关村大街',
+      location: '116.324,39.951',
+    },
+  },
+  get_transit_route: {
+    input: { origin_longitude: '116.4', origin_latitude: '39.9', destination_longitude: '116.27', destination_latitude: '39.99', origin_city: '北京', destination_city: '北京' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        origin: '116.4,39.9',
+        destination: '116.27,39.99',
+        origin_city: '北京',
+        destination_city: '北京',
+        route_count: 2,
+        routes: [
+          { cost: 5, duration: 1860, walking_distance: 320, segments: [{ walking: { distance: 320, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁1号线', departure_stop: '王府井', arrival_stop: '天安门东', via_num: 1, distance: 1200, duration: 180 }] } }, { bus: { lines: [{ type: '公交', name: '332路', departure_stop: '天安门东', arrival_stop: '颐和园', via_num: 14, distance: 12000, duration: 2400 }] } }] },
+          { cost: 4, duration: 2400, walking_distance: 150, segments: [{ walking: { distance: 150, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁4号线', departure_stop: '西单', arrival_stop: '北宫门', via_num: 10, distance: 15000, duration: 1800 }] } }, { walking: { distance: 800, steps: [] } }] },
+        ],
+      },
+    }),
+    toolData: {
+      origin: '116.4,39.9',
+      destination: '116.27,39.99',
+      origin_city: '北京',
+      destination_city: '北京',
+      route_count: 2,
+      routes: [
+        { cost: 5, duration: 1860, walking_distance: 320, segments: [{ walking: { distance: 320, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁1号线', departure_stop: '王府井', arrival_stop: '天安门东', via_num: 1, distance: 1200, duration: 180 }] } }, { bus: { lines: [{ type: '公交', name: '332路', departure_stop: '天安门东', arrival_stop: '颐和园', via_num: 14, distance: 12000, duration: 2400 }] } }] },
+        { cost: 4, duration: 2400, walking_distance: 150, segments: [{ walking: { distance: 150, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁4号线', departure_stop: '西单', arrival_stop: '北宫门', via_num: 10, distance: 15000, duration: 1800 }] } }, { walking: { distance: 800, steps: [] } }] },
+      ],
+    },
+  },
+  get_cycling_route: {
+    input: { origin_longitude: '116.4', origin_latitude: '39.9', destination_longitude: '116.27', destination_latitude: '39.99' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        origin: '116.4,39.9',
+        destination: '116.27,39.99',
+        path_count: 1,
+        paths: [
+          { distance: 8500, duration: 2700, steps: [
+            { instruction: '沿王府井大街向北骑行', orientation: '北', road: '王府井大街', distance: 1200, duration: 300, action: '直行', assistant_action: '' },
+            { instruction: '左转进入长安街', orientation: '西', road: '长安街', distance: 2500, duration: 600, action: '左转', assistant_action: '' },
+            { instruction: '沿长安街向西骑行', orientation: '西', road: '长安街', distance: 3000, duration: 720, action: '直行', assistant_action: '' },
+            { instruction: '右转进入颐和园路', orientation: '北', road: '颐和园路', distance: 1800, duration: 480, action: '右转', assistant_action: '' },
+            { instruction: '到达目的地颐和园东门', orientation: '', road: '', distance: 0, duration: 0, action: '到达', assistant_action: '' },
+          ]},
+        ],
+      },
+    }),
+    toolData: {
+      origin: '116.4,39.9',
+      destination: '116.27,39.99',
+      path_count: 1,
+      paths: [
+        { distance: 8500, duration: 2700, steps: [
+          { instruction: '沿王府井大街向北骑行', orientation: '北', road: '王府井大街', distance: 1200, duration: 300, action: '直行', assistant_action: '' },
+          { instruction: '左转进入长安街', orientation: '西', road: '长安街', distance: 2500, duration: 600, action: '左转', assistant_action: '' },
+          { instruction: '沿长安街向西骑行', orientation: '西', road: '长安街', distance: 3000, duration: 720, action: '直行', assistant_action: '' },
+          { instruction: '右转进入颐和园路', orientation: '北', road: '颐和园路', distance: 1800, duration: 480, action: '右转', assistant_action: '' },
+          { instruction: '到达目的地颐和园东门', orientation: '', road: '', distance: 0, duration: 0, action: '到达', assistant_action: '' },
+        ]},
+      ],
+    },
   },
   search: {
     input: { query: '京都红叶最佳观赏时间' },
