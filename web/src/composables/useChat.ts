@@ -151,6 +151,7 @@ export function useChat(sessionId: Ref<string>) {
           if (event.payload.tool_data) {
             tc.toolData = event.payload.tool_data
           }
+          console.log('[useChat] tool_end:', event.payload.tool_name, 'tool_data:', event.payload.tool_data)
         }
         break
       }

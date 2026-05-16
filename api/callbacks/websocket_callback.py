@@ -23,6 +23,13 @@ def _extract_content(output: Any) -> str:
     return output
 
 
+def _fmt_temp(val: Any) -> str:
+    """将温度值格式化为 "14°C" 字符串。"""
+    if isinstance(val, (int, float)):
+        return f"{val}°C"
+    return str(val) if val else ""
+
+
 class WebSocketCallback(BaseCallbackHandler):
     def __init__(self, ws: WebSocket):
         super().__init__()
@@ -370,6 +377,141 @@ class WebSocketCallback(BaseCallbackHandler):
                 "path_count": data.get("path_count", len(paths)),
                 "paths": paths,
             }
+
+        # ── 天气查询 ──
+        if tool_name == "get_current_weather":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            temp_val = data.get("temperature")
+            if isinstance(temp_val, (int, float)):
+                temp_str = f"{temp_val}°C"
+            else:
+                temp_str = str(temp_val) if temp_val else ""
+            humidity_val = data.get("humidity")
+            humidity_str = f"{humidity_val}%" if isinstance(humidity_val, (int, float)) else str(humidity_val) if humidity_val else ""
+            wind_parts = []
+            if data.get("wind_direction"):
+                wind_parts.append(data["wind_direction"])
+            if data.get("wind_power"):
+                wind_parts.append(data["wind_power"])
+            wind_str = " ".join(wind_parts)
+            result: dict[str, Any] = {
+                "city": data.get("city", ""),
+                "temp": temp_str,
+                "condition": data.get("weather", ""),
+                "humidity": humidity_str,
+                "wind": wind_str,
+            }
+            if "feels_like" in data:
+                feels = data["feels_like"]
+                result["temp_feel"] = f"{feels}°C" if isinstance(feels, (int, float)) else str(feels)
+            if "visibility" in data:
+                result["visibility"] = f'{data["visibility"]}km'
+            if "pressure" in data:
+                result["pressure"] = f'{data["pressure"]}hPa'
+            forecast = data.get("forecast")
+            if isinstance(forecast, list):
+                result["forecast"] = [
+                    {
+                        "day": d.get("date", d.get("week", "")),
+                        "high": _fmt_temp(d.get("temp_max", "")),
+                        "low": _fmt_temp(d.get("temp_min", "")),
+                        "condition": d.get("weather_day", d.get("weather_night", "")),
+                    }
+                    for d in forecast if isinstance(d, dict)
+                ]
+            return result
+
+        # ── 节假日查询 ──
+        if tool_name == "holiday_calendar":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            result: dict[str, Any] = {"mode": data.get("mode", "")}
+
+            # 查询参数
+            query = data.get("query")
+            if isinstance(query, dict):
+                for field in ("date", "month", "year"):
+                    if query.get(field):
+                        result[field] = query[field]
+
+            # 统计摘要
+            summary = data.get("summary")
+            if isinstance(summary, dict):
+                for field in ("total_days", "holiday_events", "rest_days", "legal_rest_days", "workdays"):
+                    if field in summary:
+                        result[field] = summary[field]
+
+            # 日期明细（取第一天用于展示农历、星期等）
+            days_raw = data.get("days", [])
+            if isinstance(days_raw, list):
+                result["days"] = [
+                    {
+                        "date": d.get("date", ""),
+                        "weekday": d.get("weekday_cn", ""),
+                        "lunar_date": f"{d.get('lunar_month_name', '')}{d.get('lunar_day_name', '')}",
+                        "lunar_month": d.get("lunar_month_name", ""),
+                        "lunar_day": d.get("lunar_day_name", ""),
+                        "legal_holiday_name": d.get("legal_holiday_name", ""),
+                        "solar_festival": d.get("solar_festival", ""),
+                        "lunar_festival": d.get("lunar_festival", ""),
+                        "solar_term": d.get("solar_term", ""),
+                        "is_rest_day": d.get("is_rest_day", False),
+                        "is_holiday": d.get("is_holiday", False),
+                        "ganzhi_year": d.get("ganzhi_year", ""),
+                        "ganzhi_month": d.get("ganzhi_month", ""),
+                        "ganzhi_day": d.get("ganzhi_day", ""),
+                    }
+                    for d in days_raw if isinstance(d, dict)
+                ]
+                # 向上兼容：取第一条的农历和星期
+                first = result["days"][0] if result["days"] else None
+                if first:
+                    result.setdefault("weekday", first["weekday"])
+                    if first["lunar_date"]:
+                        result["lunar_date"] = first["lunar_date"]
+                    if first["solar_term"]:
+                        result["solar_term"] = first["solar_term"]
+
+            # 节日事件
+            holidays = data.get("holidays", [])
+            if isinstance(holidays, list):
+                result["holidays"] = [
+                    {
+                        "name": h.get("name", ""),
+                        "type": h.get("type", ""),
+                        "date": h.get("date", ""),
+                    }
+                    for h in holidays if isinstance(h, dict)
+                ]
+
+            # 附近节日（dict: {previous, next}）
+            nearby = data.get("nearby")
+            if isinstance(nearby, dict):
+                nb: dict[str, Any] = {}
+                for direction in ("previous", "next"):
+                    items = nearby.get(direction, [])
+                    if isinstance(items, list):
+                        nb[direction] = [
+                            {
+                                "date": item.get("date", ""),
+                                "events": [
+                                    {
+                                        "name": e.get("name", ""),
+                                        "type": e.get("type", ""),
+                                        "date": e.get("date", ""),
+                                    }
+                                    for e in item.get("events", []) if isinstance(e, dict)
+                                ],
+                            }
+                            for item in items if isinstance(item, dict)
+                        ]
+                if nb:
+                    result["nearby"] = nb
+
+            return result
 
         return None
 

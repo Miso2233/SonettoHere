@@ -7,6 +7,8 @@ import FilesBubble from './FilesBubble.vue'
 import TarotBubble from './TarotBubble.vue'
 import AnswerBookBubble from './AnswerBookBubble.vue'
 import MapBubble from './MapBubble.vue'
+import WeatherBubble from './WeatherBubble.vue'
+import HolidayBubble from './HolidayBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -32,6 +34,8 @@ const registry: Record<string, Component> = {
   'geocode_address': MapBubble,
   'get_transit_route': MapBubble,
   'get_cycling_route': MapBubble,
+  'get_current_weather': WeatherBubble,
+  'holiday_calendar': HolidayBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {

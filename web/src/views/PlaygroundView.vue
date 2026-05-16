@@ -159,6 +159,8 @@ function getBubbleComponentName(name: string): string {
     'geocode_address': 'MapBubble.vue',
     'get_transit_route': 'MapBubble.vue',
     'get_cycling_route': 'MapBubble.vue',
+    'get_current_weather': 'WeatherBubble.vue',
+    'holiday_calendar': 'HolidayBubble.vue',
   }
   return map[name] ?? name
 }
@@ -216,6 +218,91 @@ const mockTemplates: Record<string, MockTemplate> = {
         ],
       },
     }),
+  },
+  get_current_weather: {
+    input: { city: '北京', forecast: true, extended: true },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        city: '北京',
+        temp: '26°C',
+        humidity: '45%',
+        condition: '晴',
+        wind: '南风 2级',
+        temp_feel: '27°C',
+        visibility: '10km',
+        pressure: '1013hPa',
+        forecast: [
+          { day: '今天', high: '28°C', low: '18°C', condition: '晴' },
+          { day: '明天', high: '30°C', low: '20°C', condition: '晴转多云' },
+          { day: '后天', high: '27°C', low: '19°C', condition: '多云' },
+          { day: '周四', high: '25°C', low: '17°C', condition: '小雨' },
+          { day: '周五', high: '24°C', low: '16°C', condition: '阴' },
+        ],
+      },
+    }),
+    toolData: {
+      city: '北京',
+      temp: '26°C',
+      humidity: '45%',
+      condition: '晴',
+      wind: '南风 2级',
+      temp_feel: '27°C',
+      visibility: '10km',
+      pressure: '1013hPa',
+      forecast: [
+        { day: '今天', high: '28°C', low: '18°C', condition: '晴' },
+        { day: '明天', high: '30°C', low: '20°C', condition: '晴转多云' },
+        { day: '后天', high: '27°C', low: '19°C', condition: '多云' },
+        { day: '周四', high: '25°C', low: '17°C', condition: '小雨' },
+        { day: '周五', high: '24°C', low: '16°C', condition: '阴' },
+      ],
+    },
+  },
+  holiday_calendar: {
+    input: { date: '2026-10-01', include_nearby: true, nearby_limit: 5 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        mode: 'day',
+        query: { date: '2026-10-01', holiday_type: 'all', include_nearby: true, exclude_past: true, month: '', nearby_limit: 5, timezone: 'Asia/Shanghai', year: '' },
+        summary: { total_days: 1, weekend_days: 0, workdays: 0, rest_days: 1, holiday_events: 2, legal_rest_days: 1, legal_workdays: 0 },
+        days: [
+          { date: '2026-10-01', year: 2026, month: 10, day: 1, weekday_cn: '星期四', is_weekend: false, is_workday: false, is_rest_day: true, is_holiday: true, legal_holiday_name: '国庆节', legal_holiday_type: 'rest', solar_festival: '国庆节', lunar_festival: '', solar_term: '', lunar_year: 2026, lunar_month: 8, lunar_day: 21, lunar_month_name: '八月', lunar_day_name: '廿一', ganzhi_year: '乙巳', ganzhi_month: '乙酉', ganzhi_day: '癸卯' },
+        ],
+        holidays: [
+          { date: '2026-10-01', name: '国庆节', type: 'legal_rest' },
+          { date: '2026-10-01', name: '国际音乐节', type: 'solar' },
+        ],
+        nearby: {
+          previous: [{ date: '2026-09-28', events: [{ date: '2026-09-28', name: '国庆调休', type: 'legal_workday_adjust', is_workday: true }] }],
+          next: [
+            { date: '2026-10-02', events: [{ date: '2026-10-02', name: '国庆节', type: 'legal_rest', is_workday: false }] },
+            { date: '2026-10-29', events: [{ date: '2026-10-29', name: '重阳节', type: 'lunar', is_workday: false }] },
+          ],
+        },
+      },
+    }),
+    toolData: {
+      mode: 'day',
+      date: '2026-10-01',
+      weekday: '星期四',
+      lunar_date: '八月廿一',
+      days: [
+        { date: '2026-10-01', weekday: '星期四', lunar_date: '八月廿一', lunar_month: '八月', lunar_day: '廿一', legal_holiday_name: '国庆节', solar_festival: '国庆节', lunar_festival: '', solar_term: '', is_rest_day: true, is_holiday: true, ganzhi_year: '乙巳', ganzhi_month: '乙酉', ganzhi_day: '癸卯' },
+      ],
+      holidays: [
+        { name: '国庆节', type: 'legal_rest', date: '2026-10-01' },
+        { name: '国际音乐节', type: 'solar', date: '2026-10-01' },
+      ],
+      nearby: {
+        previous: [{ date: '2026-09-28', events: [{ name: '国庆调休', type: 'legal_workday_adjust', date: '2026-09-28' }] }],
+        next: [
+          { date: '2026-10-02', events: [{ name: '国庆节', type: 'legal_rest', date: '2026-10-02' }] },
+          { date: '2026-10-29', events: [{ name: '重阳节', type: 'lunar', date: '2026-10-29' }] },
+        ],
+      },
+    },
   },
   map_nearby: {
     input: { location: '岚山', radius: 2000, keywords: '咖啡' },
