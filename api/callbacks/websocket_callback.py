@@ -82,6 +82,25 @@ class WebSocketCallback(BaseCallbackHandler):
                         result[field] = data[field]
             return result
 
+        # ── Task Tracker ──
+        if tool_name == "task_tracker":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+            result: dict[str, Any] = {
+                "tool_type": "task_tracker",
+                "status": data.get("status"),
+                "total_steps": data.get("total_steps"),
+                "current_step": data.get("current_step"),
+                "current_task": data.get("current_task"),
+            }
+            tasks = data.get("tasks")
+            if isinstance(tasks, list):
+                result["tasks"] = tasks
+            if "message" in data:
+                result["message"] = data["message"]
+            return result
+
         return None
 
     async def on_llm_start(

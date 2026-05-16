@@ -146,6 +146,7 @@ function getBubbleComponentName(name: string): string {
     'todo_update': 'TodoBubble.vue',
     'todo_query': 'TodoBubble.vue',
     'todo_list_projects': 'TodoBubble.vue',
+    'task_tracker': 'TaskTrackerBubble.vue',
   }
   return map[name] ?? name
 }
@@ -363,6 +364,27 @@ const mockTemplates: Record<string, MockTemplate> = {
         { project_id: '34567890', name: '工作' },
         { project_id: '45678901', name: 'Inbox' },
       ],
+    },
+  },
+  task_tracker: {
+    input: { tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'] },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        status: 'in_progress',
+        total_steps: 5,
+        current_step: 2,
+        current_task: '设计数据库结构',
+        tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'],
+      },
+    }),
+    toolData: {
+      tool_type: 'task_tracker',
+      status: 'in_progress',
+      total_steps: 5,
+      current_step: 2,
+      current_task: '设计数据库结构',
+      tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'],
     },
   },
 }

@@ -1,6 +1,7 @@
 import type { Component } from 'vue'
 import BilibiliDownloadBubble from './BilibiliDownloadBubble.vue'
 import TodoBubble from './TodoBubble.vue'
+import TaskTrackerBubble from './TaskTrackerBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -13,6 +14,7 @@ const registry: Record<string, Component> = {
   'todo_update': TodoBubble,
   'todo_query': TodoBubble,
   'todo_list_projects': TodoBubble,
+  'task_tracker': TaskTrackerBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {
