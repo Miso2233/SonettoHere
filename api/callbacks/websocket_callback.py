@@ -694,6 +694,83 @@ class WebSocketCallback(BaseCallbackHandler):
                 result["total_paragraphs"] = data["total_paragraphs"]
             return result
 
+        # ── 代码质量分析 ──
+        if tool_name == "code_quality_analyzer":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            # 从 tool_input 提取 file_path / analysis_type
+            file_path = ""
+            analysis_type = ""
+            if tool_input:
+                try:
+                    inp = ast.literal_eval(tool_input)
+                except Exception:
+                    pass
+                else:
+                    if isinstance(inp, dict):
+                        file_path = inp.get("file_path", "") or ""
+                        analysis_type = inp.get("analysis_type", "") or ""
+
+            result: dict[str, Any] = {
+                "file_path": file_path,
+                "analysis_type": analysis_type,
+            }
+            if "complexity" in data and isinstance(data["complexity"], dict):
+                result["complexity"] = data["complexity"]
+            if "maintainability" in data and isinstance(data["maintainability"], dict):
+                result["maintainability"] = data["maintainability"]
+            if "duplication" in data and isinstance(data["duplication"], dict):
+                result["duplication"] = data["duplication"]
+            return result
+
+        # ── 单元测试运行 ──
+        if tool_name == "unit_test_runner":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            result: dict[str, Any] = {
+                "tests_run": data.get("tests_run", 0),
+                "failures": data.get("failures", 0),
+                "errors": data.get("errors", 0),
+                "skipped": data.get("skipped", 0),
+                "successful": data.get("successful", 0),
+                "success_rate": data.get("success_rate", 0.0),
+            }
+            if "failures_details" in data and isinstance(data["failures_details"], list):
+                result["failures_details"] = data["failures_details"]
+            if "errors_details" in data and isinstance(data["errors_details"], list):
+                result["errors_details"] = data["errors_details"]
+            return result
+
+        # ── 代码调试 ──
+        if tool_name == "debugger":
+            raw_data = parsed.get("data")
+            # get_doc 模式返回字符串
+            if isinstance(raw_data, str):
+                return {"operation": "get_doc", "content": raw_data}
+            if not isinstance(raw_data, dict):
+                return None
+            data = raw_data
+
+            result: dict[str, Any] = {
+                "status": data.get("status", ""),
+            }
+            if "variables" in data and isinstance(data["variables"], dict):
+                result["variables"] = data["variables"]
+            if data.get("status") == "success":
+                result["output"] = data.get("output", "")
+            else:
+                if "error_type" in data:
+                    result["error_type"] = data["error_type"]
+                if "error_message" in data:
+                    result["error_message"] = data["error_message"]
+                if "traceback" in data:
+                    result["traceback"] = data["traceback"]
+            return result
+
         return None
 
     async def on_llm_start(
