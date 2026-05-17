@@ -12,6 +12,7 @@ from callbacks.printer import PrinterCallback
 from config.settings import get_settings
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
+from skills.interaction.skill_ask_user import AskUserSkill
 
 
 class SonettoCLI:
@@ -30,7 +31,7 @@ class SonettoCLI:
             extra_body={"thinking": {"type": "disabled"}},
         )
         self.system_prompt = build_system_prompt()
-        self.tools = get_all_skills()
+        self.tools = get_all_skills() + [AskUserSkill()]
         self.graph = build_agent(
             model=self.llm,
             tools=self.tools,

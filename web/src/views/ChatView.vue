@@ -9,6 +9,7 @@
       :turns="turns"
       :current-turn="currentTurn"
       :error="error"
+      @action="handleToolAction"
     />
 
     <ChatInput
@@ -29,8 +30,15 @@ import ChatWindow from '@/components/ChatWindow.vue'
 import ChatInput from '@/components/ChatInput.vue'
 
 const { sessionId } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel } =
+const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse } =
   useChat(sessionId)
+
+function handleToolAction(payload: { action: string; data?: unknown }) {
+  if (payload.action === 'user_response') {
+    const d = payload.data as { interactionId: string; response: string | string[] }
+    sendUserResponse(d.interactionId, d.response)
+  }
+}
 </script>
 
 <style scoped>

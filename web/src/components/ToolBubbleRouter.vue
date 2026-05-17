@@ -18,7 +18,13 @@ const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
 const bubbleComponent = computed(() => {
-  return getBubbleComponent(props.toolCall.name)
+  const comp = getBubbleComponent(props.toolCall.name)
+  console.log('[ToolBubbleRouter] toolCall:', {
+    name: props.toolCall.name,
+    status: props.toolCall.status,
+    component: comp ? comp.name || 'AsyncComponent' : 'null → ToolCallCard fallback',
+  })
+  return comp
 })
 
 function handleAction(payload: { action: string; data?: unknown }) {
