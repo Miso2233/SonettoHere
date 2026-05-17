@@ -8,7 +8,7 @@
 |------|------|
 | Phase 1 — 基础设施 | ✅ 完成 |
 | Phase 2 — 首批工具气泡 | ✅ 完成 |
-| Phase 3 — 逐工具迁移 | 进行中（17/29 工具） |
+| Phase 3 — 逐工具迁移 | ✅ 完成（20/21 工具，1 个因架构原因暂缓） |
 
 ## 二、已开发气泡清单
 
@@ -31,8 +31,11 @@
 | 15 | SearchBubble | `smart_search` | ~475 | 中（结果列表+调试面板） |
 | 16 | PdfReaderBubble | `pdf_reader` | ~300 | 中（元数据/目录/文本/搜索） |
 | 17 | DocReaderBubble | `doc_reader` | ~300 | 中（元数据/段落/表格/搜索） |
+| 18 | CodeQualityBubble | `code_quality_analyzer` | ~250 | 中（复杂度/可维护性/重复度） |
+| 19 | UnitTestBubble | `unit_test_runner` | ~300 | 中（通过率/失败详情） |
+| 20 | ScraperBubble | `scrape_webpage` | ~260 | 中（页面信息/链接/图片/结构化数据） |
 
-**统计：** 17 个气泡组件覆盖 29 个后端 tool_name。
+**统计：** 20 个气泡组件覆盖 31 个后端 tool_name。
 
 ## 三、技术架构回顾
 
@@ -66,17 +69,11 @@ const td = computed(() => toolCall.toolData ?? JSON.parse(toolCall.output).data 
 toolCall.status === 'running' | 'done' | 'error'
 ```
 
-## 四、尚未覆盖的工具
+## 四、项目总结
 
-| # | 后端 tool_name | 源文件 | 功能 | 预估复杂度 |
-|---|---------------|--------|------|-----------|
-| 1 | `scrape_webpage` | `skill_scraper.py` | 网页抓取 | 中（内容展示） |
-| 2 | `code_quality_analyzer` | `skill_code_quality.py` | 代码质量 | 低（同syntax） |
-| 3 | `unit_test_runner` | `skill_unit_test.py` | 单元测试 | 中 |
-| 4 | `debugger` | `skill_debug.py` | 调试 | 中 |
-| 5 | `ask_user_for_info` | `skill_ask_user.py` | 询问用户 | 低（特殊交互） |
+Kaleidoscope 项目已结束。**20/21 个工具已覆盖**，仅 `ask_user_for_info` 因需要前端工具系统重构（特殊交互模式）而暂缓，待后续单独处理。
 
-共 5 个工具待开发。
+详细总结参阅 [kaleidoscope-completion-report.md](./kaleidoscope-completion-report.md)。
 
 ## 五、经验与教训
 
@@ -85,6 +82,8 @@ toolCall.status === 'running' | 'done' | 'error'
 1. **ToolMessage.content**：所有 `_extract_tool_data` 分支必须用 `_extract_content(output)`。
 2. **1622 错误（字段不匹配）**：天气提取器假设 `temp`/`condition`/`wind`，UAPI 实际返回 `temperature`/`weather`/`wind_direction` + `wind_power`。修复方法：参考官方 API 文档重新映射。
 3. **节假日数据结构重构**：从扁平结构改为 `mode/days[]/holidays[]/nearby{}`，导致前后端同步重写。
+
+4. **BubbleChrome 溢出裁切**：折叠动画后 `maxHeight` 固定不变，内部展开会溢出。修复方案：动画完成后将 `maxHeight` 设为 `none`。
 
 ### 5.2 开发建议
 
