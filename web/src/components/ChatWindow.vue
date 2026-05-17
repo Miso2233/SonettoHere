@@ -6,7 +6,7 @@
         <MessageBubble role="user" :content="turn.userMessage" />
         <template v-for="(ev, i) in turn.events" :key="i">
           <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
-          <ToolBubbleRouter v-else :tool-call="ev" />
+          <ToolBubbleRouter v-else :tool-call="ev" @action="forwardAction" />
         </template>
         <MessageBubble
           v-if="turn.finalAnswer && !hasAnswerBlock(turn)"
@@ -20,7 +20,7 @@
         <MessageBubble role="user" :content="currentTurn.userMessage" />
         <template v-for="(ev, i) in currentTurn.events" :key="i">
           <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
-          <ToolBubbleRouter v-else :tool-call="ev" />
+          <ToolBubbleRouter v-else :tool-call="ev" @action="forwardAction" />
         </template>
       </template>
 
@@ -48,6 +48,14 @@ const props = defineProps<{
   currentTurn: ChatTurn | null
   error: string | null
 }>()
+
+const emit = defineEmits<{
+  (e: 'action', p: { action: string; data?: unknown }): void
+}>()
+
+function forwardAction(payload: { action: string; data?: unknown }) {
+  emit('action', payload)
+}
 
 const windowRef = ref<HTMLElement | null>(null)
 

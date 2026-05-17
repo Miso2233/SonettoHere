@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import type { ToolCall } from '@/types'
 import { toolDisplayName } from './displayNames'
 
@@ -36,18 +36,22 @@ function toggle() {
   isOpen.value = !isOpen.value
 }
 
+/** 展开气泡并设置动画高度 */
+function openBody() {
+  if (!bodyWrapper.value) return
+  const h = bodyWrapper.value.scrollHeight
+  bodyWrapper.value.style.maxHeight = h + 'px'
+  setTimeout(() => {
+    if (bodyWrapper.value && isOpen.value) {
+      bodyWrapper.value.style.maxHeight = 'none'
+    }
+  }, 350)
+}
+
 watch(isOpen, (open) => {
   if (!bodyWrapper.value) return
   if (open) {
-    // Capture current scroll height to animate the open
-    const h = bodyWrapper.value.scrollHeight
-    bodyWrapper.value.style.maxHeight = h + 'px'
-    // After animation completes, remove constraint so expandable content can grow
-    setTimeout(() => {
-      if (bodyWrapper.value && isOpen.value) {
-        bodyWrapper.value.style.maxHeight = 'none'
-      }
-    }, 350) // slightly longer than CSS transition (0.3s)
+    openBody()
   } else {
     // Freeze at current height for smooth collapse
     bodyWrapper.value.style.maxHeight = bodyWrapper.value.scrollHeight + 'px'
@@ -56,6 +60,14 @@ watch(isOpen, (open) => {
   }
 })
 
+// ★ 组件挂载时若已是 running 状态，立即展开（lazy watch 不会因初始值相同而触发）
+onMounted(() => {
+  if (props.toolCall.status === 'running') {
+    isOpen.value = true
+  }
+})
+
+// 运行时状态变为 running 也展开
 watch(() => props.toolCall.status, (s) => {
   if (s === 'running') {
     isOpen.value = true

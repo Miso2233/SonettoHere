@@ -55,6 +55,18 @@ export interface ContextUsageEvent {
   payload: ContextUsage
 }
 
+/** ask_user 交互工具向用户展示的问题和选项 */
+export interface AskUserEvent {
+  type: 'ask_user'
+  payload: {
+    tool_name: string
+    question: string
+    mode: 'qa' | 'single_choice' | 'multi_choice'
+    options: string[]
+    interaction_id: string
+  }
+}
+
 export type ServerEvent =
   | ThinkingStartEvent
   | TokenEvent
@@ -67,6 +79,7 @@ export type ServerEvent =
   | ErrorEvent
   | PongEvent
   | ContextUsageEvent
+  | AskUserEvent
 
 // === WebSocket 客户端 → 服务端消息 ===
 
@@ -85,7 +98,16 @@ export interface PingMessage {
   payload: Record<string, never>
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage
+/** 用户对 ask_user 交互工具的响应 */
+export interface UserResponseMessage {
+  type: 'user_response'
+  payload: {
+    interaction_id: string
+    response: string | string[]
+  }
+}
+
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage
 
 // === 前端 UI 状态类型 ===
 
@@ -96,6 +118,15 @@ export interface ThinkingBlock {
   becameAnswer: boolean
 }
 
+/** ask_user 交互工具在前端存储的交互数据 */
+export interface AskUserInteraction {
+  question: string
+  mode: 'qa' | 'single_choice' | 'multi_choice'
+  options: string[]
+  interactionId: string
+  submitted: boolean
+}
+
 export interface ToolCall {
   kind: 'tool'
   name: string
@@ -104,6 +135,8 @@ export interface ToolCall {
   elapsed: number | null
   status: 'running' | 'done' | 'error'
   toolData?: Record<string, unknown>
+  /** ask_user 交互工具的额外数据 */
+  interaction?: AskUserInteraction
 }
 
 export type TurnEvent = ThinkingBlock | ToolCall

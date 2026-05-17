@@ -62,7 +62,9 @@ def get_all_skills() -> list[BaseTool]:
     from skills.task.skill_tracker import TaskTrackerSkill
 
     # Interaction
-    from skills.interaction.skill_ask_user import AskUserSkill
+    from skills.interaction.skill_ask_qa import AskUserQASkill
+    from skills.interaction.skill_ask_single_choice import AskUserSingleChoiceSkill
+    from skills.interaction.skill_ask_multi_choice import AskUserMultiChoiceSkill
 
     # Entertainment
     from skills.entertainment.skill_answer_book import AnswerBookSkill
@@ -109,7 +111,9 @@ def get_all_skills() -> list[BaseTool]:
         # Task
         TaskTrackerSkill(client=client),
         # Interaction
-        AskUserSkill(client=client),
+        AskUserQASkill(client=client),
+        AskUserSingleChoiceSkill(client=client),
+        AskUserMultiChoiceSkill(client=client),
         # Entertainment
         AnswerBookSkill(client=client),
         TarotSkill(client=client),

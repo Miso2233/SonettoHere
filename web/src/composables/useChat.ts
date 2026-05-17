@@ -1,5 +1,5 @@
 import { ref, reactive, watch, onUnmounted, nextTick, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage } from '@/types'
+import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent } from '@/types'
 
 const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
@@ -71,8 +71,16 @@ export function useChat(sessionId: Ref<string>) {
     }
 
     ws.value.onmessage = (event) => {
-      const msg: ServerEvent = JSON.parse(event.data)
-      handleEvent(msg)
+      try {
+        const msg: ServerEvent = JSON.parse(event.data)
+        console.log('[useChat] WS event received:', msg.type, msg.type === 'ask_user' ? {
+          tool_name: (msg as AskUserEvent).payload.tool_name,
+          interaction_id: (msg as AskUserEvent).payload.interaction_id,
+        } : '')
+        handleEvent(msg)
+      } catch (e) {
+        console.error('[useChat] WS message parse/handle error:', e)
+      }
     }
   }
 
@@ -96,6 +104,15 @@ export function useChat(sessionId: Ref<string>) {
   function cancel() {
     if (!ws.value || ws.value.readyState !== WebSocket.OPEN) return
     const payload: ClientMessage = { type: 'cancel', payload: {} }
+    ws.value.send(JSON.stringify(payload))
+  }
+
+  function sendUserResponse(interactionId: string, response: string | string[]) {
+    if (!ws.value || ws.value.readyState !== WebSocket.OPEN) return
+    const payload: ClientMessage = {
+      type: 'user_response',
+      payload: { interaction_id: interactionId, response },
+    }
     ws.value.send(JSON.stringify(payload))
   }
 
@@ -215,6 +232,36 @@ export function useChat(sessionId: Ref<string>) {
 
       case 'pong':
         break
+
+      case 'ask_user': {
+        const ae = event as AskUserEvent
+        console.log('[useChat] received ask_user event:', {
+          tool_name: ae.payload.tool_name,
+          question: ae.payload.question?.slice(0, 50),
+          mode: ae.payload.mode,
+          interaction_id: ae.payload.interaction_id,
+        })
+        const runningTool = findRunningTool(turn.events, ae.payload.tool_name)
+        console.log('[useChat] findRunningTool result:', runningTool ? {
+          name: runningTool.name,
+          status: runningTool.status,
+          has_interaction: !!runningTool.interaction,
+        } : 'NOT FOUND')
+        if (runningTool) {
+          runningTool.interaction = {
+            question: ae.payload.question,
+            mode: ae.payload.mode,
+            options: ae.payload.options,
+            interactionId: ae.payload.interaction_id,
+            submitted: false,
+          }
+          console.log('[useChat] interaction SET on toolCall:', {
+            name: runningTool.name,
+            interactionId: runningTool.interaction.interactionId,
+          })
+        }
+        break
+      }
     }
   }
 
@@ -254,7 +301,7 @@ export function useChat(sessionId: Ref<string>) {
 
   onUnmounted(() => disconnect())
 
-  return { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, connect, disconnect }
+  return { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, connect, disconnect }
 }
 
 function findLastThinking(events: TurnEvent[]): ThinkingBlock | undefined {
@@ -275,3 +322,4 @@ function findRunningTool(events: TurnEvent[], toolName: string): ToolCall | unde
   }
   return undefined
 }
+

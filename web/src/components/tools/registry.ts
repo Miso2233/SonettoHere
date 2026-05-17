@@ -20,6 +20,7 @@ import CodeQualityBubble from './CodeQualityBubble.vue'
 import UnitTestBubble from './UnitTestBubble.vue'
 import DebuggerBubble from './DebuggerBubble.vue'
 import ScraperBubble from './ScraperBubble.vue'
+import AskUserBubble from './AskUserBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -58,6 +59,10 @@ const registry: Record<string, Component> = {
   'unit_test_runner': UnitTestBubble,
   'debugger': DebuggerBubble,
   'scrape_webpage': ScraperBubble,
+  'ask_user_for_info': AskUserBubble,
+  'ask_user_qa': AskUserBubble,
+  'ask_user_single_choice': AskUserBubble,
+  'ask_user_multi_choice': AskUserBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {
