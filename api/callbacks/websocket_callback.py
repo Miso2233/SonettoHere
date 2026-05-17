@@ -771,6 +771,36 @@ class WebSocketCallback(BaseCallbackHandler):
                     result["traceback"] = data["traceback"]
             return result
 
+        # ── 网页抓取 ──
+        if tool_name == "scrape_webpage":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            result: dict[str, Any] = {
+                "url": data.get("url", ""),
+                "title": data.get("title", ""),
+            }
+            if "content" in data:
+                result["content"] = data["content"]
+            if "meta" in data and isinstance(data["meta"], dict):
+                result["meta"] = data["meta"]
+            if "open_graph" in data and isinstance(data["open_graph"], dict):
+                result["open_graph"] = data["open_graph"]
+            if "twitter_card" in data and isinstance(data["twitter_card"], dict):
+                result["twitter_card"] = data["twitter_card"]
+            if "structured_data" in data and isinstance(data["structured_data"], list):
+                result["structured_data"] = data["structured_data"]
+            if "headings" in data and isinstance(data["headings"], list):
+                result["headings"] = data["headings"]
+            if "links" in data and isinstance(data["links"], list):
+                result["links"] = data["links"]
+            if "images" in data and isinstance(data["images"], list):
+                result["images"] = data["images"]
+            if "screenshot_base64" in data:
+                result["screenshot_base64"] = data["screenshot_base64"]
+            return result
+
         return None
 
     async def on_llm_start(

@@ -171,6 +171,7 @@ function getBubbleComponentName(name: string): string {
     'code_quality_analyzer': 'CodeQualityBubble.vue',
     'unit_test_runner': 'UnitTestBubble.vue',
     'debugger': 'DebuggerBubble.vue',
+    'scrape_webpage': 'ScraperBubble.vue',
   }
   return map[name] ?? name
 }
@@ -1054,6 +1055,30 @@ const mockTemplates: Record<string, MockTemplate> = {
       variables: { x: '1', y: '0', result: '未定义' },
     },
   },
+  scrape_webpage: {
+    input: { url: 'https://example.com/article', wait_ms: 5000 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        url: 'https://example.com/article',
+        title: 'Example Article — A Sample Page for Web Scraping',
+        content: '<article><h1>Example Article</h1><p>This is a sample article page used for testing the web scraping tool. It contains various HTML elements including headings, paragraphs, links, and images.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p><p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p></article>',
+        open_graph: { title: 'Example Article', description: 'A sample page for testing web scraping functionality.', image: 'https://example.com/og-image.jpg', type: 'article' },
+        headings: [{ level: 1, text: 'Example Article' }, { level: 2, text: 'Introduction' }, { level: 2, text: 'Methodology' }, { level: 3, text: 'Data Collection' }, { level: 3, text: 'Analysis' }, { level: 2, text: 'Results' }],
+        links: [{ text: 'About Us', href: 'https://example.com/about' }, { text: 'Contact', href: 'https://example.com/contact' }, { text: 'Privacy Policy', href: 'https://example.com/privacy' }, { text: 'Learn More', href: 'https://example.com/learn' }],
+        images: [{ src: 'https://example.com/photo1.jpg', alt: 'Sample image 1' }, { src: 'https://example.com/photo2.jpg', alt: 'Sample image 2' }],
+      },
+    }),
+    toolData: {
+      url: 'https://example.com/article',
+      title: 'Example Article — A Sample Page for Web Scraping',
+      content: '<article><h1>Example Article</h1><p>This is a sample article page used for testing the web scraping tool. It contains various HTML elements including headings, paragraphs, links, and images.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p><p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p></article>',
+      open_graph: { title: 'Example Article', description: 'A sample page for testing web scraping functionality.', image: 'https://example.com/og-image.jpg', type: 'article' },
+      headings: [{ level: 1, text: 'Example Article' }, { level: 2, text: 'Introduction' }, { level: 2, text: 'Methodology' }, { level: 3, text: 'Data Collection' }, { level: 3, text: 'Analysis' }, { level: 2, text: 'Results' }],
+      links: [{ text: 'About Us', href: 'https://example.com/about' }, { text: 'Contact', href: 'https://example.com/contact' }, { text: 'Privacy Policy', href: 'https://example.com/privacy' }, { text: 'Learn More', href: 'https://example.com/learn' }],
+      images: [{ src: 'https://example.com/photo1.jpg', alt: 'Sample image 1' }, { src: 'https://example.com/photo2.jpg', alt: 'Sample image 2' }],
+    },
+  },
 }
 
 function buildMock(name: string, status: ToolStatus): ToolCall {
@@ -1082,7 +1107,7 @@ function buildMock(name: string, status: ToolStatus): ToolCall {
   // done
   return {
     ...base,
-    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : 2.35),
+    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : name === 'scrape_webpage' ? 3.12 : 2.35),
     output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
     toolData: tpl?.toolData,
   }

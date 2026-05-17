@@ -39,8 +39,17 @@ function toggle() {
 watch(isOpen, (open) => {
   if (!bodyWrapper.value) return
   if (open) {
-    bodyWrapper.value.style.maxHeight = bodyWrapper.value.scrollHeight + 'px'
+    // Capture current scroll height to animate the open
+    const h = bodyWrapper.value.scrollHeight
+    bodyWrapper.value.style.maxHeight = h + 'px'
+    // After animation completes, remove constraint so expandable content can grow
+    setTimeout(() => {
+      if (bodyWrapper.value && isOpen.value) {
+        bodyWrapper.value.style.maxHeight = 'none'
+      }
+    }, 350) // slightly longer than CSS transition (0.3s)
   } else {
+    // Freeze at current height for smooth collapse
     bodyWrapper.value.style.maxHeight = bodyWrapper.value.scrollHeight + 'px'
     void bodyWrapper.value.offsetHeight
     bodyWrapper.value.style.maxHeight = '0px'

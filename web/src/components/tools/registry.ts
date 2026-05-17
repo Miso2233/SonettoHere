@@ -19,6 +19,7 @@ import DocReaderBubble from './DocReaderBubble.vue'
 import CodeQualityBubble from './CodeQualityBubble.vue'
 import UnitTestBubble from './UnitTestBubble.vue'
 import DebuggerBubble from './DebuggerBubble.vue'
+import ScraperBubble from './ScraperBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -56,6 +57,7 @@ const registry: Record<string, Component> = {
   'code_quality_analyzer': CodeQualityBubble,
   'unit_test_runner': UnitTestBubble,
   'debugger': DebuggerBubble,
+  'scrape_webpage': ScraperBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {
