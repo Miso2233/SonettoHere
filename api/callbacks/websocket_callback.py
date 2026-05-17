@@ -469,6 +469,54 @@ class WebSocketCallback(BaseCallbackHandler):
                 "response": data.get("response", ""),
             }
 
+        # ── 智能搜索 ──
+        if tool_name == "smart_search":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            # 原始结果列表
+            results_raw = data.get("results", [])
+            results = []
+            if isinstance(results_raw, list):
+                for item in results_raw:
+                    if not isinstance(item, dict):
+                        continue
+                    results.append({
+                        "title": item.get("title", ""),
+                        "url": item.get("url", ""),
+                        "snippet": item.get("snippet", ""),
+                        "domain": item.get("domain", ""),
+                        "source": item.get("source", ""),
+                        "position": item.get("position", 0),
+                        "score": item.get("score", 0),
+                        "publish_time": item.get("publish_time", ""),
+                    })
+
+            # 搜索引擎源信息
+            sources_raw = data.get("sources", [])
+            sources = []
+            if isinstance(sources_raw, list):
+                for src in sources_raw:
+                    if not isinstance(src, dict):
+                        continue
+                    sources.append({
+                        "name": src.get("name", ""),
+                        "status": src.get("status", ""),
+                        "result_count": src.get("result_count", 0),
+                        "elapsed_ms": src.get("elapsed_ms", 0),
+                        "first_result_host": src.get("first_result_host", ""),
+                    })
+
+            return {
+                "query": data.get("query", ""),
+                "total_results": data.get("total_results", 0),
+                "results": results,
+                "sources": sources,
+                "process_time_ms": data.get("process_time_ms", 0),
+                "metadata": data.get("metadata"),
+            }
+
         # ── 节假日查询 ──
         if tool_name == "holiday_calendar":
             data = parsed.get("data", {})

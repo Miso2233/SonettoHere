@@ -165,6 +165,7 @@ function getBubbleComponentName(name: string): string {
     'syntax_checker': 'SyntaxBubble.vue',
     'bilibili_set_cookie': 'CookieBubble.vue',
     'analyze_image': 'ImageBubble.vue',
+    'smart_search': 'SearchBubble.vue',
   }
   return map[name] ?? name
 }
@@ -449,6 +450,54 @@ const mockTemplates: Record<string, MockTemplate> = {
   search: {
     input: { query: '京都红叶最佳观赏时间' },
     doneOutput: '京都红叶最佳观赏期为**11月中旬至12月上旬**。\n\n推荐地点：\n- 岚山（竹林+红叶）\n- 永观堂（夜枫名所）\n- 东福寺（通天桥）\n- 清水寺（夜间特别参拜）',
+  },
+  smart_search: {
+    input: { query: 'Go最新的版本是多少' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        query: 'Go最新的版本是多少',
+        total_results: 15,
+        results: [
+          { title: 'Go 1.26 正式发布', url: 'https://go.dev/blog/go1.26', snippet: '2026年2月10日，Go 团队正式发布了 Go 1.26 版本，包含泛型性能改进和新的迭代器支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 1, score: 0.93, publish_time: '2026-02-10T00:00:00Z' },
+          { title: 'Go 1.25 新特性一览', url: 'https://go.dev/blog/go1.25', snippet: 'Go 1.25 引入了增强的错误处理机制和改进的交叉编译支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 2, score: 0.88, publish_time: '2025-08-15T00:00:00Z' },
+          { title: 'Go 语言入门教程', url: 'https://example.com/go-tutorial', snippet: '本文从零开始介绍 Go 语言的基础语法、并发编程和标准库使用。', domain: 'example.com', source: 'uapi-searchv1', position: 3, score: 0.75, publish_time: '2025-06-20T00:00:00Z' },
+          { title: 'Go 泛型实战：重构遗留代码', url: 'https://example.com/go-generics', snippet: '通过实际案例学习如何利用 Go 泛型重构现有代码，提高代码复用性和类型安全性。', domain: 'example.com', source: 'uapi-searchv1', position: 4, score: 0.71, publish_time: '' },
+          { title: '高效 Go 编程：性能优化指南', url: 'https://github.com/go-perf-guide', snippet: '一份全面的 Go 性能优化清单，涵盖内存管理、并发调度和编译器优化技巧。', domain: 'github.com', source: 'uapi-searchv1', position: 5, score: 0.65, publish_time: '2025-12-01T00:00:00Z' },
+        ],
+        sources: [
+          { name: 'uapi-searchv1', status: 'success', result_count: 15, elapsed_ms: 3675, first_result_host: 'go.dev' },
+        ],
+        process_time_ms: 3675,
+        metadata: {
+          request_params: { query: 'Go最新的版本是多少', limit: 10, page: 1, timeout_ms: 60000, sort: 'relevance' },
+          dedupe_removed: 0,
+          rerank_applied: true,
+          content_fetched: 0,
+        },
+      },
+    }),
+    toolData: {
+      query: 'Go最新的版本是多少',
+      total_results: 15,
+      results: [
+        { title: 'Go 1.26 正式发布', url: 'https://go.dev/blog/go1.26', snippet: '2026年2月10日，Go 团队正式发布了 Go 1.26 版本，包含泛型性能改进和新的迭代器支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 1, score: 0.93, publish_time: '2026-02-10T00:00:00Z' },
+        { title: 'Go 1.25 新特性一览', url: 'https://go.dev/blog/go1.25', snippet: 'Go 1.25 引入了增强的错误处理机制和改进的交叉编译支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 2, score: 0.88, publish_time: '2025-08-15T00:00:00Z' },
+        { title: 'Go 语言入门教程', url: 'https://example.com/go-tutorial', snippet: '本文从零开始介绍 Go 语言的基础语法、并发编程和标准库使用。', domain: 'example.com', source: 'uapi-searchv1', position: 3, score: 0.75, publish_time: '2025-06-20T00:00:00Z' },
+        { title: 'Go 泛型实战：重构遗留代码', url: 'https://example.com/go-generics', snippet: '通过实际案例学习如何利用 Go 泛型重构现有代码，提高代码复用性和类型安全性。', domain: 'example.com', source: 'uapi-searchv1', position: 4, score: 0.71, publish_time: '' },
+        { title: '高效 Go 编程：性能优化指南', url: 'https://github.com/go-perf-guide', snippet: '一份全面的 Go 性能优化清单，涵盖内存管理、并发调度和编译器优化技巧。', domain: 'github.com', source: 'uapi-searchv1', position: 5, score: 0.65, publish_time: '2025-12-01T00:00:00Z' },
+      ],
+      sources: [
+        { name: 'uapi-searchv1', status: 'success', result_count: 15, elapsed_ms: 3675, first_result_host: 'go.dev' },
+      ],
+      process_time_ms: 3675,
+      metadata: {
+        request_params: { query: 'Go最新的版本是多少', limit: 10, page: 1, timeout_ms: 60000, sort: 'relevance' },
+        dedupe_removed: 0,
+        rerank_applied: true,
+        content_fetched: 0,
+      },
+    },
   },
   tarot: {
     input: { question: '我最近的事业运如何？', spread_type: 'three' },
@@ -832,7 +881,7 @@ function buildMock(name: string, status: ToolStatus): ToolCall {
   // done
   return {
     ...base,
-    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' ? 1.82 : 2.35),
+    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : 2.35),
     output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
     toolData: tpl?.toolData,
   }

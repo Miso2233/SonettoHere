@@ -5,6 +5,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   get_current_weather: '天气查询',
   holiday_calendar: '节假日查询',
   search: '智能搜索',
+  smart_search: '智能搜索',
   scraper: '网页抓取',
   holiday: '节假日查询',
   image_understand: '图片理解',

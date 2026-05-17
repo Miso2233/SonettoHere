@@ -131,6 +131,7 @@ export function useChat(sessionId: Ref<string>) {
       }
 
       case 'tool_start': {
+        console.log(`[useChat] tool_start: "${event.payload.tool_name}"`, { input: event.payload.input })
         turn.events.push({
           kind: 'tool',
           name: event.payload.tool_name,
@@ -151,7 +152,13 @@ export function useChat(sessionId: Ref<string>) {
           if (event.payload.tool_data) {
             tc.toolData = event.payload.tool_data
           }
-          console.log('[useChat] tool_end:', event.payload.tool_name, 'tool_data:', event.payload.tool_data)
+          console.log(`[useChat] tool_end: "${event.payload.tool_name}"`, {
+            output_len: (event.payload.output || '').length,
+            output_preview: (event.payload.output || '').slice(0, 100),
+            has_tool_data: !!event.payload.tool_data,
+            tool_data_keys: event.payload.tool_data ? Object.keys(event.payload.tool_data as object) : null,
+            elapsed: event.payload.elapsed,
+          })
         }
         break
       }
