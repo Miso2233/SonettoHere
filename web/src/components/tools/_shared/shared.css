@@ -1,0 +1,150 @@
+/* ── 工具气泡共享样式 ── */
+
+.tool-bubble {
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.tool-bubble.running {
+  border-color: var(--accent-light);
+}
+
+.tool-bubble.error {
+  border-color: #d4a0a0;
+}
+
+/* ── Header ── */
+.bubble-header {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.bubble-status {
+  font-size: 12px;
+  width: 16px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.bubble-status .spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bubble-spin 0.8s linear infinite;
+}
+
+@keyframes bubble-spin {
+  to { transform: rotate(360deg); }
+}
+
+.bubble-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bubble-elapsed {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* ── Body ── */
+.bubble-body-wrapper {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s cubic-bezier(0, 0.3, 0, 1),
+              opacity 0.25s ease;
+  opacity: 0;
+}
+
+.tool-bubble.open > .bubble-body-wrapper {
+  opacity: 1;
+}
+
+.bubble-body {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px 16px;
+}
+
+/* ── Action buttons ── */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.action-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--accent-light);
+}
+
+.action-btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.action-btn.primary:hover {
+  opacity: 0.88;
+}
+
+.action-btn + .action-btn {
+  margin-left: 8px;
+}
+
+/* ── Common sections ── */
+.bubble-section {
+  margin-bottom: 14px;
+}
+
+.bubble-section:last-child {
+  margin-bottom: 0;
+}
+
+.bubble-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding-bottom: 6px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Status messages ── */
+.bubble-running {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 4px 0;
+}
+
+.bubble-error {
+  font-size: 13px;
+  color: #8b3a3a;
+  padding: 4px 0;
+}

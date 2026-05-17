@@ -1,0 +1,1488 @@
+<template>
+  <div class="playground">
+    <header class="pg-header">
+      <div class="pg-header-left">
+        <h1 class="pg-title">Kaleidoscope Playground</h1>
+        <span class="pg-badge">开发专用</span>
+      </div>
+      <div class="pg-header-right">
+        <span class="pg-stats">
+          已注册 <strong>{{ registeredCount }}</strong> / <strong>{{ toolNames.length }}</strong> 个工具
+        </span>
+      </div>
+    </header>
+
+    <div class="pg-body">
+      <!-- 左侧：工具列表 -->
+      <aside class="pg-sidebar">
+        <div class="pg-section-title">工具列表</div>
+        <div class="tool-list">
+          <div
+            v-for="toolName in toolNames"
+            :key="toolName"
+            class="tool-item"
+            :class="{ active: selectedTool === toolName }"
+            @click="selectTool(toolName)"
+          >
+            <span class="tool-dot" :class="{ registered: isRegistered(toolName) }"></span>
+            <span class="tool-item-name">{{ toolDisplayName(toolName) }}</span>
+            <span class="tool-item-id">{{ toolName }}</span>
+            <span v-if="isRegistered(toolName)" class="chip registered">专属</span>
+            <span v-else class="chip fallback">兜底</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 右侧：预览区 -->
+      <div class="pg-main">
+        <!-- 状态切换 -->
+        <div class="state-bar">
+          <span class="state-bar-label">状态切换：</span>
+          <button
+            v-for="s in states"
+            :key="s"
+            class="state-btn"
+            :class="s"
+            @click="currentState = s"
+          >
+            <span class="state-dot" :class="s"></span>
+            {{ stateLabel(s) }}
+          </button>
+        </div>
+
+        <!-- 气泡预览 -->
+        <div class="preview-area">
+          <div class="preview-header">
+            <span class="preview-label">
+              {{ toolDisplayName(selectedTool) }}
+              <code class="preview-tool-id">{{ selectedTool }}</code>
+            </span>
+            <span v-if="isRegistered(selectedTool)" class="preview-using">
+              使用 {{ getBubbleComponentName(selectedTool) }}
+            </span>
+            <span v-else class="preview-using fallback-text">
+              使用 ToolCallCard（兜底）
+            </span>
+          </div>
+          <div class="preview-body">
+            <ToolBubbleRouter
+              :key="selectedTool + ':' + currentState"
+              :tool-call="currentMock"
+              @action="logAction"
+            />
+          </div>
+        </div>
+
+        <!-- 交互日志 -->
+        <div class="action-log">
+          <div class="action-log-header">
+            <span class="pg-section-title">交互日志</span>
+            <button
+              v-if="actionLog.length > 0"
+              class="clear-btn"
+              @click="actionLog = []"
+            >
+              清空
+            </button>
+          </div>
+          <div class="log-entries">
+            <div
+              v-for="(entry, i) in actionLog"
+              :key="i"
+              class="log-entry"
+            >
+              <span class="log-idx">#{{ actionLog.length - i }}</span>
+              <span class="log-time">{{ entry.time }}</span>
+              <span class="log-action">{{ entry.action }}</span>
+              <code v-if="entry.data" class="log-data">{{ entry.data }}</code>
+            </div>
+            <div v-if="actionLog.length === 0" class="log-empty">
+              点击气泡中的交互组件以记录事件
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue'
+import type { ToolCall } from '@/types'
+import ToolBubbleRouter from '@/components/ToolBubbleRouter.vue'
+import { getRegisteredTools } from '@/components/tools/registry'
+import { toolDisplayName, ALL_TOOL_NAMES } from '@/components/tools/_shared/displayNames'
+
+// ── 状态定义 ──
+type ToolStatus = 'running' | 'done' | 'error'
+const states: ToolStatus[] = ['running', 'done', 'error']
+const stateLabels: Record<ToolStatus, string> = {
+  running: '运行中',
+  done: '已完成',
+  error: '出错',
+}
+
+const toolNames = ALL_TOOL_NAMES
+const registeredTools = getRegisteredTools()
+
+function isRegistered(name: string): boolean {
+  return registeredTools.includes(name)
+}
+
+const registeredCount = computed(() => registeredTools.length)
+
+function stateLabel(s: ToolStatus): string {
+  return stateLabels[s]
+}
+
+function getBubbleComponentName(name: string): string {
+  const map: Record<string, string> = {
+    'bilibili_download': 'BilibiliDownloadBubble.vue',
+    'todo_add': 'TodoBubble.vue',
+    'todo_list': 'TodoBubble.vue',
+    'todo_complete': 'TodoBubble.vue',
+    'todo_uncomplete': 'TodoBubble.vue',
+    'todo_delete': 'TodoBubble.vue',
+    'todo_update': 'TodoBubble.vue',
+    'todo_query': 'TodoBubble.vue',
+    'todo_list_projects': 'TodoBubble.vue',
+    'task_tracker': 'TaskTrackerBubble.vue',
+    'run_python': 'PythonBubble.vue',
+    'file_read': 'FilesBubble.vue',
+    'file_write': 'FilesBubble.vue',
+    'file_list': 'FilesBubble.vue',
+    'file_operations': 'FilesBubble.vue',
+    'tarot': 'TarotBubble.vue',
+    'answer_book': 'AnswerBookBubble.vue',
+    'nearby_search': 'MapBubble.vue',
+    'fuzzy_address_search': 'MapBubble.vue',
+    'geocode_address': 'MapBubble.vue',
+    'get_transit_route': 'MapBubble.vue',
+    'get_cycling_route': 'MapBubble.vue',
+    'get_current_weather': 'WeatherBubble.vue',
+    'holiday_calendar': 'HolidayBubble.vue',
+    'time_skill': 'TimeBubble.vue',
+    'syntax_checker': 'SyntaxBubble.vue',
+    'bilibili_set_cookie': 'CookieBubble.vue',
+    'analyze_image': 'ImageBubble.vue',
+    'smart_search': 'SearchBubble.vue',
+    'pdf_reader': 'PdfReaderBubble.vue',
+    'doc_reader': 'DocReaderBubble.vue',
+    'code_quality_analyzer': 'CodeQualityBubble.vue',
+    'unit_test_runner': 'UnitTestBubble.vue',
+    'debugger': 'DebuggerBubble.vue',
+    'scrape_webpage': 'ScraperBubble.vue',
+  }
+  return map[name] ?? name
+}
+
+// ── 选中工具与状态 ──
+const selectedTool = ref(toolNames[0])
+const currentState = ref<ToolStatus>('done')
+
+function selectTool(name: string) {
+  selectedTool.value = name
+  currentState.value = 'done'
+}
+
+// ── Mock 数据生成 ──
+const currentMock = computed<ToolCall>(() => {
+  return buildMock(selectedTool.value, currentState.value)
+})
+
+interface MockTemplate {
+  input: Record<string, unknown>
+  doneOutput: string
+  toolData?: Record<string, unknown>
+}
+
+const mockTemplates: Record<string, MockTemplate> = {
+  bilibili_download: {
+    input: {
+      url: 'https://www.bilibili.com/video/BV1xx411c7mD',
+      quality: 'highest',
+    },
+    doneOutput: '下载完成',
+    toolData: {
+      video_title: '【4K 60FPS】京都·红叶季 — 岚山竹林与常寂光寺',
+      cover_url: 'https://i0.hdslb.com/bfs/archive/82501cb151d19a4b17f8c3b3cd6c5e4e6c8a7b9d.jpg',
+      file_path: 'output/bilibili/京都红叶季_4K60FPS.mp4',
+      quality: '超清 4K',
+      filesize_mb: 847.3,
+      duration: '12:48',
+    },
+  },
+  weather: {
+    input: { city: '京都', date: '2026-05-16' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        city: '京都',
+        temp: '22°C',
+        humidity: '65%',
+        condition: '晴转多云',
+        wind: '东北风 3级',
+        forecast: [
+          { day: '今天', high: '25°C', low: '18°C', condition: '晴转多云' },
+          { day: '明天', high: '27°C', low: '19°C', condition: '晴' },
+          { day: '后天', high: '23°C', low: '17°C', condition: '小雨' },
+        ],
+      },
+    }),
+  },
+  get_current_weather: {
+    input: { city: '北京', forecast: true, extended: true },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        city: '北京',
+        temp: '26°C',
+        humidity: '45%',
+        condition: '晴',
+        wind: '南风 2级',
+        temp_feel: '27°C',
+        visibility: '10km',
+        pressure: '1013hPa',
+        forecast: [
+          { day: '今天', high: '28°C', low: '18°C', condition: '晴' },
+          { day: '明天', high: '30°C', low: '20°C', condition: '晴转多云' },
+          { day: '后天', high: '27°C', low: '19°C', condition: '多云' },
+          { day: '周四', high: '25°C', low: '17°C', condition: '小雨' },
+          { day: '周五', high: '24°C', low: '16°C', condition: '阴' },
+        ],
+      },
+    }),
+    toolData: {
+      city: '北京',
+      temp: '26°C',
+      humidity: '45%',
+      condition: '晴',
+      wind: '南风 2级',
+      temp_feel: '27°C',
+      visibility: '10km',
+      pressure: '1013hPa',
+      forecast: [
+        { day: '今天', high: '28°C', low: '18°C', condition: '晴' },
+        { day: '明天', high: '30°C', low: '20°C', condition: '晴转多云' },
+        { day: '后天', high: '27°C', low: '19°C', condition: '多云' },
+        { day: '周四', high: '25°C', low: '17°C', condition: '小雨' },
+        { day: '周五', high: '24°C', low: '16°C', condition: '阴' },
+      ],
+    },
+  },
+  holiday_calendar: {
+    input: { date: '2026-10-01', include_nearby: true, nearby_limit: 5 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        mode: 'day',
+        query: { date: '2026-10-01', holiday_type: 'all', include_nearby: true, exclude_past: true, month: '', nearby_limit: 5, timezone: 'Asia/Shanghai', year: '' },
+        summary: { total_days: 1, weekend_days: 0, workdays: 0, rest_days: 1, holiday_events: 2, legal_rest_days: 1, legal_workdays: 0 },
+        days: [
+          { date: '2026-10-01', year: 2026, month: 10, day: 1, weekday_cn: '星期四', is_weekend: false, is_workday: false, is_rest_day: true, is_holiday: true, legal_holiday_name: '国庆节', legal_holiday_type: 'rest', solar_festival: '国庆节', lunar_festival: '', solar_term: '', lunar_year: 2026, lunar_month: 8, lunar_day: 21, lunar_month_name: '八月', lunar_day_name: '廿一', ganzhi_year: '乙巳', ganzhi_month: '乙酉', ganzhi_day: '癸卯' },
+        ],
+        holidays: [
+          { date: '2026-10-01', name: '国庆节', type: 'legal_rest' },
+          { date: '2026-10-01', name: '国际音乐节', type: 'solar' },
+        ],
+        nearby: {
+          previous: [{ date: '2026-09-28', events: [{ date: '2026-09-28', name: '国庆调休', type: 'legal_workday_adjust', is_workday: true }] }],
+          next: [
+            { date: '2026-10-02', events: [{ date: '2026-10-02', name: '国庆节', type: 'legal_rest', is_workday: false }] },
+            { date: '2026-10-29', events: [{ date: '2026-10-29', name: '重阳节', type: 'lunar', is_workday: false }] },
+          ],
+        },
+      },
+    }),
+    toolData: {
+      mode: 'day',
+      date: '2026-10-01',
+      weekday: '星期四',
+      lunar_date: '八月廿一',
+      days: [
+        { date: '2026-10-01', weekday: '星期四', lunar_date: '八月廿一', lunar_month: '八月', lunar_day: '廿一', legal_holiday_name: '国庆节', solar_festival: '国庆节', lunar_festival: '', solar_term: '', is_rest_day: true, is_holiday: true, ganzhi_year: '乙巳', ganzhi_month: '乙酉', ganzhi_day: '癸卯' },
+      ],
+      holidays: [
+        { name: '国庆节', type: 'legal_rest', date: '2026-10-01' },
+        { name: '国际音乐节', type: 'solar', date: '2026-10-01' },
+      ],
+      nearby: {
+        previous: [{ date: '2026-09-28', events: [{ name: '国庆调休', type: 'legal_workday_adjust', date: '2026-09-28' }] }],
+        next: [
+          { date: '2026-10-02', events: [{ name: '国庆节', type: 'legal_rest', date: '2026-10-02' }] },
+          { date: '2026-10-29', events: [{ name: '重阳节', type: 'lunar', date: '2026-10-29' }] },
+        ],
+      },
+    },
+  },
+  map_nearby: {
+    input: { location: '岚山', radius: 2000, keywords: '咖啡' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        pois: [
+          { name: 'Arabica 京都岚山', address: '京都府京都市右京区嵯峨天龙寺芒ノ马场町3-47', distance: '120m', rating: '4.6' },
+          { name: 'Bread & Espresso &', address: '京都府京都市右京区嵯峨天龙寺造路町18-4', distance: '350m', rating: '4.3' },
+          { name: '咖啡馆 嵯峨野', address: '京都府京都市右京区嵯峨天竜寺瀬戸川町6-1', distance: '580m', rating: '4.1' },
+        ],
+      },
+    }),
+  },
+  nearby_search: {
+    input: { location: '116.481028,39.989643', radius: 2000, keywords: '咖啡' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        location: '116.481028,39.989643',
+        keywords: '咖啡',
+        radius: 2000,
+        count: 3,
+        pois: [
+          { id: 'POI001', name: '星巴克（望京SOHO店）', location: '116.480,39.990', address: '北京市朝阳区望京SOHO T1一层', cityname: '北京市', adname: '朝阳区', type: '餐饮服务;咖啡厅' },
+          { id: 'POI002', name: '瑞幸咖啡（融科店）', location: '116.483,39.987', address: '北京市海淀区科学院南路2号', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+          { id: 'POI003', name: 'Costa Coffee（中关村店）', location: '116.485,39.985', address: '北京市海淀区中关村大街15号', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+        ],
+      },
+    }),
+    toolData: {
+      location: '116.481028,39.989643',
+      keywords: '咖啡',
+      radius: 2000,
+      count: 3,
+      pois: [
+        { name: '星巴克（望京SOHO店）', address: '北京市朝阳区望京SOHO T1一层', location: '116.480,39.990', cityname: '北京市', adname: '朝阳区', type: '餐饮服务;咖啡厅' },
+        { name: '瑞幸咖啡（融科店）', address: '北京市海淀区科学院南路2号', location: '116.483,39.987', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+        { name: 'Costa Coffee（中关村店）', address: '北京市海淀区中关村大街15号', location: '116.485,39.985', cityname: '北京市', adname: '海淀区', type: '餐饮服务;咖啡厅' },
+      ],
+    },
+  },
+  fuzzy_address_search: {
+    input: { keywords: '北京大学', city: '北京' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        keywords: '北京大学',
+        city: '北京',
+        count: 2,
+        pois: [
+          { id: 'POI010', name: '北京大学', location: '116.310,39.992', address: '北京市海淀区颐和园路5号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+          { id: 'POI011', name: '北京大学医学部', location: '116.353,39.977', address: '北京市海淀区学院路38号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+        ],
+      },
+    }),
+    toolData: {
+      keywords: '北京大学',
+      city: '北京',
+      count: 2,
+      pois: [
+        { name: '北京大学', location: '116.310,39.992', address: '北京市海淀区颐和园路5号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+        { name: '北京大学医学部', location: '116.353,39.977', address: '北京市海淀区学院路38号', cityname: '北京市', adname: '海淀区', type: '科教文化服务;高等院校' },
+      ],
+    },
+  },
+  geocode_address: {
+    input: { address: '北京市海淀区中关村大街' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { address: '北京市海淀区中关村大街', location: '116.324,39.951' },
+    }),
+    toolData: {
+      address: '北京市海淀区中关村大街',
+      location: '116.324,39.951',
+    },
+  },
+  get_transit_route: {
+    input: { origin_longitude: '116.4', origin_latitude: '39.9', destination_longitude: '116.27', destination_latitude: '39.99', origin_city: '北京', destination_city: '北京' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        origin: '116.4,39.9',
+        destination: '116.27,39.99',
+        origin_city: '北京',
+        destination_city: '北京',
+        route_count: 2,
+        routes: [
+          { cost: 5, duration: 1860, walking_distance: 320, segments: [{ walking: { distance: 320, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁1号线', departure_stop: '王府井', arrival_stop: '天安门东', via_num: 1, distance: 1200, duration: 180 }] } }, { bus: { lines: [{ type: '公交', name: '332路', departure_stop: '天安门东', arrival_stop: '颐和园', via_num: 14, distance: 12000, duration: 2400 }] } }] },
+          { cost: 4, duration: 2400, walking_distance: 150, segments: [{ walking: { distance: 150, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁4号线', departure_stop: '西单', arrival_stop: '北宫门', via_num: 10, distance: 15000, duration: 1800 }] } }, { walking: { distance: 800, steps: [] } }] },
+        ],
+      },
+    }),
+    toolData: {
+      origin: '116.4,39.9',
+      destination: '116.27,39.99',
+      origin_city: '北京',
+      destination_city: '北京',
+      route_count: 2,
+      routes: [
+        { cost: 5, duration: 1860, walking_distance: 320, segments: [{ walking: { distance: 320, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁1号线', departure_stop: '王府井', arrival_stop: '天安门东', via_num: 1, distance: 1200, duration: 180 }] } }, { bus: { lines: [{ type: '公交', name: '332路', departure_stop: '天安门东', arrival_stop: '颐和园', via_num: 14, distance: 12000, duration: 2400 }] } }] },
+        { cost: 4, duration: 2400, walking_distance: 150, segments: [{ walking: { distance: 150, steps: [] }, bus: { lines: [{ type: '地铁', name: '地铁4号线', departure_stop: '西单', arrival_stop: '北宫门', via_num: 10, distance: 15000, duration: 1800 }] } }, { walking: { distance: 800, steps: [] } }] },
+      ],
+    },
+  },
+  get_cycling_route: {
+    input: { origin_longitude: '116.4', origin_latitude: '39.9', destination_longitude: '116.27', destination_latitude: '39.99' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        origin: '116.4,39.9',
+        destination: '116.27,39.99',
+        path_count: 1,
+        paths: [
+          { distance: 8500, duration: 2700, steps: [
+            { instruction: '沿王府井大街向北骑行', orientation: '北', road: '王府井大街', distance: 1200, duration: 300, action: '直行', assistant_action: '' },
+            { instruction: '左转进入长安街', orientation: '西', road: '长安街', distance: 2500, duration: 600, action: '左转', assistant_action: '' },
+            { instruction: '沿长安街向西骑行', orientation: '西', road: '长安街', distance: 3000, duration: 720, action: '直行', assistant_action: '' },
+            { instruction: '右转进入颐和园路', orientation: '北', road: '颐和园路', distance: 1800, duration: 480, action: '右转', assistant_action: '' },
+            { instruction: '到达目的地颐和园东门', orientation: '', road: '', distance: 0, duration: 0, action: '到达', assistant_action: '' },
+          ]},
+        ],
+      },
+    }),
+    toolData: {
+      origin: '116.4,39.9',
+      destination: '116.27,39.99',
+      path_count: 1,
+      paths: [
+        { distance: 8500, duration: 2700, steps: [
+          { instruction: '沿王府井大街向北骑行', orientation: '北', road: '王府井大街', distance: 1200, duration: 300, action: '直行', assistant_action: '' },
+          { instruction: '左转进入长安街', orientation: '西', road: '长安街', distance: 2500, duration: 600, action: '左转', assistant_action: '' },
+          { instruction: '沿长安街向西骑行', orientation: '西', road: '长安街', distance: 3000, duration: 720, action: '直行', assistant_action: '' },
+          { instruction: '右转进入颐和园路', orientation: '北', road: '颐和园路', distance: 1800, duration: 480, action: '右转', assistant_action: '' },
+          { instruction: '到达目的地颐和园东门', orientation: '', road: '', distance: 0, duration: 0, action: '到达', assistant_action: '' },
+        ]},
+      ],
+    },
+  },
+  search: {
+    input: { query: '京都红叶最佳观赏时间' },
+    doneOutput: '京都红叶最佳观赏期为**11月中旬至12月上旬**。\n\n推荐地点：\n- 岚山（竹林+红叶）\n- 永观堂（夜枫名所）\n- 东福寺（通天桥）\n- 清水寺（夜间特别参拜）',
+  },
+  smart_search: {
+    input: { query: 'Go最新的版本是多少' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        query: 'Go最新的版本是多少',
+        total_results: 15,
+        results: [
+          { title: 'Go 1.26 正式发布', url: 'https://go.dev/blog/go1.26', snippet: '2026年2月10日，Go 团队正式发布了 Go 1.26 版本，包含泛型性能改进和新的迭代器支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 1, score: 0.93, publish_time: '2026-02-10T00:00:00Z' },
+          { title: 'Go 1.25 新特性一览', url: 'https://go.dev/blog/go1.25', snippet: 'Go 1.25 引入了增强的错误处理机制和改进的交叉编译支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 2, score: 0.88, publish_time: '2025-08-15T00:00:00Z' },
+          { title: 'Go 语言入门教程', url: 'https://example.com/go-tutorial', snippet: '本文从零开始介绍 Go 语言的基础语法、并发编程和标准库使用。', domain: 'example.com', source: 'uapi-searchv1', position: 3, score: 0.75, publish_time: '2025-06-20T00:00:00Z' },
+          { title: 'Go 泛型实战：重构遗留代码', url: 'https://example.com/go-generics', snippet: '通过实际案例学习如何利用 Go 泛型重构现有代码，提高代码复用性和类型安全性。', domain: 'example.com', source: 'uapi-searchv1', position: 4, score: 0.71, publish_time: '' },
+          { title: '高效 Go 编程：性能优化指南', url: 'https://github.com/go-perf-guide', snippet: '一份全面的 Go 性能优化清单，涵盖内存管理、并发调度和编译器优化技巧。', domain: 'github.com', source: 'uapi-searchv1', position: 5, score: 0.65, publish_time: '2025-12-01T00:00:00Z' },
+        ],
+        sources: [
+          { name: 'uapi-searchv1', status: 'success', result_count: 15, elapsed_ms: 3675, first_result_host: 'go.dev' },
+        ],
+        process_time_ms: 3675,
+        metadata: {
+          request_params: { query: 'Go最新的版本是多少', limit: 10, page: 1, timeout_ms: 60000, sort: 'relevance' },
+          dedupe_removed: 0,
+          rerank_applied: true,
+          content_fetched: 0,
+        },
+      },
+    }),
+    toolData: {
+      query: 'Go最新的版本是多少',
+      total_results: 15,
+      results: [
+        { title: 'Go 1.26 正式发布', url: 'https://go.dev/blog/go1.26', snippet: '2026年2月10日，Go 团队正式发布了 Go 1.26 版本，包含泛型性能改进和新的迭代器支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 1, score: 0.93, publish_time: '2026-02-10T00:00:00Z' },
+        { title: 'Go 1.25 新特性一览', url: 'https://go.dev/blog/go1.25', snippet: 'Go 1.25 引入了增强的错误处理机制和改进的交叉编译支持。', domain: 'go.dev', source: 'uapi-searchv1', position: 2, score: 0.88, publish_time: '2025-08-15T00:00:00Z' },
+        { title: 'Go 语言入门教程', url: 'https://example.com/go-tutorial', snippet: '本文从零开始介绍 Go 语言的基础语法、并发编程和标准库使用。', domain: 'example.com', source: 'uapi-searchv1', position: 3, score: 0.75, publish_time: '2025-06-20T00:00:00Z' },
+        { title: 'Go 泛型实战：重构遗留代码', url: 'https://example.com/go-generics', snippet: '通过实际案例学习如何利用 Go 泛型重构现有代码，提高代码复用性和类型安全性。', domain: 'example.com', source: 'uapi-searchv1', position: 4, score: 0.71, publish_time: '' },
+        { title: '高效 Go 编程：性能优化指南', url: 'https://github.com/go-perf-guide', snippet: '一份全面的 Go 性能优化清单，涵盖内存管理、并发调度和编译器优化技巧。', domain: 'github.com', source: 'uapi-searchv1', position: 5, score: 0.65, publish_time: '2025-12-01T00:00:00Z' },
+      ],
+      sources: [
+        { name: 'uapi-searchv1', status: 'success', result_count: 15, elapsed_ms: 3675, first_result_host: 'go.dev' },
+      ],
+      process_time_ms: 3675,
+      metadata: {
+        request_params: { query: 'Go最新的版本是多少', limit: 10, page: 1, timeout_ms: 60000, sort: 'relevance' },
+        dedupe_removed: 0,
+        rerank_applied: true,
+        content_fetched: 0,
+      },
+    },
+  },
+  tarot: {
+    input: { question: '我最近的事业运如何？', spread_type: 'three' },
+    doneOutput: JSON.stringify({ success: true, data: { spread_name: '三牌占卜', cards: [] } }),
+    toolData: {
+      tool_type: 'tarot',
+      question: '我最近的事业运如何？',
+      spread_type: 'three',
+      spread_name: '三牌占卜',
+      cards_count: 3,
+      cards: [
+        {
+          name: '愚人',
+          name_en: 'The Fool',
+          suit: '大阿尔卡纳',
+          element: '风',
+          keywords: ['新的开始', '自发行动', '不虑后果'],
+          position: '过去',
+          status: '正位',
+          meaning: ['新的开始', '冒险精神', '无限可能'],
+          description: '愚人（正位）— 新的开始，自发行动，不虑后果',
+        },
+        {
+          name: '命运之轮',
+          name_en: 'Wheel of Fortune',
+          suit: '大阿尔卡纳',
+          element: '火',
+          keywords: ['转变', '命运', '循环'],
+          position: '现在',
+          status: '正位',
+          meaning: ['好运降临', '命运转折点', '新的机遇'],
+          description: '命运之轮（正位）— 转变，命运，循环',
+        },
+        {
+          name: '星星',
+          name_en: 'The Star',
+          suit: '大阿尔卡纳',
+          element: '水',
+          keywords: ['希望', '灵感', '平静'],
+          position: '未来',
+          status: '正位',
+          meaning: ['充满希望', '灵感的源泉', '内心的平静'],
+          description: '星星（正位）— 希望，灵感，平静',
+        },
+      ],
+    },
+  },
+  todo_add: {
+    input: { content: '在岚山竹林拍一张全景照', project_name: '旅行计划', priority: 3 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '12345678', content: '在岚山竹林拍一张全景照', due_date: '2026-05-20', priority: 3, project: '旅行计划' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '12345678',
+      content: '在岚山竹林拍一张全景照',
+      due_date: '2026-05-20',
+      priority: 3,
+      project: '旅行计划',
+    },
+  },
+  todo_list: {
+    input: {},
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        total: 4,
+        tasks: [
+          { task_id: '111', content: '预订京都酒店', due_date: '2026-05-25', priority: 4, project: '旅行计划', is_completed: false },
+          { task_id: '222', content: '整理岚山攻略', due_date: '2026-05-18', priority: 2, project: '旅行计划', is_completed: false },
+          { task_id: '333', content: '写周报', due_date: '2026-05-16', priority: 1, project: '工作', is_completed: true },
+          { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
+        ],
+      },
+    }),
+    toolData: {
+      tool_type: 'task_list',
+      total: 4,
+      tasks: [
+        { task_id: '111', content: '预订京都酒店', due_date: '2026-05-25', priority: 4, project: '旅行计划', is_completed: false },
+        { task_id: '222', content: '整理岚山攻略', due_date: '2026-05-18', priority: 2, project: '旅行计划', is_completed: false },
+        { task_id: '333', content: '写周报', due_date: '2026-05-16', priority: 1, project: '工作', is_completed: true },
+        { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
+      ],
+    },
+  },
+  todo_complete: {
+    input: { task_id: '111' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '111', message: '任务已标记为完成' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '111',
+      content: '预订京都酒店',
+      message: '任务已标记为完成',
+    },
+  },
+  todo_uncomplete: {
+    input: { task_id: '111' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '111', message: '任务已重新打开' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '111',
+      content: '预订京都酒店',
+      message: '任务已重新打开',
+    },
+  },
+  todo_delete: {
+    input: { task_id: '222' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '222', message: '任务删除成功' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '222',
+      content: '整理岚山攻略',
+      message: '任务删除成功',
+    },
+  },
+  todo_update: {
+    input: { task_id: '333', content: '写双周报', priority: 2 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '333', content: '写双周报', due_date: '2026-05-20', priority: 2, project: '工作' },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '333',
+      content: '写双周报',
+      due_date: '2026-05-20',
+      priority: 2,
+      project: '工作',
+    },
+  },
+  todo_query: {
+    input: { task_id: '444' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
+    }),
+    toolData: {
+      tool_type: 'single_task',
+      task_id: '444',
+      content: '买机票',
+      due_date: null,
+      priority: 3,
+      project: '旅行计划',
+      is_completed: false,
+    },
+  },
+  todo_list_projects: {
+    input: {},
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        total: 3,
+        projects: [
+          { project_id: '23456789', name: '旅行计划' },
+          { project_id: '34567890', name: '工作' },
+          { project_id: '45678901', name: 'Inbox' },
+        ],
+      },
+    }),
+    toolData: {
+      tool_type: 'project_list',
+      total: 3,
+      projects: [
+        { project_id: '23456789', name: '旅行计划' },
+        { project_id: '34567890', name: '工作' },
+        { project_id: '45678901', name: 'Inbox' },
+      ],
+    },
+  },
+  task_tracker: {
+    input: { tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'] },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        status: 'in_progress',
+        total_steps: 5,
+        current_step: 2,
+        current_task: '设计数据库结构',
+        tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'],
+      },
+    }),
+    toolData: {
+      tool_type: 'task_tracker',
+      status: 'in_progress',
+      total_steps: 5,
+      current_step: 2,
+      current_task: '设计数据库结构',
+      tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'],
+    },
+  },
+  run_python: {
+    input: {
+      code: 'import json\nfrom pathlib import Path\n\ndata = {"name": "岚山", "visitors": 1200}\nprint(f"地点: {data[\'name\']}")\nprint(f"游客数: {data[\'visitors\']}")\n\n# 写入文件\npath = Path("/tmp/report.json")\npath.write_text(json.dumps(data, ensure_ascii=False, indent=2))\nprint(f"报告已保存至 {path}")',
+    },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { output: '地点: 岚山\n游客数: 1200\n报告已保存至 /tmp/report.json' },
+    }),
+    toolData: {
+      tool_type: 'run_python',
+      stdout: '地点: 岚山\n游客数: 1200\n报告已保存至 /tmp/report.json',
+      code: 'import json\nfrom pathlib import Path\n\ndata = {"name": "岚山", "visitors": 1200}\nprint(f"地点: {data[\'name\']}")\nprint(f"游客数: {data[\'visitors\']}")\n\n# 写入文件\npath = Path("/tmp/report.json")\npath.write_text(json.dumps(data, ensure_ascii=False, indent=2))\nprint(f"报告已保存至 {path}")',
+    },
+  },
+  file_read: {
+    input: { file_path: 'src/config/app.config.json' },
+    doneOutput: JSON.stringify({ success: true, data: { content: '...' } }),
+    toolData: {
+      operation: 'read_file',
+      file_path: '/home/user/project/src/config/app.config.json',
+      file_name: 'app.config.json',
+      encoding: 'UTF-8',
+      size_bytes: 2841,
+      line_count: 68,
+      content: `{\n  "app_name": "SonettoHere",\n  "version": "2.1.0",\n  "description": "AI 聊天应用",\n  "theme": "dark",\n  "locale": "zh-CN",\n  "features": {\n    "kaleidoscope": true,\n    "playground": true,\n    "voice_input": false,\n    "export_chat": true\n  },\n  "editor": {\n    "font_size": 14,\n    "tab_size": 2,\n    "word_wrap": true,\n    "minimap": false\n  },\n  "shortcuts": {\n    "send_message": "Ctrl+Enter",\n    "new_chat": "Ctrl+Shift+N",\n    "toggle_sidebar": "Ctrl+B"\n  }\n}`,
+    },
+  },
+  file_write: {
+    input: { file_path: 'output/report.md', content: '# 项目报告\n\n## 概览\n...' },
+    doneOutput: JSON.stringify({ success: true, data: { message: '文件写入成功', file_path: 'output/report.md' } }),
+    toolData: {
+      operation: 'write_file',
+      file_path: '/home/user/project/output/report.md',
+      file_name: 'report.md',
+      size_bytes: 3840,
+      line_count: 95,
+      success: true,
+    },
+  },
+  file_list: {
+    input: { directory_path: 'src/components/', file_filter: '*.vue' },
+    doneOutput: JSON.stringify({ success: true, data: { files: [], total: 12 } }),
+    toolData: {
+      operation: 'list_directory',
+      directory_path: '/home/user/project/src/components/',
+      total_items: 12,
+      items: [
+        { name: 'ChatWindow.vue', type: 'file', size_bytes: 8520, modified: '05-12' },
+        { name: 'MessageBubble.vue', type: 'file', size_bytes: 6240, modified: '05-11' },
+        { name: 'ToolCallCard.vue', type: 'file', size_bytes: 15380, modified: '05-10' },
+        { name: 'ToolBubbleRouter.vue', type: 'file', size_bytes: 1240, modified: '05-15' },
+        { name: 'ThinkingBlock.vue', type: 'file', size_bytes: 3820, modified: '05-09' },
+        { name: 'tools/', type: 'directory', modified: '05-15' },
+        { name: 'HelloWorld.vue', type: 'file', size_bytes: 560, modified: '04-28' },
+        { name: 'icons/', type: 'directory', modified: '05-01' },
+        { name: 'App.vue', type: 'file', size_bytes: 2890, modified: '05-08' },
+        { name: 'BaseCard.vue', type: 'file', size_bytes: 2100, modified: '04-25' },
+      ],
+    },
+  },
+  file_operations: {
+    input: { operation: 'list_directory', directory_path: 'src/components/', file_filter: '*.vue' },
+    doneOutput: JSON.stringify({ success: true, data: { directory: '/home/user/project/src/components/', items: [], count: 12 } }),
+    toolData: {
+      operation: 'list_directory',
+      directory_path: '/home/user/project/src/components/',
+      total_items: 12,
+      items: [
+        { name: 'ChatWindow.vue', type: 'file', size_bytes: 8520, modified: '05-12' },
+        { name: 'MessageBubble.vue', type: 'file', size_bytes: 6240, modified: '05-11' },
+        { name: 'ToolCallCard.vue', type: 'file', size_bytes: 15380, modified: '05-10' },
+        { name: 'ToolBubbleRouter.vue', type: 'file', size_bytes: 1240, modified: '05-15' },
+        { name: 'ThinkingBlock.vue', type: 'file', size_bytes: 3820, modified: '05-09' },
+        { name: 'tools/', type: 'directory', modified: '05-15' },
+        { name: 'HelloWorld.vue', type: 'file', size_bytes: 560, modified: '04-28' },
+        { name: 'icons/', type: 'directory', modified: '05-01' },
+        { name: 'App.vue', type: 'file', size_bytes: 2890, modified: '05-08' },
+        { name: 'BaseCard.vue', type: 'file', size_bytes: 2100, modified: '04-25' },
+      ],
+    },
+  },
+  answer_book: {
+    input: { question: '我今天的面试会顺利吗？' },
+    doneOutput: JSON.stringify({ success: true, data: { question: '我今天的面试会顺利吗？', answer: '答案是肯定的' } }),
+    toolData: {
+      tool_type: 'answer_book',
+      question: '我今天的面试会顺利吗？',
+      answer: '答案是肯定的',
+    },
+  },
+  time_skill: {
+    input: {},
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        datetime: '2026-05-16 14:32:00',
+        date: '2026-05-16',
+        time: '14:32:00',
+        weekday: 'Saturday',
+        timezone: 'Asia/Shanghai',
+      },
+    }),
+    toolData: {
+      tool_type: 'time',
+      datetime: '2026-05-16 14:32:00',
+      date: '2026-05-16',
+      time: '14:32:00',
+      weekday: 'Saturday',
+      timezone: 'Asia/Shanghai',
+    },
+  },
+  syntax_checker: {
+    input: { language: 'python', code: 'def foo():\n  print("hello"\n' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        language: 'python',
+        errors: [
+          { line: 1, column: 23, message: 'SyntaxError: incomplete input. Expected an indented block after function definition', type: 'SyntaxError' },
+        ],
+        warnings: [],
+      },
+    }),
+    toolData: {
+      tool_type: 'syntax_check',
+      language: 'python',
+      errors: [
+        { line: 1, column: 23, message: 'SyntaxError: incomplete input. Expected an indented block after function definition', type: 'SyntaxError' },
+      ],
+      warnings: [],
+    },
+  },
+  bilibili_set_cookie: {
+    input: { cookie: 'SESSDATA=abc123; bili_jct=def456;' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { message: 'Cookie 已保存' },
+    }),
+    toolData: {
+      tool_type: 'set_cookie',
+      message: 'Cookie 已保存',
+    },
+  },
+  analyze_image: {
+    input: { image_source: 'url:https://example.com/photo.jpg', prompt: '请描述这张图片' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: { response: '这张图片展示了一片宁静的竹林小径，阳光透过竹叶洒落在地面上形成斑驳的光影。小径蜿蜒伸向远方，两旁是高耸的翠竹。画面整体色调清新自然，给人一种幽静深远的感觉，仿佛置身于京都岚山的竹林之中。' },
+    }),
+    toolData: {
+      tool_type: 'analyze_image',
+      response: '这张图片展示了一片宁静的竹林小径，阳光透过竹叶洒落在地面上形成斑驳的光影。小径蜿蜒伸向远方，两旁是高耸的翠竹。画面整体色调清新自然，给人一种幽静深远的感觉，仿佛置身于京都岚山的竹林之中。',
+    },
+  },
+  pdf_reader: {
+    input: { operation: 'get_metadata', file_path: '/home/user/project/reports/年度技术报告_v3.pdf' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        operation: 'get_metadata',
+        file_path: '/home/user/project/reports/年度技术报告_v3.pdf',
+        metadata: {
+          '/Title': '2026 年度技术总结报告',
+          '/Author': '技术研发部',
+          '/Subject': '年度技术回顾与展望',
+          '/Keywords': 'AI, 大模型, 前端, 架构',
+          '/Creator': 'Microsoft Word',
+          '/Producer': 'PyPDF2',
+          '/CreationDate': '2026-03-15 10:30:00',
+        },
+        page_count: 42,
+        toc: [
+          { title: '一、概述', level: 0, page_number: 1 },
+          { title: '1.1 项目背景', level: 1, page_number: 1 },
+          { title: '1.2 工作范围', level: 1, page_number: 3 },
+          { title: '二、技术成果', level: 0, page_number: 5 },
+          { title: '2.1 AI 模型优化', level: 1, page_number: 5 },
+          { title: '2.2 前端架构演进', level: 1, page_number: 8 },
+          { title: '2.3 后端性能提升', level: 1, page_number: 12 },
+          { title: '三、数据分析', level: 0, page_number: 15 },
+          { title: '3.1 系统性能指标', level: 1, page_number: 15 },
+          { title: '3.2 用户行为分析', level: 1, page_number: 20 },
+          { title: '四、未来规划', level: 0, page_number: 25 },
+          { title: '五、附录', level: 0, page_number: 30 },
+        ],
+      },
+    }),
+    toolData: {
+      operation: 'get_metadata',
+      file_path: '/home/user/project/reports/年度技术报告_v3.pdf',
+      file_size: 2841600,
+      metadata: {
+        '/Title': '2026 年度技术总结报告',
+        '/Author': '技术研发部',
+        '/Subject': '年度技术回顾与展望',
+        '/Keywords': 'AI, 大模型, 前端, 架构',
+        '/Creator': 'Microsoft Word',
+        '/Producer': 'PyPDF2',
+        '/CreationDate': '2026-03-15 10:30:00',
+      },
+      page_count: 42,
+      toc: [
+        { title: '一、概述', level: 0, page_number: 1 },
+        { title: '1.1 项目背景', level: 1, page_number: 1 },
+        { title: '1.2 工作范围', level: 1, page_number: 3 },
+        { title: '二、技术成果', level: 0, page_number: 5 },
+        { title: '2.1 AI 模型优化', level: 1, page_number: 5 },
+        { title: '2.2 前端架构演进', level: 1, page_number: 8 },
+        { title: '2.3 后端性能提升', level: 1, page_number: 12 },
+        { title: '三、数据分析', level: 0, page_number: 15 },
+        { title: '3.1 系统性能指标', level: 1, page_number: 15 },
+        { title: '3.2 用户行为分析', level: 1, page_number: 20 },
+        { title: '四、未来规划', level: 0, page_number: 25 },
+        { title: '五、附录', level: 0, page_number: 30 },
+      ],
+    },
+  },
+  doc_reader: {
+    input: { operation: 'get_metadata', file_path: '/home/user/project/docs/产品需求文档_v2.docx' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        operation: 'get_metadata',
+        file_path: '/home/user/project/docs/产品需求文档_v2.docx',
+        metadata: {
+          title: 'SonettoHere 产品需求文档 v2.0',
+          author: '产品经理',
+          subject: '产品功能规格说明',
+          created: '2026-04-01 09:00:00',
+          modified: '2026-05-10 14:30:00',
+          last_modified_by: '产品经理',
+          keywords: '聊天, AI, 工具, 平台',
+          category: '产品文档',
+        },
+        paragraph_count: 86,
+        table_count: 3,
+        paragraphs: [
+          { index: 0, number: 1, text: 'SonettoHere 产品需求文档', style: 'Title' },
+          { index: 1, number: 2, text: '版本: v2.0', style: 'Normal' },
+          { index: 2, number: 3, text: '最后更新: 2026-05-10', style: 'Normal' },
+          { index: 3, number: 4, text: '1. 项目概述', style: 'Heading 1' },
+          { index: 4, number: 5, text: 'SonettoHere 是一款基于大语言模型的智能对话助手，支持多工具调用、流式输出和长期记忆。', style: 'Normal' },
+          { index: 5, number: 6, text: '2. 功能需求', style: 'Heading 1' },
+          { index: 6, number: 7, text: '2.1 对话管理', style: 'Heading 2' },
+          { index: 7, number: 8, text: '支持多会话切换，每条对话包含完整的消息历史和工具调用记录。', style: 'Normal' },
+          { index: 8, number: 9, text: '2.2 工具系统', style: 'Heading 2' },
+          { index: 9, number: 10, text: '提供可扩展的气泡组件系统，每种工具拥有专属的渲染组件。', style: 'Normal' },
+        ],
+        tables: [
+          {
+            index: 0, rows: 4, columns: 3,
+            data: [
+              ['优先级', '功能模块', '预计工时'],
+              ['P0', '多会话管理', '5人日'],
+              ['P1', '工具气泡系统', '8人日'],
+              ['P2', '长期记忆', '10人日'],
+            ],
+          },
+        ],
+      },
+    }),
+    toolData: {
+      operation: 'get_metadata',
+      file_path: '/home/user/project/docs/产品需求文档_v2.docx',
+      file_size: 152800,
+      metadata: {
+        title: 'SonettoHere 产品需求文档 v2.0',
+        author: '产品经理',
+        subject: '产品功能规格说明',
+        created: '2026-04-01 09:00:00',
+        modified: '2026-05-10 14:30:00',
+        last_modified_by: '产品经理',
+        keywords: '聊天, AI, 工具, 平台',
+        category: '产品文档',
+      },
+      paragraph_count: 86,
+      table_count: 3,
+      paragraphs: [
+        { index: 0, number: 1, text: 'SonettoHere 产品需求文档', style: 'Title' },
+        { index: 1, number: 2, text: '版本: v2.0', style: 'Normal' },
+        { index: 2, number: 3, text: '最后更新: 2026-05-10', style: 'Normal' },
+        { index: 3, number: 4, text: '1. 项目概述', style: 'Heading 1' },
+        { index: 4, number: 5, text: 'SonettoHere 是一款基于大语言模型的智能对话助手，支持多工具调用、流式输出和长期记忆。', style: 'Normal' },
+        { index: 5, number: 6, text: '2. 功能需求', style: 'Heading 1' },
+        { index: 6, number: 7, text: '2.1 对话管理', style: 'Heading 2' },
+        { index: 7, number: 8, text: '支持多会话切换，每条对话包含完整的消息历史和工具调用记录。', style: 'Normal' },
+        { index: 8, number: 9, text: '2.2 工具系统', style: 'Heading 2' },
+        { index: 9, number: 10, text: '提供可扩展的气泡组件系统，每种工具拥有专属的渲染组件。', style: 'Normal' },
+      ],
+      tables: [
+        {
+          index: 0, rows: 4, columns: 3,
+          data: [
+            ['优先级', '功能模块', '预计工时'],
+            ['P0', '多会话管理', '5人日'],
+            ['P1', '工具气泡系统', '8人日'],
+            ['P2', '长期记忆', '10人日'],
+          ],
+        },
+      ],
+    },
+  },
+  code_quality_analyzer: {
+    input: { analysis_type: 'all', file_path: '/home/user/project/src/main.py' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        complexity: { total_lines: 156, function_count: 4, avg_function_length: 18.5, functions: [{ name: 'process_data', line: 1, endline: 25 }, { name: 'validate_input', line: 27, endline: 40 }, { name: 'transform_results', line: 42, endline: 58 }, { name: 'format_output', line: 60, endline: 72 }] },
+        maintainability: { comment_ratio: 0.12, snake_case_count: 8, camel_case_count: 2, maintainability_score: 72 },
+        duplication: { duplicate_lines: 3, duplicate_ratio: 0.019, duplicates: [{ line: 'result = process(item)', count: 3 }, { line: 'if item is None:', count: 2 }] },
+      },
+    }),
+    toolData: {
+      file_path: '/home/user/project/src/main.py',
+      analysis_type: 'all',
+      complexity: { total_lines: 156, function_count: 4, avg_function_length: 18.5, functions: [{ name: 'process_data', line: 1, endline: 25 }, { name: 'validate_input', line: 27, endline: 40 }, { name: 'transform_results', line: 42, endline: 58 }, { name: 'format_output', line: 60, endline: 72 }] },
+      maintainability: { comment_ratio: 0.12, snake_case_count: 8, camel_case_count: 2, maintainability_score: 72 },
+      duplication: { duplicate_lines: 3, duplicate_ratio: 0.019, duplicates: [{ line: 'result = process(item)', count: 3 }, { line: 'if item is None:', count: 2 }] },
+    },
+  },
+  unit_test_runner: {
+    input: { test_file: '/home/user/project/tests/test_math.py' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        tests_run: 5, failures: 1, errors: 0, skipped: 1, successful: 3, success_rate: 80.0,
+        failures_details: [{ test: 'test_addition (test_math.TestMathFunctions)', message: 'test_addition (test_math.TestMathFunctions)', traceback: 'Traceback (most recent call last):\n  File "tests/test_math.py", line 12, in test_addition\n    self.assertEqual(2 + 2, 5)\nAssertionError: 4 != 5' }],
+      },
+    }),
+    toolData: {
+      tests_run: 5, failures: 1, errors: 0, skipped: 1, successful: 3, success_rate: 80.0,
+      failures_details: [{ test: 'test_addition (test_math.TestMathFunctions)', message: 'test_addition (test_math.TestMathFunctions)', traceback: 'Traceback (most recent call last):\n  File "tests/test_math.py", line 12, in test_addition\n    self.assertEqual(2 + 2, 5)\nAssertionError: 4 != 5' }],
+    },
+  },
+  debugger: {
+    input: { code: 'x = 1\ny = 0\nresult = x / y\nprint(result)', variables: ['x', 'y', 'result'] },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        status: 'error', error_type: 'ZeroDivisionError', error_message: 'division by zero',
+        traceback: 'Traceback (most recent call last):\n  File "<string>", line 3, in <module>\nZeroDivisionError: division by zero',
+        variables: { x: '1', y: '0', result: '未定义' },
+      },
+    }),
+    toolData: {
+      status: 'error', error_type: 'ZeroDivisionError', error_message: 'division by zero',
+      traceback: 'Traceback (most recent call last):\n  File "<string>", line 3, in <module>\nZeroDivisionError: division by zero',
+      variables: { x: '1', y: '0', result: '未定义' },
+    },
+  },
+  scrape_webpage: {
+    input: { url: 'https://example.com/article', wait_ms: 5000 },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        url: 'https://example.com/article',
+        title: 'Example Article — A Sample Page for Web Scraping',
+        content: '<article><h1>Example Article</h1><p>This is a sample article page used for testing the web scraping tool. It contains various HTML elements including headings, paragraphs, links, and images.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p><p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p></article>',
+        open_graph: { title: 'Example Article', description: 'A sample page for testing web scraping functionality.', image: 'https://example.com/og-image.jpg', type: 'article' },
+        headings: [{ level: 1, text: 'Example Article' }, { level: 2, text: 'Introduction' }, { level: 2, text: 'Methodology' }, { level: 3, text: 'Data Collection' }, { level: 3, text: 'Analysis' }, { level: 2, text: 'Results' }],
+        links: [{ text: 'About Us', href: 'https://example.com/about' }, { text: 'Contact', href: 'https://example.com/contact' }, { text: 'Privacy Policy', href: 'https://example.com/privacy' }, { text: 'Learn More', href: 'https://example.com/learn' }],
+        images: [{ src: 'https://example.com/photo1.jpg', alt: 'Sample image 1' }, { src: 'https://example.com/photo2.jpg', alt: 'Sample image 2' }],
+      },
+    }),
+    toolData: {
+      url: 'https://example.com/article',
+      title: 'Example Article — A Sample Page for Web Scraping',
+      content: '<article><h1>Example Article</h1><p>This is a sample article page used for testing the web scraping tool. It contains various HTML elements including headings, paragraphs, links, and images.</p><p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p><p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p></article>',
+      open_graph: { title: 'Example Article', description: 'A sample page for testing web scraping functionality.', image: 'https://example.com/og-image.jpg', type: 'article' },
+      headings: [{ level: 1, text: 'Example Article' }, { level: 2, text: 'Introduction' }, { level: 2, text: 'Methodology' }, { level: 3, text: 'Data Collection' }, { level: 3, text: 'Analysis' }, { level: 2, text: 'Results' }],
+      links: [{ text: 'About Us', href: 'https://example.com/about' }, { text: 'Contact', href: 'https://example.com/contact' }, { text: 'Privacy Policy', href: 'https://example.com/privacy' }, { text: 'Learn More', href: 'https://example.com/learn' }],
+      images: [{ src: 'https://example.com/photo1.jpg', alt: 'Sample image 1' }, { src: 'https://example.com/photo2.jpg', alt: 'Sample image 2' }],
+    },
+  },
+}
+
+function buildMock(name: string, status: ToolStatus): ToolCall {
+  const tpl = mockTemplates[name]
+  const input = tpl
+    ? JSON.stringify(tpl.input, null, 2)
+    : JSON.stringify({ example_param: '示例参数' }, null, 2)
+
+  const base: ToolCall = {
+    kind: 'tool',
+    name,
+    input,
+    output: null,
+    elapsed: null,
+    status,
+  }
+
+  if (status === 'running') {
+    return { ...base, elapsed: null, output: null }
+  }
+
+  if (status === 'error') {
+    return { ...base, elapsed: 1.23, output: 'Error: 请求超时，请检查网络连接后重试' }
+  }
+
+  // done
+  return {
+    ...base,
+    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : name === 'scrape_webpage' ? 3.12 : 2.35),
+    output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
+    toolData: tpl?.toolData,
+  }
+}
+
+// ── 交互日志 ──
+interface LogEntry {
+  time: string
+  action: string
+  data?: string
+}
+
+const actionLog = ref<LogEntry[]>([])
+
+function logAction(payload: { action: string; data?: unknown }) {
+  const now = new Date()
+  const time = now.toLocaleTimeString('zh-CN', { hour12: false })
+  actionLog.value.unshift({
+    time,
+    action: payload.action,
+    data: payload.data ? JSON.stringify(payload.data, null, 2) : undefined,
+  })
+  if (actionLog.value.length > 50) {
+    actionLog.value.pop()
+  }
+}
+</script>
+
+<style scoped>
+.playground {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-primary);
+}
+
+/* ── Header ── */
+.pg-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.pg-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pg-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pg-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 600;
+}
+
+.pg-stats {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ── Body ── */
+.pg-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ── Sidebar ── */
+.pg-sidebar {
+  width: 220px;
+  min-width: 220px;
+  border-right: 1px solid var(--border);
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pg-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pg-sidebar .pg-section-title {
+  padding: 16px 16px 10px;
+}
+
+.tool-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 10px 12px;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s;
+  font-size: 13px;
+}
+
+.tool-item:hover {
+  background: var(--bg-card);
+}
+
+.tool-item.active {
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+
+.tool-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.tool-dot.registered {
+  background: var(--accent);
+}
+
+.tool-item-name {
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-item-id {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  display: none;
+}
+
+.chip {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 100px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.chip.registered {
+  background: #d4e5d4;
+  color: #2d5a2d;
+}
+
+.chip.fallback {
+  background: #e5ddd2;
+  color: #6b5e4e;
+}
+
+/* ── Main ── */
+.pg-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.state-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.state-bar-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-right: 4px;
+}
+
+.state-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.state-btn:hover {
+  border-color: var(--accent-light);
+  color: var(--text-primary);
+}
+
+.state-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #fdf8f2;
+  font-weight: 600;
+}
+
+.state-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.state-dot.running {
+  background: var(--accent);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.state-dot.done {
+  background: #5a9e5a;
+}
+
+.state-dot.error {
+  background: #c05050;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* ── Preview ── */
+.preview-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.preview-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.preview-tool-id {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.preview-using {
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.preview-using.fallback-text {
+  color: var(--text-secondary);
+}
+
+.preview-body {
+  max-width: 600px;
+}
+
+/* ── Action Log ── */
+.action-log {
+  border-top: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+  max-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+
+.action-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px 8px;
+}
+
+.clear-btn {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.clear-btn:hover {
+  color: var(--text-primary);
+}
+
+.log-entries {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 24px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  line-height: 1.6;
+}
+
+.log-idx {
+  color: var(--border);
+  flex-shrink: 0;
+  min-width: 24px;
+}
+
+.log-time {
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.log-action {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.log-data {
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.log-empty {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 4px 0;
+}
+</style>

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from api.dependencies import get_llm, get_system_prompt, get_tools
-from api.routes import chat, memory, sessions
+from api.routes import chat, files, memory, sessions
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from version import __version__
@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
     # REST 路由
     app.include_router(sessions.router, prefix="/api")
     app.include_router(memory.router, prefix="/api")
+    app.include_router(files.router, prefix="/api")
 
     # WebSocket 路由（无 /api 前缀）
     app.include_router(chat.router)

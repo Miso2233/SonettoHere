@@ -22,7 +22,7 @@ export interface ToolStartEvent {
 
 export interface ToolEndEvent {
   type: 'tool_end'
-  payload: { tool_name: string; output: string; elapsed: number }
+  payload: { tool_name: string; output: string; elapsed: number; tool_data?: Record<string, unknown> }
 }
 
 export interface ToolErrorEvent {
@@ -103,6 +103,7 @@ export interface ToolCall {
   output: string | null
   elapsed: number | null
   status: 'running' | 'done' | 'error'
+  toolData?: Record<string, unknown>
 }
 
 export type TurnEvent = ThinkingBlock | ToolCall

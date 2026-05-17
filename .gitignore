@@ -23,6 +23,7 @@ env/
 
 # Frontend
 web/node_modules/
+web/dist/
 
 # OS
 Thumbs.db

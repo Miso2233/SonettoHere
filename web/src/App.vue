@@ -7,6 +7,7 @@
       <nav class="sidebar-nav">
         <router-link to="/" class="nav-item">对话</router-link>
         <router-link to="/memory" class="nav-item">记忆</router-link>
+        <router-link to="/playground" class="nav-item pg-nav">Playground</router-link>
       </nav>
       <SessionSidebar
         :sessions="sessions"
@@ -114,6 +115,20 @@ html, body {
   background: var(--bg-card);
   color: var(--accent);
   font-weight: 600;
+}
+
+.pg-nav {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  border-radius: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.pg-nav:hover {
+  opacity: 1;
 }
 
 .main {
