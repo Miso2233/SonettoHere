@@ -607,6 +607,93 @@ class WebSocketCallback(BaseCallbackHandler):
 
             return result
 
+        # ── PDF 阅读 ──
+        if tool_name == "pdf_reader":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            # 部分操作（extract_text / search_text / get_toc）的 output 不含 file_path
+            file_path = data.get("file_path", "") or ""
+            if not file_path and tool_input:
+                try:
+                    inp = ast.literal_eval(tool_input)
+                except Exception:
+                    pass
+                else:
+                    if isinstance(inp, dict):
+                        file_path = inp.get("file_path", "") or ""
+
+            result: dict[str, Any] = {
+                "operation": data.get("operation", ""),
+                "file_path": file_path,
+                "file_size": data.get("file_size", 0),
+                "page_count": data.get("page_count", data.get("total_pages", 0)),
+            }
+            if "metadata" in data and isinstance(data["metadata"], dict):
+                result["metadata"] = data["metadata"]
+            if "toc" in data and isinstance(data["toc"], list):
+                result["toc"] = data["toc"]
+            if "text" in data:
+                result["text"] = data["text"]
+            if "page_range" in data:
+                result["page_range"] = data["page_range"]
+            if "query" in data:
+                result["query"] = data["query"]
+            if "results" in data and isinstance(data["results"], list):
+                result["results"] = data["results"]
+            if "total_matches" in data:
+                result["total_matches"] = data["total_matches"]
+            if "page_contents" in data and isinstance(data["page_contents"], dict):
+                result["page_contents"] = data["page_contents"]
+            if "total_pages" in data:
+                result["total_pages"] = data["total_pages"]
+            return result
+
+        # ── Word 文档阅读 ──
+        if tool_name == "doc_reader":
+            data = parsed.get("data", {})
+            if not isinstance(data, dict):
+                return None
+
+            # 部分操作（extract_text / search_text / get_tables）的 output 不含 file_path
+            file_path = data.get("file_path", "") or ""
+            if not file_path and tool_input:
+                try:
+                    inp = ast.literal_eval(tool_input)
+                except Exception:
+                    pass
+                else:
+                    if isinstance(inp, dict):
+                        file_path = inp.get("file_path", "") or ""
+
+            result: dict[str, Any] = {
+                "operation": data.get("operation", ""),
+                "file_path": file_path,
+                "file_size": data.get("file_size", 0),
+                "paragraph_count": data.get("paragraph_count", data.get("total_paragraphs", 0)),
+                "table_count": data.get("table_count", 0),
+            }
+            if "metadata" in data and isinstance(data["metadata"], dict):
+                result["metadata"] = data["metadata"]
+            if "paragraphs" in data and isinstance(data["paragraphs"], list):
+                result["paragraphs"] = data["paragraphs"]
+            if "paragraph_range" in data:
+                result["paragraph_range"] = data["paragraph_range"]
+            if "tables" in data and isinstance(data["tables"], list):
+                result["tables"] = data["tables"]
+            if "text" in data:
+                result["text"] = data["text"]
+            if "query" in data:
+                result["query"] = data["query"]
+            if "results" in data and isinstance(data["results"], list):
+                result["results"] = data["results"]
+            if "total_matches" in data:
+                result["total_matches"] = data["total_matches"]
+            if "total_paragraphs" in data:
+                result["total_paragraphs"] = data["total_paragraphs"]
+            return result
+
         return None
 
     async def on_llm_start(

@@ -166,6 +166,8 @@ function getBubbleComponentName(name: string): string {
     'bilibili_set_cookie': 'CookieBubble.vue',
     'analyze_image': 'ImageBubble.vue',
     'smart_search': 'SearchBubble.vue',
+    'pdf_reader': 'PdfReaderBubble.vue',
+    'doc_reader': 'DocReaderBubble.vue',
   }
   return map[name] ?? name
 }
@@ -853,6 +855,154 @@ const mockTemplates: Record<string, MockTemplate> = {
       response: '这张图片展示了一片宁静的竹林小径，阳光透过竹叶洒落在地面上形成斑驳的光影。小径蜿蜒伸向远方，两旁是高耸的翠竹。画面整体色调清新自然，给人一种幽静深远的感觉，仿佛置身于京都岚山的竹林之中。',
     },
   },
+  pdf_reader: {
+    input: { operation: 'get_metadata', file_path: '/home/user/project/reports/年度技术报告_v3.pdf' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        operation: 'get_metadata',
+        file_path: '/home/user/project/reports/年度技术报告_v3.pdf',
+        metadata: {
+          '/Title': '2026 年度技术总结报告',
+          '/Author': '技术研发部',
+          '/Subject': '年度技术回顾与展望',
+          '/Keywords': 'AI, 大模型, 前端, 架构',
+          '/Creator': 'Microsoft Word',
+          '/Producer': 'PyPDF2',
+          '/CreationDate': '2026-03-15 10:30:00',
+        },
+        page_count: 42,
+        toc: [
+          { title: '一、概述', level: 0, page_number: 1 },
+          { title: '1.1 项目背景', level: 1, page_number: 1 },
+          { title: '1.2 工作范围', level: 1, page_number: 3 },
+          { title: '二、技术成果', level: 0, page_number: 5 },
+          { title: '2.1 AI 模型优化', level: 1, page_number: 5 },
+          { title: '2.2 前端架构演进', level: 1, page_number: 8 },
+          { title: '2.3 后端性能提升', level: 1, page_number: 12 },
+          { title: '三、数据分析', level: 0, page_number: 15 },
+          { title: '3.1 系统性能指标', level: 1, page_number: 15 },
+          { title: '3.2 用户行为分析', level: 1, page_number: 20 },
+          { title: '四、未来规划', level: 0, page_number: 25 },
+          { title: '五、附录', level: 0, page_number: 30 },
+        ],
+      },
+    }),
+    toolData: {
+      operation: 'get_metadata',
+      file_path: '/home/user/project/reports/年度技术报告_v3.pdf',
+      file_size: 2841600,
+      metadata: {
+        '/Title': '2026 年度技术总结报告',
+        '/Author': '技术研发部',
+        '/Subject': '年度技术回顾与展望',
+        '/Keywords': 'AI, 大模型, 前端, 架构',
+        '/Creator': 'Microsoft Word',
+        '/Producer': 'PyPDF2',
+        '/CreationDate': '2026-03-15 10:30:00',
+      },
+      page_count: 42,
+      toc: [
+        { title: '一、概述', level: 0, page_number: 1 },
+        { title: '1.1 项目背景', level: 1, page_number: 1 },
+        { title: '1.2 工作范围', level: 1, page_number: 3 },
+        { title: '二、技术成果', level: 0, page_number: 5 },
+        { title: '2.1 AI 模型优化', level: 1, page_number: 5 },
+        { title: '2.2 前端架构演进', level: 1, page_number: 8 },
+        { title: '2.3 后端性能提升', level: 1, page_number: 12 },
+        { title: '三、数据分析', level: 0, page_number: 15 },
+        { title: '3.1 系统性能指标', level: 1, page_number: 15 },
+        { title: '3.2 用户行为分析', level: 1, page_number: 20 },
+        { title: '四、未来规划', level: 0, page_number: 25 },
+        { title: '五、附录', level: 0, page_number: 30 },
+      ],
+    },
+  },
+  doc_reader: {
+    input: { operation: 'get_metadata', file_path: '/home/user/project/docs/产品需求文档_v2.docx' },
+    doneOutput: JSON.stringify({
+      success: true,
+      data: {
+        operation: 'get_metadata',
+        file_path: '/home/user/project/docs/产品需求文档_v2.docx',
+        metadata: {
+          title: 'SonettoHere 产品需求文档 v2.0',
+          author: '产品经理',
+          subject: '产品功能规格说明',
+          created: '2026-04-01 09:00:00',
+          modified: '2026-05-10 14:30:00',
+          last_modified_by: '产品经理',
+          keywords: '聊天, AI, 工具, 平台',
+          category: '产品文档',
+        },
+        paragraph_count: 86,
+        table_count: 3,
+        paragraphs: [
+          { index: 0, number: 1, text: 'SonettoHere 产品需求文档', style: 'Title' },
+          { index: 1, number: 2, text: '版本: v2.0', style: 'Normal' },
+          { index: 2, number: 3, text: '最后更新: 2026-05-10', style: 'Normal' },
+          { index: 3, number: 4, text: '1. 项目概述', style: 'Heading 1' },
+          { index: 4, number: 5, text: 'SonettoHere 是一款基于大语言模型的智能对话助手，支持多工具调用、流式输出和长期记忆。', style: 'Normal' },
+          { index: 5, number: 6, text: '2. 功能需求', style: 'Heading 1' },
+          { index: 6, number: 7, text: '2.1 对话管理', style: 'Heading 2' },
+          { index: 7, number: 8, text: '支持多会话切换，每条对话包含完整的消息历史和工具调用记录。', style: 'Normal' },
+          { index: 8, number: 9, text: '2.2 工具系统', style: 'Heading 2' },
+          { index: 9, number: 10, text: '提供可扩展的气泡组件系统，每种工具拥有专属的渲染组件。', style: 'Normal' },
+        ],
+        tables: [
+          {
+            index: 0, rows: 4, columns: 3,
+            data: [
+              ['优先级', '功能模块', '预计工时'],
+              ['P0', '多会话管理', '5人日'],
+              ['P1', '工具气泡系统', '8人日'],
+              ['P2', '长期记忆', '10人日'],
+            ],
+          },
+        ],
+      },
+    }),
+    toolData: {
+      operation: 'get_metadata',
+      file_path: '/home/user/project/docs/产品需求文档_v2.docx',
+      file_size: 152800,
+      metadata: {
+        title: 'SonettoHere 产品需求文档 v2.0',
+        author: '产品经理',
+        subject: '产品功能规格说明',
+        created: '2026-04-01 09:00:00',
+        modified: '2026-05-10 14:30:00',
+        last_modified_by: '产品经理',
+        keywords: '聊天, AI, 工具, 平台',
+        category: '产品文档',
+      },
+      paragraph_count: 86,
+      table_count: 3,
+      paragraphs: [
+        { index: 0, number: 1, text: 'SonettoHere 产品需求文档', style: 'Title' },
+        { index: 1, number: 2, text: '版本: v2.0', style: 'Normal' },
+        { index: 2, number: 3, text: '最后更新: 2026-05-10', style: 'Normal' },
+        { index: 3, number: 4, text: '1. 项目概述', style: 'Heading 1' },
+        { index: 4, number: 5, text: 'SonettoHere 是一款基于大语言模型的智能对话助手，支持多工具调用、流式输出和长期记忆。', style: 'Normal' },
+        { index: 5, number: 6, text: '2. 功能需求', style: 'Heading 1' },
+        { index: 6, number: 7, text: '2.1 对话管理', style: 'Heading 2' },
+        { index: 7, number: 8, text: '支持多会话切换，每条对话包含完整的消息历史和工具调用记录。', style: 'Normal' },
+        { index: 8, number: 9, text: '2.2 工具系统', style: 'Heading 2' },
+        { index: 9, number: 10, text: '提供可扩展的气泡组件系统，每种工具拥有专属的渲染组件。', style: 'Normal' },
+      ],
+      tables: [
+        {
+          index: 0, rows: 4, columns: 3,
+          data: [
+            ['优先级', '功能模块', '预计工时'],
+            ['P0', '多会话管理', '5人日'],
+            ['P1', '工具气泡系统', '8人日'],
+            ['P2', '长期记忆', '10人日'],
+          ],
+        },
+      ],
+    },
+  },
 }
 
 function buildMock(name: string, status: ToolStatus): ToolCall {
@@ -881,7 +1031,7 @@ function buildMock(name: string, status: ToolStatus): ToolCall {
   // done
   return {
     ...base,
-    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : 2.35),
+    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : 2.35),
     output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
     toolData: tpl?.toolData,
   }
