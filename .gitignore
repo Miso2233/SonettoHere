@@ -35,6 +35,7 @@ botpy.log
 extracted/
 .claude/settings.local.json
 config/personas/USER.md
+config/personas/SOUL.md
 config/personas/MEMORY.md
 config/personas/memory_operations.yaml
 skills/bilibili/cookie.txt
