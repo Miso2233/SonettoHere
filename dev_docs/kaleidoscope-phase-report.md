@@ -1,6 +1,6 @@
 # Kaleidoscope Project — 阶段进度报告
 
-> 更新日期：2026-05-16
+> 更新日期：2026-05-17
 
 ## 一、总体进度
 
@@ -8,7 +8,7 @@
 |------|------|
 | Phase 1 — 基础设施 | ✅ 完成 |
 | Phase 2 — 首批工具气泡 | ✅ 完成 |
-| Phase 3 — 逐工具迁移 | 进行中（14/26 工具） |
+| Phase 3 — 逐工具迁移 | 进行中（17/29 工具） |
 
 ## 二、已开发气泡清单
 
@@ -28,8 +28,11 @@
 | 12 | SyntaxBubble | `syntax_checker` | ~170 | 低（错误列表） |
 | 13 | CookieBubble | `bilibili_set_cookie` | ~100 | 低（状态信息） |
 | 14 | ImageBubble | `analyze_image` | ~120 | 低（markdown 渲染） |
+| 15 | SearchBubble | `smart_search` | ~475 | 中（结果列表+调试面板） |
+| 16 | PdfReaderBubble | `pdf_reader` | ~300 | 中（元数据/目录/文本/搜索） |
+| 17 | DocReaderBubble | `doc_reader` | ~300 | 中（元数据/段落/表格/搜索） |
 
-**统计：** 14 个气泡组件覆盖 26 个后端 tool_name。
+**统计：** 17 个气泡组件覆盖 29 个后端 tool_name。
 
 ## 三、技术架构回顾
 
@@ -67,16 +70,13 @@ toolCall.status === 'running' | 'done' | 'error'
 
 | # | 后端 tool_name | 源文件 | 功能 | 预估复杂度 |
 |---|---------------|--------|------|-----------|
-| 1 | `smart_search` | `skill_search.py` | 智能搜索 | 中（结果列表） |
-| 2 | `scrape_webpage` | `skill_scraper.py` | 网页抓取 | 中（内容展示） |
-| 3 | `pdf_reader` | `skill_pdf_reader.py` | PDF 阅读 | 中 |
-| 4 | `doc_reader` | `skill_doc_reader.py` | 文档阅读 | 中 |
-| 5 | `code_quality_analyzer` | `skill_code_quality.py` | 代码质量 | 低（同syntax） |
-| 6 | `unit_test_runner` | `skill_unit_test.py` | 单元测试 | 中 |
-| 7 | `debugger` | `skill_debug.py` | 调试 | 中 |
-| 8 | `ask_user_for_info` | `skill_ask_user.py` | 询问用户 | 低（特殊交互） |
+| 1 | `scrape_webpage` | `skill_scraper.py` | 网页抓取 | 中（内容展示） |
+| 2 | `code_quality_analyzer` | `skill_code_quality.py` | 代码质量 | 低（同syntax） |
+| 3 | `unit_test_runner` | `skill_unit_test.py` | 单元测试 | 中 |
+| 4 | `debugger` | `skill_debug.py` | 调试 | 中 |
+| 5 | `ask_user_for_info` | `skill_ask_user.py` | 询问用户 | 低（特殊交互） |
 
-共 8 个工具待开发。
+共 5 个工具待开发。
 
 ## 五、经验与教训
 
