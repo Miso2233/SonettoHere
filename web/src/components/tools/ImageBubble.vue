@@ -2,7 +2,6 @@
   <BubbleChrome :tool-call="toolCall">
     <!-- 运行中 -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
-      <span class="spinner"></span>
       <span>正在分析图片...</span>
     </div>
 
@@ -69,18 +68,6 @@ const displayOutput = computed(() => {
   font-size: 13px;
   color: var(--text-secondary);
 }
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .bubble-error {
   font-size: 13px;
