@@ -91,16 +91,28 @@
 
     <!-- 完成 -->
     <div v-else-if="toolCall.status === 'done'" class="ask-done">
-      <div class="ask-done-icon">&#10003;</div>
-      <p class="ask-done-label">已收到回复</p>
+      <div class="ask-done-summary">
+        <div class="ask-done-icon">&#10003;</div>
+        <span class="ask-done-label">已收到你的回复</span>
+      </div>
+      <div v-if="doneData" class="ask-done-detail">
+        <div class="ask-done-item">
+          <span class="ask-done-field">Q：</span>
+          <span class="ask-done-value">{{ doneData.question }}</span>
+        </div>
+        <div class="ask-done-item">
+          <span class="ask-done-field">A：</span>
+          <span class="ask-done-value">{{ doneAnswer }}</span>
+        </div>
+      </div>
     </div>
   </BubbleChrome>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { ToolCall } from '@/types'
-import BubbleChrome from './_shared/BubbleChrome.vue'
+import type { ToolCall } from '@/types';
+import { computed, ref } from 'vue';
+import BubbleChrome from './_shared/BubbleChrome.vue';
 
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{
@@ -130,6 +142,28 @@ const interactionData = computed(() => {
     mode: result.mode,
   })
   return result
+})
+
+/** 工具完成时从 output JSON 解析出 { question, answer } */
+const doneData = computed(() => {
+  if (props.toolCall.status !== 'done' || !props.toolCall.output) return null
+  try {
+    const parsed = JSON.parse(props.toolCall.output)
+    if (parsed.success && parsed.data) {
+      return parsed.data as { question: string; answer: string | string[] }
+    }
+  } catch {}
+  return null
+})
+
+/** 格式化用户的回答（多选时用顿号连接） */
+const doneAnswer = computed(() => {
+  if (!doneData.value) return ''
+  const answer = doneData.value.answer
+  if (Array.isArray(answer)) {
+    return answer.join('、')
+  }
+  return answer || ''
 })
 
 function submitQA() {
@@ -295,10 +329,13 @@ function submitMulti() {
 
 /* 完成 */
 .ask-done {
+  padding: 4px 0;
+}
+.ask-done-summary {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
+  margin-bottom: 6px;
 }
 .ask-done-icon {
   width: 20px;
@@ -315,6 +352,20 @@ function submitMulti() {
 .ask-done-label {
   font-size: 13px;
   color: var(--text-primary);
-  margin: 0;
+  font-weight: 500;
+}
+.ask-done-detail {
+  margin-left: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ask-done-item {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+.ask-done-field {
+  color: var(--text-secondary);
 }
 </style>

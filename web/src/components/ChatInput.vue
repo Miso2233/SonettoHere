@@ -191,7 +191,7 @@ function autoResize() {
 
 .chat-input {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   gap: 10px;
   background: var(--bg-primary);
   border: 1px solid var(--border);
