@@ -292,6 +292,7 @@ export function useChat(sessionId: Ref<string>) {
       }
       currentTurn.value = null
       error.value = null
+      contextUsage.value = null
       if (newId) {
         connect()
       }
