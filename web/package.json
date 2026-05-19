@@ -9,7 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "katex": "^0.16.47",
     "marked": "^12.0.0",
+    "marked-katex-extension": "^5.1.8",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },
