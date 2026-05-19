@@ -17,7 +17,7 @@
 ## 常见陷阱
 - **天气 city vs adcode**：传城市名时不要同时传 adcode，避免API混淆
 - **smart_search 的 fetch_full**：本 Skill 不支持 fetch_full 参数。如需全文，先用 smart_search 获取 URL 列表，再逐条调用 scrape_webpage
-- **scrape_webpage 人机验证**：使用有头 Chromium 浏览器，用户可在浏览器窗口中手动完成 CAPTCHA/Turnstile/登录等验证。默认有 5 秒额外等待时间，可通过 `wait_ms` 参数调整。导航超时 60 秒。
+- **scrape_webpage 人机验证**：默认无头模式（静默抓取）。如遇到 CAPTCHA/Turnstile/登录等需要手动交互的页面，可设置 `headless=false` 切换为有头模式，用户可在浏览器窗口中手动完成验证。此时可通过 `wait_ms` 调整等待时间（默认 5000ms）。导航超时 60 秒。
 - **holiday_calendar 参数互斥**：date / month / year 三选一，不要同时传多个
 - **analyze_image 图片来源**：本地用 `local:绝对路径`，网络用 `url:https://...`。prompt 默认"请描述这张图片"，可自定义提问如"文字是啥？""这是什么物体？"
 - **天气 minutely 仅国内**：分钟级降水预报仅支持中国大陆城市

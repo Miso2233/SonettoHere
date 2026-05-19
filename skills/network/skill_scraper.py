@@ -25,6 +25,10 @@ class ScraperInput(BaseModel):
         description="页面加载后额外等待毫秒数，给用户时间解决人机验证（默认 5000）",
     )
     screenshot: bool = Field(default=False, description="是否同时截取页面首屏截图（base64）")
+    headless: bool = Field(
+        default=True,
+        description="是否使用无头模式（默认 true：不显示浏览器窗口，后台静默抓取；设为 false 则弹出浏览器窗口，适用于需要手动解决人机验证的场景）",
+    )
 
 
 CONTENT_SELECTORS = [
@@ -160,7 +164,8 @@ class WebScraperSkill(SkillBase):
     description: str = (
         "使用真实 Microsoft Edge 浏览器抓取网页内容。"
         "提取：标题、元数据、Open Graph、JSON-LD 结构化数据、标题层级、链接、图片、正文 HTML（保留链接等丰富结构）。"
-        "支持 JavaScript 渲染页面。有头模式，用户可手动解决人机验证。"
+        "支持 JavaScript 渲染页面。默认无头模式后台静默抓取，"
+        "可设置 headless=false 切换为有头模式以手动解决人机验证。"
         "★ 首次使用先 get_doc=true。"
     )
     args_schema: type[BaseModel] = ScraperInput
@@ -171,6 +176,7 @@ class WebScraperSkill(SkillBase):
         url: str = "",
         wait_ms: int = 5000,
         screenshot: bool = False,
+        headless: bool = True,
     ) -> str:
         if get_doc:
             return self._load_doc()
@@ -179,7 +185,7 @@ class WebScraperSkill(SkillBase):
 
         try:
             manager = get_browser_manager()
-            page = await manager.new_page()
+            page = await manager.new_page(headless=headless)
 
             await page.goto(url, wait_until="domcontentloaded", timeout=60000)
             await page.wait_for_timeout(wait_ms)
@@ -238,13 +244,15 @@ class WebScraperSkill(SkillBase):
         url: str = "",
         wait_ms: int = 5000,
         screenshot: bool = False,
+        headless: bool = True,
     ) -> str:
         """同步包装，供 CLI 等同步调用方使用。"""
         try:
             asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(self._arun(
-                get_doc=get_doc, url=url, wait_ms=wait_ms, screenshot=screenshot
+                get_doc=get_doc, url=url, wait_ms=wait_ms, screenshot=screenshot,
+                headless=headless,
             ))
 
         # 运行中的事件循环不可嵌套 — 用独立线程执行
@@ -252,6 +260,7 @@ class WebScraperSkill(SkillBase):
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(
                 asyncio.run,
-                self._arun(get_doc=get_doc, url=url, wait_ms=wait_ms, screenshot=screenshot),
+                self._arun(get_doc=get_doc, url=url, wait_ms=wait_ms, screenshot=screenshot,
+                           headless=headless),
             )
             return future.result()
