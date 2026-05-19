@@ -148,10 +148,10 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     sm = app_state.session_manager
     session = sm.get_or_create(session_id)
 
-    # 连接建立后立即推送初始上下文用量
+    # 连接建立后立即推送初始上下文用量（含已有历史）
     settings = get_settings()
     initial_usage = estimate_context_usage(
-        messages=[],
+        messages=session.short_term_memory.messages,
         system_prompt=app_state.system_prompt,
         max_tokens=settings.model_context_window,
         model_name=settings.model_name,
