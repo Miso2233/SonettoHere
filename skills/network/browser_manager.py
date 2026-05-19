@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 class BrowserManager:
     """模块级单例，管理 Playwright + Microsoft Edge 浏览器实例。
 
-    使用有头模式（headless=False），浏览器窗口对用户可见，
-    便于手动解决人机验证（CAPTCHA / Turnstile / 登录等）。
+    支持无头/有头模式切换。默认无头模式（headless=True），
+    有头模式时浏览器窗口对用户可见，便于手动解决人机验证。
 
     使用 async_api 避免与 uvicorn asyncio 事件循环的 greenlet 冲突。
     """
@@ -19,6 +19,7 @@ class BrowserManager:
     _playwright = None
     _browser = None
     _loop_id: int | None = None
+    _headless: bool = True
     _lock = asyncio.Lock()
 
     def __new__(cls) -> "BrowserManager":
@@ -26,30 +27,34 @@ class BrowserManager:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    async def _ensure_browser(self):
+    async def _ensure_browser(self, headless: bool = True):
         loop_id = id(asyncio.get_running_loop())
         if self._browser is not None and self._loop_id != loop_id:
             logger.info("事件循环已变更，重新创建浏览器实例")
+            await self._close_locked()
+        if self._browser is not None and self._headless != headless:
+            logger.info("无头模式切换（%s→%s），重新创建浏览器", self._headless, headless)
             await self._close_locked()
         if self._browser is None:
             from playwright.async_api import async_playwright
 
             self._playwright = await async_playwright().start()
             self._browser = await self._playwright.chromium.launch(
-                headless=False,
+                headless=headless,
                 channel="msedge",
             )
             self._loop_id = loop_id
-            logger.info("Microsoft Edge 浏览器已启动（有头模式）")
+            self._headless = headless
+            logger.info("Microsoft Edge 浏览器已启动（%s）", "无头模式" if headless else "有头模式")
 
-    async def get_browser(self):
+    async def get_browser(self, headless: bool = True):
         async with self._lock:
-            await self._ensure_browser()
+            await self._ensure_browser(headless=headless)
             return self._browser
 
-    async def new_page(self):
+    async def new_page(self, headless: bool = True):
         """创建新页面，默认 1920x1080 视口。"""
-        browser = await self.get_browser()
+        browser = await self.get_browser(headless=headless)
         context = await browser.new_context(
             viewport={"width": 1920, "height": 1080},
             user_agent=(
