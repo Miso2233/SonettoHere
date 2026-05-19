@@ -1,8 +1,7 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <!-- 运行中 -->
+    <!-- 运行中（spinner 在 BubbleChrome header 中，此处仅文字） -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
-      <span class="spinner"></span>
       <span>正在搜索...</span>
     </div>
 
@@ -120,7 +119,8 @@ const processTime = computed(() => td.value.process_time_ms ?? td.value.process_
 // ── 结果列表 ──
 const resultList = computed<Array<Record<string, any>>>(() => {
   const results = td.value.results
-  return Array.isArray(results) ? results : []
+  if (!Array.isArray(results)) return []
+  return [...results].sort((a, b) => (a.position ?? 99) - (b.position ?? 99))
 })
 
 // ── 搜索源 ──
