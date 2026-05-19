@@ -104,6 +104,14 @@ function copyCode() {
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'MapleMono';
+  src: url('/fonts/MapleMono-NF-CN-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 .py-section {
   margin-bottom: 10px;
 }
