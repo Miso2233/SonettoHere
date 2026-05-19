@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     qq_token: str = ""
 
     # 模型上下文窗口大小（DeepSeek V4 Flash = 1M tokens）
-    model_context_window: int = 1000000
+    model_context_window: int = 256_000 # 避免上下文丢失现象
 
     # 模型名称
     model_name: str = "deepseek-v4-flash"

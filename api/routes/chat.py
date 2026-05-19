@@ -102,8 +102,18 @@ async def _run_agent_turn(
     finally:
         session._active_task = None
         settings = get_settings()
+
+        # 从 graph 的最终 state 取回完整消息列表（含工具调用/结果）
+        try:
+            state = await graph.aget_state(
+                {"configurable": {"thread_id": session.session_id}}
+            )
+            counting_messages = state.values.get("messages", [])
+        except Exception:
+            counting_messages = session.short_term_memory.messages
+
         context_usage = estimate_context_usage(
-            messages=session.short_term_memory.messages,
+            messages=counting_messages,
             system_prompt=enhanced_prompt,
             max_tokens=settings.model_context_window,
             model_name=settings.model_name,
