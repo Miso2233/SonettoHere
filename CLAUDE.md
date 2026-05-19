@@ -22,3 +22,11 @@
 6. `git checkout main && git pull origin main`
 
 依赖：`gh` (GitHub CLI) 需已登录。
+
+### 长期分支
+
+`feat/kep` — KEP 试验性功能分支，合并后不删除，PR 合入时不加 `--delete-branch`。
+定期 rebase 到 latest main：
+```bash
+git checkout feat/kep && git rebase origin/main && git push --force-with-lease
+```
