@@ -3,24 +3,74 @@
     <div class="messages-list">
       <!-- 已完成的消息轮次 -->
       <template v-for="turn in turns" :key="turn.id">
-        <MessageBubble role="user" :content="turn.userMessage" />
+        <div
+          class="cite-source"
+          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户')"
+        >
+          <MessageBubble role="user" :content="turn.userMessage" />
+        </div>
         <template v-for="(ev, i) in turn.events" :key="i">
-          <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
-          <ToolBubbleRouter v-else :tool-call="ev" @action="forwardAction" />
+          <div
+            v-if="ev.kind === 'thinking'"
+            class="cite-source"
+            @contextmenu.prevent="onBubbleContextMenu($event, 'thinking', ev.tokens, '思考过程')"
+          >
+            <ThinkingBlock :block="ev" />
+          </div>
+          <div
+            v-else
+            class="cite-source"
+            @contextmenu.prevent="
+              onBubbleContextMenu(
+                $event,
+                'tool_result',
+                ev.output || ev.input || '',
+                ev.name,
+              )
+            "
+          >
+            <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
+          </div>
         </template>
-        <MessageBubble
+        <div
           v-if="turn.finalAnswer && !hasAnswerBlock(turn)"
-          role="assistant"
-          :content="turn.finalAnswer"
-        />
+          class="cite-source"
+          @contextmenu.prevent="onBubbleContextMenu($event, 'assistant_message', turn.finalAnswer, 'AI')"
+        >
+          <MessageBubble role="assistant" :content="turn.finalAnswer" />
+        </div>
       </template>
 
       <!-- 当前正在流式生成的消息 -->
       <template v-if="currentTurn">
-        <MessageBubble role="user" :content="currentTurn.userMessage" />
+        <div
+          class="cite-source"
+          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', currentTurn.userMessage, '用户')"
+        >
+          <MessageBubble role="user" :content="currentTurn.userMessage" />
+        </div>
         <template v-for="(ev, i) in currentTurn.events" :key="i">
-          <ThinkingBlock v-if="ev.kind === 'thinking'" :block="ev" />
-          <ToolBubbleRouter v-else :tool-call="ev" @action="forwardAction" />
+          <div
+            v-if="ev.kind === 'thinking'"
+            class="cite-source"
+            @contextmenu.prevent="onBubbleContextMenu($event, 'thinking', ev.tokens, '思考过程')"
+          >
+            <ThinkingBlock :block="ev" />
+          </div>
+          <div
+            v-else
+            class="cite-source"
+            @contextmenu.prevent="
+              onBubbleContextMenu(
+                $event,
+                'tool_result',
+                ev.output || ev.input || '',
+                ev.name,
+              )
+            "
+          >
+            <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
+          </div>
         </template>
       </template>
 
@@ -33,15 +83,25 @@
         <p class="empty-desc">发送一条消息开始对话</p>
       </div>
     </div>
+
+    <ContextMenu
+      :position="ctxMenuPos"
+      :items="ctxMenuItems"
+      :visible="ctxMenuVisible"
+      @select="handleContextMenuSelect"
+      @close="closeContextMenu"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { watch, ref, nextTick } from 'vue'
-import type { ChatTurn } from '@/types'
+import type { ChatTurn, Citation } from '@/types'
 import MessageBubble from './MessageBubble.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
 import ToolBubbleRouter from './ToolBubbleRouter.vue'
+import ContextMenu from './ContextMenu.vue'
+import type { ContextMenuItem } from './ContextMenu.vue'
 
 const props = defineProps<{
   turns: ChatTurn[]
@@ -51,6 +111,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'action', p: { action: string; data?: unknown }): void
+  (e: 'cite', citation: Citation): void
 }>()
 
 function forwardAction(payload: { action: string; data?: unknown }) {
@@ -81,6 +142,71 @@ watch(
   () => props.currentTurn?.finalAnswer,
   () => scrollToBottom()
 )
+
+// === 引用功能 ===
+
+const MAX_CITE_LENGTH = 1000
+
+const ctxMenuVisible = ref(false)
+const ctxMenuPos = ref({ x: 0, y: 0 })
+const pendingCitation = ref<{
+  text: string
+  sourceLabel: string
+  sourceType: Citation['sourceType']
+} | null>(null)
+
+const ctxMenuItems: ContextMenuItem[] = [
+  { label: '引用', action: 'cite', icon: '💬' },
+]
+
+function onBubbleContextMenu(
+  event: MouseEvent,
+  sourceType: Citation['sourceType'],
+  fullText: string,
+  sourceLabel: string,
+) {
+  let citeText = fullText
+
+  // 检查是否有文本选中
+  const selection = window.getSelection()
+  const selectedText = selection?.toString().trim()
+  if (selectedText && selection!.rangeCount > 0) {
+    const range = selection!.getRangeAt(0)
+    const target = event.currentTarget as HTMLElement | null
+    if (target && target.contains(range.commonAncestorContainer)) {
+      citeText = selectedText
+    }
+    selection!.removeAllRanges()
+  }
+
+  if (!citeText) return
+
+  if (citeText.length > MAX_CITE_LENGTH) {
+    citeText = citeText.slice(0, MAX_CITE_LENGTH) + '…'
+  }
+
+  pendingCitation.value = { text: citeText, sourceLabel, sourceType }
+  ctxMenuPos.value = { x: event.clientX, y: event.clientY }
+  ctxMenuVisible.value = true
+}
+
+function handleContextMenuSelect(action: string) {
+  if (action === 'cite' && pendingCitation.value) {
+    const citation: Citation = {
+      id: crypto.randomUUID(),
+      text: pendingCitation.value.text,
+      sourceLabel: pendingCitation.value.sourceLabel,
+      sourceType: pendingCitation.value.sourceType,
+    }
+    emit('cite', citation)
+  }
+  closeContextMenu()
+}
+
+function closeContextMenu() {
+  ctxMenuVisible.value = false
+  pendingCitation.value = null
+}
 </script>
 
 <style scoped>
@@ -95,6 +221,10 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+.cite-source {
+  /* 包装层，不引入额外布局影响 */
+  display: contents;
 }
 .empty-state {
   display: flex;

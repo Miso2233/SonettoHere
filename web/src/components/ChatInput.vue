@@ -12,6 +12,19 @@
         <button class="file-tag-remove" @click="removeFile(idx)">✕</button>
       </span>
     </div>
+    <div v-if="citations?.length" class="file-refs-bar">
+      <span
+        v-for="cit in citations"
+        :key="cit.id"
+        class="file-tag"
+        :title="cit.text"
+      >
+        <span class="file-tag-icon">💬</span>
+        <span class="file-tag-name">{{ truncateText(cit.text, 40) }}</span>
+        <span class="file-tag-source">{{ cit.sourceLabel }}</span>
+        <button class="file-tag-remove" @click="$emit('removeCitation', cit.id)">✕</button>
+      </span>
+    </div>
     <div class="chat-input">
       <div class="btn-add-file-wrapper">
         <button class="btn-add-file" :disabled="disabled" @click="toggleMenu">
@@ -57,15 +70,18 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import type { Citation } from '@/types'
 
 const props = defineProps<{
   isStreaming: boolean
   disabled: boolean
+  citations?: Citation[]
 }>()
 
 const emit = defineEmits<{
   send: [message: string]
   stop: []
+  removeCitation: [id: string]
 }>()
 
 const text = ref('')
@@ -119,15 +135,29 @@ function handleSend() {
   if (!msg || props.disabled) return
 
   let finalMsg = msg
+  const parts: string[] = []
+
   if (filePaths.value.length > 0) {
-    const refs = filePaths.value.map((p) => `[引用文件: ${p}]`).join('\n')
-    finalMsg = `${msg}\n\n${refs}`
+    parts.push(filePaths.value.map((p) => `[引用文件: ${p}]`).join('\n'))
+  }
+
+  if (props.citations?.length) {
+    parts.push(props.citations.map((c) => `[引用: ${c.text}]`).join('\n'))
+  }
+
+  if (parts.length > 0) {
+    finalMsg = `${msg}\n\n${parts.join('\n\n')}`
   }
 
   emit('send', finalMsg)
   text.value = ''
   filePaths.value = []
   nextTick(() => autoResize())
+}
+
+function truncateText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  return text.slice(0, maxLen) + '…'
 }
 
 function autoResize() {
@@ -187,6 +217,14 @@ function autoResize() {
 }
 .file-tag-remove:hover {
   color: #c97a7a;
+}
+.file-tag-source {
+  font-size: 10px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  padding: 0 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .chat-input {
