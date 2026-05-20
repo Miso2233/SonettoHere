@@ -30,8 +30,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
 import Icon from '@/components/Icon.vue'
+import { onMounted, onUnmounted } from 'vue'
 
 export interface ContextMenuItem {
   label: string
@@ -89,7 +89,7 @@ onUnmounted(() => {
   position: fixed;
   z-index: 1001;
   min-width: 120px;
-  background: color-mix(in srgb, var(--bg-card) 0%, transparent);
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
   backdrop-filter: blur(12px) saturate(1.2);
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
@@ -103,7 +103,7 @@ onUnmounted(() => {
 .context-menu-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
   width: 100%;
   padding: 8px 16px;
   border: none;
@@ -123,7 +123,7 @@ onUnmounted(() => {
 
 /* 弹出动画 */
 .menu-pop-enter-active {
-  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+  transition: opacity 0.06s ease-out, transform 0.06s ease-out;
 }
 .menu-pop-leave-active {
   transition: opacity 0.08s ease-in, transform 0.08s ease-in;
