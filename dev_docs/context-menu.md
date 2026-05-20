@@ -91,9 +91,106 @@ if (selectedText && selection!.rangeCount > 0) {
 ```
 
 - 使用 `<Teleport to="body">` 渲染，避免父级 `overflow: hidden` 裁剪
-- 半透明 backdrop 层拦截点击关闭 + 阻止原生右键菜单
+- 半透明 backdrop 层拦截点击关闭 + 阻止原生右键菜单（使用 `v-show` 而非 `v-if`，确保动画正常工作）
 - `document.addEventListener('keydown')` 监听 Escape 键关闭
 - 菜单项通过 `items` prop 传入，组件本身不硬编码菜单内容
+
+---
+
+## 样式与动画参数
+
+样式定义在 `web/src/components/ContextMenu.vue` 的 `<style scoped>` 中。
+
+### 磨砂玻璃背景（`.context-menu`）
+
+```css
+.context-menu {
+  background: color-mix(in srgb, var(--bg-card) 75%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  padding: 4px 0;
+}
+```
+
+| 属性 | 含义 | 修改指导 |
+|------|------|----------|
+| `background: color-mix(… 75%, transparent)` | 背景色取自 `--bg-card`，75% 不透明度实现半透明 | 增大百分比（如 90%）→ 更不透明，磨砂感减弱；减小 → 更透明 |
+| `backdrop-filter: blur(16px)` | 后方内容高斯模糊半径 | 增大（如 24px）→ 模糊更强，隐私性更好但可能晕眩；减小（如 8px）→ 更清晰 |
+| `backdrop-filter: saturate(1.2)` | 色彩饱和度增强，补偿模糊导致的褪色 | 设为 1.0 可取消；增大 → 色彩更鲜艳 |
+| `border: … 60%, transparent` | 边框颜色取自 `--border`，60% 不透明度 | 增大 → 边框更实；减小 → 边框更淡甚至消失 |
+| `box-shadow: 0 4px 24px rgba(0,0,0,0.15)` | 阴影偏移 4px、虚化 24px、透明度 15% | 调大虚化或透明度 → 阴影更柔和；调小 → 阴影更锐利 |
+| `border-radius: 8px` | 菜单圆角 | 增大（如 12px）→ 更圆润；减小（如 4px）→ 更方正 |
+| `padding: 4px 0` | 菜单项与容器边界的上下间距 | 增大 → 菜单项上下留白更多 |
+
+### 菜单项（`.context-menu-item`）
+
+```css
+.context-menu-item {
+  padding: 8px 16px;
+  font-size: 13px;
+  gap: 6px;           /* 图标与文字间距 */
+  transition: background 0.12s;
+}
+.context-menu-item:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+```
+
+| 属性 | 含义 | 修改指导 |
+|------|------|----------|
+| `padding: 8px 16px` | 菜单项内边距 | 增大 → 菜单项更高更宽；减小 → 更紧凑 |
+| `font-size: 13px` | 菜单文字大小 | 与全局 UI 字号保持一致 |
+| `gap: 6px` | 图标与文字间距 | 增大 → 图标与文字间隔更宽 |
+| `transition: background 0.12s` | hover 背景色的过渡时长 | 增大（如 0.2s）→ 过渡更平滑但略显拖沓；减小 → 更干脆 |
+| `hover background: … 12%` | hover 时 accent 颜色的混合比例 | 增大 → hover 背景色更明显 |
+
+### 弹出动画（Transition）
+
+使用 Vue 内置 `<Transition name="menu-pop">`，定义四个 CSS 类：
+
+```css
+/* 进入动画：120ms 缓出 */
+.menu-pop-enter-active {
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+
+/* 离开动画：80ms 缓入（比进入快，符合直觉） */
+.menu-pop-leave-active {
+  transition: opacity 0.08s ease-in, transform 0.08s ease-in;
+}
+
+/* 进入起始状态：透明 + 缩小到 92% */
+.menu-pop-enter-from {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+/* 离开结束状态：透明 + 缩小到 92% */
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
+}
+```
+
+#### 动画参数总表
+
+| 类名 | 触发时机 | 默认值 | 修改指导 |
+|------|----------|--------|----------|
+| `.menu-pop-enter-active` | 元素插入 DOM 时 | 120ms ease-out | 增大（如 200ms）→ 进入更优雅但稍慢；减小（如 60ms）→ 更干脆 |
+| `.menu-pop-leave-active` | 元素移除 DOM 时 | 80ms ease-in | 离开应快于进入，符合 UI 直觉；建议保持 ≤ enter 时长 |
+| `.menu-pop-enter-from` | 进入动画第一帧 | `scale(0.92)` + `opacity: 0` | 调大 scale（如 0.96）→ 弹入幅度更小；调小 → 弹出感更强 |
+| `.menu-pop-leave-to` | 离开动画最后一帧 | `scale(0.92)` + `opacity: 0` | 建议与 enter-from 一致，避免视觉跳跃 |
+
+#### 动画设计原则
+
+1. **方向一致性**：进入和离开使用相同的 `scale` 和 `opacity` 终始值，避免闪烁
+2. **时长不对称**：进入（120ms）> 离开（80ms），用户感知更自然
+3. **轴心**：`transform-origin: top left` 使缩放以菜单左上角为锚点，对齐光标位置
+4. **缓动函数**：进入用 `ease-out`（先快后慢），离开用 `ease-in`（先慢后快），符合物理运动直觉
+
+若需完全禁用动画，将上述四个类的 `transition` 和 `transform` 移除或设置为 `none`。也可仅保留 `opacity` 过渡实现纯淡入淡出效果。
 
 ---
 

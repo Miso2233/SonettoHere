@@ -1,28 +1,30 @@
 <template>
   <Teleport to="body">
     <div
-      v-if="visible"
+      v-show="visible"
       class="context-backdrop"
       @click="close"
       @contextmenu.prevent="close"
-      @keydown.escape="close"
     >
-      <div
-        class="context-menu"
-        :style="{ left: position.x + 'px', top: position.y + 'px' }"
-        @click.stop
-        @contextmenu.stop
-      >
-        <button
-          v-for="item in items"
-          :key="item.action"
-          class="context-menu-item"
-          @click="select(item.action)"
+      <Transition name="menu-pop">
+        <div
+          v-if="visible"
+          class="context-menu"
+          :style="{ left: position.x + 'px', top: position.y + 'px' }"
+          @click.stop
+          @contextmenu.stop
         >
-          <span v-if="item.icon" class="context-menu-icon">{{ item.icon }}</span>
-          <span>{{ item.label }}</span>
-        </button>
-      </div>
+          <button
+            v-for="item in items"
+            :key="item.action"
+            class="context-menu-item"
+            @click="select(item.action)"
+          >
+            <span v-if="item.icon" class="context-menu-icon">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </button>
+        </div>
+      </Transition>
     </div>
   </Teleport>
 </template>
@@ -86,12 +88,15 @@ onUnmounted(() => {
   position: fixed;
   z-index: 1001;
   min-width: 120px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-card) 0%, transparent);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
   padding: 4px 0;
+  transform-origin: top left;
 }
 
 .context-menu-item {
@@ -117,5 +122,21 @@ onUnmounted(() => {
 
 .context-menu-icon {
   font-size: 14px;
+}
+
+/* 弹出动画 */
+.menu-pop-enter-active {
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+.menu-pop-leave-active {
+  transition: opacity 0.08s ease-in, transform 0.08s ease-in;
+}
+.menu-pop-enter-from {
+  opacity: 0;
+  transform: scale(0.92);
+}
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.92);
 }
 </style>
