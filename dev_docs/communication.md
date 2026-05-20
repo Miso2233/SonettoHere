@@ -195,7 +195,7 @@ interface SessionChannel {
   currentTurn: ChatTurn | null  // 当前正在进行的轮次
   error: string | null
   contextUsage: ContextUsage | null
-  reconnectTimer: Timer | null  // 断线重连定时器
+  reconnectTimer: ReturnType<typeof setTimeout> | null  // 断线重连定时器
   initialized: boolean          // 是否已初始化
 }
 ```
