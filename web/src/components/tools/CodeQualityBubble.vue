@@ -132,7 +132,7 @@ const displayOutput = computed(() => {
 .bubble-running { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; color: var(--text-secondary); }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.bubble-error { font-size: 13px; color: #c05050; padding: 4px 0; }
+.bubble-error { font-size: 13px; color: #b91c1c; padding: 4px 0; }
 
 .cq-result { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
 .cq-section { display: flex; flex-direction: column; gap: 8px; }

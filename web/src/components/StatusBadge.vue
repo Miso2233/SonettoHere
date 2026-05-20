@@ -24,9 +24,9 @@ defineProps<{ connected: boolean }>()
   background: #ccc;
 }
 .connected .dot {
-  background: #7ab87a;
+  background: #22c55e;
 }
 .disconnected .dot {
-  background: #c97a7a;
+  background: #ef4444;
 }
 </style>

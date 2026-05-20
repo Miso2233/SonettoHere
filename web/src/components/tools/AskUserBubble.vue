@@ -293,7 +293,7 @@ function submitMulti() {
   transition: background 0.15s;
 }
 .btn-submit:hover:not(:disabled) {
-  background: #a07d4f;
+  background: #1d4ed8;
 }
 .btn-submit:disabled {
   opacity: 0.4;
@@ -323,7 +323,7 @@ function submitMulti() {
 /* 错误 */
 .ask-error {
   font-size: 13px;
-  color: #c05050;
+  color: #b91c1c;
   padding: 4px 0;
 }
 

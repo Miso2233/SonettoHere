@@ -176,13 +176,14 @@ watch(() => props.toolCall.output, () => {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 .tool-card.running {
   border-color: var(--accent-light);
 }
 .tool-card.error {
-  border-color: #d4a0a0;
+  border-color: #fecaca;
 }
 .tool-header {
   padding: 8px 14px;

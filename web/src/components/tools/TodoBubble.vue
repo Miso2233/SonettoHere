@@ -145,8 +145,8 @@ defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 }
 
 .status-badge.open {
-  background: #e5ddd2;
-  color: #6b5e4e;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 .task-id {

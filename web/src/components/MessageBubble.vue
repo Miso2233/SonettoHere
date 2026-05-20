@@ -33,6 +33,7 @@ const rendered = computed(() => renderMarkdown(props.content))
   font-size: 14px;
   line-height: 1.6;
   word-break: break-word;
+  box-shadow: var(--shadow);
 }
 .bubble.user {
   background: var(--user-bubble);
@@ -42,7 +43,6 @@ const rendered = computed(() => renderMarkdown(props.content))
 .bubble.assistant {
   background: var(--bg-card);
   color: var(--text-primary);
-  border: 1px solid var(--border);
   border-bottom-left-radius: 4px;
 }
 </style>

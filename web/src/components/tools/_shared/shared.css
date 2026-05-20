@@ -5,6 +5,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
+  box-shadow: var(--shadow);
   overflow: hidden;
 }
 
@@ -13,7 +14,7 @@
 }
 
 .tool-bubble.error {
-  border-color: #d4a0a0;
+  border-color: #fecaca;
 }
 
 /* ── Header ── */
@@ -145,6 +146,6 @@
 
 .bubble-error {
   font-size: 13px;
-  color: #8b3a3a;
+  color: #b91c1c;
   padding: 4px 0;
 }

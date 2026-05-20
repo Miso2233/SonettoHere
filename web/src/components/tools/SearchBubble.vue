@@ -207,7 +207,7 @@ const displayOutput = computed(() => {
 
 .bubble-error {
   font-size: 13px;
-  color: #c05050;
+  color: #b91c1c;
   padding: 4px 0;
 }
 
@@ -430,17 +430,17 @@ const displayOutput = computed(() => {
 /* ── 调试信息 ── */
 .sr-debug {
   margin-top: 8px;
-  border: 1px dashed #d4a0a0;
+  border: 1px dashed #fecaca;
   border-radius: 6px;
   padding: 6px 10px;
-  background: #fff8f0;
+  background: #fffbeb;
   font-size: 12px;
 }
 
 .sr-debug summary {
   cursor: pointer;
   font-weight: 600;
-  color: #8b3a3a;
+  color: #b91c1c;
   font-size: 11px;
   user-select: none;
 }
@@ -460,7 +460,7 @@ const displayOutput = computed(() => {
 
 .debug-label {
   font-weight: 600;
-  color: #8b3a3a;
+  color: #b91c1c;
   min-width: 120px;
   flex-shrink: 0;
   font-size: 11px;

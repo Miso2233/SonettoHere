@@ -28,6 +28,7 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary);
+  box-shadow: var(--shadow);
   overflow: hidden;
   transition: all 0.4s ease;
 }

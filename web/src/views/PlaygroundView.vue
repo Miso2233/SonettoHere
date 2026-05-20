@@ -1173,7 +1173,7 @@ function logAction(payload: { action: string; data?: unknown }) {
   padding: 2px 8px;
   border-radius: 100px;
   background: #fef3c7;
-  color: #92400e;
+  color: #d97706;
   font-weight: 600;
 }
 
@@ -1274,13 +1274,13 @@ function logAction(payload: { action: string; data?: unknown }) {
 }
 
 .chip.registered {
-  background: #d4e5d4;
-  color: #2d5a2d;
+  background: #dcfce7;
+  color: #166534;
 }
 
 .chip.fallback {
-  background: #e5ddd2;
-  color: #6b5e4e;
+  background: #f3f4f6;
+  color: #6b7280;
 }
 
 /* ── Main ── */
@@ -1331,7 +1331,7 @@ function logAction(payload: { action: string; data?: unknown }) {
 .state-btn.active {
   border-color: var(--accent);
   color: var(--accent);
-  background: #fdf8f2;
+  background: #eff6ff;
   font-weight: 600;
 }
 
@@ -1348,11 +1348,11 @@ function logAction(payload: { action: string; data?: unknown }) {
 }
 
 .state-dot.done {
-  background: #5a9e5a;
+  background: #22c55e;
 }
 
 .state-dot.error {
-  background: #c05050;
+  background: #ef4444;
 }
 
 @keyframes pulse {
