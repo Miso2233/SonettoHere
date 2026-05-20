@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 
 from langchain_core.chat_history import InMemoryChatMessageHistory
+from langgraph.checkpoint.memory import MemorySaver
 
 
 @dataclass
@@ -16,6 +17,7 @@ class SessionState:
     short_term_memory: InMemoryChatMessageHistory = field(default_factory=InMemoryChatMessageHistory)
     message_history: list[dict] = field(default_factory=list)
     _active_task: asyncio.Task | None = field(default=None, repr=False)
+    checkpointer: MemorySaver | None = field(default=None, repr=False)
 
 
 class SessionManager:
@@ -52,11 +54,16 @@ class SessionManager:
         now = time.time()
         result = []
         for s in self._sessions.values():
+            has_active = (
+                s._active_task is not None
+                and not s._active_task.done()
+            )
             result.append({
                 "session_id": s.session_id,
                 "message_count": len(s.message_history),
                 "created_at": s.created_at,
                 "last_active": s.last_active,
+                "has_active_agent": has_active,
             })
         result.sort(key=lambda x: x["last_active"], reverse=True)
         return result

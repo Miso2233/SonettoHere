@@ -16,13 +16,25 @@
           <span class="session-id">{{ formatId(s.session_id) }}</span>
           <span class="session-count">{{ s.message_count }} 条消息</span>
         </div>
-        <button
-          class="btn-delete"
-          @click.stop="$emit('delete', s.session_id)"
-          title="删除会话"
-        >
-          &times;
-        </button>
+        <div class="session-item-right">
+          <span
+            v-if="(sessionStatuses ?? {})[s.session_id]?.isStreaming"
+            class="status-dot streaming"
+            title="Agent 运行中"
+          />
+          <span
+            v-else-if="(sessionStatuses ?? {})[s.session_id]?.connected"
+            class="status-dot connected"
+            title="已连接"
+          />
+          <button
+            class="btn-delete"
+            @click.stop="$emit('delete', s.session_id)"
+            title="删除会话"
+          >
+            &times;
+          </button>
+        </div>
       </button>
       <div v-if="sessions.length === 0" class="no-sessions">
         暂无会话
@@ -37,6 +49,7 @@ import type { SessionInfo } from '@/types'
 defineProps<{
   sessions: SessionInfo[]
   activeId: string
+  sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean }>
 }>()
 
 defineEmits<{
@@ -148,5 +161,32 @@ function formatId(id: string): string {
   font-size: 12px;
   color: var(--text-secondary);
   padding: 8px;
+}
+
+.session-item-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.connected {
+  background: #6bcf7f;
+}
+
+.status-dot.streaming {
+  background: #f5a623;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
 }
 </style>

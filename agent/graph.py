@@ -14,9 +14,15 @@ def build_agent(
     tools: list[BaseTool],
     system_prompt: str,
     recursion_limit: int = 30,
+    checkpointer: MemorySaver | None = None,
 ) -> CompiledStateGraph:
-    """构建 ReAct Agent 图。"""
-    checkpointer = MemorySaver()
+    """构建 ReAct Agent 图。
+
+    若提供 checkpointer 则复用（跨轮次持久化状态），
+    否则每次新建 MemorySaver（原有行为）。
+    """
+    if checkpointer is None:
+        checkpointer = MemorySaver()
 
     return create_react_agent(
         model=model,

@@ -31,6 +31,7 @@ async def get_session(session_id: str, request: Request):
         "session_id": session.session_id,
         "message_count": len(session.message_history),
         "created_at": session.created_at,
+        "has_active_agent": session._active_task is not None and not session._active_task.done(),
     }
 
 
