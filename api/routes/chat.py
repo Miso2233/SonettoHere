@@ -9,6 +9,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from agent.graph import build_agent
 from agent.prompts import build_enhanced_prompt
+from langgraph.checkpoint.memory import MemorySaver
 from api import interaction
 from api.callbacks.websocket_callback import WebSocketCallback, _extract_content
 from api.context_usage import estimate_context_usage
@@ -32,15 +33,20 @@ async def _run_agent_turn(
         app_state.system_prompt, user_message
     )
 
+    # 使用 session 级别的持久 checkpointer
+    if session.checkpointer is None:
+        session.checkpointer = MemorySaver()
+
     graph = build_agent(
         model=app_state.llm,
         tools=app_state.tools,
         system_prompt=enhanced_prompt,
+        checkpointer=session.checkpointer,
     )
 
-    history = session.short_term_memory.messages
+    # checkpointer 按 thread_id 自动恢复历史消息
     inputs = {
-        "messages": history + [HumanMessage(content=user_message)]
+        "messages": [HumanMessage(content=user_message)]
     }
 
     config = {

@@ -12,6 +12,7 @@
       <SessionSidebar
         :sessions="sessions"
         :active-id="sessionId"
+        :session-statuses="allSessionStatuses"
         @create="createSession"
         @switch="switchSession"
         @delete="deleteSession"
@@ -25,6 +26,7 @@
 
 <script setup lang="ts">
 import { useSession } from '@/composables/useSession'
+import { allSessionStatuses } from '@/composables/useChat'
 import SessionSidebar from '@/components/SessionSidebar.vue'
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =

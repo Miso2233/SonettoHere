@@ -155,6 +155,7 @@ export interface SessionInfo {
   message_count: number
   created_at: number
   last_active?: number
+  has_active_agent?: boolean
 }
 
 export interface CreateSessionResponse {
