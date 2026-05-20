@@ -6,10 +6,10 @@
       </div>
       <nav class="sidebar-nav">
         <router-link to="/" class="nav-item">
-          <Icon name="chat" :size="18" /> 对话
+          <Icon name="chat" :size="18" /> 对话&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CHATING
         </router-link>
         <router-link to="/memory" class="nav-item">
-          <Icon name="memory" :size="18" /> 记忆
+          <Icon name="memory" :size="18" /> 记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY
         </router-link>
         <router-link to="/playground" class="nav-item pg-nav">Playground</router-link>
       </nav>
@@ -29,8 +29,8 @@
 </template>
 
 <script setup lang="ts">
-import SessionSidebar from '@/components/SessionSidebar.vue';
 import Icon from '@/components/Icon.vue';
+import SessionSidebar from '@/components/SessionSidebar.vue';
 import { allSessionStatuses } from '@/composables/useChat';
 import { useSession } from '@/composables/useSession';
 
@@ -88,6 +88,11 @@ html, body {
   flex-direction: column;
   padding: 24px 20px;
   gap: 24px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: center;
 }
 
 .logo {
