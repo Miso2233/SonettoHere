@@ -5,8 +5,12 @@
         <h1 class="logo">SonettoHere</h1>
       </div>
       <nav class="sidebar-nav">
-        <router-link to="/" class="nav-item">对话</router-link>
-        <router-link to="/memory" class="nav-item">记忆</router-link>
+        <router-link to="/" class="nav-item">
+          <Icon name="chat" :size="18" /> 对话
+        </router-link>
+        <router-link to="/memory" class="nav-item">
+          <Icon name="memory" :size="18" /> 记忆
+        </router-link>
         <router-link to="/playground" class="nav-item pg-nav">Playground</router-link>
       </nav>
       <SessionSidebar
@@ -26,6 +30,7 @@
 
 <script setup lang="ts">
 import SessionSidebar from '@/components/SessionSidebar.vue';
+import Icon from '@/components/Icon.vue';
 import { allSessionStatuses } from '@/composables/useChat';
 import { useSession } from '@/composables/useSession';
 
@@ -99,7 +104,9 @@ html, body {
 }
 
 .nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: var(--radius);
   color: var(--text-secondary);

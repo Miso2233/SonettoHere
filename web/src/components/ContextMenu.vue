@@ -20,7 +20,7 @@
             class="context-menu-item"
             @click="select(item.action)"
           >
-            <span v-if="item.icon" class="context-menu-icon">{{ item.icon }}</span>
+            <Icon v-if="item.icon" :name="item.icon" :size="14" />
             <span>{{ item.label }}</span>
           </button>
         </div>
@@ -31,6 +31,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import Icon from '@/components/Icon.vue'
 
 export interface ContextMenuItem {
   label: string
@@ -118,10 +119,6 @@ onUnmounted(() => {
 
 .context-menu-item:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.context-menu-icon {
-  font-size: 14px;
 }
 
 /* 弹出动画 */

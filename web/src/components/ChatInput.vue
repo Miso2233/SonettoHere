@@ -7,7 +7,7 @@
         class="file-tag"
         :title="fp"
       >
-        <span class="file-tag-icon">📎</span>
+        <span class="file-tag-icon"><Icon name="file" :size="14" /></span>
         <span class="file-tag-name">{{ getFileName(fp) }}</span>
         <button class="file-tag-remove" @click="removeFile(idx)">✕</button>
       </span>
@@ -40,14 +40,14 @@
         <div class="btn-add-file-wrapper">
           <button class="btn-add-file" :disabled="disabled" @click="toggleMenu">
             <span v-if="loading" class="btn-add-file-spin">⟳</span>
-            <span v-else>＋</span>
+            <Icon v-else name="attach" :size="18" />
           </button>
           <div v-if="showMenu" class="add-file-menu" @click.stop>
             <button class="add-file-menu-item" @click="pickFile">
-              <span class="menu-item-icon">📄</span> 选择文件
+              <Icon name="menu-file" :size="14" /> 选择文件
             </button>
             <button class="add-file-menu-item" @click="pickFolder">
-              <span class="menu-item-icon">📁</span> 选择文件夹
+              <Icon name="menu-folder" :size="14" /> 选择文件夹
             </button>
           </div>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
@@ -59,10 +59,10 @@
             :disabled="!text.trim() || disabled"
             @click="handleSend"
           >
-            ↑
+            <Icon name="send" :size="16" />
           </button>
           <button v-else class="btn-stop" @click="$emit('stop')">
-            ■
+            <Icon name="stop" :size="12" />
           </button>
         </div>
       </div>
@@ -73,6 +73,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import type { Citation } from '@/types'
+import Icon from '@/components/Icon.vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -197,10 +198,6 @@ function autoResize() {
   max-width: 100%;
   overflow: hidden;
 }
-.file-tag-icon {
-  flex-shrink: 0;
-  font-size: 12px;
-}
 .file-tag-name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -322,10 +319,6 @@ function autoResize() {
 .add-file-menu-item:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.menu-item-icon {
-  font-size: 14px;
-}
-
 .input-area {
   flex: 1;
   border: none;

@@ -156,7 +156,7 @@ const pendingCitation = ref<{
 } | null>(null)
 
 const ctxMenuItems: ContextMenuItem[] = [
-  { label: '引用', action: 'cite', icon: '💬' },
+  { label: '引用', action: 'cite', icon: 'cite-speech' },
 ]
 
 function onBubbleContextMenu(
