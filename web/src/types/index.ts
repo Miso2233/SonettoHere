@@ -170,6 +170,15 @@ export interface NarrativeResponse {
   narrative: string
 }
 
+// === 引用 ===
+
+export interface Citation {
+  id: string
+  text: string
+  sourceLabel: string
+  sourceType: 'user_message' | 'assistant_message' | 'tool_result' | 'thinking'
+}
+
 // === 上下文窗口用量 ===
 
 export interface ContextUsage {

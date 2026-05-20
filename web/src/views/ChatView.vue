@@ -10,18 +10,23 @@
       :current-turn="currentTurn"
       :error="error"
       @action="handleToolAction"
+      @cite="addCitation"
     />
 
     <ChatInput
       :is-streaming="isStreaming"
       :disabled="!connected"
-      @send="send"
+      :citations="citations"
+      @send="onSend"
       @stop="cancel"
+      @remove-citation="removeCitation"
     />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+import type { Citation } from '@/types'
 import { useSession } from '@/composables/useSession'
 import { useChat } from '@/composables/useChat'
 import StatusBadge from '@/components/StatusBadge.vue'
@@ -32,6 +37,21 @@ import ChatInput from '@/components/ChatInput.vue'
 const { sessionId } = useSession()
 const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse } =
   useChat(sessionId)
+
+const citations = ref<Citation[]>([])
+
+function addCitation(citation: Citation) {
+  citations.value.push(citation)
+}
+
+function removeCitation(id: string) {
+  citations.value = citations.value.filter(c => c.id !== id)
+}
+
+function onSend(message: string) {
+  send(message)
+  citations.value = []
+}
 
 function handleToolAction(payload: { action: string; data?: unknown }) {
   if (payload.action === 'user_response') {
