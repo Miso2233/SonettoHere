@@ -157,6 +157,7 @@ const pendingCitation = ref<{
 
 const ctxMenuItems: ContextMenuItem[] = [
   { label: '引用', action: 'cite', icon: 'cite-speech' },
+  { label: '复制', action: 'copy', icon: 'copy' },
 ]
 
 function onBubbleContextMenu(
@@ -199,6 +200,8 @@ function handleContextMenuSelect(action: string) {
       sourceType: pendingCitation.value.sourceType,
     }
     emit('cite', citation)
+  } else if (action === 'copy' && pendingCitation.value) {
+    navigator.clipboard.writeText(pendingCitation.value.text)
   }
   closeContextMenu()
 }
