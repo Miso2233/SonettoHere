@@ -136,7 +136,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
 
     app_state = ws.app.state
     sm = app_state.session_manager
-    session = sm.get_or_create(session_id)
+    session = sm.get_or_create(session_id)  # 建立或取得会话
 
     # 连接建立后立即推送初始上下文用量（尚无 graph 执行，消息为空）
     settings = get_settings()
@@ -148,7 +148,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     )
     await ws.send_json({"type": "context_usage", "payload": initial_usage})
 
-    agent_task: asyncio.Task | None = None
+    agent_task: asyncio.Task | None = None  # 局部变量 用于存储当前正在执行的 Agent Task
 
     try:
         while True:
@@ -156,35 +156,36 @@ async def websocket_chat(ws: WebSocket, session_id: str):
             msg = json.loads(raw)
             msg_type = msg.get("type", "")
 
-            if msg_type == "ping":
-                await ws.send_json({"type": "pong", "payload": {}})
+            match msg_type:
+                case "ping":
+                    await ws.send_json({"type": "pong", "payload": {}})
 
-            elif msg_type == "chat":
-                if agent_task and not agent_task.done():
-                    continue  # 已有 Agent 运行中，忽略此次输入
+                case "chat":
+                    if agent_task and not agent_task.done():
+                        continue  # 已有 Agent 运行中，忽略此次输入
 
-                user_message = msg["payload"]["message"].strip()
-                if not user_message:
-                    continue
+                    user_message = msg["payload"]["message"].strip()
+                    if not user_message:
+                        continue
 
-                # 设置当前连接的上下文变量，供工具函数使用
-                interaction.current_ws.set(ws)
+                    # 设置当前连接的上下文变量，供工具函数使用
+                    interaction.current_ws.set(ws)
 
-                agent_task = asyncio.create_task(
-                    _run_agent_turn(ws, session, user_message)
-                )
-                session._active_task = agent_task  # 立即写入，消除竞争窗口
+                    agent_task = asyncio.create_task(
+                        _run_agent_turn(ws, session, user_message)
+                    )
+                    session._active_task = agent_task  # 立即写入，消除竞争窗口 会话状态 供外部读取 典型用法为绿色黄色呼吸灯
 
-            elif msg_type == "user_response":
-                interaction_id = msg["payload"].get("interaction_id", "")
-                response = msg["payload"].get("response", "")
-                if interaction_id:
-                    interaction.resolve(interaction_id, response)
+                case "user_response":
+                    interaction_id = msg["payload"].get("interaction_id", "")
+                    response = msg["payload"].get("response", "")
+                    if interaction_id:
+                        interaction.resolve(interaction_id, response)
 
-            elif msg_type == "cancel":
-                if agent_task and not agent_task.done():
-                    agent_task.cancel()
-                    agent_task = None
+                case "cancel":
+                    if agent_task and not agent_task.done():
+                        agent_task.cancel()
+                        agent_task = None
 
     except WebSocketDisconnect:
         pass
