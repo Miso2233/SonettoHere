@@ -73,6 +73,8 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import type { Citation } from '@/types'
+import type { ParsedRef } from '@/utils/references'
+import { buildRefsBlock } from '@/utils/references'
 import Icon from '@/components/Icon.vue'
 
 const props = defineProps<{
@@ -137,20 +139,18 @@ function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  let finalMsg = msg
-  const parts: string[] = []
+  const refs: ParsedRef[] = []
 
-  if (filePaths.value.length > 0) {
-    parts.push(filePaths.value.map((p) => `[引用文件: ${p}]`).join('\n'))
+  for (const fp of filePaths.value) {
+    refs.push({ type: 'file', path: fp, label: getFileName(fp) })
   }
 
-  if (props.citations?.length) {
-    parts.push(props.citations.map((c) => `[引用: ${c.text}]`).join('\n'))
+  for (const cit of props.citations ?? []) {
+    const label = cit.text.length > 80 ? cit.text.slice(0, 80) + '…' : cit.text
+    refs.push({ type: 'cite', text: cit.text, label })
   }
 
-  if (parts.length > 0) {
-    finalMsg = `${msg}\n\n${parts.join('\n\n')}`
-  }
+  const finalMsg = refs.length > 0 ? msg + buildRefsBlock(refs) : msg
 
   emit('send', finalMsg)
   text.value = ''
