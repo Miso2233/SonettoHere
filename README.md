@@ -140,7 +140,6 @@ SonettoHere/
 │   └── entertainment/       # 娱乐（2 个 Skill）
 │
 ├── memory/
-│   ├── short_term.py        # 短期记忆（token 自动裁剪）
 │   ├── narrative.py         # 长期记忆（narrative 引擎 + 异步持久化）
 │   └── user_init.py         # 用户初始化与画像加载
 │

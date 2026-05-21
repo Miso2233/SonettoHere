@@ -272,9 +272,9 @@ current_tokens = system_prompt_token_count
 
 计算时机：
 
-1. **WebSocket 连接建立时**：基于 `short_term_memory.messages` 估算
+1. **WebSocket 连接建立时**：基于空消息列表（尚无 graph 执行）
 2. **每轮对话结束时**：基于 Graph Checkpointer 的完整状态（含 tool call/result）估算，随 `done` 事件推送
-3. **REST API**：`GET /sessions/{id}/context-usage`，基于 `short_term_memory.messages`
+3. **REST API**：`GET /sessions/{id}/context-usage`，基于 Graph Checkpointer 状态
 
 ---
 

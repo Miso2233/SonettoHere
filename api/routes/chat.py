@@ -5,8 +5,7 @@ import json
 import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from langchain_core.messages import AIMessage, HumanMessage
-from langgraph.checkpoint.memory import MemorySaver
+from langchain_core.messages import HumanMessage
 
 from agent.graph import build_agent
 from agent.prompts import build_system_prompt
@@ -16,12 +15,6 @@ from api.context_usage import estimate_context_usage
 from config.settings import get_settings
 
 router = APIRouter()
-
-
-def _init_checkpointer(session):
-    """延迟初始化 session 级别的持久 checkpointer。"""
-    if session.checkpointer is None:
-        session.checkpointer = MemorySaver()
 
 
 def _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback):
@@ -75,7 +68,7 @@ async def _calculate_context_usage(session, enhanced_prompt) -> dict:
         )
         counting_messages = state.values.get("messages", [])
     except Exception:
-        counting_messages = session.short_term_memory.messages
+        counting_messages = []
 
     return estimate_context_usage(
         messages=counting_messages,
@@ -101,9 +94,7 @@ async def _run_agent_turn(
     turn_id = uuid.uuid4().hex
     enhanced_prompt = build_system_prompt()
 
-    _init_checkpointer(session)
     graph, inputs, config = _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback)
-    session.short_term_memory.add_message(HumanMessage(content=user_message))
 
     final_answer = ""
     try:
@@ -129,7 +120,7 @@ async def _run_agent_turn(
         })
 
     if final_answer:
-        session.short_term_memory.add_message(AIMessage(content=final_answer))
+        session.message_count += 2
     await app_state.ltm.send_history([
         {"role": "user", "content": user_message},
         {"role": "assistant", "content": final_answer},
@@ -144,10 +135,10 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     sm = app_state.session_manager
     session = sm.get_or_create(session_id)
 
-    # 连接建立后立即推送初始上下文用量（含已有历史）
+    # 连接建立后立即推送初始上下文用量（尚无 graph 执行，消息为空）
     settings = get_settings()
     initial_usage = estimate_context_usage(
-        messages=session.short_term_memory.messages,
+        messages=[],
         system_prompt=app_state.system_prompt,
         max_tokens=settings.model_context_window,
         model_name=settings.model_name,
