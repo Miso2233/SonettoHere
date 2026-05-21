@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
 
 from api.dependencies import get_llm, get_system_prompt, get_tools
 from api.routes import chat, files, memory, sessions
@@ -60,8 +61,12 @@ def create_app() -> FastAPI:
     async def health():
         return {"status": "ok", "version": __version__}
 
-    # 生产模式：serve 前端静态文件
+    # 生产模式：serve 前端静态文件（用 /assets 前缀避免拦截 WebSocket）
     if WEB_DIR.exists():
-        app.mount("/", StaticFiles(directory=str(WEB_DIR), html=True), name="static")
+        app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="assets")
+
+        @app.exception_handler(404)
+        async def spa_fallback(request, exc):
+            return FileResponse(WEB_DIR / "index.html")
 
     return app
