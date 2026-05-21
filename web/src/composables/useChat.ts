@@ -135,6 +135,7 @@ function connectSession(sid: string) {
 }
 
 function ensureConnected(sid: string) {
+  if (!sid) return
   const ch = getOrCreateChannel(sid)
   if (ch.initialized) return
   ch.initialized = true
