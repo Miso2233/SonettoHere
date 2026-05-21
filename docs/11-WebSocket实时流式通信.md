@@ -166,7 +166,7 @@ function cancel() {
      ...（第二轮思考的 token）...
   ⑨ { type: "thinking_end",    payload: { timestamp: 1715432003.0 } }
   ⑩ { type: "answer",          payload: { content: "北京今天天气晴朗，气温约25°C……" } }
-  ⑪ { type: "done",            payload: { turn_id: "a3f1c8e2..." } }
+  ⑪ { type: "done",            payload: { context_usage: { ... } } }
 ```
 
 这个序列完美展示了 ReAct Agent 的 Thought → Action → Observation → Answer 循环在 UI 层面的体现。
@@ -300,7 +300,7 @@ finally:
     session._active_task = None
     await ws.send_json({
         "type": "done",
-        "payload": {"turn_id": turn_id},
+        "payload": {},
     })
 ```
 

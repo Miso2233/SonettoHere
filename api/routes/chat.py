@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import HumanMessage
@@ -83,7 +82,11 @@ async def _run_agent_turn(
     session,
     user_message: str,
 ):
-    """编排一轮 Agent 对话：prep → stream → teardown → persist。"""
+    """
+    在指定的session中编排一轮 Agent 对话。
+    无返回值。
+    以内置的 WebSocketCallback回调函数系统作为副作用。
+    """
     app_state = ws.app.state            # 应用状态 包含五个属性 所有对话共享
         # app_state.llm	                ChatOpenAI	                LLM 模型实例
         # app_state.system_prompt	    str	                        组装好的系统提示词
@@ -91,7 +94,6 @@ async def _run_agent_turn(
         # app_state.session_manager	    SessionManager	            会话生命周期管理器（创建/查询/过期清理）
         # app_state.ltm	                LongTermMemoryInterface	    长期记忆接口，send_history() 将对话入队供后台消费写入 MEMORY.md
     ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
-    turn_id = uuid.uuid4().hex
     enhanced_prompt = build_system_prompt()
 
     graph, inputs, config = _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback)
@@ -114,7 +116,6 @@ async def _run_agent_turn(
         await ws.send_json({                                                # [向前端通信] 3. 推送 turn 结束 + 上下文用量
             "type": "done",
             "payload": {
-                "turn_id": turn_id,
                 "context_usage": context_usage,
             },
         })

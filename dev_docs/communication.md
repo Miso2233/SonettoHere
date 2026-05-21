@@ -149,7 +149,7 @@ context_usage (仅连接时)
 | `"tool_error"` | `{ tool_name, error }` | 工具执行出错 |
 | `"ask_user"` | `{ tool_name, question, mode, options, interaction_id }` | Agent 向用户提问 |
 | `"answer"` | `{ content }` | Agent 最终回答 |
-| `"done"` | `{ turn_id, context_usage? }` | 本轮对话完成 |
+| `"done"` | `{ context_usage? }` | 本轮对话完成 |
 | `"error"` | `{ code, message }` | 任务取消或异常 |
 | `"pong"` | `{}` | 心跳回复 |
 
@@ -162,7 +162,7 @@ context_usage (仅连接时)
 // ← { "type": "tool_start",     "payload": { "tool_name": "get_current_weather", "input": "北京" } }
 // ← { "type": "tool_end",       "payload": { "tool_name": "get_current_weather", "output": "晴 22°C", "elapsed": 0.8, "tool_data": { "city": "北京", "temp": "22" } } }
 // ← { "type": "answer",         "payload": { "content": "北京今天晴，22°C。" } }
-// ← { "type": "done",           "payload": { "turn_id": "xyz789", "context_usage": { "current_tokens": 350, "max_tokens": 8192, "usage_percent": 4.3, "model_name": "deepseek-v4-flash" } } }
+// ← { "type": "done",           "payload": { "context_usage": { "current_tokens": 350, "max_tokens": 8192, "usage_percent": 4.3, "model_name": "deepseek-v4-flash" } } }
 ```
 
 ### tool_data 结构化输出
