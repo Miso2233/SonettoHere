@@ -29,7 +29,7 @@ async def get_session(session_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Session not found")
     return {
         "session_id": session.session_id,
-        "message_count": len(session.message_history),
+        "message_count": session.message_count,
         "created_at": session.created_at,
         "has_active_agent": session._active_task is not None and not session._active_task.done(),
     }
@@ -41,7 +41,13 @@ async def get_messages(session_id: str, request: Request):
     session = sm.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    msgs = session.short_term_memory.messages
+    try:
+        state = await session.checkpointer.aget_state(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        msgs = state.values.get("messages", [])
+    except Exception:
+        msgs = []
     return {"session_id": session_id, "messages": [{"role": m.type, "content": m.content} for m in msgs]}
 
 
@@ -53,8 +59,15 @@ async def get_context_usage(session_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Session not found")
     settings = get_settings()
     system_prompt = request.app.state.system_prompt
+    try:
+        state = await session.checkpointer.aget_state(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        counting_messages = state.values.get("messages", [])
+    except Exception:
+        counting_messages = []
     usage = estimate_context_usage(
-        messages=session.short_term_memory.messages,
+        messages=counting_messages,
         system_prompt=system_prompt,
         max_tokens=settings.model_context_window,
         model_name=settings.model_name,

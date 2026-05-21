@@ -37,7 +37,7 @@ export interface AnswerEvent {
 
 export interface DoneEvent {
   type: 'done'
-  payload: { turn_id: string; context_usage?: ContextUsage }
+  payload: { context_usage?: ContextUsage }
 }
 
 export interface ErrorEvent {

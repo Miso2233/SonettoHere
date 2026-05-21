@@ -48,6 +48,3 @@ def build_system_prompt() -> str:
     return "\n".join(parts)
 
 
-def build_enhanced_prompt(system_prompt: str, user_input: str) -> str:
-    """重新组装系统提示词，获取最新叙事和用户自述。"""
-    return build_system_prompt()

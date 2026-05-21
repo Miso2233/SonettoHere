@@ -7,7 +7,7 @@ from datetime import datetime
 from langchain_openai import ChatOpenAI
 
 from agent.graph import build_agent
-from agent.prompts import build_enhanced_prompt, build_system_prompt
+from agent.prompts import build_system_prompt
 from callbacks.printer import PrinterCallback
 from config.settings import get_settings
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
@@ -92,12 +92,12 @@ class SonettoCLI:
                 continue
 
             # 生成提示词
-            enhanced_prompt = build_enhanced_prompt(self.system_prompt, user_input)
+            system_prompt = build_system_prompt()
 
             self.graph = build_agent(
                 model=self.llm,
                 tools=self.tools,
-                system_prompt=enhanced_prompt,
+                system_prompt=system_prompt,
             )
 
             config = {

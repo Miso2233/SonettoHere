@@ -9,7 +9,7 @@ from botpy.types.message import Message
 from langchain_openai import ChatOpenAI
 
 from agent.graph import build_agent
-from agent.prompts import build_enhanced_prompt, build_system_prompt
+from agent.prompts import build_system_prompt
 from config.settings import get_settings
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
@@ -52,13 +52,13 @@ class SonettoQQBot(botpy.Client):
         session = self._get_session(user_id)
 
         # 注入长期记忆构建增强提示词
-        enhanced_prompt = build_enhanced_prompt(self.system_prompt, user_input)
+        system_prompt = build_system_prompt()
 
         # 每条消息使用独立的 graph，共享 thread_id 以维持对话上下文
         graph = build_agent(
             model=self.llm,
             tools=self.tools,
-            system_prompt=enhanced_prompt,
+            system_prompt=system_prompt,
         )
         config = {"configurable": {"thread_id": session["thread_id"]}}
 
