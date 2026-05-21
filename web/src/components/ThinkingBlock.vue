@@ -33,7 +33,24 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
   transition: all 0.4s ease;
 }
 .thinking-block.done {
-  opacity: 0.7;
+  background: var(--bg-card);
+  border-color: var(--border);
+  border-radius: 14px;
+  border-bottom-left-radius: 4px;
+  max-width: 72%;
+  margin: 4px 0;
+  opacity: 1;
+}
+.thinking-block.done .thinking-header {
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  opacity: 0;
+  overflow: hidden;
+}
+.thinking-block.done .thinking-body {
+  border-top: none;
+  padding: 10px 16px;
 }
 .thinking-block.became-answer {
   background: var(--bg-card);
