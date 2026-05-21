@@ -15,7 +15,6 @@ class SessionState:
     created_at: float = field(default_factory=time.time)
     last_active: float = field(default_factory=time.time)
     short_term_memory: InMemoryChatMessageHistory = field(default_factory=InMemoryChatMessageHistory)
-    message_history: list[dict] = field(default_factory=list)
     _active_task: asyncio.Task | None = field(default=None, repr=False)
     checkpointer: MemorySaver | None = field(default=None, repr=False)
 
@@ -60,7 +59,7 @@ class SessionManager:
             )
             result.append({
                 "session_id": s.session_id,
-                "message_count": len(s.message_history),
+                "message_count": len(s.short_term_memory.messages),
                 "created_at": s.created_at,
                 "last_active": s.last_active,
                 "has_active_agent": has_active,

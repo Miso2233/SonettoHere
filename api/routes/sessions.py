@@ -29,7 +29,7 @@ async def get_session(session_id: str, request: Request):
         raise HTTPException(status_code=404, detail="Session not found")
     return {
         "session_id": session.session_id,
-        "message_count": len(session.message_history),
+        "message_count": len(session.short_term_memory.messages),
         "created_at": session.created_at,
         "has_active_agent": session._active_task is not None and not session._active_task.done(),
     }

@@ -6,140 +6,127 @@ import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import AIMessage, HumanMessage
+from langgraph.checkpoint.memory import MemorySaver
 
 from agent.graph import build_agent
-from agent.prompts import build_enhanced_prompt
-from langgraph.checkpoint.memory import MemorySaver
+from agent.prompts import build_system_prompt
 from api import interaction
-from api.callbacks.websocket_callback import WebSocketCallback, _extract_content
+from api.callbacks.websocket_callback import WebSocketCallback
 from api.context_usage import estimate_context_usage
 from config.settings import get_settings
 
 router = APIRouter()
 
 
-async def _run_agent_turn(
-    ws: WebSocket,
-    session,
-    app_state,
-    user_message: str,
-):
-    """在后台任务中执行一轮 Agent 对话。"""
-    app_state = ws.app.state
-    ws_callback = WebSocketCallback(ws)
-    turn_id = uuid.uuid4().hex
-
-    enhanced_prompt = build_enhanced_prompt(
-        app_state.system_prompt, user_message
-    )
-
-    # 使用 session 级别的持久 checkpointer
+def _init_checkpointer(session):
+    """延迟初始化 session 级别的持久 checkpointer。"""
     if session.checkpointer is None:
         session.checkpointer = MemorySaver()
 
+
+def _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback):
+    """构建 graph、inputs、config，无 I/O。"""
     graph = build_agent(
         model=app_state.llm,
         tools=app_state.tools,
         system_prompt=enhanced_prompt,
         checkpointer=session.checkpointer,
     )
-
-    # checkpointer 按 thread_id 自动恢复历史消息
-    inputs = {
-        "messages": [HumanMessage(content=user_message)]
-    }
-
+    inputs = {"messages": [HumanMessage(content=user_message)]}
     config = {
         "configurable": {"thread_id": session.session_id},
         "callbacks": [ws_callback],
     }
+    return graph, inputs, config
 
-    session.message_history.append(
-        {"role": "user", "content": user_message}
+
+def _get_final_answer(event) -> str:
+    """
+    从 on_chain_end 事件提取原始 final_answer，
+    返回 content。
+    """
+    output = event["data"].get("output", {})
+    messages = output.get("messages", [])
+    if not messages:
+        return ""
+    raw_final_answer = messages[-1] # 最后一条message为Final Answer
+    final_answer = raw_final_answer.content if hasattr(raw_final_answer, "content") else str(raw_final_answer)
+    return final_answer
+
+
+async def _stream_turn(graph, inputs, config) -> str:
+    """流式执行 Agent 图，返回最终回答。"""
+    final_answer = ""
+    async for event in graph.astream_events(inputs, config=config, version="v2"):
+        if event.get("event") == "on_chain_end" and event.get("name") == "agent":
+            final_answer = _get_final_answer(event)
+    return final_answer
+
+
+async def _report_turn_done(ws, session, enhanced_prompt, turn_id):
+    """从 checkpointer 拉取消息列表，估算上下文用量，推送 done。"""
+    settings = get_settings()
+    try:
+        state = await session.checkpointer.aget_state(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        counting_messages = state.values.get("messages", [])
+    except Exception:
+        counting_messages = session.short_term_memory.messages
+
+    context_usage = estimate_context_usage(
+        messages=counting_messages,
+        system_prompt=enhanced_prompt,
+        max_tokens=settings.model_context_window,
+        model_name=settings.model_name,
     )
+    await ws.send_json({                                                    # 3. 推送 turn 结束、turn_id 和上下文用量
+        "type": "done",
+        "payload": {
+            "turn_id": turn_id,
+            "context_usage": context_usage,
+        },
+    })
+
+
+async def _run_agent_turn(
+    ws: WebSocket,
+    session,
+    user_message: str,
+):
+    """编排一轮 Agent 对话：prep → stream → teardown → persist。"""
+    app_state = ws.app.state            # 应用状态 包含五个属性 所有对话共享
+        # app_state.llm	                ChatOpenAI	                LLM 模型实例
+        # app_state.system_prompt	    str	                        组装好的系统提示词
+        # app_state.tools	            list[BaseTool]	            Agent 可用的工具列表
+        # app_state.session_manager	    SessionManager	            会话生命周期管理器（创建/查询/过期清理）
+        # app_state.ltm	                LongTermMemoryInterface	    长期记忆接口，send_history() 将对话入队供后台消费写入 MEMORY.md
+    ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
+    turn_id = uuid.uuid4().hex
+    enhanced_prompt = build_system_prompt()
+
+    _init_checkpointer(session)
+    graph, inputs, config = _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback)
+    session.short_term_memory.add_message(HumanMessage(content=user_message))
 
     final_answer = ""
     try:
-        task = asyncio.current_task()
-        if task:
-            session._active_task = task
-
-        async for event in graph.astream_events(
-            inputs, config=config, version="v2"
-        ):
-            kind = event.get("event", "")
-            name = event.get("name", "")
-
-            if kind == "on_tool_end":
-                output = event["data"].get("output", "")
-                out_str = _extract_content(output)
-                if len(out_str) > 300:
-                    out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
-                session.message_history.append(
-                    {"role": "tool", "content": out_str}
-                )
-
-            elif kind == "on_chain_end" and name == "agent":
-                output = event["data"].get("output", {})
-                messages = output.get("messages", [])
-                if messages:
-                    last = messages[-1]
-                    final_answer = (
-                        last.content
-                        if hasattr(last, "content")
-                        else str(last)
-                    )
-                    await ws.send_json({
-                        "type": "answer",
-                        "payload": {"content": final_answer},
-                    })
-                    session.message_history.append(
-                        {"role": "assistant", "content": final_answer}
-                    )
-
+        final_answer = await _stream_turn(graph, inputs, config)  # 核心运算 执行 Agent 图，返回最终回答，以config回调作为副作用
+        await ws.send_json({                                                # [向前端通信] 1. 向客户端推送最终答案
+            "type": "answer",
+            "payload": {"content": final_answer}
+        })
     except asyncio.CancelledError:
-        await ws.send_json({
+        await ws.send_json({                                                # [向前端通信] 2. 通知客户端生成已被取消
             "type": "error",
-            "payload": {
-                "code": "CANCELLED",
-                "message": "生成已取消",
-            },
+            "payload": {"code": "CANCELLED", "message": "生成已取消"},
         })
     finally:
         session._active_task = None
-        settings = get_settings()
+        await _report_turn_done(ws, session, enhanced_prompt, turn_id)      # [向前端通信] 3. 推送 turn 结束 + 上下文用量
 
-        # 从 graph 的最终 state 取回完整消息列表（含工具调用/结果）
-        try:
-            state = await graph.aget_state(
-                {"configurable": {"thread_id": session.session_id}}
-            )
-            counting_messages = state.values.get("messages", [])
-        except Exception:
-            counting_messages = session.short_term_memory.messages
-
-        context_usage = estimate_context_usage(
-            messages=counting_messages,
-            system_prompt=enhanced_prompt,
-            max_tokens=settings.model_context_window,
-            model_name=settings.model_name,
-        )
-        await ws.send_json({
-            "type": "done",
-            "payload": {
-                "turn_id": turn_id,
-                "context_usage": context_usage,
-            },
-        })
-
-    session.short_term_memory.add_message(
-        HumanMessage(content=user_message)
-    )
     if final_answer:
-        session.short_term_memory.add_message(
-            AIMessage(content=final_answer)
-        )
-
+        session.short_term_memory.add_message(AIMessage(content=final_answer))
     await app_state.ltm.send_history([
         {"role": "user", "content": user_message},
         {"role": "assistant", "content": final_answer},
@@ -187,8 +174,9 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                 interaction.current_ws.set(ws)
 
                 agent_task = asyncio.create_task(
-                    _run_agent_turn(ws, session, app_state, user_message)
+                    _run_agent_turn(ws, session, user_message)
                 )
+                session._active_task = agent_task  # 立即写入，消除竞争窗口
 
             elif msg_type == "user_response":
                 interaction_id = msg["payload"].get("interaction_id", "")
@@ -200,9 +188,6 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                 if agent_task and not agent_task.done():
                     agent_task.cancel()
                     agent_task = None
-                if session._active_task:
-                    session._active_task.cancel()
-                    session._active_task = None
 
     except WebSocketDisconnect:
         pass
