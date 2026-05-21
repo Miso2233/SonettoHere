@@ -63,8 +63,11 @@ async def _stream_turn(graph, inputs, config) -> str:
     return final_answer
 
 
-async def _report_turn_done(ws, session, enhanced_prompt, turn_id):
-    """从 checkpointer 拉取消息列表，估算上下文用量，推送 done。"""
+async def _calculate_context_usage(session, enhanced_prompt) -> dict:
+    """
+    从 checkpointer 拉取消息列表，估算上下文用量。
+    返回字典，包括现用量、最大用量、占比、模型名称。
+    """
     settings = get_settings()
     try:
         state = await session.checkpointer.aget_state(
@@ -74,19 +77,12 @@ async def _report_turn_done(ws, session, enhanced_prompt, turn_id):
     except Exception:
         counting_messages = session.short_term_memory.messages
 
-    context_usage = estimate_context_usage(
+    return estimate_context_usage(
         messages=counting_messages,
         system_prompt=enhanced_prompt,
         max_tokens=settings.model_context_window,
         model_name=settings.model_name,
     )
-    await ws.send_json({                                                    # 3. 推送 turn 结束、turn_id 和上下文用量
-        "type": "done",
-        "payload": {
-            "turn_id": turn_id,
-            "context_usage": context_usage,
-        },
-    })
 
 
 async def _run_agent_turn(
@@ -123,7 +119,14 @@ async def _run_agent_turn(
         })
     finally:
         session._active_task = None
-        await _report_turn_done(ws, session, enhanced_prompt, turn_id)      # [向前端通信] 3. 推送 turn 结束 + 上下文用量
+        context_usage = await _calculate_context_usage(session, enhanced_prompt)
+        await ws.send_json({                                                # [向前端通信] 3. 推送 turn 结束 + 上下文用量
+            "type": "done",
+            "payload": {
+                "turn_id": turn_id,
+                "context_usage": context_usage,
+            },
+        })
 
     if final_answer:
         session.short_term_memory.add_message(AIMessage(content=final_answer))
