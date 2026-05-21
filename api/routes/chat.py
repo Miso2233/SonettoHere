@@ -16,12 +16,12 @@ from config.settings import get_settings
 router = APIRouter()
 
 
-def _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback):
+def _prepare_turn(app_state, session, system_prompt, user_message, ws_callback):
     """构建 graph、inputs、config，无 I/O。"""
     graph = build_agent(
         model=app_state.llm,
         tools=app_state.tools,
-        system_prompt=enhanced_prompt,
+        system_prompt=system_prompt,
         checkpointer=session.checkpointer,
     )
     inputs = {"messages": [HumanMessage(content=user_message)]}
@@ -55,7 +55,7 @@ async def _stream_turn(graph, inputs, config) -> str:
     return final_answer
 
 
-async def _calculate_context_usage(session, enhanced_prompt) -> dict:
+async def _calculate_context_usage(session, system_prompt) -> dict:
     """
     从 checkpointer 拉取消息列表，估算上下文用量。
     返回字典，包括现用量、最大用量、占比、模型名称。
@@ -71,7 +71,7 @@ async def _calculate_context_usage(session, enhanced_prompt) -> dict:
 
     return estimate_context_usage(
         messages=counting_messages,
-        system_prompt=enhanced_prompt,
+        system_prompt=system_prompt,
         max_tokens=settings.model_context_window,
         model_name=settings.model_name,
     )
@@ -94,9 +94,9 @@ async def _run_agent_turn(
         # app_state.session_manager	    SessionManager	            会话生命周期管理器（创建/查询/过期清理）
         # app_state.ltm	                LongTermMemoryInterface	    长期记忆接口，send_history() 将对话入队供后台消费写入 MEMORY.md
     ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
-    enhanced_prompt = build_system_prompt()
+    system_prompt = build_system_prompt()
 
-    graph, inputs, config = _prepare_turn(app_state, session, enhanced_prompt, user_message, ws_callback)
+    graph, inputs, config = _prepare_turn(app_state, session, system_prompt, user_message, ws_callback)
 
     final_answer = ""
     try:
@@ -112,7 +112,7 @@ async def _run_agent_turn(
         })
     finally:
         session._active_task = None
-        context_usage = await _calculate_context_usage(session, enhanced_prompt)
+        context_usage = await _calculate_context_usage(session, system_prompt)
         await ws.send_json({                                                # [向前端通信] 3. 推送 turn 结束 + 上下文用量
             "type": "done",
             "payload": {

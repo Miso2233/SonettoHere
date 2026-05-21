@@ -92,12 +92,12 @@ class SonettoCLI:
                 continue
 
             # 生成提示词
-            enhanced_prompt = build_system_prompt()
+            system_prompt = build_system_prompt()
 
             self.graph = build_agent(
                 model=self.llm,
                 tools=self.tools,
-                system_prompt=enhanced_prompt,
+                system_prompt=system_prompt,
             )
 
             config = {

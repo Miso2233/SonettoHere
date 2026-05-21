@@ -52,13 +52,13 @@ class SonettoQQBot(botpy.Client):
         session = self._get_session(user_id)
 
         # 注入长期记忆构建增强提示词
-        enhanced_prompt = build_system_prompt()
+        system_prompt = build_system_prompt()
 
         # 每条消息使用独立的 graph，共享 thread_id 以维持对话上下文
         graph = build_agent(
             model=self.llm,
             tools=self.tools,
-            system_prompt=enhanced_prompt,
+            system_prompt=system_prompt,
         )
         config = {"configurable": {"thread_id": session["thread_id"]}}
 
