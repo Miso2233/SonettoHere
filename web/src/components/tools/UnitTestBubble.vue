@@ -156,7 +156,7 @@ const displayOutput = computed(() => {
 .bubble-running { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; color: var(--text-secondary); }
 .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.bubble-error { font-size: 13px; color: #c05050; padding: 4px 0; }
+.bubble-error { font-size: 13px; color: #b91c1c; padding: 4px 0; }
 
 .ut-result { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
 .ut-section { display: flex; flex-direction: column; gap: 8px; }
@@ -190,7 +190,7 @@ const displayOutput = computed(() => {
 .ut-detail-body { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: var(--bg-primary); }
 .ut-detail-field { display: flex; flex-direction: column; gap: 4px; }
 .ut-detail-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; }
-.ut-detail-msg { font-size: 12px; color: #c05050; padding: 6px 8px; background: var(--bg-secondary); border-radius: 4px; font-family: 'SF Mono', 'Consolas', monospace; word-break: break-word; }
+.ut-detail-msg { font-size: 12px; color: #b91c1c; padding: 6px 8px; background: var(--bg-secondary); border-radius: 4px; font-family: 'SF Mono', 'Consolas', monospace; word-break: break-word; }
 .ut-detail-tb { font-size: 11px; color: var(--text-primary); line-height: 1.5; padding: 8px; background: var(--bg-secondary); border-radius: 4px; max-height: 200px; overflow-y: auto; font-family: 'SF Mono', 'Consolas', monospace; white-space: pre; }
 
 .raw-output { font-family: 'SF Mono', 'Consolas', monospace; font-size: 12px; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; margin: 0; padding: 8px 12px; background: var(--bg-primary); border-radius: 6px; }

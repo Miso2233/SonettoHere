@@ -88,22 +88,22 @@ const level = computed(() => {
   transition: stroke-dashoffset 0.5s ease, stroke 0.5s ease;
 }
 .safe .ring-fill {
-  stroke: #7ab87a;
+  stroke: #22c55e;
 }
 .safe .label {
-  color: #7ab87a;
+  color: #22c55e;
 }
 .warn .ring-fill {
-  stroke: #c9b44a;
+  stroke: #f59e0b;
 }
 .warn .label {
-  color: #c9b44a;
+  color: #f59e0b;
 }
 .danger .ring-fill {
-  stroke: #c97a7a;
+  stroke: #ef4444;
 }
 .danger .label {
-  color: #c97a7a;
+  color: #ef4444;
 }
 .context-usage {
   position: relative;

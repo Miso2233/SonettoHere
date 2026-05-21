@@ -7,7 +7,7 @@
         class="file-tag"
         :title="fp"
       >
-        <span class="file-tag-icon">📎</span>
+        <span class="file-tag-icon"><Icon name="file" :size="14" /></span>
         <span class="file-tag-name">{{ getFileName(fp) }}</span>
         <button class="file-tag-remove" @click="removeFile(idx)">✕</button>
       </span>
@@ -26,21 +26,6 @@
       </span>
     </div>
     <div class="chat-input">
-      <div class="btn-add-file-wrapper">
-        <button class="btn-add-file" :disabled="disabled" @click="toggleMenu">
-          <span v-if="loading" class="btn-add-file-spin">⟳</span>
-          <span v-else>＋</span>
-        </button>
-        <div v-if="showMenu" class="add-file-menu" @click.stop>
-          <button class="add-file-menu-item" @click="pickFile">
-            <span class="menu-item-icon">📄</span> 选择文件
-          </button>
-          <button class="add-file-menu-item" @click="pickFolder">
-            <span class="menu-item-icon">📁</span> 选择文件夹
-          </button>
-        </div>
-        <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
-      </div>
       <textarea
         ref="textareaRef"
         v-model="text"
@@ -51,18 +36,35 @@
         @keydown.enter.exact.prevent="handleSend"
         @input="autoResize"
       ></textarea>
-      <div class="input-actions">
-        <button
-          v-if="!isStreaming"
-          class="btn-send"
-          :disabled="!text.trim() || disabled"
-          @click="handleSend"
-        >
-          发送
-        </button>
-        <button v-else class="btn-stop" @click="$emit('stop')">
-          停止
-        </button>
+      <div class="input-bottom-bar">
+        <div class="btn-add-file-wrapper">
+          <button class="btn-add-file" :disabled="disabled" @click="toggleMenu">
+            <span v-if="loading" class="btn-add-file-spin">⟳</span>
+            <Icon v-else name="attach" :size="18" />
+          </button>
+          <div v-if="showMenu" class="add-file-menu" @click.stop>
+            <button class="add-file-menu-item" @click="pickFile">
+              <Icon name="menu-file" :size="14" /> 选择文件
+            </button>
+            <button class="add-file-menu-item" @click="pickFolder">
+              <Icon name="menu-folder" :size="14" /> 选择文件夹
+            </button>
+          </div>
+          <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
+        </div>
+        <div class="input-actions">
+          <button
+            v-if="!isStreaming"
+            class="btn-send"
+            :disabled="!text.trim() || disabled"
+            @click="handleSend"
+          >
+            <Icon name="send" :size="16" />
+          </button>
+          <button v-else class="btn-stop" @click="$emit('stop')">
+            <Icon name="stop" :size="12" />
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -71,6 +73,9 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
 import type { Citation } from '@/types'
+import type { ParsedRef } from '@/utils/references'
+import { buildRefsBlock } from '@/utils/references'
+import Icon from '@/components/Icon.vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -134,20 +139,18 @@ function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  let finalMsg = msg
-  const parts: string[] = []
+  const refs: ParsedRef[] = []
 
-  if (filePaths.value.length > 0) {
-    parts.push(filePaths.value.map((p) => `[引用文件: ${p}]`).join('\n'))
+  for (const fp of filePaths.value) {
+    refs.push({ type: 'file', path: fp, label: getFileName(fp) })
   }
 
-  if (props.citations?.length) {
-    parts.push(props.citations.map((c) => `[引用: ${c.text}]`).join('\n'))
+  for (const cit of props.citations ?? []) {
+    const label = cit.text.length > 80 ? cit.text.slice(0, 80) + '…' : cit.text
+    refs.push({ type: 'cite', text: cit.text, label })
   }
 
-  if (parts.length > 0) {
-    finalMsg = `${msg}\n\n${parts.join('\n\n')}`
-  }
+  const finalMsg = refs.length > 0 ? msg + buildRefsBlock(refs) : msg
 
   emit('send', finalMsg)
   text.value = ''
@@ -171,7 +174,7 @@ function autoResize() {
 <style scoped>
 .chat-input-wrapper {
   border-top: 1px solid var(--border);
-  padding: 16px 24px;
+  padding: 12px 24px 16px;
   background: var(--bg-card);
 }
 
@@ -194,10 +197,6 @@ function autoResize() {
   color: var(--text-primary);
   max-width: 100%;
   overflow: hidden;
-}
-.file-tag-icon {
-  flex-shrink: 0;
-  font-size: 12px;
 }
 .file-tag-name {
   overflow: hidden;
@@ -229,16 +228,18 @@ function autoResize() {
 
 .chat-input {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-primary);
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  transition: border-color 0.15s;
+  border-radius: 14px;
+  padding: 10px 14px 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 .chat-input:focus-within {
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 /* 添加文件按钮 */
@@ -318,23 +319,25 @@ function autoResize() {
 .add-file-menu-item:hover {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
-.menu-item-icon {
-  font-size: 14px;
-}
-
 .input-area {
   flex: 1;
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 15px;
+  line-height: 1.6;
   color: var(--text-primary);
   resize: none;
   font-family: inherit;
+  min-height: 24px;
 }
 .input-area::placeholder {
-  color: var(--text-secondary);
+  color: #9ca3af;
+}
+.input-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .input-actions {
   display: flex;
@@ -343,30 +346,36 @@ function autoResize() {
 }
 .btn-send,
 .btn-stop {
-  padding: 6px 16px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: 6px;
-  font-size: 13px;
+  border-radius: 50%;
+  font-size: 16px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .btn-send {
   background: var(--accent);
   color: #fff;
 }
 .btn-send:hover:not(:disabled) {
-  background: #a07d4f;
+  background: #1d4ed8;
 }
 .btn-send:disabled {
-  opacity: 0.4;
+  opacity: 0.35;
   cursor: default;
 }
 .btn-stop {
-  background: #c97a7a;
+  background: #ef4444;
   color: #fff;
+  font-size: 12px;
 }
 .btn-stop:hover {
-  background: #b55a5a;
+  background: #dc2626;
 }
 </style>

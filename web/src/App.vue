@@ -5,8 +5,12 @@
         <h1 class="logo">SonettoHere</h1>
       </div>
       <nav class="sidebar-nav">
-        <router-link to="/" class="nav-item">对话</router-link>
-        <router-link to="/memory" class="nav-item">记忆</router-link>
+        <router-link to="/" class="nav-item">
+          <Icon name="chat" :size="18" /> 对话&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CHATING
+        </router-link>
+        <router-link to="/memory" class="nav-item">
+          <Icon name="memory" :size="18" /> 记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY
+        </router-link>
         <router-link to="/playground" class="nav-item pg-nav">Playground</router-link>
       </nav>
       <SessionSidebar
@@ -25,9 +29,10 @@
 </template>
 
 <script setup lang="ts">
-import { useSession } from '@/composables/useSession'
-import { allSessionStatuses } from '@/composables/useChat'
-import SessionSidebar from '@/components/SessionSidebar.vue'
+import Icon from '@/components/Icon.vue';
+import SessionSidebar from '@/components/SessionSidebar.vue';
+import { allSessionStatuses } from '@/composables/useChat';
+import { useSession } from '@/composables/useSession';
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
   useSession()
@@ -43,16 +48,16 @@ const { sessionId, sessions, createSession, switchSession, deleteSession } =
 }
 
 :root {
-  --bg-primary: #faf8f5;
-  --bg-secondary: #f3efe8;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
   --bg-card: #ffffff;
-  --text-primary: #3d342b;
-  --text-secondary: #8b7e6e;
-  --accent: #b8956a;
-  --accent-light: #dcc7a8;
-  --border: #e5ddd2;
-  --user-bubble: #e8dccf;
-  --shadow: 0 1px 3px rgba(61, 52, 43, 0.06);
+  --text-primary: #1f2937;
+  --text-secondary: #6b7280;
+  --accent: #2563eb;
+  --accent-light: #93b4f5;
+  --border: #e5e7eb;
+  --user-bubble: #eff6ff;
+  --shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   --radius: 10px;
 }
 
@@ -75,14 +80,19 @@ html, body {
 }
 
 .sidebar {
-  width: 200px;
-  min-width: 200px;
+  width: 220px;
+  min-width: 220px;
   background: var(--bg-secondary);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  padding: 20px 16px;
+  padding: 24px 20px;
   gap: 24px;
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: center;
 }
 
 .logo {
@@ -99,7 +109,9 @@ html, body {
 }
 
 .nav-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 12px;
   border-radius: var(--radius);
   color: var(--text-secondary);

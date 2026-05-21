@@ -544,7 +544,7 @@ function openFile() {
 
 .bubble-error {
   font-size: 13px;
-  color: #c05050;
+  color: #b91c1c;
   padding: 4px 0;
 }
 

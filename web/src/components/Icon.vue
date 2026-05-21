@@ -1,0 +1,57 @@
+<template>
+  <span class="icon" v-html="svgContent" :style="{ width: size + 'px', height: size + 'px' }"></span>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue'
+import chatRaw from '@/assets/icons/sidebar/chat.svg?raw'
+import memoryRaw from '@/assets/icons/sidebar/memory.svg?raw'
+import citeSpeechRaw from '@/assets/icons/context-menu/cite-speech.svg?raw'
+import copyRaw from '@/assets/icons/context-menu/copy.svg?raw'
+import attachRaw from '@/assets/icons/chat-input/attach.svg?raw'
+import fileRaw from '@/assets/icons/chat-input/file.svg?raw'
+import menuFileRaw from '@/assets/icons/chat-input/menu-file.svg?raw'
+import menuFolderRaw from '@/assets/icons/chat-input/menu-folder.svg?raw'
+import sendRaw from '@/assets/icons/chat-input/send.svg?raw'
+import stopRaw from '@/assets/icons/chat-input/stop.svg?raw'
+
+const props = withDefaults(defineProps<{
+  name: string
+  size?: number
+}>(), {
+  size: 16,
+})
+
+const svgContents: Record<string, string> = {
+  chat: chatRaw,
+  memory: memoryRaw,
+  'cite-speech': citeSpeechRaw,
+  copy: copyRaw,
+  attach: attachRaw,
+  file: fileRaw,
+  'menu-file': menuFileRaw,
+  'menu-folder': menuFolderRaw,
+  send: sendRaw,
+  stop: stopRaw,
+}
+
+const svgContent = computed(() => {
+  const raw = svgContents[props.name]
+  if (!raw) return ''
+  return raw.replace(/<\?xml[^>]*\?>/, '').trim()
+})
+</script>
+
+<style scoped>
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.icon :deep(svg) {
+  width: 100%;
+  height: 100%;
+}
+</style>

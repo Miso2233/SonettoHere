@@ -156,7 +156,8 @@ const pendingCitation = ref<{
 } | null>(null)
 
 const ctxMenuItems: ContextMenuItem[] = [
-  { label: '引用', action: 'cite', icon: '💬' },
+  { label: '引用', action: 'cite', icon: 'cite-speech' },
+  { label: '复制', action: 'copy', icon: 'copy' },
 ]
 
 function onBubbleContextMenu(
@@ -199,6 +200,8 @@ function handleContextMenuSelect(action: string) {
       sourceType: pendingCitation.value.sourceType,
     }
     emit('cite', citation)
+  } else if (action === 'copy' && pendingCitation.value) {
+    navigator.clipboard.writeText(pendingCitation.value.text)
   }
   closeContextMenu()
 }
@@ -231,24 +234,24 @@ function closeContextMenu() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  gap: 8px;
+  padding: 120px 20px 80px;
+  gap: 12px;
 }
 .empty-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--accent);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-primary);
 }
 .empty-desc {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-secondary);
 }
 .error-banner {
   padding: 10px 16px;
-  background: #fdeaea;
-  border: 1px solid #d4a0a0;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
   border-radius: var(--radius);
-  color: #8b3a3a;
+  color: #b91c1c;
   font-size: 13px;
 }
 </style>

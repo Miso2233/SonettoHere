@@ -222,7 +222,7 @@ const displayOutput = computed(() => {
   border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.bubble-error { font-size: 13px; color: #c05050; padding: 4px 0; }
+.bubble-error { font-size: 13px; color: #b91c1c; padding: 4px 0; }
 
 /* ── 主容器 ── */
 .pr-result { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }

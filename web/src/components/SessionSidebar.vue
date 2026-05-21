@@ -100,7 +100,7 @@ function formatId(id: string): string {
 .session-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   max-height: 400px;
   overflow-y: auto;
 }
@@ -108,7 +108,7 @@ function formatId(id: string): string {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border: none;
   border-radius: 8px;
   background: transparent;
@@ -155,7 +155,7 @@ function formatId(id: string): string {
   opacity: 1;
 }
 .btn-delete:hover {
-  color: #c97a7a;
+  color: #ef4444;
 }
 .no-sessions {
   font-size: 12px;
@@ -177,11 +177,11 @@ function formatId(id: string): string {
 }
 
 .status-dot.connected {
-  background: #6bcf7f;
+  background: #22c55e;
 }
 
 .status-dot.streaming {
-  background: #f5a623;
+  background: #f59e0b;
   animation: pulse 1.2s ease-in-out infinite;
 }
 
