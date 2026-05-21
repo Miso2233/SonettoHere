@@ -11,25 +11,10 @@ from agent.prompts import build_system_prompt
 from api import interaction
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.context_usage import estimate_context_usage
+from api.session_manager import SessionState
 from config.settings import get_settings
 
 router = APIRouter()
-
-
-def _prepare_turn(app_state, session, system_prompt, user_message, ws_callback):
-    """构建 graph、inputs、config，无 I/O。"""
-    graph = build_agent(
-        model=app_state.llm,
-        tools=app_state.tools,
-        system_prompt=system_prompt,
-        checkpointer=session.checkpointer,
-    )
-    inputs = {"messages": [HumanMessage(content=user_message)]}
-    config = {
-        "configurable": {"thread_id": session.session_id},
-        "callbacks": [ws_callback],
-    }
-    return graph, inputs, config
 
 
 def _get_final_answer(event) -> str:
@@ -79,28 +64,44 @@ async def _calculate_context_usage(session, system_prompt) -> dict:
 
 async def _run_agent_turn(
     ws: WebSocket,
-    session,
+    session: SessionState,
     user_message: str,
 ):
     """
     在指定的session中编排一轮 Agent 对话。
     无返回值。
-    以内置的 WebSocketCallback回调函数系统作为副作用。
+    以内置的 WebSocketCallback回调函数和前端通信系统作为副作用。
     """
+    # 1. [准备环境] 从 WebSocket 获取应用状态
     app_state = ws.app.state            # 应用状态 包含五个属性 所有对话共享
         # app_state.llm	                ChatOpenAI	                LLM 模型实例
-        # app_state.system_prompt	    str	                        组装好的系统提示词
+        # app_state.system_prompt	    str	                        组装好的系统提示词，粗糙估算上下文用量
         # app_state.tools	            list[BaseTool]	            Agent 可用的工具列表
         # app_state.session_manager	    SessionManager	            会话生命周期管理器（创建/查询/过期清理）
         # app_state.ltm	                LongTermMemoryInterface	    长期记忆接口，send_history() 将对话入队供后台消费写入 MEMORY.md
     ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
+
+        # session.session_id	        str	                        当前会话唯一标识
+        # session.message_count	        int	                        消息计数器（供列表页同步读取）
+        # session._active_task	        asyncio.Task | None	        当前正在执行的 Agent Task
+        # session.checkpointer	        MemorySaver	                LangGraph 持久化检查点（线程安全的图状态存储）
     system_prompt = build_system_prompt()
+    agent_sonetto = build_agent(
+        model=app_state.llm,
+        tools=app_state.tools,
+        system_prompt=system_prompt,
+        checkpointer=session.checkpointer,
+    )
+    inputs = {"messages": [HumanMessage(content=user_message)]}
+    config = {
+        "configurable": {"thread_id": session.session_id},
+        "callbacks": [ws_callback],
+    }
 
-    graph, inputs, config = _prepare_turn(app_state, session, system_prompt, user_message, ws_callback)
-
+    # 2. [执行轮次] 流式执行 Agent 图，副作用推送最终回答，另有config回调副作用
     final_answer = ""
     try:
-        final_answer = await _stream_turn(graph, inputs, config)  # 核心运算 执行 Agent 图，返回最终回答，以config回调作为副作用
+        final_answer = await _stream_turn(agent_sonetto, inputs, config)  # 核心运算 执行 Agent 图，返回最终回答，以config回调作为副作用
         await ws.send_json({                                                # [向前端通信] 1. 向客户端推送最终答案
             "type": "answer",
             "payload": {"content": final_answer}
@@ -120,6 +121,7 @@ async def _run_agent_turn(
             },
         })
 
+    # 3. [后处理] 增加消息计数器，将对话记录入长期记忆
     if final_answer:
         session.message_count += 2
     await app_state.ltm.send_history([
