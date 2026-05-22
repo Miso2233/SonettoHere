@@ -1,5 +1,6 @@
 import { reactive, computed, watch, nextTick, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent } from '@/types'
+import { refreshSessions } from '@/composables/useSession'
 
 const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
@@ -250,6 +251,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
           ch.isStreaming = false
           persistTurns(sid)
         }
+        void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
       } else {
         ch.isStreaming = false
       }
