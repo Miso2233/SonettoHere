@@ -28,7 +28,7 @@ async function initIfNeeded() {
   await refreshSessions()
 }
 
-async function refreshSessions() {
+export async function refreshSessions() {
   try {
     const res = await api.listSessions()
     sessions.value = res.sessions
