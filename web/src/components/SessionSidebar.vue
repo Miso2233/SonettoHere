@@ -48,30 +48,32 @@
       </div>
     </div>
 
-    <div v-if="hoveredSession" ref="hoverCardRef" class="session-hover-card" :style="cardStyle">
-      <div class="card-row">
-        <span class="card-label">ID</span>
-        <span class="card-value">{{ hoveredSession.session_id }}</span>
+    <Transition name="card">
+      <div v-if="hoveredSession" :key="hoveredSession.session_id" ref="hoverCardRef" class="session-hover-card" :style="cardStyle">
+        <div class="card-row">
+          <span class="card-label">ID</span>
+          <span class="card-value">{{ hoveredSession.session_id }}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-label">消息</span>
+          <span class="card-value">{{ hoveredSession.message_count }}</span>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-row">
+          <span class="card-label">创建时间</span>
+          <span class="card-value">{{ formatRelativeTime(hoveredSession.created_at) }}</span>
+        </div>
+        <div class="card-row" v-if="hoveredSession.last_active">
+          <span class="card-label">最近活跃</span>
+          <span class="card-value">{{ formatRelativeTime(hoveredSession.last_active) }}</span>
+        </div>
+        <div class="card-divider" v-if="hoveredSession.last_active"></div>
+        <div class="card-row">
+          <span class="card-label">Agent</span>
+          <span class="card-value">{{ getAgentStatus(hoveredSession.session_id) }}</span>
+        </div>
       </div>
-      <div class="card-row">
-        <span class="card-label">消息</span>
-        <span class="card-value">{{ hoveredSession.message_count }}</span>
-      </div>
-      <div class="card-divider"></div>
-      <div class="card-row">
-        <span class="card-label">创建时间</span>
-        <span class="card-value">{{ formatRelativeTime(hoveredSession.created_at) }}</span>
-      </div>
-      <div class="card-row" v-if="hoveredSession.last_active">
-        <span class="card-label">最近活跃</span>
-        <span class="card-value">{{ formatRelativeTime(hoveredSession.last_active) }}</span>
-      </div>
-      <div class="card-divider" v-if="hoveredSession.last_active"></div>
-      <div class="card-row">
-        <span class="card-label">Agent</span>
-        <span class="card-value">{{ getAgentStatus(hoveredSession.session_id) }}</span>
-      </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
@@ -335,5 +337,15 @@ const cardStyle = computed(() => {
   height: 1px;
   background: var(--border);
   margin: 4px 0;
+}
+
+.card-enter-active,
+.card-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.card-enter-from,
+.card-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
 }
 </style>
