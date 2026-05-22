@@ -11,6 +11,8 @@
         class="session-item"
         :class="{ active: s.session_id === activeId }"
         @click="$emit('switch', s.session_id)"
+        @mouseenter="onSessionMouseEnter($event, s)"
+        @mouseleave="onSessionMouseLeave"
       >
         <div class="session-item-main">
           <span class="session-id">{{ formatId(s.session_id) }}</span>
@@ -45,10 +47,36 @@
         暂无会话
       </div>
     </div>
+
+    <div v-if="hoveredSession" ref="hoverCardRef" class="session-hover-card" :style="cardStyle">
+      <div class="card-row">
+        <span class="card-label">ID</span>
+        <span class="card-value">{{ hoveredSession.session_id }}</span>
+      </div>
+      <div class="card-row">
+        <span class="card-label">消息</span>
+        <span class="card-value">{{ hoveredSession.message_count }}</span>
+      </div>
+      <div class="card-divider"></div>
+      <div class="card-row">
+        <span class="card-label">创建时间</span>
+        <span class="card-value">{{ formatDate(hoveredSession.created_at) }}</span>
+      </div>
+      <div class="card-row" v-if="hoveredSession.last_active">
+        <span class="card-label">最近活跃</span>
+        <span class="card-value">{{ formatDate(hoveredSession.last_active) }}</span>
+      </div>
+      <div class="card-divider" v-if="hoveredSession.last_active"></div>
+      <div class="card-row">
+        <span class="card-label">Agent 运行中</span>
+        <span class="card-value">{{ hoveredSession.has_active_agent ? '是' : '否' }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, nextTick } from 'vue'
 import type { SessionInfo } from '@/types'
 
 defineProps<{
@@ -63,9 +91,69 @@ defineEmits<{
   delete: [id: string]
 }>()
 
+const hoveredSession = ref<SessionInfo | null>(null)
+const hoverCardRef = ref<HTMLElement | null>(null)
+const cardTop = ref(0)
+const cardLeft = ref(0)
+
+let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
+
 function formatId(id: string): string {
   return id.length > 10 ? id.slice(0, 10) + '…' : id
 }
+
+function formatDate(ts: number): string {
+  return new Date(ts * 1000).toLocaleString()
+}
+
+function onSessionMouseEnter(event: MouseEvent, session: SessionInfo) {
+  if (hoverLeaveTimer !== null) {
+    clearTimeout(hoverLeaveTimer)
+    hoverLeaveTimer = null
+  }
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  cardTop.value = rect.top
+  cardLeft.value = rect.right + 8
+  hoveredSession.value = session
+  nextTick(() => adjustCardPosition(rect))
+}
+
+function onSessionMouseLeave() {
+  if (hoverLeaveTimer !== null) clearTimeout(hoverLeaveTimer)
+  hoverLeaveTimer = setTimeout(() => {
+    hoveredSession.value = null
+  }, 150)
+}
+
+function adjustCardPosition(buttonRect: DOMRect) {
+  const cardEl = hoverCardRef.value
+  if (!cardEl || !hoveredSession.value) return
+  const cardWidth = cardEl.offsetWidth
+  const cardHeight = cardEl.offsetHeight
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const margin = 8
+
+  if (cardLeft.value + cardWidth > vw - margin) {
+    const leftPos = buttonRect.left - cardWidth - margin
+    cardLeft.value = leftPos >= margin ? leftPos : Math.max(margin, vw - cardWidth - margin)
+  }
+  if (cardTop.value + cardHeight > vh - margin) {
+    cardTop.value = Math.max(margin, vh - cardHeight - margin)
+  }
+}
+
+const cardStyle = computed(() => {
+  if (!hoveredSession.value) return {}
+  return {
+    position: 'fixed' as const,
+    top: `${cardTop.value}px`,
+    left: `${cardLeft.value}px`,
+    zIndex: 100,
+    pointerEvents: 'none' as const,
+  }
+})
 </script>
 
 <style scoped>
@@ -198,5 +286,38 @@ function formatId(id: string): string {
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+/* ── Hover card ── */
+.session-hover-card {
+  min-width: 220px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.card-label {
+  color: var(--text-secondary);
+}
+.card-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
 }
 </style>
