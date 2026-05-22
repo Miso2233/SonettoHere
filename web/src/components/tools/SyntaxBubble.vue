@@ -2,7 +2,6 @@
   <BubbleChrome :tool-call="toolCall">
     <!-- 运行中 -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
-      <span class="spinner"></span>
       <span>正在检查语法...</span>
     </div>
 

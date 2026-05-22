@@ -36,9 +36,14 @@ class TodoUncompleteSkill(SkillBase):
             return format_error(str(e))
 
         try:
+            current_task = api.get_task(task_id)
             ok = api.uncomplete_task(task_id)
             if ok:
-                return format_success({"task_id": task_id, "message": "任务已重新打开"})
+                return format_success({
+                    "task_id": task_id,
+                    "content": current_task.content,
+                    "message": "任务已重新打开",
+                })
             return format_error("重新打开任务失败")
         except Exception as e:
             return format_error(f"任务不存在或重新打开失败: {e}")
