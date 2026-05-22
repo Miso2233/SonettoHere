@@ -11,6 +11,8 @@
         class="session-item"
         :class="{ active: s.session_id === activeId }"
         @click="$emit('switch', s.session_id)"
+        @mouseenter="onSessionMouseEnter($event, s)"
+        @mouseleave="onSessionMouseLeave"
       >
         <div class="session-item-main">
           <span class="session-id">{{ formatId(s.session_id) }}</span>
@@ -45,13 +47,41 @@
         暂无会话
       </div>
     </div>
+
+    <Transition name="card">
+      <div v-if="hoveredSession" :key="hoveredSession.session_id" ref="hoverCardRef" class="session-hover-card" :style="cardStyle">
+        <div class="card-row">
+          <span class="card-label">ID</span>
+          <span class="card-value">{{ hoveredSession.session_id }}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-label">消息</span>
+          <span class="card-value">{{ hoveredSession.message_count }}</span>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-row">
+          <span class="card-label">创建时间</span>
+          <span class="card-value">{{ formatRelativeTime(hoveredSession.created_at) }}</span>
+        </div>
+        <div class="card-row" v-if="hoveredSession.last_active">
+          <span class="card-label">最近活跃</span>
+          <span class="card-value">{{ formatRelativeTime(hoveredSession.last_active) }}</span>
+        </div>
+        <div class="card-divider" v-if="hoveredSession.last_active"></div>
+        <div class="card-row">
+          <span class="card-label">Agent</span>
+          <span class="card-value">{{ getAgentStatus(hoveredSession.session_id) }}</span>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, computed, nextTick } from 'vue'
 import type { SessionInfo } from '@/types'
 
-defineProps<{
+const props = defineProps<{
   sessions: SessionInfo[]
   activeId: string
   sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }>
@@ -63,9 +93,85 @@ defineEmits<{
   delete: [id: string]
 }>()
 
+const hoveredSession = ref<SessionInfo | null>(null)
+const hoverCardRef = ref<HTMLElement | null>(null)
+const cardTop = ref(0)
+const cardLeft = ref(0)
+
+let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
+
 function formatId(id: string): string {
   return id.length > 10 ? id.slice(0, 10) + '…' : id
 }
+
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts * 1000
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return new Date(ts * 1000).toLocaleDateString()
+}
+
+function getAgentStatus(sessionId: string): string {
+  const status = props.sessionStatuses?.[sessionId]
+  if (!status?.connected) return '就绪'
+  if (status.isAwaitingUser) return '需处理'
+  if (status.isStreaming) return '工作中'
+  return '就绪'
+}
+
+function onSessionMouseEnter(event: MouseEvent, session: SessionInfo) {
+  if (hoverLeaveTimer !== null) {
+    clearTimeout(hoverLeaveTimer)
+    hoverLeaveTimer = null
+  }
+  const button = event.currentTarget as HTMLElement
+  const rect = button.getBoundingClientRect()
+  cardTop.value = rect.top
+  cardLeft.value = rect.right + 8
+  hoveredSession.value = session
+  nextTick(() => adjustCardPosition(rect))
+}
+
+function onSessionMouseLeave() {
+  if (hoverLeaveTimer !== null) clearTimeout(hoverLeaveTimer)
+  hoverLeaveTimer = setTimeout(() => {
+    hoveredSession.value = null
+  }, 150)
+}
+
+function adjustCardPosition(buttonRect: DOMRect) {
+  const cardEl = hoverCardRef.value
+  if (!cardEl || !hoveredSession.value) return
+  const cardWidth = cardEl.offsetWidth
+  const cardHeight = cardEl.offsetHeight
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const margin = 8
+
+  if (cardLeft.value + cardWidth > vw - margin) {
+    const leftPos = buttonRect.left - cardWidth - margin
+    cardLeft.value = leftPos >= margin ? leftPos : Math.max(margin, vw - cardWidth - margin)
+  }
+  if (cardTop.value + cardHeight > vh - margin) {
+    cardTop.value = Math.max(margin, vh - cardHeight - margin)
+  }
+}
+
+const cardStyle = computed(() => {
+  if (!hoveredSession.value) return {}
+  return {
+    position: 'fixed' as const,
+    top: `${cardTop.value}px`,
+    left: `${cardLeft.value}px`,
+    zIndex: 100,
+    pointerEvents: 'none' as const,
+  }
+})
 </script>
 
 <style scoped>
@@ -198,5 +304,48 @@ function formatId(id: string): string {
 @keyframes pulse {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(1.3); }
+}
+
+/* ── Hover card ── */
+.session-hover-card {
+  min-width: 220px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+.card-label {
+  color: var(--text-secondary);
+}
+.card-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.card-enter-active,
+.card-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.card-enter-from,
+.card-leave-to {
+  opacity: 0;
+  transform: translateX(-8px);
 }
 </style>
