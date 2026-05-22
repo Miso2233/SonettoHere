@@ -40,25 +40,6 @@
             &times;
           </button>
         </div>
-        <div class="tooltip-card">
-          <div class="card-row">
-            <span class="card-label">创建时间</span>
-            <span class="card-value">{{ formatTime(s.created_at) }}</span>
-          </div>
-          <div v-if="s.last_active" class="card-row">
-            <span class="card-label">最后活跃</span>
-            <span class="card-value">{{ relativeTime(s.last_active) }}</span>
-          </div>
-          <div class="card-divider"></div>
-          <div class="card-row">
-            <span class="card-label">消息数</span>
-            <span class="card-value">{{ s.message_count }}</span>
-          </div>
-          <div class="card-row">
-            <span class="card-label">状态</span>
-            <span class="card-value">{{ statusText(s.session_id) }}</span>
-          </div>
-        </div>
       </button>
       <div v-if="sessions.length === 0" class="no-sessions">
         暂无会话
@@ -70,7 +51,7 @@
 <script setup lang="ts">
 import type { SessionInfo } from '@/types'
 
-const props = defineProps<{
+defineProps<{
   sessions: SessionInfo[]
   activeId: string
   sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }>
@@ -84,31 +65,6 @@ defineEmits<{
 
 function formatId(id: string): string {
   return id.length > 10 ? id.slice(0, 10) + '…' : id
-}
-
-function formatTime(ts: number): string {
-  const d = new Date(ts * 1000)
-  const pad = (n: number) => n.toString().padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-function relativeTime(ts: number): string {
-  const diff = Math.floor((Date.now() / 1000 - ts) / 60)
-  if (diff < 1) return '刚刚'
-  if (diff < 60) return `${diff} 分钟前`
-  const hours = Math.floor(diff / 60)
-  if (hours < 24) return `${hours} 小时前`
-  const days = Math.floor(hours / 24)
-  return `${days} 天前`
-}
-
-function statusText(sessionId: string): string {
-  const st = props.sessionStatuses?.[sessionId]
-  if (!st) return '断开'
-  if (st.isAwaitingUser) return '等待用户输入'
-  if (st.isStreaming) return 'Agent 运行中'
-  if (st.connected) return '就绪'
-  return '断开'
 }
 </script>
 
@@ -164,7 +120,6 @@ function statusText(sessionId: string): string {
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  position: relative;
   transition: background 0.15s;
 }
 .session-item:hover {
@@ -238,54 +193,6 @@ function statusText(sessionId: string): string {
 .status-dot.awaiting-user {
   background: #f59e0b;
   animation: pulse 1.2s ease-in-out infinite;
-}
-
-.tooltip-card {
-  visibility: hidden;
-  opacity: 0;
-  transform: translateX(-4px);
-  transition: visibility 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
-  pointer-events: none;
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 0;
-  z-index: 100;
-  min-width: 160px;
-  padding: 8px 12px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: nowrap;
-}
-
-.session-item:hover .tooltip-card {
-  visibility: visible;
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.card-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.card-label {
-  color: var(--text-secondary);
-}
-
-.card-value {
-  font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
-}
-
-.card-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
 }
 
 @keyframes pulse {
