@@ -31,12 +31,16 @@ def _get_final_answer(event) -> str:
     return final_answer
 
 
-async def _stream_turn(graph, inputs, config) -> str:
+async def _stream_turn(graph, inputs, config, ws, session, system_prompt) -> str:
     """流式执行 Agent 图，返回最终回答。"""
     final_answer = ""
     async for event in graph.astream_events(inputs, config=config, version="v2"):
         if event.get("event") == "on_chain_end" and event.get("name") == "agent":
             final_answer = _get_final_answer(event)
+        # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
+        if event.get("event") == "on_chain_end" and event.get("name") == "tools":
+            usage = await _calculate_context_usage(session, system_prompt)
+            await ws.send_json({"type": "context_usage", "payload": usage})
     return final_answer
 
 
@@ -105,7 +109,11 @@ async def _run_agent_turn(
     # 2. [执行轮次] 流式执行 Agent 图，副作用推送最终回答，另有config回调副作用
     final_answer = ""
     try:
-        final_answer = await _stream_turn(agent_sonetto, inputs, config)  # 核心运算 执行 Agent 图，返回最终回答，以config回调作为副作用
+        # turn 开始时推送当前上下文用量（含刚加入的 user message）
+        initial_turn_usage = await _calculate_context_usage(session, system_prompt)
+        await ws.send_json({"type": "context_usage", "payload": initial_turn_usage})
+
+        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt)
         await ws.send_json({                                                # [向前端通信] 1. 向客户端推送最终答案
             "type": "answer",
             "payload": {"content": final_answer}
