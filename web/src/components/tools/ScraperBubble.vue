@@ -1,7 +1,6 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
     <div v-if="toolCall.status === 'running'" class="bubble-running">
-      <span class="spinner"></span>
       <span>抓取网页...</span>
     </div>
 
@@ -166,8 +165,7 @@ const displayOutput = computed(() => {
 
 <style scoped>
 .bubble-running { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 13px; color: var(--text-secondary); }
-.spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; flex-shrink: 0; }
-@keyframes spin { to { transform: rotate(360deg); } }
+
 .bubble-error { font-size: 13px; color: #b91c1c; padding: 4px 0; }
 
 .sc-result { display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }

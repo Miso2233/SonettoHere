@@ -36,9 +36,14 @@ class TodoCompleteSkill(SkillBase):
             return format_error(str(e))
 
         try:
+            current_task = api.get_task(task_id)
             ok = api.complete_task(task_id)
             if ok:
-                return format_success({"task_id": task_id, "message": "任务已标记为完成"})
+                return format_success({
+                    "task_id": task_id,
+                    "content": current_task.content,
+                    "message": "任务已标记为完成",
+                })
             return format_error("标记任务完成失败")
         except Exception as e:
             return format_error(f"任务不存在或完成失败: {e}")

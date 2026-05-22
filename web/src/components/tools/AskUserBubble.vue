@@ -2,7 +2,6 @@
   <BubbleChrome :tool-call="toolCall">
     <!-- 等待交互数据到达 -->
     <div v-if="toolCall.status === 'running' && !submitted && !interactionData.interactionId" class="ask-waiting">
-      <span class="spinner"></span>
       <span>等待询问...</span>
     </div>
 
@@ -80,7 +79,6 @@
 
     <!-- 已提交，等待回复 -->
     <div v-else-if="toolCall.status === 'running' && submitted" class="ask-waiting">
-      <span class="spinner"></span>
       <span>已提交，等待回复...</span>
     </div>
 
@@ -309,17 +307,6 @@ function submitMulti() {
   font-size: 13px;
   color: var(--text-secondary);
 }
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  flex-shrink: 0;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
 /* 错误 */
 .ask-error {
   font-size: 13px;

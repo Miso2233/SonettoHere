@@ -1,7 +1,6 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
     <div v-if="toolCall.status === 'running'" class="bubble-running">
-      <span class="spinner"></span>
       <span>分析代码质量...</span>
     </div>
 
