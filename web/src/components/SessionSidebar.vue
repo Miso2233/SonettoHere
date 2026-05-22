@@ -60,16 +60,16 @@
       <div class="card-divider"></div>
       <div class="card-row">
         <span class="card-label">创建时间</span>
-        <span class="card-value">{{ formatDate(hoveredSession.created_at) }}</span>
+        <span class="card-value">{{ formatRelativeTime(hoveredSession.created_at) }}</span>
       </div>
       <div class="card-row" v-if="hoveredSession.last_active">
         <span class="card-label">最近活跃</span>
-        <span class="card-value">{{ formatDate(hoveredSession.last_active) }}</span>
+        <span class="card-value">{{ formatRelativeTime(hoveredSession.last_active) }}</span>
       </div>
       <div class="card-divider" v-if="hoveredSession.last_active"></div>
       <div class="card-row">
-        <span class="card-label">Agent 运行中</span>
-        <span class="card-value">{{ hoveredSession.has_active_agent ? '是' : '否' }}</span>
+        <span class="card-label">Agent</span>
+        <span class="card-value">{{ getAgentStatus(hoveredSession.session_id) }}</span>
       </div>
     </div>
   </div>
@@ -79,7 +79,7 @@
 import { ref, computed, nextTick } from 'vue'
 import type { SessionInfo } from '@/types'
 
-defineProps<{
+const props = defineProps<{
   sessions: SessionInfo[]
   activeId: string
   sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }>
@@ -102,8 +102,24 @@ function formatId(id: string): string {
   return id.length > 10 ? id.slice(0, 10) + '…' : id
 }
 
-function formatDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleString()
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts * 1000
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return `${minutes}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return new Date(ts * 1000).toLocaleDateString()
+}
+
+function getAgentStatus(sessionId: string): string {
+  const status = props.sessionStatuses?.[sessionId]
+  if (!status?.connected) return '就绪'
+  if (status.isAwaitingUser) return '需处理'
+  if (status.isStreaming) return '工作中'
+  return '就绪'
 }
 
 function onSessionMouseEnter(event: MouseEvent, session: SessionInfo) {
