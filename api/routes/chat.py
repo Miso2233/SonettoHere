@@ -47,10 +47,14 @@ async def _calculate_context_usage(session, system_prompt) -> dict:
     """
     settings = get_settings()
     try:
-        state = await session.checkpointer.aget_state(
+        cpt = await session.checkpointer.aget_tuple(
             {"configurable": {"thread_id": session.session_id}}
         )
-        counting_messages = state.values.get("messages", [])
+        if cpt is not None:
+            channel_values = cpt.checkpoint.get("channel_values", {})
+            counting_messages = channel_values.get("messages", [])
+        else:
+            counting_messages = []
     except Exception:
         counting_messages = []
 
