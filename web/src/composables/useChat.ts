@@ -54,21 +54,23 @@ interface SessionChannel {
   ws: WebSocket | null
   connected: boolean
   isStreaming: boolean
+  isAwaitingUser: boolean
   turns: ChatTurn[]
   currentTurn: ChatTurn | null
   error: string | null
   contextUsage: ContextUsage | null
   reconnectTimer: ReturnType<typeof setTimeout> | null
   initialized: boolean
+  _awaitingToolName: string | null
 }
 
 const channels = reactive(new Map<string, SessionChannel>())
 
 // 所有 Session 的连接/流式状态（模块级，供 sidebar 使用）
 export const allSessionStatuses = computed(() => {
-  const map: Record<string, { connected: boolean; isStreaming: boolean }> = {}
+  const map: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }> = {}
   for (const [sid, ch] of channels) {
-    map[sid] = { connected: ch.connected, isStreaming: ch.isStreaming }
+    map[sid] = { connected: ch.connected, isStreaming: ch.isStreaming, isAwaitingUser: ch.isAwaitingUser }
   }
   return map
 })
@@ -79,12 +81,14 @@ function getOrCreateChannel(sid: string): SessionChannel {
       ws: null,
       connected: false,
       isStreaming: false,
+      isAwaitingUser: false,
       turns: [] as ChatTurn[],
       currentTurn: null,
       error: null,
       contextUsage: null,
       reconnectTimer: null,
       initialized: false,
+      _awaitingToolName: null,
     })
   }
   return channels.get(sid)!
@@ -209,6 +213,11 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
           session: sid,
         })
       }
+      // ask_user 工具执行完毕 → 用户已回应，回到工作态
+      if (ch.isAwaitingUser && event.payload.tool_name === ch._awaitingToolName) {
+        ch.isAwaitingUser = false
+        ch._awaitingToolName = null
+      }
       break
     }
 
@@ -230,6 +239,8 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
     }
 
     case 'done':
+      ch.isAwaitingUser = false
+      ch._awaitingToolName = null
       if (event.payload.context_usage) {
         ch.contextUsage = event.payload.context_usage
       }
@@ -258,6 +269,8 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
       break
 
     case 'error':
+      ch.isAwaitingUser = false
+      ch._awaitingToolName = null
       ch.error = event.payload.message
       ch.isStreaming = false
       break
@@ -267,6 +280,8 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
 
     case 'ask_user': {
       const ae = event as AskUserEvent
+      ch.isAwaitingUser = true
+      ch._awaitingToolName = ae.payload.tool_name
       console.log('[useChat] received ask_user event:', {
         tool_name: ae.payload.tool_name,
         question: ae.payload.question?.slice(0, 50),

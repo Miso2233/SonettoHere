@@ -18,7 +18,12 @@
         </div>
         <div class="session-item-right">
           <span
-            v-if="(sessionStatuses ?? {})[s.session_id]?.isStreaming"
+            v-if="(sessionStatuses ?? {})[s.session_id]?.isAwaitingUser"
+            class="status-dot awaiting-user"
+            title="等待用户输入"
+          />
+          <span
+            v-else-if="(sessionStatuses ?? {})[s.session_id]?.isStreaming"
             class="status-dot streaming"
             title="Agent 运行中"
           />
@@ -49,7 +54,7 @@ import type { SessionInfo } from '@/types'
 defineProps<{
   sessions: SessionInfo[]
   activeId: string
-  sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean }>
+  sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }>
 }>()
 
 defineEmits<{
@@ -181,6 +186,11 @@ function formatId(id: string): string {
 }
 
 .status-dot.streaming {
+  background: #22c55e;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.status-dot.awaiting-user {
   background: #f59e0b;
   animation: pulse 1.2s ease-in-out infinite;
 }
