@@ -39,6 +39,9 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
   margin: 4px 0;
   opacity: 1;
 }
+.thinking-block.done:hover {
+  box-shadow: var(--shadow);
+}
 .thinking-block.done .thinking-header {
   max-height: 0;
   padding-top: 0;
