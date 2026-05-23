@@ -1,29 +1,27 @@
-"""记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 MEMORY.md。"""
+"""记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 memory.yaml。"""
 
 import asyncio
 import traceback
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-import yaml
-from filelock import FileLock
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
-DEBUG = False  # 调试开关，排查 MEMORY.md 未更新的问题
+from memory.memory_manager import MemoryManager
+
+DEBUG = False  # 调试开关，排查 memory.yaml 未更新的问题
 
 
 def _sanitize(text: str) -> str:
-    """将多行文本折叠为单行，防止破坏 YAML/Markdown 行格式。"""
+    """将多行文本折叠为单行，防止破坏 YAML 格式。"""
     return text.replace("\n", " ").replace("\r", " ")
 
-DEFAULT_SECTION = "身份"
-
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
-MEMORY_PATH = PERSONAS_DIR / "MEMORY.md"
-LOG_PATH = PERSONAS_DIR / "memory_operations.yaml"
+MEMORY_PATH = PERSONAS_DIR / "memory.yaml"
 
 COLD_START_SYSTEM = """你是一位"记忆叙事师"。根据对话记录，用第三人称撰写关于用户的简洁中文记忆。
 
@@ -60,11 +58,69 @@ UPDATE_SYSTEM = """你是一位"记忆叙事师"。以下是当前记忆（每�
 6. 禁止使用"今天""明天""昨天""下周"等相对时间词汇，必须使用绝对日期写入记忆。已提供当前时间、日期和星期几，请自行换算。"""
 
 
+# ── 模块级 MemoryManager 引用 ──────────────────────────────
+
+_current_mm: Optional[MemoryManager] = None
+
+
+def _set_current_mm(mm: MemoryManager) -> None:
+    global _current_mm
+    _current_mm = mm
+
+
+# ── 格式化辅助 ──────────────────────────────────────────────
+
+
+def _format_narrative(items: list[dict]) -> str:
+    """将 MemoryManager.show() 的输出格式化为人类可读的长记忆叙事文本。"""
+    if not items:
+        return ""
+    by_theme: dict[str, list[dict]] = {}
+    theme_order: list[str] = []
+    for item in items:
+        theme = item["theme"]
+        by_theme.setdefault(theme, []).append(item)
+        if theme not in theme_order:
+            theme_order.append(theme)
+    lines = ["# 长期记忆索引"]
+    for theme in theme_order:
+        lines.append(f"- [{theme}](#{theme})")
+    lines.extend(["", "---", ""])
+    for theme in theme_order:
+        lines.append(f"## {theme}")
+        for item in by_theme[theme]:
+            lines.append(f"- {item['description']}")
+        lines.append("")
+    return "\n".join(lines).strip() + "\n"
+
+
+def _format_entries_for_tool(items: list[dict]) -> str:
+    """为 read_memories 工具格式化条目（按 theme 分组，带 ID）。"""
+    if not items:
+        return "（暂无记忆条目）"
+    by_theme: dict[str, list[dict]] = {}
+    theme_order: list[str] = []
+    for item in items:
+        theme = item["theme"]
+        by_theme.setdefault(theme, []).append(item)
+        if theme not in theme_order:
+            theme_order.append(theme)
+    lines = []
+    for theme in theme_order:
+        lines.append(f"## {theme}")
+        for item in by_theme[theme]:
+            lines.append(f"  [{item['id']}] {item['description']}")
+        lines.append("")
+    return "\n".join(lines).strip()
+
+
 def get_narrative() -> str:
     """读取当前记忆叙事，不存在则返回空字符串。"""
-    if MEMORY_PATH.exists():
-        return MEMORY_PATH.read_text(encoding="utf-8").strip()
-    return ""
+    if not MEMORY_PATH.exists():
+        return ""
+    mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+    mm.load_yaml()
+    return _format_narrative(mm.show())
 
 
 def _format_messages(messages: list[dict]) -> str:
@@ -79,210 +135,7 @@ def _format_messages(messages: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ── MemorySerializer ──────────────────────────────────────────
-
-
-class MemorySerializer:
-    """MEMORY.md 分区格式 ↔ 条目字典 双向转换。"""
-
-    @staticmethod
-    def parse(content: str) -> tuple[dict[str, dict[str, str]], int]:
-        """解析分区格式 MEMORY.md 为 {id: {section, content}} 字典。
-
-        返回 ({id: {section, content}}, next_id)。
-        跳过 TOC、---、HTML 注释、### 子标题和非 "- " 行。
-        """
-        entries: dict[str, dict[str, str]] = {}
-        next_id = 1
-        current_section: str | None = None
-        for line in content.strip().split("\n"):
-            stripped = line.strip()
-            if not stripped:
-                continue
-            if stripped.startswith("# ") or stripped.startswith("---"):
-                continue
-            if stripped.startswith("## "):
-                section_name = stripped[3:].strip()
-                if "<!--" in section_name:
-                    section_name = section_name.split("<!--")[0].strip()
-                current_section = section_name
-            elif stripped.startswith("### "):
-                pass
-            elif stripped.startswith("- ") and current_section is not None:
-                entries[str(next_id)] = {
-                    "section": current_section,
-                    "content": stripped[2:].strip(),
-                }
-                next_id += 1
-        return entries, next_id
-
-    @staticmethod
-    def _section_order(entries: dict[str, dict[str, str]]) -> list[str]:
-        """按条目 ID 顺序返回 section 首次出现的顺序。"""
-        seen: list[str] = []
-        for eid in sorted(entries.keys(), key=int):
-            sec = entries[eid]["section"]
-            if sec not in seen:
-                seen.append(sec)
-        return seen
-
-    @staticmethod
-    def serialize(entries: dict[str, dict[str, str]]) -> str:
-        """将 {id: {section, content}} 序列化为带 TOC 的分区 MEMORY.md。"""
-        if not entries:
-            return "\n"
-        by_section: dict[str, list[str]] = {}
-        for entry in entries.values():
-            sec = entry.get("section", DEFAULT_SECTION)
-            by_section.setdefault(sec, []).append(entry["content"])
-
-        section_order = MemorySerializer._section_order(entries)
-
-        lines = ["# 长期记忆索引"]
-        for section in section_order:
-            lines.append(f"- [{section}](#{section})")
-        lines.append("")
-        lines.append("---")
-        lines.append("")
-
-        for section in section_order:
-            lines.append(f"## {section}")
-            for content in by_section[section]:
-                lines.append(f"- {content}")
-            lines.append("")
-        return "\n".join(lines) + "\n"
-
-
-# ── MemoryLogger ──────────────────────────────────────────────
-
-
-class MemoryLogger:
-    """YAML 操作日志记录器（线程/进程安全）。"""
-
-    _lock = FileLock(str(LOG_PATH) + ".lock")
-
-    @staticmethod
-    def _sanitize_params(params: dict) -> dict:
-        """递归清理参数中所有字符串的换行符。"""
-        result = {}
-        for k, v in params.items():
-            if isinstance(v, str):
-                result[k] = _sanitize(v)
-            elif isinstance(v, dict):
-                result[k] = MemoryLogger._sanitize_params(v)
-            else:
-                result[k] = v
-        return result
-
-    @staticmethod
-    def log(operation: str, params: dict) -> None:
-        """追加一条操作记录到 YAML 日志文件。"""
-        entry = {
-            "timestamp": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-            "operation": operation,
-            "params": MemoryLogger._sanitize_params(params),
-        }
-        with MemoryLogger._lock:
-            if LOG_PATH.exists():
-                try:
-                    existing = yaml.safe_load(LOG_PATH.read_text(encoding="utf-8")) or []
-                except yaml.YAMLError:
-                    existing = []
-            else:
-                existing = []
-            existing.append(entry)
-            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-            LOG_PATH.write_text(
-                yaml.safe_dump(existing, allow_unicode=True), encoding="utf-8"
-            )
-
-
-# ── MemoryStore（单例）────────────────────────────────────────
-
-
-class MemoryStore:
-    """记忆条目存储器（单例）。
-
-    持有当前会话的条目字典和自增 ID 计数器，提供 CRUD 操作。
-    """
-
-    _instance: "MemoryStore | None" = None
-
-    def __new__(cls) -> "MemoryStore":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self) -> None:
-        if not hasattr(self, "_initialized"):
-            self._initialized = True
-            self.entries: dict[str, dict[str, str]] = {}
-            self.next_id: int = 1
-
-    def reset(self) -> None:
-        """重置为初始状态。"""
-        self.entries.clear()
-        self.next_id = 1
-
-    def load(self, content: str) -> None:
-        """从 MEMORY.md 文本解析并加载条目。"""
-        self.entries, self.next_id = MemorySerializer.parse(content)
-
-    def create(self, content: str, section: str = DEFAULT_SECTION) -> str:
-        """添加一条记忆条目到指定分区，返回结果消息。"""
-        content = _sanitize(content)
-        if not section.strip():
-            section = DEFAULT_SECTION
-        eid = str(self.next_id)
-        self.entries[eid] = {"section": section, "content": content}
-        self.next_id += 1
-        return f"已创建 [{eid}] ({section}): {content}"
-
-    def read_all(self) -> str:
-        """返回所有条目的格式化文本，按分区归类。"""
-        if not self.entries:
-            return "（暂无记忆条目）"
-        by_section: dict[str, list[tuple[str, str]]] = {}
-        for eid, entry in self.entries.items():
-            sec = entry.get("section", DEFAULT_SECTION)
-            by_section.setdefault(sec, []).append((eid, entry["content"]))
-        lines = []
-        for section in MemorySerializer._section_order(self.entries):
-            if section in by_section:
-                lines.append(f"## {section}")
-                for eid, content in by_section[section]:
-                    lines.append(f"  [{eid}] {content}")
-                lines.append("")
-        return "\n".join(lines).strip()
-
-    def update(self, id: str, content: str) -> str:
-        """根据 ID 更新一条条目，返回结果消息。"""
-        content = _sanitize(content)
-        if id not in self.entries:
-            return (
-                f"错误：未找到 ID 为 {id} 的记忆条目。"
-                "请先调用 read_memories 确认 ID。"
-            )
-        old = self.entries[id]["content"]
-        self.entries[id]["content"] = content
-        return f"已更新 [{id}]\n  旧: {old}\n  新: {content}"
-
-    def delete(self, id: str) -> str:
-        """根据 ID 删除一条条目，返回结果消息。"""
-        if id not in self.entries:
-            return (
-                f"错误：未找到 ID 为 {id} 的记忆条目。"
-                "请先调用 read_memories 确认 ID。"
-            )
-        removed = self.entries.pop(id)["content"]
-        return f"已删除 [{id}]: {removed}"
-
-    def serialize(self) -> str:
-        """将当前条目序列化为 MEMORY.md 格式。"""
-        return MemorySerializer.serialize(self.entries)
-
-
-# ── CRUD 工具（模块级 @tool，委托给 MemoryStore 单例）───────
+# ── CRUD 工具（模块级 @tool，委托给 _current_mm）───────────
 
 
 @tool
@@ -299,22 +152,25 @@ def create_memory(content: str, section: str) -> str:
             - "瞬间"（即时观察和感受：天气、正在做的事、念头）
             - "时效待办"（有截止日期的事项：作业、预约、考试）
     """
-    store = MemoryStore()
-    result = store.create(content, section)
-    MemoryLogger.log("create_memory", {"content": content, "section": section})
+    content = _sanitize(content)
+    mm = _current_mm
+    if mm is None:
+        return "错误：记忆管理器未初始化。"
+    new_id = mm.add(description=content, theme=section)
     if DEBUG:
-        eid = str(store.next_id - 1)
-        print(f"[LTM-TOOL] create_memory → [{eid}] ({section}) {content[:80]}...")
-    return result
+        print(f"[LTM-TOOL] create_memory → [{new_id}] ({section}) {content[:80]}...")
+    return f"已创建 [{new_id}] ({section}): {content}"
 
 
 @tool
 def read_memories() -> str:
     """查看当前所有记忆条目及其 ID 和分区。在增删改之前必须先调用此工具了解现有条目。"""
-    store = MemoryStore()
-    result = store.read_all()
+    mm = _current_mm
+    if mm is None:
+        return "（暂无记忆条目）"
+    result = _format_entries_for_tool(mm.show())
     if DEBUG:
-        print(f"[LTM-TOOL] read_memories → {len(store.entries)} 条")
+        print(f"[LTM-TOOL] read_memories → 获取条目")
     return result
 
 
@@ -328,20 +184,19 @@ def update_memory(id: str, content: str, reason: str, origin_content: str) -> st
         reason: 修改原因，说明为什么要更新这条记忆。
         origin_content: 修改前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
-    store = MemoryStore()
-    if id not in store.entries:
+    content = _sanitize(content)
+    mm = _current_mm
+    if mm is None:
+        return "错误：记忆管理器未初始化。"
+    try:
+        mm.update(id, reason=reason, new_description=content)
+    except ValueError:
         if DEBUG:
             print(f"[LTM-TOOL] update_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    result = store.update(id, content)
-    MemoryLogger.log("update_memory", {
-        "content": content,
-        "reason": reason,
-        "origin_content": origin_content,
-    })
     if DEBUG:
-        print(f"[LTM-TOOL] update_memory [{id}] 旧→新 | 原因: {reason[:60]}")
-    return result
+        print(f"[LTM-TOOL] update_memory [{id}] 已更新 | 原因: {reason[:60]}")
+    return f"已更新 [{id}]: {content}"
 
 
 @tool
@@ -353,30 +208,29 @@ def delete_memory(id: str, reason: str, origin_content: str) -> str:
         reason: 删除原因，说明为什么要删除这条记忆。
         origin_content: 删除前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
-    store = MemoryStore()
-    if id not in store.entries:
+    mm = _current_mm
+    if mm is None:
+        return "错误：记忆管理器未初始化。"
+    try:
+        removed = mm.delete(id)
+    except ValueError:
         if DEBUG:
             print(f"[LTM-TOOL] delete_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    result = store.delete(id)
-    MemoryLogger.log("delete_memory", {
-        "reason": reason,
-        "origin_content": origin_content,
-    })
     if DEBUG:
         print(f"[LTM-TOOL] delete_memory [{id}] 已删除 | 原因: {reason[:60]}")
-    return result
+    return f"已删除 [{id}]: {removed}"
 
 
 # ── LongTermMemoryInterface ───────────────────────────────────
 
 
 class LongTermMemoryInterface:
-    """异步管线：逐轮对话消息 → asyncio.Queue → 后台 LLM 总结 → MEMORY.md 写入。
+    """异步管线：逐轮对话消息 → asyncio.Queue → 后台 LLM 总结 → memory.yaml 写入。
 
     用法::
 
-        ltm = LongTermMemoryInterface("/path/to/MEMORY.md")
+        ltm = LongTermMemoryInterface("/path/to/memory.yaml")
         ltm.start_listening(llm)          # 启动后台消费者
         await ltm.send_history(messages)  # 投放本轮对话（非阻塞）
         await ltm.stop_listening()        # 排空队列并停止
@@ -384,20 +238,24 @@ class LongTermMemoryInterface:
 
     def __init__(self, memory_path: str | Path) -> None:
         self._memory_path = Path(memory_path)
+        self._mm = MemoryManager(yaml_file=str(self._memory_path))
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
 
     def get_narrative(self) -> str:
         """读取当前记忆叙事，不存在则返回空字符串。"""
-        if self._memory_path.exists():
-            return self._memory_path.read_text(encoding="utf-8").strip()
-        return ""
+        if not self._memory_path.exists():
+            return ""
+        mm = MemoryManager(yaml_file=str(self._memory_path))
+        mm.load_yaml()
+        return _format_narrative(mm.show())
 
     def start_listening(self, llm) -> None:
         """创建 asyncio.Queue 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
         """
+        self._mm.load_yaml()
         self._queue = asyncio.Queue()
         self._consumer_task = asyncio.create_task(self._consumer(llm))
 
@@ -413,12 +271,12 @@ class LongTermMemoryInterface:
         if self._queue is not None:
             await self._queue.put(None)
             await self._consumer_task
+            self._mm.save_yaml()
             self._queue = None
             self._consumer_task = None
 
     async def _consumer(self, llm) -> None:
-        """后台消费者协程：从队列取消息，调用 CRUD Agent，写入 MEMORY.md。"""
-        store = MemoryStore()
+        """后台消费者协程：从队列取消息，调用 CRUD Agent，写入 memory.yaml。"""
 
         while True:
             turn_messages = await self._queue.get()
@@ -433,21 +291,22 @@ class LongTermMemoryInterface:
                     print("[LTM-CONSUMER] === 新轮次开始 ===")
                     print(f"[LTM-CONSUMER] 收到 {len(turn_messages)} 条消息")
 
-                old_narrative = self.get_narrative()
+                _set_current_mm(self._mm)
+                self._mm.load_yaml()
+
+                items = self._mm.show()
                 messages_text = _format_messages(turn_messages)
 
-                if old_narrative:
-                    store.load(old_narrative)
+                if items:
                     system_prompt = UPDATE_SYSTEM
                     user_prompt = (
                         f"## 新一轮对话\n{messages_text}"
                     )
                     if DEBUG:
-                        print(f"[LTM-CONSUMER] 模式: 更新 (解析到 {len(store.entries)} 条旧记忆)")
-                        for eid, entry in store.entries.items():
-                            print(f"[LTM-CONSUMER]   旧 [{eid}] ({entry['section']}): {entry['content'][:60]}...")
+                        print(f"[LTM-CONSUMER] 模式: 更新 (现有 {len(items)} 条记忆)")
+                        for item in items:
+                            print(f"[LTM-CONSUMER]   旧 [{item['id']}] ({item['theme']}): {item['description'][:60]}...")
                 else:
-                    store.reset()
                     system_prompt = COLD_START_SYSTEM
                     user_prompt = messages_text
                     if DEBUG:
@@ -488,19 +347,15 @@ class LongTermMemoryInterface:
                         if hasattr(m, "content") and getattr(m, "type", "") != "tool":
                             print(f"[LTM-CONSUMER] Agent 最终回复: {str(m.content)[:200]}")
                             break
-                    print(f"[LTM-CONSUMER] 操作后 entries: {len(store.entries)} 条")
-                    for eid, entry in store.entries.items():
-                        print(f"[LTM-CONSUMER]   新 [{eid}] ({entry['section']}): {entry['content'][:60]}...")
+                    items_after = self._mm.show()
+                    print(f"[LTM-CONSUMER] 操作后条目: {len(items_after)} 条")
+                    for item in items_after:
+                        print(f"[LTM-CONSUMER]   新 [{item['id']}] ({item['theme']}): {item['description'][:60]}...")
 
-                new_narrative = store.serialize()
-                if new_narrative.strip():
-                    self._memory_path.parent.mkdir(parents=True, exist_ok=True)
-                    self._memory_path.write_text(new_narrative, encoding="utf-8")
-                    if DEBUG:
-                        print(f"[LTM-CONSUMER] ✅ 已写入 MEMORY.md ({len(new_narrative)} 字节)")
-                else:
-                    if DEBUG:
-                        print("[LTM-CONSUMER] ⚠️ 叙事为空，跳过写入")
+                self._mm.save_yaml()
+                if DEBUG:
+                    print(f"[LTM-CONSUMER] ✅ 已写入 memory.yaml")
+
             except Exception:
                 if DEBUG:
                     print(f"[LTM-CONSUMER] ❌ 异常:\n{traceback.format_exc()}")
