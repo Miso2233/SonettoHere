@@ -180,6 +180,20 @@ export interface Citation {
   sourceType: 'user_message' | 'assistant_message' | 'tool_result' | 'thinking'
 }
 
+// === DeepSeek 余额 ===
+
+export interface BalanceInfo {
+  currency: string
+  total_balance: string
+  topped_up_balance: string
+  granted_balance: string
+}
+
+export interface DeepSeekBalanceResponse {
+  is_available: boolean
+  balance_infos: BalanceInfo[]
+}
+
 // === 上下文窗口用量 ===
 
 export interface ContextUsage {

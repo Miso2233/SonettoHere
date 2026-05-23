@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
 from api.dependencies import get_llm, get_system_prompt, get_tools
-from api.routes import chat, files, memory, sessions
+from api.routes import chat, files, memory, sessions, balance
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from version import __version__
@@ -52,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router, prefix="/api")
     app.include_router(memory.router, prefix="/api")
     app.include_router(files.router, prefix="/api")
+    app.include_router(balance.router, prefix="/api")
 
     # WebSocket 路由（无 /api 前缀）
     app.include_router(chat.router)
