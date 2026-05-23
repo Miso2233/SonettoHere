@@ -31,8 +31,6 @@ def build_system_prompt() -> str:
     ensure_user_md()
     now = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
     parts = [
-        f"当前时间：{now}",
-        "",
         "## 行为规则",
         _read_persona("AGENTS.md"),
         "",
@@ -44,6 +42,8 @@ def build_system_prompt() -> str:
         "",
         "## 我对用户的记忆",
         get_narrative(),
+        "",
+        f"当前时间：{now}",
     ]
     return "\n".join(parts)
 
