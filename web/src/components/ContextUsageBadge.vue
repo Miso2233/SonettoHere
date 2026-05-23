@@ -1,50 +1,101 @@
 <template>
   <div v-if="usage" class="context-usage" :class="level">
-    <svg class="ring" viewBox="0 0 32 32">
-      <circle
-        class="ring-bg"
-        cx="16" cy="16" r="13"
-        fill="none"
-        stroke-width="3"
-      />
-      <circle
-        class="ring-fill"
-        cx="16" cy="16" r="13"
-        fill="none"
-        stroke-width="3"
-        stroke-linecap="round"
-        :stroke-dasharray="circumference"
-        :stroke-dashoffset="dashOffset"
-      />
-    </svg>
-    <span class="label">{{ Math.round(usage.usage_percent) }}%</span>
-    <span class="model-name">{{ usage.model_name }}</span>
 
-    <div class="hover-card">
-      <div class="card-row">
-        <span class="card-label">Current</span>
-        <span class="card-value">{{ formatTokens(usage.current_tokens) }}</span>
+    <!-- 圆环 + 用量百分比 → 用量弹窗 -->
+    <span class="ring-group hover-trigger">
+      <svg class="ring" viewBox="0 0 32 32">
+        <circle
+          class="ring-bg"
+          cx="16" cy="16" r="13"
+          fill="none"
+          stroke-width="3"
+        />
+        <circle
+          class="ring-fill"
+          cx="16" cy="16" r="13"
+          fill="none"
+          stroke-width="3"
+          stroke-linecap="round"
+          :stroke-dasharray="circumference"
+          :stroke-dashoffset="dashOffset"
+        />
+      </svg>
+      <span class="label">{{ Math.round(usage.usage_percent) }}%</span>
+      <div class="hover-card card-usage">
+        <div class="card-row">
+          <span class="card-label">Current</span>
+          <span class="card-value">{{ formatTokens(usage.current_tokens) }}</span>
+        </div>
+        <div class="card-row">
+          <span class="card-label">Max</span>
+          <span class="card-value">{{ formatTokens(usage.max_tokens) }}</span>
+        </div>
+        <div class="card-divider"></div>
+        <div class="card-row">
+          <span class="card-label">Used</span>
+          <span class="card-value">{{ Math.round(usage.usage_percent) }}%</span>
+        </div>
       </div>
-      <div class="card-row">
-        <span class="card-label">Max</span>
-        <span class="card-value">{{ formatTokens(usage.max_tokens) }}</span>
+    </span>
+
+    <!-- 模型名 → 余额弹窗 -->
+    <span class="model-name hover-trigger" @mouseenter="onBalanceHover">
+      {{ usage.model_name }}
+      <div class="hover-card card-balance">
+        <template v-if="balanceLoading">
+          <div class="balance-loading">查询中…</div>
+        </template>
+        <template v-else-if="balanceError">
+          <div class="balance-error">{{ balanceError }}</div>
+        </template>
+        <template v-else-if="balanceData">
+          <div
+            v-for="info in balanceData.balance_infos"
+            :key="info.currency"
+            class="card-row"
+          >
+            <span class="card-label">余额 ({{ info.currency }})</span>
+            <span class="card-value">{{ info.total_balance }}</span>
+          </div>
+          <div class="card-divider"></div>
+          <div class="card-row">
+            <span class="card-label">充值</span>
+            <span class="card-value">{{ balanceData.balance_infos[0]?.topped_up_balance }}</span>
+          </div>
+          <div class="card-row">
+            <span class="card-label">赠送</span>
+            <span class="card-value">{{ balanceData.balance_infos[0]?.granted_balance }}</span>
+          </div>
+          <div class="card-divider"></div>
+          <div class="card-row">
+            <span class="card-label">状态</span>
+            <span
+              class="card-value"
+              :class="balanceData.is_available ? 'status-ok' : 'status-err'"
+            >{{ balanceData.is_available ? '可用' : '不可用' }}</span>
+          </div>
+        </template>
+        <template v-else>
+          <div class="balance-idle">悬停查询余额</div>
+        </template>
       </div>
-      <div class="card-divider"></div>
-      <div class="card-row">
-        <span class="card-label">Used</span>
-        <span class="card-value">{{ Math.round(usage.usage_percent) }}%</span>
-      </div>
-    </div>
+    </span>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { ContextUsage } from '@/types'
+import { ref, computed } from 'vue'
+import type { ContextUsage, DeepSeekBalanceResponse } from '@/types'
+import { api } from '@/api'
 
 const props = defineProps<{ usage: ContextUsage | null }>()
 
 const circumference = 2 * Math.PI * 13
+
+const balanceData = ref<DeepSeekBalanceResponse | null>(null)
+const balanceLoading = ref(false)
+const balanceError = ref<string | null>(null)
+let balanceFetched = false
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
@@ -64,6 +115,20 @@ const level = computed(() => {
   if (props.usage.usage_percent < 85) return 'warn'
   return 'danger'
 })
+
+async function onBalanceHover() {
+  if (balanceFetched || balanceLoading.value) return
+  balanceFetched = true
+  balanceLoading.value = true
+  balanceError.value = null
+  try {
+    balanceData.value = await api.getDeepSeekBalance()
+  } catch (e) {
+    balanceError.value = (e as Error).message
+  } finally {
+    balanceLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -73,6 +138,7 @@ const level = computed(() => {
   gap: 6px;
   font-size: 12px;
   color: var(--text-secondary);
+  position: relative;
 }
 .ring {
   width: 15px;
@@ -105,18 +171,28 @@ const level = computed(() => {
 .danger .label {
   color: #ef4444;
 }
-.context-usage {
-  position: relative;
-}
-.context-usage:hover .hover-card {
-  visibility: visible;
-  opacity: 1;
-  transform: translateY(0);
-}
 .model-name {
   color: var(--text-secondary);
   opacity: 1;
 }
+.ring-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* hover-trigger 容器：让弹窗相对自己定位 */
+.hover-trigger {
+  position: relative;
+  cursor: default;
+}
+.hover-trigger:hover .hover-card {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 共用弹窗样式 */
 .hover-card {
   visibility: hidden;
   opacity: 0;
@@ -127,7 +203,7 @@ const level = computed(() => {
   top: calc(100% + 8px);
   left: 0;
   z-index: 100;
-  min-width: 160px;
+  min-width: 170px;
   padding: 8px 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -153,5 +229,27 @@ const level = computed(() => {
   height: 1px;
   background: var(--border);
   margin: 4px 0;
+}
+.status-ok {
+  color: #22c55e;
+}
+.status-err {
+  color: #ef4444;
+}
+
+/* 余额弹窗专用 */
+.card-balance {
+  left: 0;
+  right: auto;
+}
+.balance-loading,
+.balance-error,
+.balance-idle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  padding: 2px 0;
+}
+.balance-error {
+  color: #ef4444;
 }
 </style>

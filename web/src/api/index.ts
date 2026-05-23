@@ -4,6 +4,7 @@ import type {
   SessionInfo,
   NarrativeResponse,
   ContextUsage,
+  DeepSeekBalanceResponse,
 } from '@/types'
 
 const BASE = '/api'
@@ -37,4 +38,7 @@ export const api = {
 
   getContextUsage: (sessionId: string) =>
     request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),
+
+  getDeepSeekBalance: () =>
+    request<DeepSeekBalanceResponse>('/deepseek-balance'),
 }
