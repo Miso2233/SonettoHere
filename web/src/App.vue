@@ -154,7 +154,7 @@ html, body {
 
 /* ── Shared markdown rendered content ── */
 .markdown-body {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   color: var(--text-primary);
   word-break: break-word;

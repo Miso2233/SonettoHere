@@ -28,16 +28,14 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary);
-  box-shadow: var(--shadow);
   overflow: hidden;
   transition: all 0.4s ease;
 }
 .thinking-block.done {
   background: var(--bg-card);
-  border-color: var(--border);
+  border: none;
   border-radius: 14px;
   border-bottom-left-radius: 4px;
-  max-width: 72%;
   margin: 4px 0;
   opacity: 1;
 }
@@ -54,10 +52,9 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
 }
 .thinking-block.became-answer {
   background: var(--bg-card);
-  border-color: var(--border);
+  border: none;
   border-radius: 14px;
   border-bottom-left-radius: 4px;
-  max-width: 72%;
   margin: 4px 0;
   opacity: 1;
 }
