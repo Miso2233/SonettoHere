@@ -1,5 +1,5 @@
 <template>
-  <div class="thinking-block" :class="{ done: block.done, 'became-answer': block.becameAnswer }">
+  <div class="thinking-block" :class="{ done: block.done }">
     <div class="thinking-header">
       <span class="thinking-label">
         <span class="spinner" v-if="!block.done"></span>
@@ -28,18 +28,19 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-secondary);
-  box-shadow: var(--shadow);
   overflow: hidden;
   transition: all 0.4s ease;
 }
 .thinking-block.done {
   background: var(--bg-card);
-  border-color: var(--border);
+  border: none;
   border-radius: 14px;
   border-bottom-left-radius: 4px;
-  max-width: 72%;
   margin: 4px 0;
   opacity: 1;
+}
+.thinking-block.done:hover {
+  box-shadow: var(--shadow);
 }
 .thinking-block.done .thinking-header {
   max-height: 0;
@@ -49,26 +50,6 @@ const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
   overflow: hidden;
 }
 .thinking-block.done .thinking-body {
-  border-top: none;
-  padding: 10px 16px;
-}
-.thinking-block.became-answer {
-  background: var(--bg-card);
-  border-color: var(--border);
-  border-radius: 14px;
-  border-bottom-left-radius: 4px;
-  max-width: 72%;
-  margin: 4px 0;
-  opacity: 1;
-}
-.thinking-block.became-answer .thinking-header {
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  opacity: 0;
-  overflow: hidden;
-}
-.thinking-block.became-answer .thinking-body {
   border-top: none;
   padding: 10px 16px;
 }

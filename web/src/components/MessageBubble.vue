@@ -17,10 +17,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { renderMarkdown } from '@/utils/markdown'
-import { parseReferences } from '@/utils/references'
-import ReferenceChip from './ReferenceChip.vue'
+import { renderMarkdown } from '@/utils/markdown';
+import { parseReferences } from '@/utils/references';
+import { computed } from 'vue';
+import ReferenceChip from './ReferenceChip.vue';
 
 const props = defineProps<{ role: 'user' | 'assistant'; content: string }>()
 
@@ -49,7 +49,7 @@ const rendered = computed(() => renderMarkdown(parsed.value.cleanText))
   max-width: 72%;
   padding: 10px 16px;
   border-radius: 14px;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   word-break: break-word;
   box-shadow: var(--shadow);
