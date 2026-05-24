@@ -1,12 +1,15 @@
-"""SonettoHere v2.1 — LangGraph ReAct AI Agent 入口。"""
+"""SonettoHere v1.0.0 — LangGraph ReAct AI Agent 入口。"""
 
 import sys
 
+from memory.user_init import ensure_all
+
 
 def main():
-    print("SonettoHere v2.1.0")
-    print("用法: python main.py [cli|qqbot|web]")
+    print("SonettoHere v1.0.0")
     print()
+
+    ensure_all()
 
     mode = sys.argv[1] if len(sys.argv) > 1 else "cli"
 
