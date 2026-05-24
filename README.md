@@ -1,4 +1,4 @@
-# SonettoHere v2.0.0
+# SonettoHere v1.0.0
 
 基于 LangChain + LangGraph 的 ReAct AI Agent，支持 CLI 和 QQ Bot 双入口。
 
@@ -140,8 +140,9 @@ SonettoHere/
 │   └── entertainment/       # 娱乐（2 个 Skill）
 │
 ├── memory/
-│   ├── narrative.py         # 长期记忆（narrative 引擎 + 异步持久化）
-│   └── user_init.py         # 用户初始化与画像加载
+│   ├── memory_manager.py     # YAML 持久化存储引擎
+│   ├── narrative.py          # 长期记忆（narrative 引擎 + 异步持久化）
+│   └── user_init.py          # 用户初始化与画像加载
 │
 ├── callbacks/
 │   └── printer.py           # 彩色终端输出

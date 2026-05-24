@@ -1,7 +1,6 @@
 """记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 memory.yaml。"""
 
 import asyncio
-import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -12,8 +11,6 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 from memory.memory_manager import MemoryManager
-
-DEBUG = False  # 调试开关，排查 memory.yaml 未更新的问题
 
 
 def _sanitize(text: str) -> str:
@@ -155,8 +152,6 @@ def create_memory(content: str, section: str) -> str:
     if _current_mm is None:
         return "错误：记忆管理器未初始化。"
     new_id = _current_mm.add(description=content, theme=section)
-    if DEBUG:
-        print(f"[LTM-TOOL] create_memory → [{new_id}] ({section}) {content[:80]}...")
     return f"已创建 [{new_id}] ({section}): {content}"
 
 
@@ -166,8 +161,6 @@ def read_memories() -> str:
     if _current_mm is None:
         return "（暂无记忆条目）"
     result = _format_entries_for_tool(_current_mm.show())
-    if DEBUG:
-        print(f"[LTM-TOOL] read_memories → 获取条目")
     return result
 
 
@@ -186,11 +179,7 @@ def update_memory(id: str, content: str, reason: str) -> str:
     try:
         _current_mm.update(id, reason=reason, new_description=content)
     except ValueError:
-        if DEBUG:
-            print(f"[LTM-TOOL] update_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    if DEBUG:
-        print(f"[LTM-TOOL] update_memory [{id}] 已更新 | 原因: {reason[:60]}")
     return f"已更新 [{id}]: {content}"
 
 
@@ -207,11 +196,7 @@ def delete_memory(id: str, reason: str) -> str:
     try:
         removed = _current_mm.delete(id)
     except ValueError:
-        if DEBUG:
-            print(f"[LTM-TOOL] delete_memory [{id}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    if DEBUG:
-        print(f"[LTM-TOOL] delete_memory [{id}] 已删除 | 原因: {reason[:60]}")
     return f"已删除 [{id}]: {removed}"
 
 
@@ -234,11 +219,7 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
     try:
         _current_mm.merge(id1, id2, content, section, reason)
     except ValueError:
-        if DEBUG:
-            print(f"[LTM-TOOL] merge_memories [{id1}] + [{id2}] → 错误：ID 不存在")
         return f"错误：未找到 ID 为 {id1} 或 {id2} 的记忆条目。请先调用 read_memories 确认 ID。"
-    if DEBUG:
-        print(f"[LTM-TOOL] merge_memories [{id1}] + [{id2}] 已合并 | 原因: {reason[:60]}")
     return f"已合并 [{id2}] → [{id1}] ({section}): {content}"
 
 
@@ -298,16 +279,9 @@ class LongTermMemoryInterface:
         while True:
             turn_messages = await self._queue.get()
             if turn_messages is None:
-                if DEBUG:
-                    print("[LTM-CONSUMER] 收到哨兵，即将退出")
                 break
 
             try:
-                if DEBUG:
-                    print(f"\n{'='*60}")
-                    print("[LTM-CONSUMER] === 新轮次开始 ===")
-                    print(f"[LTM-CONSUMER] 收到 {len(turn_messages)} 条消息")
-
                 _set_current_mm(self._mm)
                 items = self._mm.show()
                 messages_text = _format_messages(turn_messages)
@@ -317,15 +291,9 @@ class LongTermMemoryInterface:
                     user_prompt = (
                         f"## 新一轮对话\n{messages_text}"
                     )
-                    if DEBUG:
-                        print(f"[LTM-CONSUMER] 模式: 更新 (现有 {len(items)} 条记忆)")
-                        for item in items:
-                            print(f"[LTM-CONSUMER]   旧 [{item['id']}] ({item['theme']}): {item['description'][:60]}...")
                 else:
                     system_prompt = COLD_START_SYSTEM
                     user_prompt = messages_text
-                    if DEBUG:
-                        print("[LTM-CONSUMER] 模式: 冷启动")
 
                 now = datetime.now()
                 weekday_cn = ["星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日"][now.weekday()]
@@ -337,8 +305,6 @@ class LongTermMemoryInterface:
                 user_prompt = user_prompt + time_suffix
 
                 crud_tools = [create_memory, read_memories, update_memory, delete_memory, merge_memories]
-                if DEBUG:
-                    print("[LTM-CONSUMER] 构建 CRUD Agent...")
 
                 agent = create_react_agent(
                     model=llm,
@@ -347,30 +313,10 @@ class LongTermMemoryInterface:
                     checkpointer=MemorySaver(),
                 )
 
-                if DEBUG:
-                    print("[LTM-CONSUMER] 调用 agent.ainvoke...")
-
                 result = await agent.ainvoke(
                     {"messages": [HumanMessage(content=user_prompt)]},
                     config={"configurable": {"thread_id": "ltm-consumer"}},
                 )
 
-                if DEBUG:
-                    msg_count = len(result.get("messages", []))
-                    print(f"[LTM-CONSUMER] Agent 返回 {msg_count} 条消息")
-                    for m in reversed(result.get("messages", [])):
-                        if hasattr(m, "content") and getattr(m, "type", "") != "tool":
-                            print(f"[LTM-CONSUMER] Agent 最终回复: {str(m.content)[:200]}")
-                            break
-                    items_after = self._mm.show()
-                    print(f"[LTM-CONSUMER] 操作后条目: {len(items_after)} 条")
-                    for item in items_after:
-                        print(f"[LTM-CONSUMER]   新 [{item['id']}] ({item['theme']}): {item['description'][:60]}...")
-
-                if DEBUG:
-                    print(f"[LTM-CONSUMER] ✅ 已写入 memory.yaml")
-
             except Exception:
-                if DEBUG:
-                    print(f"[LTM-CONSUMER] ❌ 异常:\n{traceback.format_exc()}")
                 pass
