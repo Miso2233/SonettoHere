@@ -175,14 +175,13 @@ def read_memories() -> str:
 
 
 @tool
-def update_memory(id: str, content: str, reason: str, origin_content: str) -> str:
+def update_memory(id: str, content: str, reason: str) -> str:
     """根据 ID 更新一条已有记忆。
 
     Args:
         id: 要更新的记忆 ID（来自 read_memories 的输出）。
         content: 更新后的完整内容。
         reason: 修改原因，说明为什么要更新这条记忆。
-        origin_content: 修改前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
     content = _sanitize(content)
     mm = _current_mm
@@ -200,13 +199,12 @@ def update_memory(id: str, content: str, reason: str, origin_content: str) -> st
 
 
 @tool
-def delete_memory(id: str, reason: str, origin_content: str) -> str:
+def delete_memory(id: str, reason: str) -> str:
     """根据 ID 删除一条记忆。
 
     Args:
         id: 要删除的记忆 ID（来自 read_memories 的输出）。
         reason: 删除原因，说明为什么要删除这条记忆。
-        origin_content: 删除前的原始内容，必须与 read_memories 中该 ID 对应的内容完全一致。
     """
     mm = _current_mm
     if mm is None:
