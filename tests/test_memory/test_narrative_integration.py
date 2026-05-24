@@ -9,7 +9,6 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 import memory.narrative as narrative
-from memory.memory_manager import MemoryManager
 from memory.narrative import LongTermMemoryInterface
 
 
@@ -30,7 +29,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
     """模拟 CLI 完整多轮对话流程。
 
     1. 用户发送消息 → turn_messages 入队
-    2. 后台 Agent 调用 CRUD 工具 → 修改 _current_mm
+    2. 后台 Agent 调用 CRUD 工具 → 修改 MemoryManager
     3. _consumer 写入 memory.yaml
     4. 下一轮读取到更新后的记忆
     """
@@ -49,14 +48,16 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
             return _make_fake_agent(entries_setup=setup1)
         elif call_count[0] == 2:
             def setup2():
-                narrative._current_mm.add(description="第1轮记忆：用户打了招呼。", theme="身份")
-                narrative._current_mm.add(description="第2轮补充：用户叫Miso，在北京学习网络安全。", theme="身份")
+                mm = narrative._current_mm
+                mm.add(description="第1轮记忆：用户打了招呼。", theme="身份")
+                mm.add(description="第2轮补充：用户叫Miso，在北京学习网络安全。", theme="身份")
             return _make_fake_agent(entries_setup=setup2)
         else:
             def setup3():
-                for item in narrative._current_mm.show():
-                    narrative._current_mm.delete(item["id"])
-                narrative._current_mm.add(description=f"第{call_count[0]}轮记忆：已更新。", theme="身份")
+                mm = narrative._current_mm
+                for item in mm.show():
+                    mm.delete(item["id"])
+                mm.add(description=f"第{call_count[0]}轮记忆：已更新。", theme="身份")
             return _make_fake_agent(entries_setup=setup3)
 
     monkeypatch.setattr(narrative, "create_react_agent", agent_factory)

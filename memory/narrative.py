@@ -63,7 +63,7 @@ UPDATE_SYSTEM = """你是一位"记忆叙事师"。以下是当前记忆（每�
 _current_mm: Optional[MemoryManager] = None
 
 
-def _set_current_mm(mm: MemoryManager) -> None:
+def _set_current_mm(mm: Optional[MemoryManager]) -> None:
     global _current_mm
     _current_mm = mm
 
@@ -119,7 +119,6 @@ def get_narrative() -> str:
     if not MEMORY_PATH.exists():
         return ""
     mm = MemoryManager(yaml_file=str(MEMORY_PATH))
-    mm.load_yaml()
     return _format_narrative(mm.show())
 
 
@@ -135,7 +134,7 @@ def _format_messages(messages: list[dict]) -> str:
     return "\n".join(lines)
 
 
-# ── CRUD 工具（模块级 @tool，委托给 _current_mm）───────────
+# ── CRUD 工具（模块级 @tool，委托给 _current_mm）─────────────────
 
 
 @tool
@@ -153,10 +152,9 @@ def create_memory(content: str, section: str) -> str:
             - "时效待办"（有截止日期的事项：作业、预约、考试）
     """
     content = _sanitize(content)
-    mm = _current_mm
-    if mm is None:
+    if _current_mm is None:
         return "错误：记忆管理器未初始化。"
-    new_id = mm.add(description=content, theme=section)
+    new_id = _current_mm.add(description=content, theme=section)
     if DEBUG:
         print(f"[LTM-TOOL] create_memory → [{new_id}] ({section}) {content[:80]}...")
     return f"已创建 [{new_id}] ({section}): {content}"
@@ -165,10 +163,9 @@ def create_memory(content: str, section: str) -> str:
 @tool
 def read_memories() -> str:
     """查看当前所有记忆条目及其 ID 和分区。在增删改之前必须先调用此工具了解现有条目。"""
-    mm = _current_mm
-    if mm is None:
+    if _current_mm is None:
         return "（暂无记忆条目）"
-    result = _format_entries_for_tool(mm.show())
+    result = _format_entries_for_tool(_current_mm.show())
     if DEBUG:
         print(f"[LTM-TOOL] read_memories → 获取条目")
     return result
@@ -184,11 +181,10 @@ def update_memory(id: str, content: str, reason: str) -> str:
         reason: 修改原因，说明为什么要更新这条记忆。
     """
     content = _sanitize(content)
-    mm = _current_mm
-    if mm is None:
+    if _current_mm is None:
         return "错误：记忆管理器未初始化。"
     try:
-        mm.update(id, reason=reason, new_description=content)
+        _current_mm.update(id, reason=reason, new_description=content)
     except ValueError:
         if DEBUG:
             print(f"[LTM-TOOL] update_memory [{id}] → 错误：ID 不存在")
@@ -206,11 +202,10 @@ def delete_memory(id: str, reason: str) -> str:
         id: 要删除的记忆 ID（来自 read_memories 的输出）。
         reason: 删除原因，说明为什么要删除这条记忆。
     """
-    mm = _current_mm
-    if mm is None:
+    if _current_mm is None:
         return "错误：记忆管理器未初始化。"
     try:
-        removed = mm.delete(id)
+        removed = _current_mm.delete(id)
     except ValueError:
         if DEBUG:
             print(f"[LTM-TOOL] delete_memory [{id}] → 错误：ID 不存在")
@@ -245,7 +240,6 @@ class LongTermMemoryInterface:
         if not self._memory_path.exists():
             return ""
         mm = MemoryManager(yaml_file=str(self._memory_path))
-        mm.load_yaml()
         return _format_narrative(mm.show())
 
     def start_listening(self, llm) -> None:
@@ -253,7 +247,6 @@ class LongTermMemoryInterface:
 
         必须在运行中的事件循环内调用。
         """
-        self._mm.load_yaml()
         self._queue = asyncio.Queue()
         self._consumer_task = asyncio.create_task(self._consumer(llm))
 
@@ -269,7 +262,6 @@ class LongTermMemoryInterface:
         if self._queue is not None:
             await self._queue.put(None)
             await self._consumer_task
-            self._mm.save_yaml()
             self._queue = None
             self._consumer_task = None
 
@@ -290,8 +282,6 @@ class LongTermMemoryInterface:
                     print(f"[LTM-CONSUMER] 收到 {len(turn_messages)} 条消息")
 
                 _set_current_mm(self._mm)
-                self._mm.load_yaml()
-
                 items = self._mm.show()
                 messages_text = _format_messages(turn_messages)
 
@@ -350,7 +340,6 @@ class LongTermMemoryInterface:
                     for item in items_after:
                         print(f"[LTM-CONSUMER]   新 [{item['id']}] ({item['theme']}): {item['description'][:60]}...")
 
-                self._mm.save_yaml()
                 if DEBUG:
                     print(f"[LTM-CONSUMER] ✅ 已写入 memory.yaml")
 

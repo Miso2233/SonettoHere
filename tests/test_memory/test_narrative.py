@@ -39,7 +39,6 @@ def _assert_file_contains(path: Path, text: str):
 def _mm_from_path(path: Path) -> MemoryManager:
     """用指定路径创建并加载 MemoryManager。"""
     mm = MemoryManager(yaml_file=str(path))
-    mm.load_yaml()
     return mm
 
 
@@ -48,7 +47,6 @@ def _populate_mm(path: Path, items: list[tuple[str, str]]) -> None:
     mm = MemoryManager(yaml_file=str(path))
     for desc, theme in items:
         mm.add(description=desc, theme=theme)
-    mm.save_yaml()
 
 
 # ── TestFormatMessages ────────────────────────────────────────
@@ -163,12 +161,6 @@ class TestFormatEntriesForTool:
 class TestCrudTools:
     """CRUD 工具函数单元测试。"""
 
-    def setup_method(self):
-        narrative._set_current_mm(None)
-
-    def teardown_method(self):
-        narrative._set_current_mm(None)
-
     def _make_mm(self, tmp_path: Path) -> MemoryManager:
         mm = MemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
         narrative._set_current_mm(mm)
@@ -280,7 +272,7 @@ class TestGetNarrative:
 
     def test_file_empty(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
-        MemoryManager(yaml_file=str(p)).save_yaml()  # writes {}
+        MemoryManager(yaml_file=str(p))  # creates empty file
         monkeypatch.setattr(narrative, "MEMORY_PATH", p)
         assert narrative.get_narrative() == ""
 
@@ -327,7 +319,7 @@ class TestLongTermMemoryInterface:
 
     def test_get_narrative_file_empty(self, tmp_path):
         path = tmp_path / "memory.yaml"
-        MemoryManager(yaml_file=str(path)).save_yaml()
+        MemoryManager(yaml_file=str(path))
         ltm = LongTermMemoryInterface(path)
         assert ltm.get_narrative() == ""
 
@@ -426,9 +418,10 @@ class TestLongTermMemoryInterface:
         def capture_agent(**kwargs):
             captured_prompt.append(kwargs.get("prompt", ""))
             def update_entries():
-                for item in narrative._current_mm.show():
-                    narrative._current_mm.delete(item["id"])
-                narrative._current_mm.add(description="更新后的记忆内容。", theme="身份")
+                mm = narrative._current_mm
+                for item in mm.show():
+                    mm.delete(item["id"])
+                mm.add(description="更新后的记忆内容。", theme="身份")
             return _fake_agent_factory(entries_setup=update_entries)
 
         monkeypatch.setattr(narrative, "create_react_agent", capture_agent)
@@ -461,8 +454,9 @@ class TestLongTermMemoryInterface:
                 return _fake_agent_factory(entries_setup=setup1)
             else:
                 def setup2():
-                    narrative._current_mm.add(description="第一轮记忆。", theme="身份")
-                    narrative._current_mm.add(description="第二轮补充。", theme="身份")
+                    mm = narrative._current_mm
+                    mm.add(description="第一轮记忆。", theme="身份")
+                    mm.add(description="第二轮补充。", theme="身份")
                 return _fake_agent_factory(entries_setup=setup2)
 
         monkeypatch.setattr(narrative, "create_react_agent", capture_agent)
