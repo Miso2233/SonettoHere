@@ -215,6 +215,33 @@ def delete_memory(id: str, reason: str) -> str:
     return f"已删除 [{id}]: {removed}"
 
 
+@tool
+def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) -> str:
+    """将两条相似记忆合并为一条，id1 保留、id2 被删除，同时保留两者的修改历史。
+
+    当两条记忆描述同一事物（如分散的身份信息、同一首歌在不同分区的重复条目）
+    时使用，避免碎片化。
+
+    Args:
+        id1: 合并后保留的记忆 ID（主条目）。
+        id2: 合并后将被删除的记忆 ID（从条目）。
+        content: 合并后的完整记忆内容，涵盖两条原条目的信息。
+        section: 合并后的记忆分区。
+        reason: 合并原因，说明为什么这两条记忆需要合并。
+    """
+    if _current_mm is None:
+        return "错误：记忆管理器未初始化。"
+    try:
+        _current_mm.merge(id1, id2, content, section, reason)
+    except ValueError:
+        if DEBUG:
+            print(f"[LTM-TOOL] merge_memories [{id1}] + [{id2}] → 错误：ID 不存在")
+        return f"错误：未找到 ID 为 {id1} 或 {id2} 的记忆条目。请先调用 read_memories 确认 ID。"
+    if DEBUG:
+        print(f"[LTM-TOOL] merge_memories [{id1}] + [{id2}] 已合并 | 原因: {reason[:60]}")
+    return f"已合并 [{id2}] → [{id1}] ({section}): {content}"
+
+
 # ── LongTermMemoryInterface ───────────────────────────────────
 
 
@@ -309,7 +336,7 @@ class LongTermMemoryInterface:
                 )
                 user_prompt = user_prompt + time_suffix
 
-                crud_tools = [create_memory, read_memories, update_memory, delete_memory]
+                crud_tools = [create_memory, read_memories, update_memory, delete_memory, merge_memories]
                 if DEBUG:
                     print("[LTM-CONSUMER] 构建 CRUD Agent...")
 

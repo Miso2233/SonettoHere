@@ -33,6 +33,10 @@ class MemoryItem:
         self.latest_update_time = NOW()
         self.history.append(new_history)
 
+    def merge(self, another: 'MemoryItem', reason: str, merged_description: str, merged_theme: str):
+        self.history += another.history
+        self.update(reason, merged_description, merged_theme)
+
 
 class MemoryManager:
 
@@ -84,6 +88,15 @@ class MemoryManager:
             removed = items.pop(id)
             self._write_all(items)
         return removed.description
+
+    def merge(self, id1: str, id2: str, merged_description: str, merged_theme: str, reason: str):
+        with portalocker.Lock(self._lock_path, timeout=5):
+            items = self._read_all()
+            if id1 not in items or id2 not in items:
+                raise ValueError(f"MemoryManager: Memory items with IDs {id1} and {id2} not found")
+            items[id1].merge(items[id2], reason, merged_description, merged_theme)
+            items.pop(id2)
+            self._write_all(items)
 
     def update(self, id: str, reason: str, new_description: Optional[str] = None, new_theme: Optional[str] = None):
         with portalocker.Lock(self._lock_path, timeout=5):
