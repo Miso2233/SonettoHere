@@ -20,12 +20,9 @@ async def get_moment(request: Request):
     ltm = request.app.state.ltm
     mm = MemoryManager(yaml_file=str(ltm._memory_path))
     items = mm.show()
-    print(f"[DEBUG /api/moment] memory.yaml path: {ltm._memory_path}, items count: {len(items)}")
     if not items:
-        print("[DEBUG /api/moment] no items, returning null")
         return {"moment": None}
     chosen = random.choice(items)
-    print(f"[DEBUG /api/moment] chosen id={chosen['id']}, desc={chosen['description'][:60]}")
     history = mm.show_description_history(chosen["id"])
     return {
         "moment": {
