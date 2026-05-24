@@ -171,6 +171,17 @@ export interface NarrativeResponse {
   narrative: string
 }
 
+export interface MomentItem {
+  id: string
+  description: string
+  theme: string
+  history: Array<{ description: string; time: string }>
+}
+
+export interface MomentResponse {
+  moment: MomentItem | null
+}
+
 // === 引用 ===
 
 export interface Citation {

@@ -33,6 +33,21 @@ class MemoryItem:
         self.latest_update_time = NOW()
         self.history.append(new_history)
 
+    def show_description_history(self) -> list[dict]:
+        """返回描述历史记录及时间（从当前到最早）。
+
+        第一项为当前 description 和 latest_update_time，
+        随后从 history 中逆序取有 old_description 的条目。
+        """
+        result = [{"description": self.description, "time": self.latest_update_time}]
+        for entry in reversed(self.history):
+            if "old_description" in entry:
+                result.append({
+                    "description": entry["old_description"],
+                    "time": entry["old_time"],
+                })
+        return result
+
     def merge(self, another: 'MemoryItem', reason: str, merged_description: str, merged_theme: str):
         self.history += another.history
         self.update(reason, merged_description, merged_theme)
@@ -114,3 +129,11 @@ class MemoryManager:
                 {"id": id, "description": item.description, "theme": item.theme}
                 for id, item in items.items()
             ]
+
+    def show_description_history(self, id: str) -> list[dict]:
+        """返回指定条目的描述变更历史（从当前到最早）。"""
+        with portalocker.Lock(self._lock_path, timeout=5):
+            items = self._read_all()
+            if id not in items:
+                raise ValueError(f"MemoryManager: Memory item with ID {id} not found")
+            return items[id].show_description_history()
