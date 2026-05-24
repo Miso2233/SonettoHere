@@ -3,6 +3,7 @@ import type {
   ListSessionsResponse,
   SessionInfo,
   NarrativeResponse,
+  MomentResponse,
   ContextUsage,
   DeepSeekBalanceResponse,
 } from '@/types'
@@ -35,6 +36,9 @@ export const api = {
 
   getNarrative: () =>
     request<NarrativeResponse>('/narrative'),
+
+  getMoment: () =>
+    request<MomentResponse>('/moment'),
 
   getContextUsage: (sessionId: string) =>
     request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),

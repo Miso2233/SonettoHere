@@ -1,5 +1,6 @@
 <template>
   <div class="memory-panel">
+    <MomentCard />
     <div class="memory-header">
       <h2>长期记忆叙事</h2>
       <button class="btn-refresh" @click="refresh" :disabled="loading">
@@ -22,6 +23,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { renderMarkdown } from '@/utils/markdown'
 import { api } from '@/api'
+import MomentCard from '@/components/MomentCard.vue'
 
 const narrative = ref('')
 const loading = ref(false)
