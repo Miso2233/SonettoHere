@@ -1,6 +1,6 @@
 # SonettoHere v1.0.0
 
-基于 LangChain + LangGraph 的 ReAct AI Agent，内置 30 个 Skill。支持 CLI / Web / QQ Bot 三种运行模式。
+基于 LangChain + LangGraph 的 ReAct AI Agent 后端 + Vue 3 Web 界面，内置 30 个 Skill。
 
 ## Quick Start
 
@@ -25,18 +25,26 @@ cp .env.example .env
 
 ### 3. 启动
 
+**终端 1 — 后端：**
+
 ```bash
-# CLI 模式（默认）
-python main.py
-
-# Web 模式（浏览器访问 http://localhost:5173）
 python main.py web
-
-# QQ Bot 模式
-python main.py qqbot
 ```
 
-首次启动会自动创建缺失的配置文件（`.env`、`USER.md`、`SOUL.md`）。
+**终端 2 — 前端（开发模式）：**
+
+```bash
+cd web && npm install && npm run dev
+```
+
+浏览器访问 `http://localhost:5173`。
+
+启动后会自动创建以下文件，**建议立即编辑以获得更好的对话体验**：
+
+- `config/personas/USER.md` — 你的自述信息（职业、兴趣等），让 AI 更了解你
+- `config/personas/SOUL.md` — AI 的性格设定，默认是助手角色，可自定义人设
+
+这两个文件留空不影响基础对话，但填写后 AI 能给出更贴合你需求的回复。
 
 ## 能力概览
 
@@ -57,46 +65,19 @@ SonettoHere 内置 **30 个 Skill**，每个 Skill 由 `SKILL.md`（领域知识
 
 > 所有 Key 仅在用到对应 Skill 时必需，不会影响基础对话。
 
-## 运行模式
-
-### CLI 模式
-
-```bash
-python main.py
-# 或
-python main.py cli
-```
-
-交互命令：
-- 直接输入问题开始对话
-- `/clear` — 清空当前对话
-- `/exit` — 退出
-
-### Web 模式
+## Web 模式
 
 ```bash
 python main.py web
-# 另开终端启动前端 dev server
+# 另开终端：
 cd web && npm run dev
 ```
 
-浏览器访问 `http://localhost:5173`，Web 界面支持：
+浏览器访问 `http://localhost:5173`，支持：
 - 多会话管理
 - 实时流式对话
 - 长期记忆查看
 - 随机记忆卡片
-
-### QQ Bot 模式
-
-```bash
-python main.py qqbot
-```
-
-基于 `qq-botpy` SDK，支持：
-- C2C 私聊自动响应
-- 多用户会话隔离
-- 长期记忆异步持久化
-- QQ 2000 字符自动截断
 
 ## 项目结构
 
@@ -154,7 +135,6 @@ SonettoHere/
 - **Agent 框架**：LangGraph `create_react_agent` + MemorySaver
 - **记忆系统**：短期记忆（token 阈值裁剪）+ 长期记忆（异步 YAML 持久化）
 - **前端**：Vue 3 + Vite，实时流式对话
-- **QQ Bot**：`qq-botpy` SDK，多用户隔离
 
 ## 致谢
 
