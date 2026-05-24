@@ -39,7 +39,9 @@ cd web && npm install && npm run dev
 
 浏览器访问 `http://localhost:5173`。
 
-启动后会自动创建以下文件，**建议立即编辑以获得更好的对话体验**：
+> **一键启动（Windows）：** 双击 `start.bat` 即可同时启动后端和前端，并自动打开浏览器。
+
+启动后会自动创建以下文件，**建议在启动前编辑好以获得更好的对话体验**：
 
 - `config/personas/USER.md` — 你的自述信息（职业、兴趣等），让 AI 更了解你
 - `config/personas/SOUL.md` — AI 的性格设定，默认是助手角色，可自定义人设
