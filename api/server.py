@@ -12,6 +12,7 @@ from api.dependencies import get_llm, get_system_prompt, get_tools
 from api.routes import chat, files, memory, sessions, balance
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
+from skills.mcp import init_mcp_tools, close_mcp
 from version import __version__
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
@@ -27,9 +28,14 @@ async def lifespan(app: FastAPI):
     app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
     app.state.ltm.start_listening(app.state.llm)
 
+    # 加载 MCP 工具（Word 文档编辑能力）
+    mcp_tools = await init_mcp_tools()
+    app.state.tools = app.state.tools + mcp_tools
+
     yield
 
     # 关闭：清理资源
+    await close_mcp()
     await app.state.ltm.stop_listening()
 
 

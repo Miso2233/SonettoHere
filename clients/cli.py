@@ -13,6 +13,7 @@ from config.settings import get_settings
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
 from skills.interaction.skill_ask_user import AskUserSkill
+from skills.mcp import init_mcp_tools, close_mcp
 
 
 class SonettoCLI:
@@ -42,14 +43,17 @@ class SonettoCLI:
 
     async def run(self) -> None:
         """启动 REPL 主循环：读取用户输入 → 注入长期记忆 → 流式输出 → 保存本轮对话。"""
-        print("SonettoHere v2.0.0 — LangGraph ReAct Agent")
+        print("SonettoHere v2.0.0 — LangGraph ReAct Agent + MCP Word Tools")
         print("输入 /help 或 / 查看可用命令\n")
 
         self.ltm.start_listening(self.llm)
         try:
+            mcp_tools = await init_mcp_tools()
+            self.tools = self.tools + mcp_tools
             await self._repl()
         finally:
             await self.ltm.stop_listening()
+            await close_mcp()
 
     async def _repl(self) -> None:
         """REPL 主循环体。"""
