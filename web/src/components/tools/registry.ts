@@ -21,6 +21,7 @@ import UnitTestBubble from './UnitTestBubble.vue'
 import DebuggerBubble from './DebuggerBubble.vue'
 import ScraperBubble from './ScraperBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
+import WordBubble from './WordBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -66,7 +67,10 @@ const registry: Record<string, Component> = {
 }
 
 export function getBubbleComponent(name: string): Component | null {
-  return registry[name] ?? null
+  if (registry[name]) return registry[name]
+  // word_* 系列工具统一路由到 WordBubble
+  if (name.startsWith('word_')) return WordBubble
+  return null
 }
 
 export function getRegisteredTools(): string[] {

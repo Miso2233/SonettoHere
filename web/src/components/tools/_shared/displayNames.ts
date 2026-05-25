@@ -58,7 +58,10 @@ const DISPLAY_NAMES: Record<string, string> = {
 }
 
 export function toolDisplayName(name: string): string {
-  return DISPLAY_NAMES[name] ?? name
+  if (DISPLAY_NAMES[name]) return DISPLAY_NAMES[name]
+  // word_* 系列统一显示为"Word 文档"
+  if (name.startsWith('word_')) return 'Word 文档'
+  return name
 }
 
 /** 所有已知工具名称列表（供 Playground 使用） */
