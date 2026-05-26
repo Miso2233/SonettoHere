@@ -74,6 +74,11 @@ onMounted(() => {
   --radius: 10px;
 }
 
+::selection {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: #000000;
+}
+
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
