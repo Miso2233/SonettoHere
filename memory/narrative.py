@@ -243,6 +243,11 @@ class LongTermMemoryInterface:
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
 
+    @property
+    def is_listening(self) -> bool:
+        """后台消费者协程是否正在运行。"""
+        return self._consumer_task is not None and not self._consumer_task.done()
+
     def get_narrative(self) -> str:
         """读取当前记忆叙事，不存在则返回空字符串。"""
         if not self._memory_path.exists():

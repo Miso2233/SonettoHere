@@ -6,6 +6,7 @@ import type {
   MomentResponse,
   ContextUsage,
   DeepSeekBalanceResponse,
+  HealthResponse,
 } from '@/types'
 
 const BASE = '/api'
@@ -45,4 +46,7 @@ export const api = {
 
   getDeepSeekBalance: () =>
     request<DeepSeekBalanceResponse>('/deepseek-balance'),
+
+  health: () =>
+    request<HealthResponse>('/health'),
 }

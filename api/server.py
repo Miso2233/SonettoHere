@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import FileResponse
 
 from api.dependencies import get_llm, get_system_prompt, get_tools
+from api.health import get_health_report
 from api.routes import chat, files, memory, sessions, balance
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
@@ -23,14 +24,14 @@ async def lifespan(app: FastAPI):
     # 启动：初始化共享资源
     app.state.llm = get_llm()
     app.state.system_prompt = get_system_prompt()
-    app.state.tools = get_tools()
+    app.state.native_tools = get_tools()
     app.state.session_manager = SessionManager()
     app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
     app.state.ltm.start_listening(app.state.llm)
 
     # 加载 MCP 工具（Word 文档编辑能力）
-    mcp_tools = await init_mcp_tools()
-    app.state.tools = app.state.tools + mcp_tools
+    app.state.mcp_tools = await init_mcp_tools()
+    app.state.tools = app.state.native_tools + app.state.mcp_tools
 
     yield
 
@@ -66,7 +67,7 @@ def create_app() -> FastAPI:
     # 健康检查
     @app.get("/api/health")
     async def health():
-        return {"status": "ok", "version": __version__}
+        return await get_health_report(app)
 
     # 生产模式：serve 前端静态文件（用 /assets 前缀避免拦截 WebSocket）
     if WEB_DIR.exists():

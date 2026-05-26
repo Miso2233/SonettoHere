@@ -1,7 +1,7 @@
 <template>
   <div class="chat-view">
     <header class="chat-header">
-      <StatusBadge :connected="connected" />
+      <StatusBadge :connected="connected" :health="health" />
       <ContextUsageBadge :usage="contextUsage" />
     </header>
 
@@ -29,6 +29,7 @@ import { ref } from 'vue'
 import type { Citation } from '@/types'
 import { useSession } from '@/composables/useSession'
 import { useChat } from '@/composables/useChat'
+import { health } from '@/composables/useHealth'
 import StatusBadge from '@/components/StatusBadge.vue'
 import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import ChatWindow from '@/components/ChatWindow.vue'

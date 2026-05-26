@@ -213,3 +213,21 @@ export interface ContextUsage {
   usage_percent: number
   model_name: string
 }
+
+// === 健康检查 ===
+
+export interface ComponentHealth {
+  status: 'ok' | 'error'
+  latency_ms: number | null
+  detail: string | null
+}
+
+export interface HealthResponse {
+  status: 'ok' | 'degraded'
+  version: string
+  llm: ComponentHealth
+  memory: ComponentHealth
+  native_tools: ComponentHealth
+  mcp_tools: ComponentHealth
+  timestamp: number
+}
