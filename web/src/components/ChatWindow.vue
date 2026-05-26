@@ -2,9 +2,10 @@
   <div class="chat-window" ref="windowRef">
     <div class="messages-list">
       <!-- 已完成的消息轮次 -->
-      <template v-for="turn in turns" :key="turn.id">
+      <template v-for="(turn, idx) in turns" :key="turn.id">
         <div
           class="cite-source"
+          :data-user-msg-idx="idx"
           @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户')"
         >
           <MessageBubble role="user" :content="turn.userMessage" />
@@ -84,6 +85,17 @@
       </div>
     </div>
 
+    <!-- 用户消息滚动标记 -->
+    <div class="scroll-marks" v-if="turns.length > 0">
+      <div
+        v-for="(turn, idx) in turns"
+        :key="turn.id"
+        class="scroll-mark"
+        @click="scrollToTurn(idx)"
+        :title="turn.userMessage.slice(0, 60)"
+      />
+    </div>
+
     <ContextMenu
       :position="ctxMenuPos"
       :items="ctxMenuItems"
@@ -131,6 +143,13 @@ function scrollToBottom() {
       el.scrollTop = el.scrollHeight
     }
   })
+}
+
+function scrollToTurn(index: number) {
+  const el = windowRef.value?.querySelector(`[data-user-msg-idx="${index}"]`)
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 }
 
 watch(() => props.turns.length, () => scrollToBottom())
@@ -227,7 +246,6 @@ function closeContextMenu() {
 }
 .cite-source {
   /* 包装层，不引入额外布局影响 */
-  display: contents;
 }
 .empty-state {
   display: flex;
@@ -253,5 +271,52 @@ function closeContextMenu() {
   border-radius: var(--radius);
   color: #b91c1c;
   font-size: 13px;
+}
+
+/* ── 右侧滚动标记 ── */
+.scroll-marks {
+  --item-gap: 18px;
+
+  position: fixed;
+  right: max(12px, calc((100vw - 1036px) / 4 + 12px));
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--item-gap);
+  z-index: 100;
+  pointer-events: none;
+}
+
+.scroll-mark {
+  position: relative;
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background 0.15s, width 0.15s;
+  flex-shrink: 0;
+}
+
+/* 不可见的悬停/点击判定区，以横条为中心上下各延展 gap/2 */
+.scroll-mark::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  right: -12px;
+  top: calc(var(--item-gap) / -2);
+  bottom: calc(var(--item-gap) / -2);
+}
+
+.scroll-mark:hover {
+  background: var(--accent);
+  width: 24px;
+}
+
+.scroll-mark:active {
+  background: var(--accent-light);
 }
 </style>
