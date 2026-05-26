@@ -57,6 +57,7 @@ const rendered = computed(() => renderMarkdown(parsed.value.cleanText))
 .bubble.user {
   background: var(--user-bubble);
   color: var(--text-primary);
+  border: 1px solid rgba(0, 0, 0, 0.2);
   border-bottom-right-radius: 4px;
 }
 .bubble.assistant {
