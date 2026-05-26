@@ -266,7 +266,7 @@ const cardStyle = computed(() => {
   opacity: 1;
 }
 .btn-delete:hover {
-  color: #ef4444;
+  color: var(--status-error);
 }
 .no-sessions {
   font-size: 12px;
@@ -288,16 +288,16 @@ const cardStyle = computed(() => {
 }
 
 .status-dot.connected {
-  background: #22c55e;
+  background: var(--status-ok);
 }
 
 .status-dot.streaming {
-  background: #22c55e;
+  background: var(--status-ok);
   animation: pulse 1.2s ease-in-out infinite;
 }
 
 .status-dot.awaiting-user {
-  background: #f59e0b;
+  background: var(--status-warn);
   animation: pulse 1.2s ease-in-out infinite;
 }
 

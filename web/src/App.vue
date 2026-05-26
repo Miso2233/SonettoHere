@@ -30,13 +30,13 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import HealthPanel from '@/components/HealthPanel.vue';
 import Icon from '@/components/Icon.vue';
 import SessionSidebar from '@/components/SessionSidebar.vue';
-import HealthPanel from '@/components/HealthPanel.vue';
 import { allSessionStatuses } from '@/composables/useChat';
+import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { useSession } from '@/composables/useSession';
-import { useHealth, startPolling, health } from '@/composables/useHealth';
+import { onMounted } from 'vue';
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
   useSession()
@@ -63,10 +63,13 @@ onMounted(() => {
   --bg-card: #ffffff;
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
-  --accent: #2563eb;
-  --accent-light: #93b4f5;
+  --accent: #000000;
+  --accent-light: #b9b9b9;
   --border: #e5e7eb;
-  --user-bubble: #eff6ff;
+  --user-bubble: #ffffff;
+  --status-ok: #000000;
+  --status-error: #ef4444;
+  --status-warn: #f59e0b;
   --shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   --radius: 10px;
 }

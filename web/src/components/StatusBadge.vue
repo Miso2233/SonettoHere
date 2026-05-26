@@ -80,10 +80,10 @@ function makeItem(name: string, c: ComponentHealth) {
   background: #ccc;
 }
 .connected .dot {
-  background: #22c55e;
+  background: var(--status-ok);
 }
 .disconnected .dot {
-  background: #ef4444;
+  background: var(--status-error);
 }
 
 /* ── hover card shell ── */
@@ -134,10 +134,10 @@ function makeItem(name: string, c: ComponentHealth) {
   color: var(--text-primary);
 }
 .status-ok {
-  color: #22c55e;
+  color: var(--status-ok);
 }
 .status-err {
-  color: #ef4444;
+  color: var(--status-error);
 }
 .card-divider {
   height: 1px;
