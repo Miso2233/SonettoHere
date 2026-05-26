@@ -21,6 +21,7 @@
         @switch="switchSession"
         @delete="deleteSession"
       />
+      <HealthPanel :health="health!" v-if="health" />
     </aside>
     <main class="main">
       <router-view />
@@ -29,13 +30,22 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import Icon from '@/components/Icon.vue';
 import SessionSidebar from '@/components/SessionSidebar.vue';
+import HealthPanel from '@/components/HealthPanel.vue';
 import { allSessionStatuses } from '@/composables/useChat';
 import { useSession } from '@/composables/useSession';
+import { useHealth, startPolling, health } from '@/composables/useHealth';
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
   useSession()
+
+useHealth()
+
+onMounted(() => {
+  startPolling()
+})
 </script>
 
 <style>
