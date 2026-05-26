@@ -71,11 +71,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import Icon from '@/components/Icon.vue'
 import type { Citation } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { buildRefsBlock } from '@/utils/references'
-import Icon from '@/components/Icon.vue'
+import { nextTick, ref } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -239,7 +239,7 @@ function autoResize() {
 }
 .chat-input:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* 添加文件按钮 */
