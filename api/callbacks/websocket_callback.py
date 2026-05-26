@@ -40,6 +40,9 @@ class WebSocketCallback(BaseCallbackHandler):
         try:
             parsed = json.loads(out_str)
         except (json.JSONDecodeError, TypeError):
+            # MCP Word 工具返回纯文本而非 JSON — 包装为 _raw 让提取器能处理
+            if tool_name.startswith("word_"):
+                return _dispatch(tool_name, {"_raw": out_str}, tool_input)
             return None
         return _dispatch(tool_name, parsed, tool_input)
 

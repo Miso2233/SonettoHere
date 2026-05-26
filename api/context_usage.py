@@ -14,6 +14,8 @@ def _get_encoding():
 
 def count_tokens(text: str) -> int:
     """返回文本的 token 数量估计值。"""
+    if not isinstance(text, str) or not text:
+        return 0
     return len(_get_encoding().encode(text))
 
 
@@ -37,6 +39,15 @@ def estimate_context_usage(
     total = count_tokens(system_prompt)
     for msg in messages:
         content = msg.content if hasattr(msg, "content") else str(msg)
+        # content 可能是 list（Anthropic 多内容块格式）或 None
+        if isinstance(content, list):
+            parts = [
+                b.get("text", "") for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ]
+            content = " ".join(parts)
+        elif not isinstance(content, str):
+            content = str(content) if content is not None else ""
         total += count_tokens(content) + 4  # ~4 tokens 消息格式化开销
 
     usage_percent = round(total / max_tokens * 100, 1) if max_tokens else 0.0

@@ -13,6 +13,7 @@ from agent.prompts import build_system_prompt
 from config.settings import get_settings
 from memory.narrative import LongTermMemoryInterface, MEMORY_PATH
 from skills import get_all_skills
+from skills.mcp import init_mcp_tools, close_mcp
 
 
 class SonettoQQBot(botpy.Client):
@@ -89,12 +90,15 @@ class SonettoQQBot(botpy.Client):
         await self.ltm.send_history(turn_messages)
 
     async def run(self, *args, **kwargs):
-        """启动 QQ Bot，接管 run 生命周期以管理 LongTermMemoryInterface。"""
+        """启动 QQ Bot，接管 run 生命周期以管理 LongTermMemoryInterface 和 MCP 工具。"""
         self.ltm.start_listening(self.llm)
         try:
+            mcp_tools = await init_mcp_tools()
+            self.tools = self.tools + mcp_tools
             await super().run(*args, **kwargs)
         finally:
             await self.ltm.stop_listening()
+            await close_mcp()
 
 
 def create_client_from_config() -> SonettoQQBot:

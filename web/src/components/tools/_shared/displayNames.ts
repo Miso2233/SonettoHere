@@ -57,8 +57,73 @@ const DISPLAY_NAMES: Record<string, string> = {
   task_tracker: '任务追踪',
 }
 
+// ── Word MCP 工具独立显示名 ──
+
+const WORD_DISPLAY_NAMES: Record<string, string> = {
+  word_create_document: '创建文档',
+  word_copy_document: '复制文档',
+  word_merge_documents: '合并文档',
+  word_get_document_info: '文档信息',
+  word_get_document_text: '提取文本',
+  word_get_document_outline: '文档大纲',
+  word_list_available_documents: '文档列表',
+  word_get_document_xml: '文档 XML',
+  word_insert_header_near_text: '插入标题',
+  word_insert_line_or_paragraph_near_text: '插入段落',
+  word_insert_numbered_list_near_text: '插入列表',
+  word_add_paragraph: '添加段落',
+  word_add_heading: '添加标题',
+  word_add_picture: '插入图片',
+  word_add_table: '添加表格',
+  word_add_page_break: '插入分页符',
+  word_add_table_of_contents: '添加目录',
+  word_delete_paragraph: '删除段落',
+  word_search_and_replace: '查找替换',
+  word_replace_paragraph_block_below_header: '替换区块',
+  word_replace_block_between_manual_anchors: '替换锚点内容',
+  word_create_custom_style: '创建样式',
+  word_format_text: '格式化文本',
+  word_format_table: '格式化表格',
+  word_set_table_cell_shading: '设置单元格底色',
+  word_apply_table_alternating_rows: '交替行颜色',
+  word_highlight_table_header: '高亮表头',
+  word_merge_table_cells: '合并单元格',
+  word_merge_table_cells_horizontal: '水平合并',
+  word_merge_table_cells_vertical: '垂直合并',
+  word_set_table_cell_alignment: '单元格对齐',
+  word_set_table_alignment_all: '表格对齐',
+  word_set_table_column_width: '设置列宽',
+  word_set_table_column_widths: '批量设置列宽',
+  word_set_table_width: '设置表格宽度',
+  word_auto_fit_table_columns: '自动调整列宽',
+  word_format_table_cell_text: '格式化单元格',
+  word_set_table_cell_padding: '设置单元格边距',
+  word_protect_document: '添加密码',
+  word_unprotect_document: '解除密码',
+  word_add_footnote_to_document: '添加脚注',
+  word_add_footnote_after_text: '添加脚注(后)',
+  word_add_footnote_before_text: '添加脚注(前)',
+  word_add_footnote_enhanced: '添加脚注(增强)',
+  word_add_footnote_robust: '添加脚注(鲁棒)',
+  word_add_endnote_to_document: '添加尾注',
+  word_customize_footnote_style: '脚注样式',
+  word_delete_footnote_from_document: '删除脚注',
+  word_delete_footnote_robust: '删除脚注(鲁棒)',
+  word_validate_document_footnotes: '验证脚注',
+  word_get_paragraph_text_from_document: '获取段落',
+  word_find_text_in_document: '搜索文本',
+  word_convert_to_pdf: '转为 PDF',
+  word_get_all_comments: '查看评论',
+  word_get_comments_by_author: '按作者筛选评论',
+  word_get_comments_for_paragraph: '段落评论',
+}
+
 export function toolDisplayName(name: string): string {
-  return DISPLAY_NAMES[name] ?? name
+  if (DISPLAY_NAMES[name]) return DISPLAY_NAMES[name]
+  if (name.startsWith('word_')) {
+    return WORD_DISPLAY_NAMES[name] || name.replace(/^word_/, '').replace(/_/g, ' ')
+  }
+  return name
 }
 
 /** 所有已知工具名称列表（供 Playground 使用） */
