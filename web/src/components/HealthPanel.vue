@@ -89,11 +89,11 @@ function makeItem(label: string, c: ComponentHealth): HealthItem {
 }
 
 .dot.ok {
-  background: #22c55e;
+  background: var(--status-ok);
 }
 
 .dot.error {
-  background: #ef4444;
+  background: var(--status-error);
 }
 
 .label {

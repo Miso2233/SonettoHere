@@ -1348,11 +1348,11 @@ function logAction(payload: { action: string; data?: unknown }) {
 }
 
 .state-dot.done {
-  background: #22c55e;
+  background: var(--status-ok);
 }
 
 .state-dot.error {
-  background: #ef4444;
+  background: var(--status-error);
 }
 
 @keyframes pulse {

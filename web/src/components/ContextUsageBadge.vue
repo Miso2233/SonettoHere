@@ -154,22 +154,22 @@ async function onBalanceHover() {
   transition: stroke-dashoffset 0.5s ease, stroke 0.5s ease;
 }
 .safe .ring-fill {
-  stroke: #22c55e;
+  stroke: var(--status-ok);
 }
 .safe .label {
-  color: #22c55e;
+  color: var(--status-ok);
 }
 .warn .ring-fill {
-  stroke: #f59e0b;
+  stroke: var(--status-warn);
 }
 .warn .label {
-  color: #f59e0b;
+  color: var(--status-warn);
 }
 .danger .ring-fill {
-  stroke: #ef4444;
+  stroke: var(--status-error);
 }
 .danger .label {
-  color: #ef4444;
+  color: var(--status-error);
 }
 .model-name {
   color: var(--text-secondary);
@@ -231,10 +231,10 @@ async function onBalanceHover() {
   margin: 4px 0;
 }
 .status-ok {
-  color: #22c55e;
+  color: var(--status-ok);
 }
 .status-err {
-  color: #ef4444;
+  color: var(--status-error);
 }
 
 /* 余额弹窗专用 */
@@ -250,6 +250,6 @@ async function onBalanceHover() {
   padding: 2px 0;
 }
 .balance-error {
-  color: #ef4444;
+  color: var(--status-error);
 }
 </style>
