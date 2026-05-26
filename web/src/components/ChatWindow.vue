@@ -131,6 +131,13 @@ function forwardAction(payload: { action: string; data?: unknown }) {
 }
 
 const windowRef = ref<HTMLElement | null>(null)
+const SCROLL_BOTTOM_THRESHOLD = 100
+
+function isNearBottom(): boolean {
+  const el = windowRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_BOTTOM_THRESHOLD
+}
 
 function hasAnswerBlock(turn: ChatTurn): boolean {
   return turn.events.some(e => e.kind === 'thinking' && e.becameAnswer)
@@ -152,14 +159,20 @@ function scrollToTurn(index: number) {
   }
 }
 
-watch(() => props.turns.length, () => scrollToBottom())
+watch(() => props.turns.length, () => {
+  if (isNearBottom()) scrollToBottom()
+})
 watch(
   () => props.currentTurn?.events.length,
-  () => scrollToBottom()
+  () => {
+    if (isNearBottom()) scrollToBottom()
+  }
 )
 watch(
   () => props.currentTurn?.finalAnswer,
-  () => scrollToBottom()
+  () => {
+    if (isNearBottom()) scrollToBottom()
+  }
 )
 
 // === 引用功能 ===
