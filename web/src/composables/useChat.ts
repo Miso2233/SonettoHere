@@ -1,6 +1,6 @@
 import { reactive, computed, watch, nextTick, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent } from '@/types'
-import { refreshSessions } from '@/composables/useSession'
+import { refreshSessions, switchSession } from '@/composables/useSession'
 
 const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
@@ -62,6 +62,7 @@ interface SessionChannel {
   reconnectTimer: ReturnType<typeof setTimeout> | null
   initialized: boolean
   _awaitingToolName: string | null
+  parentSessionId: string | null  // sub-agent 用：完成时切回主会话
 }
 
 const channels = reactive(new Map<string, SessionChannel>())
@@ -89,6 +90,7 @@ function getOrCreateChannel(sid: string): SessionChannel {
       reconnectTimer: null,
       initialized: false,
       _awaitingToolName: null,
+      parentSessionId: null,
     })
   }
   return channels.get(sid)!
@@ -139,7 +141,7 @@ function connectSession(sid: string) {
   }
 }
 
-function ensureConnected(sid: string) {
+export function ensureConnected(sid: string) {
   if (!sid) return
   const ch = getOrCreateChannel(sid)
   if (ch.initialized) return
@@ -156,6 +158,28 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
   // context_usage 可以在无活跃轮次时接收（如连接初始化）
   if (event.type === 'context_usage') {
     ch.contextUsage = event.payload
+    return
+  }
+
+  // sub_session_created 可能在任何时候到达（主 Agent 调用 call_sub_agent）
+  if (event.type === 'sub_session_created') {
+    const subId = event.payload.sub_session_id
+    const parentId = event.payload.parent_session_id
+    void refreshSessions()
+    ensureConnected(subId)
+
+    // 初始化子会话的 currentTurn，否则子 Agent 推送的所有事件都被丢弃
+    const subCh = getOrCreateChannel(subId)
+    subCh.parentSessionId = parentId
+    subCh.isStreaming = true
+    subCh.currentTurn = {
+      id: crypto.randomUUID(),
+      userMessage: event.payload.task || '(子 Agent 任务)',
+      events: [],
+      finalAnswer: null,
+    }
+
+    void switchSession(subId)
     return
   }
 
@@ -265,6 +289,10 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
         void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
       } else {
         ch.isStreaming = false
+      }
+      // 子 Agent 完成 → 自动切回主会话
+      if (ch.parentSessionId) {
+        setTimeout(() => switchSession(ch.parentSessionId!), 500)
       }
       break
 

@@ -14,6 +14,7 @@
     />
 
     <ChatInput
+      v-if="!isSubagent"
       :is-streaming="isStreaming"
       :disabled="!connected"
       :citations="citations"
@@ -21,11 +22,14 @@
       @stop="cancel"
       @remove-citation="removeCitation"
     />
+    <div v-else class="sub-agent-readonly-bar">
+      <span class="sub-agent-readonly-text">🔒 子 Agent 会话 — 只读</span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Citation } from '@/types'
 import { useSession } from '@/composables/useSession'
 import { useChat } from '@/composables/useChat'
@@ -35,9 +39,15 @@ import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import ChatWindow from '@/components/ChatWindow.vue'
 import ChatInput from '@/components/ChatInput.vue'
 
-const { sessionId } = useSession()
+const { sessionId, sessions } = useSession()
 const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse } =
   useChat(sessionId)
+
+const isSubagent = computed(() => {
+  return sessions.value.some(
+    s => s.session_id === sessionId.value && s.is_subagent
+  )
+})
 
 const citations = ref<Citation[]>([])
 
@@ -76,5 +86,17 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
+}
+.sub-agent-readonly-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+.sub-agent-readonly-text {
+  font-size: 12px;
+  color: var(--text-secondary);
 }
 </style>

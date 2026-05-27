@@ -48,7 +48,7 @@ async function createSession() {
   await refreshSessions()
 }
 
-async function switchSession(id: string) {
+export async function switchSession(id: string) {
   sessionId.value = id
   localStorage.setItem(STORAGE_KEY, id)
 }
