@@ -1,5 +1,5 @@
 <template>
-  <div class="session-sidebar">
+  <div class="session-sidebar" :class="{ collapsed }">
     <div class="sidebar-section-header">
       <span>会话列表</span>
       <button class="btn-new" @click="$emit('create')" title="新会话">+</button>
@@ -88,6 +88,7 @@ const props = defineProps<{
   sessions: SessionInfo[]
   activeId: string
   sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }>
+  collapsed?: boolean
 }>()
 
 defineEmits<{
@@ -362,5 +363,26 @@ const cardStyle = computed(() => {
 .card-leave-to {
   opacity: 0;
   transform: translateX(-8px);
+}
+
+/* ── Collapsed icon-only mode ── */
+.session-sidebar.collapsed .sidebar-section-header {
+  justify-content: center;
+}
+.session-sidebar.collapsed .sidebar-section-header span {
+  display: none;
+}
+.session-sidebar.collapsed .session-item {
+  justify-content: center;
+  padding: 6px;
+}
+.session-sidebar.collapsed .session-item-main {
+  display: none;
+}
+.session-sidebar.collapsed .btn-delete {
+  display: none;
+}
+.session-sidebar.collapsed .no-sessions {
+  display: none;
 }
 </style>

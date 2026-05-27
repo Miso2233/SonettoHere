@@ -1,15 +1,15 @@
 <template>
   <div class="app-layout">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: effectiveCollapsed }">
       <div class="sidebar-header">
         <h1 class="logo">SonettoHere</h1>
       </div>
       <nav class="sidebar-nav">
         <router-link to="/" class="nav-item">
-          <Icon name="chat" :size="18" /> 对话&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CHATING
+          <Icon name="chat" :size="18" /> <span class="nav-label">对话&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CHATING</span>
         </router-link>
         <router-link to="/memory" class="nav-item">
-          <Icon name="memory" :size="18" /> 记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY
+          <Icon name="memory" :size="18" /> <span class="nav-label">记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY</span>
         </router-link>
         <router-link to="/playground" class="nav-item pg-nav">Playground</router-link>
       </nav>
@@ -17,12 +17,16 @@
         :sessions="sessions"
         :active-id="sessionId"
         :session-statuses="allSessionStatuses"
+        :collapsed="effectiveCollapsed"
         @create="createSession"
         @switch="switchSession"
         @delete="deleteSession"
       />
       <HealthPanel :health="health!" v-if="health" />
     </aside>
+    <button class="collapse-btn" :class="{ collapsed: effectiveCollapsed }" @click="toggleSidebar" :title="effectiveCollapsed ? '展开侧栏' : '折叠侧栏'">
+      <span class="collapse-icon">{{ effectiveCollapsed ? '▶' : '◀' }}</span>
+    </button>
     <main class="main">
       <router-view />
     </main>
@@ -36,7 +40,10 @@ import SessionSidebar from '@/components/SessionSidebar.vue';
 import { allSessionStatuses } from '@/composables/useChat';
 import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { useSession } from '@/composables/useSession';
-import { onMounted } from 'vue';
+import { onMounted } from 'vue'
+import { useSidebar } from '@/composables/useSidebar';
+
+const { effectiveCollapsed, toggleSidebar } = useSidebar()
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
   useSession()
@@ -188,6 +195,72 @@ html, body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+/* ── Collapsible sidebar ── */
+.sidebar {
+  position: relative;
+  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+}
+.sidebar.collapsed {
+  width: 58px;
+  min-width: 58px;
+  padding: 24px 10px;
+  align-items: center;
+}
+.sidebar.collapsed .sidebar-header {
+  display: none;
+}
+.sidebar.collapsed .sidebar-nav {
+  width: 100%;
+  align-items: center;
+}
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 8px;
+  gap: 0;
+  width: 100%;
+}
+.sidebar.collapsed .nav-label {
+  display: none;
+}
+.sidebar.collapsed .pg-nav {
+  display: none;
+}
+.sidebar.collapsed .health-panel {
+  display: none;
+}
+
+.collapse-btn {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-card);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  left: 206px;
+  transition: left 0.25s ease, background 0.15s, box-shadow 0.15s;
+}
+.collapse-btn:hover {
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.collapse-btn.collapsed {
+  left: 44px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.collapse-icon {
+  font-size: 10px;
+  color: var(--text-secondary);
+  line-height: 1;
 }
 
 /* ── Shared markdown rendered content ── */
