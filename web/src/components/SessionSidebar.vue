@@ -1,5 +1,5 @@
 <template>
-  <div class="session-sidebar">
+  <div class="session-sidebar" :class="{ collapsed }">
     <div class="sidebar-section-header">
       <span>会话列表</span>
       <button class="btn-new" @click="$emit('create')" title="新会话">+</button>
@@ -88,6 +88,7 @@ const props = defineProps<{
   sessions: SessionInfo[]
   activeId: string
   sessionStatuses?: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }>
+  collapsed?: boolean
 }>()
 
 defineEmits<{
@@ -193,6 +194,13 @@ const cardStyle = computed(() => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+.sidebar-section-header span {
+  transition: max-width 0.25s ease, opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  white-space: nowrap;
+  display: inline-block;
+  max-width: 200px;
+}
 .btn-new {
   width: 24px;
   height: 24px;
@@ -243,6 +251,9 @@ const cardStyle = computed(() => {
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  transition: max-height 0.25s ease, opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  max-height: 80px;
 }
 .session-id {
   font-size: 13px;
@@ -275,7 +286,9 @@ const cardStyle = computed(() => {
   font-size: 16px;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
+  transition: max-width 0.25s ease, opacity 0.15s ease 0.05s, transform 0.25s ease 0.05s, color 0.15s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  max-width: 22px;
 }
 .session-item:hover .btn-delete {
   opacity: 1;
@@ -287,6 +300,9 @@ const cardStyle = computed(() => {
   font-size: 12px;
   color: var(--text-secondary);
   padding: 8px;
+  transition: max-height 0.25s ease, opacity 0.2s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  max-height: 40px;
 }
 
 .session-item-right {
@@ -362,5 +378,50 @@ const cardStyle = computed(() => {
 .card-leave-to {
   opacity: 0;
   transform: translateX(-8px);
+}
+
+/* ── Collapsed icon-only mode ── */
+.session-sidebar.collapsed .sidebar-section-header {
+  justify-content: center;
+}
+.session-sidebar.collapsed .sidebar-section-header span {
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-24px);
+  overflow: hidden;
+  white-space: nowrap;
+  display: inline-block;
+  padding: 0;
+  margin: 0;
+}
+.session-sidebar.collapsed .session-item {
+  justify-content: center;
+  padding: 6px;
+}
+.session-sidebar.collapsed .session-item-main {
+  max-height: 0;
+  max-width: 0;
+  min-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-24px);
+  padding: 0;
+  margin: 0;
+}
+.session-sidebar.collapsed .btn-delete {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateX(-24px);
+  padding: 0;
+  margin: 0;
+  border: none;
+}
+.session-sidebar.collapsed .no-sessions {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
 }
 </style>
