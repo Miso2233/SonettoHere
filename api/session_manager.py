@@ -17,6 +17,12 @@ class SessionState:
     _active_task: asyncio.Task | None = field(default=None, repr=False)
     checkpointer: MemorySaver = field(default_factory=MemorySaver)
 
+    # ── Sub-agent 字段 ─────────────────────────────────────
+    is_subagent: bool = False
+    parent_session_id: str | None = None
+    _sub_agent_task: str | None = field(default=None, repr=False)
+    _pending_result: asyncio.Future | None = field(default=None, repr=False)
+
 
 class SessionManager:
     def __init__(self, ttl_seconds: int = 1800):
@@ -26,6 +32,23 @@ class SessionManager:
     def create(self) -> SessionState:
         session_id = uuid.uuid4().hex
         session = SessionState(session_id=session_id)
+        self._sessions[session_id] = session
+        return session
+
+    def create_sub_session(
+        self,
+        task: str,
+        parent_session_id: str | None = None,
+    ) -> SessionState:
+        """创建 sub-agent 会话，携带任务文本和 pending future。"""
+        session_id = uuid.uuid4().hex
+        session = SessionState(
+            session_id=session_id,
+            is_subagent=True,
+            parent_session_id=parent_session_id,
+            _sub_agent_task=task,
+            _pending_result=asyncio.Future(),
+        )
         self._sessions[session_id] = session
         return session
 
@@ -62,6 +85,7 @@ class SessionManager:
                 "created_at": s.created_at,
                 "last_active": s.last_active,
                 "has_active_agent": has_active,
+                "is_subagent": s.is_subagent,
             })
         result.sort(key=lambda x: x["last_active"], reverse=True)
         return result

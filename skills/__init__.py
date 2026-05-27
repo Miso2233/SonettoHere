@@ -65,6 +65,7 @@ def get_all_skills() -> list[BaseTool]:
     from skills.interaction.skill_ask_qa import AskUserQASkill
     from skills.interaction.skill_ask_single_choice import AskUserSingleChoiceSkill
     from skills.interaction.skill_ask_multi_choice import AskUserMultiChoiceSkill
+    from skills.interaction.skill_call_sub_agent import CallSubAgentSkill
 
     # Entertainment
     from skills.entertainment.skill_answer_book import AnswerBookSkill
@@ -114,6 +115,7 @@ def get_all_skills() -> list[BaseTool]:
         AskUserQASkill(client=client),
         AskUserSingleChoiceSkill(client=client),
         AskUserMultiChoiceSkill(client=client),
+        CallSubAgentSkill(client=client),
         # Entertainment
         AnswerBookSkill(client=client),
         TarotSkill(client=client),

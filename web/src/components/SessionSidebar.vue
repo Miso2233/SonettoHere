@@ -15,7 +15,10 @@
         @mouseleave="onSessionMouseLeave"
       >
         <div class="session-item-main">
-          <span class="session-id">{{ formatId(s.session_id) }}</span>
+          <span class="session-id">
+            {{ formatId(s.session_id) }}
+            <span v-if="s.is_subagent" class="sub-badge" title="子 Agent 会话（只读）">sub</span>
+          </span>
           <span class="session-count">{{ s.message_count }} 条消息</span>
         </div>
         <div class="session-item-right">
@@ -245,6 +248,18 @@ const cardStyle = computed(() => {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
+}
+.sub-badge {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  vertical-align: middle;
 }
 .session-count {
   font-size: 11px;

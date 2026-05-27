@@ -67,6 +67,17 @@ export interface AskUserEvent {
   }
 }
 
+/** sub_session_created — 主 Agent 调用 call_sub_agent 后推送 */
+export interface SubSessionCreatedEvent {
+  type: 'sub_session_created'
+  payload: {
+    sub_session_id: string
+    parent_session_id: string | null
+    task: string
+    name: string
+  }
+}
+
 export type ServerEvent =
   | ThinkingStartEvent
   | TokenEvent
@@ -80,6 +91,7 @@ export type ServerEvent =
   | PongEvent
   | ContextUsageEvent
   | AskUserEvent
+  | SubSessionCreatedEvent
 
 // === WebSocket 客户端 → 服务端消息 ===
 
@@ -156,6 +168,7 @@ export interface SessionInfo {
   created_at: number
   last_active?: number
   has_active_agent?: boolean
+  is_subagent?: boolean
 }
 
 export interface CreateSessionResponse {

@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import sys
+import traceback
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import HumanMessage
@@ -108,6 +110,7 @@ async def _run_agent_turn(
 
     # 2. [执行轮次] 流式执行 Agent 图，副作用推送最终回答，另有config回调副作用
     final_answer = ""
+    _run_error: str | None = None
     try:
         # turn 开始时推送当前上下文用量（含刚加入的 user message）
         initial_turn_usage = await _calculate_context_usage(session, system_prompt)
@@ -122,6 +125,14 @@ async def _run_agent_turn(
         await ws.send_json({                                                # [向前端通信] 2. 通知客户端生成已被取消
             "type": "error",
             "payload": {"code": "CANCELLED", "message": "生成已取消"},
+        })
+    except Exception as e:
+        _run_error = str(e)
+        print(f"[sub-agent:{session.session_id[:8]}] _run_agent_turn error: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        await ws.send_json({
+            "type": "error",
+            "payload": {"code": "AGENT_ERROR", "message": str(e)},
         })
     finally:
         session._active_task = None
@@ -141,6 +152,22 @@ async def _run_agent_turn(
         {"role": "assistant", "content": final_answer},
     ])
 
+    # 4. [Sub-agent] 如果有待处理的 pending_result，resolve 它
+    if session._pending_result is not None and not session._pending_result.done():
+        if _run_error:
+            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with run error", file=sys.stderr)
+            session._pending_result.set_exception(
+                RuntimeError(f"子 Agent 执行失败: {_run_error}")
+            )
+        elif final_answer:
+            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with answer", file=sys.stderr)
+            session._pending_result.set_result(final_answer)
+        else:
+            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with exception (empty answer)", file=sys.stderr)
+            session._pending_result.set_exception(
+                RuntimeError("Sub-agent 未能产生有效回答")
+            )
+
 
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str):
@@ -150,10 +177,17 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     sm = app_state.session_manager
     session = sm.get_or_create(session_id)  # 建立或取得会话
 
-    # 连接建立后立即推送初始上下文用量（尚无 graph 执行，消息为空）
+    # 连接建立后立即推送初始上下文用量
     settings = get_settings()
+    try:
+        cpt = await session.checkpointer.aget_tuple(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        existing_messages = cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
+    except Exception:
+        existing_messages = []
     initial_usage = estimate_context_usage(
-        messages=[],
+        messages=existing_messages,
         system_prompt=app_state.system_prompt,
         max_tokens=settings.model_context_window,
         model_name=settings.model_name,
@@ -161,6 +195,22 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     await ws.send_json({"type": "context_usage", "payload": initial_usage})
 
     agent_task: asyncio.Task | None = None  # 局部变量 用于存储当前正在执行的 Agent Task
+
+    # ── Sub-agent 自动启动 ────────────────────────────────
+    if session._sub_agent_task is not None and session._pending_result is not None:
+        print(f"[ws:{session_id[:8]}] sub-agent detected, auto-starting", file=sys.stderr)
+        if session._pending_result.done():
+            print(f"[ws:{session_id[:8]}] pending_result already done, skipping", file=sys.stderr)
+            pass
+        else:
+            task = session._sub_agent_task
+            session._sub_agent_task = None  # 消费掉，防止重连后重复启动
+            interaction.current_ws.set(ws)
+            agent_task = asyncio.create_task(
+                _run_agent_turn(ws, session, task)
+            )
+            session._active_task = agent_task
+            print(f"[ws:{session_id[:8]}] sub-agent task created", file=sys.stderr)
 
     try:
         while True:
