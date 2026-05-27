@@ -138,6 +138,9 @@ html, body {
 .sidebar-header {
   display: flex;
   justify-content: center;
+  transition: max-height 0.25s ease, opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  max-height: 100px;
 }
 
 .logo {
@@ -176,6 +179,13 @@ html, body {
   font-weight: 600;
 }
 
+.nav-label {
+  transition: max-width 0.25s ease, opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
 .pg-nav {
   margin-top: 16px;
   border-top: 1px solid var(--border);
@@ -197,6 +207,12 @@ html, body {
   min-width: 0;
 }
 
+.sidebar .health-panel {
+  transition: max-height 0.25s ease, opacity 0.2s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  overflow: hidden;
+  max-height: 300px;
+}
+
 /* ── Collapsible sidebar ── */
 .sidebar {
   position: relative;
@@ -207,9 +223,15 @@ html, body {
   min-width: 58px;
   padding: 24px 10px;
   align-items: center;
+  overflow: hidden;
 }
 .sidebar.collapsed .sidebar-header {
-  display: none;
+  max-height: 0;
+  opacity: 0;
+  transform: translateX(-30px);
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
 }
 .sidebar.collapsed .sidebar-nav {
   width: 100%;
@@ -220,15 +242,26 @@ html, body {
   padding: 8px;
   gap: 0;
   width: 100%;
+  overflow: hidden;
 }
 .sidebar.collapsed .nav-label {
-  display: none;
+  max-width: 0;
+  opacity: 0;
+  transform: translateX(-24px);
+  overflow: hidden;
+  white-space: nowrap;
+  padding: 0;
+  margin: 0;
 }
 .sidebar.collapsed .pg-nav {
   display: none;
 }
 .sidebar.collapsed .health-panel {
-  display: none;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
 }
 
 .collapse-btn {
