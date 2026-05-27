@@ -97,7 +97,7 @@ export type ServerEvent =
 
 export interface ChatMessage {
   type: 'chat'
-  payload: { message: string }
+  payload: { message: string; private?: boolean }
 }
 
 export interface CancelMessage {

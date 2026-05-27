@@ -76,6 +76,7 @@ async def _run_agent_turn(
     ws: WebSocket,
     session: SessionState,
     user_message: str,
+    private_mode: bool = False,
 ):
     """
     在指定的session中编排一轮 Agent 对话。
@@ -147,10 +148,11 @@ async def _run_agent_turn(
     # 3. [后处理] 增加消息计数器，将对话记录入长期记忆
     if final_answer:
         session.message_count += 2
-    await app_state.ltm.send_history([
-        {"role": "user", "content": user_message},
-        {"role": "assistant", "content": final_answer},
-    ])
+    if not private_mode:
+        await app_state.ltm.send_history([
+            {"role": "user", "content": user_message},
+            {"role": "assistant", "content": final_answer},
+        ])
 
     # 4. [Sub-agent] 如果有待处理的 pending_result，resolve 它
     if session._pending_result is not None and not session._pending_result.done():
@@ -207,7 +209,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
             session._sub_agent_task = None  # 消费掉，防止重连后重复启动
             interaction.current_ws.set(ws)
             agent_task = asyncio.create_task(
-                _run_agent_turn(ws, session, task)
+                _run_agent_turn(ws, session, task, private_mode=False)
             )
             session._active_task = agent_task
             print(f"[ws:{session_id[:8]}] sub-agent task created", file=sys.stderr)
@@ -230,11 +232,13 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                     if not user_message:
                         continue
 
+                    private_mode = msg["payload"].get("private", False)
+
                     # 设置当前连接的上下文变量，供工具函数使用
                     interaction.current_ws.set(ws)
 
                     agent_task = asyncio.create_task(
-                        _run_agent_turn(ws, session, user_message)
+                        _run_agent_turn(ws, session, user_message, private_mode)
                     )
                     session._active_task = agent_task  # 立即写入，消除竞争窗口 会话状态 供外部读取 典型用法为绿色黄色呼吸灯
 
