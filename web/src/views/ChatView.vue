@@ -2,15 +2,28 @@
   <div class="chat-view">
     <header class="chat-header">
       <StatusBadge :connected="connected" :health="health" />
-      <button
-        class="private-toggle"
-        :class="{ active: privateMode }"
-        @click="setPrivateMode(!privateMode)"
-        :title="privateMode ? '关闭私密模式' : '开启私密模式'"
-      >
-        <span class="private-indicator"></span>
-        私密
-      </button>
+      <span class="private-trigger hover-trigger">
+        <button
+          class="private-toggle"
+          :class="{ active: privateMode }"
+          @click="setPrivateMode(!privateMode)"
+        >
+          <span class="private-indicator"></span>
+          私密
+        </button>
+        <div class="hover-card card-private">
+          <div class="card-row">
+            <span class="card-label">私密模式</span>
+            <span class="card-value" :class="privateMode ? 'status-on' : 'status-off'">
+              {{ privateMode ? '已开启' : '已关闭' }}
+            </span>
+          </div>
+          <div class="card-divider"></div>
+          <div class="private-desc">
+            开启后，当前对话不会被保存到长期记忆和本地存储，关闭后恢复正常保存。
+          </div>
+        </div>
+      </span>
       <ContextUsageBadge :usage="contextUsage" />
     </header>
 
@@ -123,6 +136,68 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
   height: 8px;
   border-radius: 50%;
   background: currentColor;
+}
+.private-trigger {
+  position: relative;
+}
+.hover-card {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: visibility 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  min-width: 240px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.private-trigger:hover .hover-card {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
+.private-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: normal;
+  max-width: 240px;
+}
+.status-on {
+  color: var(--status-warn);
+}
+.status-off {
+  color: var(--text-secondary);
+}
+.card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+}
+.card-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+}
+.card-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.card-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
 }
 .sub-agent-readonly-bar {
   display: flex;
