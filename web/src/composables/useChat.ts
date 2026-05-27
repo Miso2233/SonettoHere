@@ -2,30 +2,52 @@ import { reactive, computed, watch, nextTick, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent } from '@/types'
 import { refreshSessions, switchSession } from '@/composables/useSession'
 
-const TURNS_KEY_PREFIX = 'sonetto_turns_'
+export const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
 // 从 localStorage 恢复所有会话的消息缓存（页面刷新后仍保留）
 function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
   const map = new Map<string, ChatTurn[]>()
+  const keysFound: string[] = []
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
     if (key && key.startsWith(TURNS_KEY_PREFIX)) {
+      keysFound.push(key)
       const sid = key.slice(TURNS_KEY_PREFIX.length)
       try {
-        const data = JSON.parse(localStorage.getItem(key) || '[]')
+        const raw = localStorage.getItem(key) || '[]'
+        const data = JSON.parse(raw)
         if (Array.isArray(data)) {
+          console.log(`[useChat:load] 从 localStorage 加载会话 ${sid}: ${data.length} 条 turn, 序列化长度 ${raw.length}`)
           map.set(sid, data)
+        } else {
+          console.warn(`[useChat:load] 键 ${key} 的数据不是数组，跳过`)
         }
-      } catch { /* 忽略解析错误 */ }
+      } catch (e) {
+        console.error(`[useChat:load] 解析 localStorage 键 ${key} 失败:`, e)
+      }
     }
   }
+  console.log(`[useChat:load] localStorage 中共 ${keysFound.length} 个 ${TURNS_KEY_PREFIX}* 键, 恢复 ${map.size} 个会话的缓存`)
   return map
 }
 
 function saveTurnsToStorage(sid: string, data: ChatTurn[]) {
+  const key = TURNS_KEY_PREFIX + sid
   try {
-    localStorage.setItem(TURNS_KEY_PREFIX + sid, JSON.stringify(data))
-  } catch { /* storage 满时静默失败 */ }
+    const serialized = JSON.stringify(data)
+    const size = new Blob([serialized]).size
+    console.log(`[useChat:save] 保存会话 ${sid} 到 localStorage: ${data.length} 条 turn, 约 ${(size / 1024).toFixed(1)} KB, key=${key}`)
+    localStorage.setItem(key, serialized)
+  } catch (e) {
+    console.error(`[useChat:save] 保存会话 ${sid} 到 localStorage 失败 (key=${key}):`, e)
+    // 尝试估算 localStorage 用量
+    let total = 0
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k) total += k.length + (localStorage.getItem(k) || '').length
+    }
+    console.warn(`[useChat:save] localStorage 当前总估算用量: ${(total * 2 / 1024).toFixed(1)} KB`)
+  }
 }
 
 export function removeTurnsFromStorage(sid: string) {
@@ -78,6 +100,7 @@ export const allSessionStatuses = computed(() => {
 
 function getOrCreateChannel(sid: string): SessionChannel {
   if (!channels.has(sid)) {
+    console.log(`[useChat:channel] 创建新通道 sid="${sid}"`)
     channels.set(sid, {
       ws: null,
       connected: false,
@@ -98,8 +121,12 @@ function getOrCreateChannel(sid: string): SessionChannel {
 
 function persistTurns(sid: string) {
   const ch = channels.get(sid)
-  if (!ch) return
+  if (!ch) {
+    console.warn(`[useChat:persist] 跳过保存 sid="${sid}": 通道不存在`)
+    return
+  }
   const snapshot = [...ch.turns]
+  console.log(`[useChat:persist] 持久化会话 ${sid}: ${snapshot.length} 条 turn`)
   turnsCache.set(sid, snapshot)
   saveTurnsToStorage(sid, snapshot)
 }
@@ -142,9 +169,16 @@ function connectSession(sid: string) {
 }
 
 export function ensureConnected(sid: string) {
-  if (!sid) return
+  if (!sid) {
+    console.warn(`[useChat:ensureConnected] 跳过空 sid`)
+    return
+  }
   const ch = getOrCreateChannel(sid)
-  if (ch.initialized) return
+  if (ch.initialized) {
+    console.log(`[useChat:ensureConnected] 会话 ${sid} 已初始化, 跳过`)
+    return
+  }
+  console.log(`[useChat:ensureConnected] 初始化会话 ${sid} 的 WebSocket 连接`)
   ch.initialized = true
   connectSession(sid)
 }
@@ -270,10 +304,13 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
       }
       if (ch.currentTurn) {
         const lastThink = findLastThinking(ch.currentTurn.events)
-        if (lastThink?.becameAnswer) {
+        const trackBecame = lastThink?.becameAnswer
+        console.log(`[useChat:done] 会话 ${sid}: becameAnswer=${trackBecame}, events=${ch.currentTurn.events.length}, finalAnswer=${ch.currentTurn.finalAnswer?.slice(0, 50) ?? 'null'}`)
+        if (trackBecame) {
           const turnToFinalize = ch.currentTurn
           void nextTick(() => {
             setTimeout(() => {
+              console.log(`[useChat:done] becameAnswer 分支执行 persist (会话 ${sid})`)
               ch.turns.push(turnToFinalize)
               ch.currentTurn = null
               ch.isStreaming = false
@@ -281,6 +318,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
             }, 420)
           })
         } else {
+          console.log(`[useChat:done] 直接分支执行 persist (会话 ${sid})`)
           ch.turns.push(ch.currentTurn)
           ch.currentTurn = null
           ch.isStreaming = false
@@ -288,6 +326,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
         }
         void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
       } else {
+        console.warn(`[useChat:done] 会话 ${sid} 的 done 事件到达时 currentTurn 为 null`)
         ch.isStreaming = false
       }
       // 子 Agent 完成 → 自动切回主会话
@@ -354,13 +393,29 @@ export function useChat(sessionId: Ref<string>) {
   watch(
     sessionId,
     (newId, oldId) => {
-      if (oldId) persistTurns(oldId)
+      console.log(`[useChat:watch] sessionId 变化: "${oldId}" → "${newId}"`)
+      if (oldId) {
+        console.log(`[useChat:watch] 在切换前持久化旧会话 "${oldId}"`)
+        persistTurns(oldId)
+      }
       ensureConnected(newId)
       // 恢复新会话的消息缓存（页面刷新场景）
       const cached = turnsCache.get(newId)
       const ch = getOrCreateChannel(newId)
-      if (cached && ch.turns.length === 0) {
-        ch.turns.push(...cached)
+      if (cached) {
+        console.log(`[useChat:watch] 找到会话 ${newId} 的缓存: ${cached.length} 条 turn, 通道已有 ${ch.turns.length} 条`)
+        if (ch.turns.length === 0) {
+          console.log(`[useChat:watch] 恢复缓存: 将 ${cached.length} 条 turn 推入通道`)
+          ch.turns.push(...cached)
+          console.log(`[useChat:watch] 恢复后通道 turns.length = ${ch.turns.length}`)
+        } else {
+          console.log(`[useChat:watch] 跳过恢复: 通道已有数据`)
+        }
+      } else {
+        console.log(`[useChat:watch] 未找到会话 ${newId} 的缓存, sessionId="${sessionId.value}"`)
+        // 调试：列出 turnsCache 中所有可用的 key
+        const available = Array.from(turnsCache.keys())
+        console.log(`[useChat:watch] turnsCache 可用键:`, available.length ? available : '(空)')
       }
     },
     { immediate: true }
@@ -368,7 +423,11 @@ export function useChat(sessionId: Ref<string>) {
 
   function send(message: string) {
     const ch = activeChannel.value
-    if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) return
+    if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) {
+      console.warn(`[useChat:send] WebSocket 未就绪, readyState=${ch.ws?.readyState}, session=${sessionId.value}`)
+      return
+    }
+    console.log(`[useChat:send] 发送消息 (session=${sessionId.value}): "${message.slice(0, 80)}..."`)
     ch.isStreaming = true
     ch.error = null
 
