@@ -1,6 +1,6 @@
 <template>
   <div class="app-layout">
-    <aside class="sidebar" :class="{ collapsed: effectiveCollapsed }">
+    <aside class="sidebar" :class="{ collapsed: effectiveCollapsed }" @click="onSidebarClick">
       <div class="sidebar-header">
         <h1 class="logo">SonettoHere</h1>
       </div>
@@ -24,9 +24,6 @@
       />
       <HealthPanel :health="health!" v-if="health" />
     </aside>
-    <button class="collapse-btn" :class="{ collapsed: effectiveCollapsed }" @click="toggleSidebar" :title="effectiveCollapsed ? '展开侧栏' : '折叠侧栏'">
-      <span class="collapse-icon">{{ effectiveCollapsed ? '▶' : '◀' }}</span>
-    </button>
     <main class="main">
       <router-view />
     </main>
@@ -44,6 +41,12 @@ import { onMounted } from 'vue'
 import { useSidebar } from '@/composables/useSidebar';
 
 const { effectiveCollapsed, toggleSidebar } = useSidebar()
+
+function onSidebarClick(e: MouseEvent) {
+  if (e.target === e.currentTarget) {
+    toggleSidebar()
+  }
+}
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
   useSession()
@@ -262,38 +265,6 @@ html, body {
   overflow: hidden;
   padding: 0;
   margin: 0;
-}
-
-.collapse-btn {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 50;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  background: var(--bg-card);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  left: 206px;
-  transition: left 0.25s ease, background 0.15s, box-shadow 0.15s;
-}
-.collapse-btn:hover {
-  background: var(--bg-secondary);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-.collapse-btn.collapsed {
-  left: 44px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-.collapse-icon {
-  font-size: 10px;
-  color: var(--text-secondary);
-  line-height: 1;
 }
 
 /* ── Shared markdown rendered content ── */
