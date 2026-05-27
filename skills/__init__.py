@@ -61,11 +61,13 @@ def get_all_skills() -> list[BaseTool]:
     # Task
     from skills.task.skill_tracker import TaskTrackerSkill
 
+    # SubAgent
+    from skills.sub_agent.skill_call_sub_agent import CallSubAgentSkill
+
     # Interaction
     from skills.interaction.skill_ask_qa import AskUserQASkill
     from skills.interaction.skill_ask_single_choice import AskUserSingleChoiceSkill
     from skills.interaction.skill_ask_multi_choice import AskUserMultiChoiceSkill
-    from skills.interaction.skill_call_sub_agent import CallSubAgentSkill
 
     # Entertainment
     from skills.entertainment.skill_answer_book import AnswerBookSkill
@@ -111,11 +113,12 @@ def get_all_skills() -> list[BaseTool]:
         DebuggerSkill(client=client),
         # Task
         TaskTrackerSkill(client=client),
+        # SubAgent
+        CallSubAgentSkill(client=client),
         # Interaction
         AskUserQASkill(client=client),
         AskUserSingleChoiceSkill(client=client),
         AskUserMultiChoiceSkill(client=client),
-        CallSubAgentSkill(client=client),
         # Entertainment
         AnswerBookSkill(client=client),
         TarotSkill(client=client),
