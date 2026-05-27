@@ -2,6 +2,15 @@
   <div class="chat-view">
     <header class="chat-header">
       <StatusBadge :connected="connected" :health="health" />
+      <button
+        class="private-toggle"
+        :class="{ active: privateMode }"
+        @click="setPrivateMode(!privateMode)"
+        :title="privateMode ? '关闭私密模式' : '开启私密模式'"
+      >
+        <span class="private-indicator"></span>
+        私密
+      </button>
       <ContextUsageBadge :usage="contextUsage" />
     </header>
 
@@ -40,7 +49,7 @@ import ChatWindow from '@/components/ChatWindow.vue'
 import ChatInput from '@/components/ChatInput.vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse } =
+const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, privateMode, setPrivateMode } =
   useChat(sessionId)
 
 const isSubagent = computed(() => {
@@ -86,6 +95,34 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
+}
+.private-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.private-toggle:hover {
+  border-color: var(--text-secondary);
+}
+.private-toggle.active {
+  border-color: var(--status-warn);
+  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
+  color: var(--status-warn);
+}
+.private-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
 }
 .sub-agent-readonly-bar {
   display: flex;

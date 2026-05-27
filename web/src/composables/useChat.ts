@@ -85,6 +85,7 @@ interface SessionChannel {
   initialized: boolean
   _awaitingToolName: string | null
   parentSessionId: string | null  // sub-agent 用：完成时切回主会话
+  privateMode: boolean
 }
 
 const channels = reactive(new Map<string, SessionChannel>())
@@ -114,6 +115,7 @@ function getOrCreateChannel(sid: string): SessionChannel {
       initialized: false,
       _awaitingToolName: null,
       parentSessionId: null,
+      privateMode: false,
     })
   }
   return channels.get(sid)!
@@ -314,7 +316,9 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
               ch.turns.push(turnToFinalize)
               ch.currentTurn = null
               ch.isStreaming = false
-              persistTurns(sid)
+              if (!ch.privateMode) {
+                persistTurns(sid)
+              }
             }, 420)
           })
         } else {
@@ -322,7 +326,9 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
           ch.turns.push(ch.currentTurn)
           ch.currentTurn = null
           ch.isStreaming = false
-          persistTurns(sid)
+          if (!ch.privateMode) {
+            persistTurns(sid)
+          }
         }
         void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
       } else {
@@ -389,6 +395,12 @@ export function useChat(sessionId: Ref<string>) {
   const error = computed(() => activeChannel.value.error)
   const contextUsage = computed(() => activeChannel.value.contextUsage)
 
+  const privateMode = computed(() => activeChannel.value.privateMode)
+
+  function setPrivateMode(val: boolean) {
+    activeChannel.value.privateMode = val
+  }
+
   // Session 切换：只确保新 Session 的 WS 连接，不断开旧的
   watch(
     sessionId,
@@ -439,7 +451,7 @@ export function useChat(sessionId: Ref<string>) {
     }
     ch.currentTurn = turn
 
-    const payload: ClientMessage = { type: 'chat', payload: { message } }
+    const payload: ClientMessage = { type: 'chat', payload: { message, private: ch.privateMode } }
     ch.ws.send(JSON.stringify(payload))
   }
 
@@ -463,8 +475,11 @@ export function useChat(sessionId: Ref<string>) {
   return {
     connected, isStreaming, turns, currentTurn, error, contextUsage,
     send, cancel, sendUserResponse,
+    privateMode, setPrivateMode,
   }
 }
+
+
 
 function findLastThinking(events: TurnEvent[]): ThinkingBlock | undefined {
   for (let i = events.length - 1; i >= 0; i--) {
