@@ -46,7 +46,7 @@ messages = [
 
 ### `remaining_steps` 字段
 
-LangGraph 内置的步数计数器。每完成一次 LLM 推理或工具调用会递减。当 `remaining_steps <= 0` 时，图执行终止，防止无限循环。`recursion_limit=30` 设置的就是这个字段的初始值。
+LangGraph 内置的步数计数器。每完成一次 LLM 推理或工具调用会递减。当 `remaining_steps <= 0` 时，图执行终止，防止无限循环。`recursion_limit=120` 设置的就是这个字段的初始值。
 
 ---
 
@@ -97,7 +97,7 @@ def build_agent(
     model: BaseChatModel,
     tools: list[BaseTool],
     system_prompt: str,
-    recursion_limit: int = 30,
+    recursion_limit: int = 120,
 ) -> CompiledStateGraph:
     checkpointer = MemorySaver()
 
@@ -126,7 +126,7 @@ def build_agent(
 .with_config({"recursion_limit": recursion_limit})
 ```
 
-LangGraph 的 `.with_config()` 在编译后的图上设置运行时配置。`recursion_limit` 指定了一个回合中图节点之间的最大跳转次数。对于涉及多步工具调用的复杂任务（如"帮我规划周末出行" → 查天气 → 查路线 → 查周边），30 次递归限制提供了足够的操作空间。
+LangGraph 的 `.with_config()` 在编译后的图上设置运行时配置。`recursion_limit` 指定了一个回合中图节点之间的最大跳转次数。对于涉及多步工具调用的复杂任务（如"帮我规划周末出行" → 查天气 → 查路线 → 查周边），120 次递归限制提供了足够的操作空间。
 
 ---
 

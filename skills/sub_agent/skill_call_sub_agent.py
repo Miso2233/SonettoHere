@@ -148,7 +148,7 @@ class CallSubAgentSkill(SkillBase):
             model=app_state.llm,
             tools=app_state.tools,
             system_prompt=system_prompt,
-            recursion_limit=15,
+            recursion_limit=30,
             checkpointer=sub.checkpointer,
         )
         inputs = {"messages": [HumanMessage(content=task)]}
