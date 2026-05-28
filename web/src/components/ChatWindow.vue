@@ -81,7 +81,23 @@
       <!-- 空状态 -->
       <div v-if="turns.length === 0 && !currentTurn" class="empty-state">
         <p class="empty-title">SonettoHere</p>
-        <p class="empty-desc">发送一条消息开始对话</p>
+        <p class="empty-desc">
+          Built for <span class="typewriter">{{ displayedWord }}<span class="typewriter-cursor">|</span></span>
+        </p>
+        <div class="quick-hints">
+          <span class="quick-hint">
+            <span class="quick-hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg></span>
+            单击开关侧栏
+          </span>
+          <span class="quick-hint" @click="togglePrivate">
+            <span class="quick-hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <span><kbd>Ctrl</kbd> + <kbd>K</kbd> 切换私密模式</span>
+          </span>
+          <span class="quick-hint"> <!-- will be wired to new-session -->
+            <span class="quick-hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
+            点击 <kbd>+</kbd> 新建会话
+          </span>
+        </div>
       </div>
     </div>
 
@@ -107,13 +123,13 @@
 </template>
 
 <script setup lang="ts">
-import { watch, ref, nextTick } from 'vue'
 import type { ChatTurn, Citation } from '@/types'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import type { ContextMenuItem } from './ContextMenu.vue'
+import ContextMenu from './ContextMenu.vue'
 import MessageBubble from './MessageBubble.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
 import ToolBubbleRouter from './ToolBubbleRouter.vue'
-import ContextMenu from './ContextMenu.vue'
-import type { ContextMenuItem } from './ContextMenu.vue'
 
 const props = defineProps<{
   turns: ChatTurn[]
@@ -124,6 +140,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'action', p: { action: string; data?: unknown }): void
   (e: 'cite', citation: Citation): void
+  (e: 'togglePrivate'): void
 }>()
 
 function forwardAction(payload: { action: string; data?: unknown }) {
@@ -174,6 +191,66 @@ watch(
     if (isNearBottom()) scrollToBottom()
   }
 )
+
+// ── Typewriter: Built for Dream/Answer/Chatting/You ──
+const words = ['Dream', 'Answer', 'Chatting', 'You', 'Code', 'Heart', 'Logic', 'Empathy', 'Create', 'Connect'];
+const displayedWord = ref(words[0])
+let wordIndex = 0
+let charIndex = words[0].length
+let isDeleting = false
+let typeTimer: ReturnType<typeof setTimeout> | null = null
+
+function typewriterTick() {
+  const current = words[wordIndex]
+  if (!isDeleting) {
+    if (charIndex < current.length) {
+      charIndex++
+      displayedWord.value = current.slice(0, charIndex) + (charIndex === current.length ? '.' : '')
+      typeTimer = setTimeout(typewriterTick, 120)
+    } else {
+      // 打出完整词后暂停 1.5s 再开始删除
+      isDeleting = true
+      typeTimer = setTimeout(typewriterTick, 1500)
+    }
+  } else {
+    if (charIndex > 0) {
+      charIndex--
+      displayedWord.value = current.slice(0, charIndex)
+      typeTimer = setTimeout(typewriterTick, 80)
+    } else {
+      isDeleting = false
+      wordIndex = (wordIndex + 1) % words.length
+      charIndex = 0
+      typeTimer = setTimeout(typewriterTick, 120)
+    }
+  }
+}
+
+// ── Private mode toggle (Ctrl+K) ──
+function togglePrivate() {
+  emit('togglePrivate')
+}
+
+function onPrivateKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault()
+    togglePrivate()
+  }
+}
+
+onMounted(() => {
+  displayedWord.value = words[0]
+  charIndex = words[0].length
+  wordIndex = 0
+  isDeleting = false
+  typewriterTick()
+  document.addEventListener('keydown', onPrivateKeydown)
+})
+
+onUnmounted(() => {
+  if (typeTimer) clearTimeout(typeTimer)
+  document.removeEventListener('keydown', onPrivateKeydown)
+})
 
 // === 引用功能 ===
 
@@ -249,6 +326,7 @@ function closeContextMenu() {
   flex: 1;
   overflow-y: auto;
   padding: 20px 24px;
+  background: radial-gradient(ellipse 80% 60% at 30% 45%, #f5f5f5 0%, #ffffff 70%);
 }
 .messages-list {
   max-width: 768px;
@@ -257,25 +335,106 @@ function closeContextMenu() {
   flex-direction: column;
   gap: 6px;
 }
+.messages-list:has(.empty-state) {
+  height: 100%;
+}
 .cite-source {
   /* 包装层，不引入额外布局影响 */
 }
 .empty-state {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 120px 20px 80px;
-  gap: 12px;
+  height: 100%;
+  padding: 0 0 0 48px;
+  gap: 8px;
+}
+.empty-state::before {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 2px;
+  background: var(--border);
+  margin-bottom: 4px;
 }
 .empty-title {
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--text-primary);
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  background: linear-gradient(135deg, #000000 40%, #555555 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 .empty-desc {
-  font-size: 15px;
+  font-size: 20px;
   color: var(--text-secondary);
+}
+.typewriter {
+  display: inline-block;
+  min-width: 1ch;
+}
+.typewriter-cursor {
+  display: inline-block;
+  margin-left: 1px;
+  font-weight: 300;
+  color: var(--text-secondary);
+  animation: blink 0.7s step-end infinite;
+}
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* ── Quick hints (from variant D) ── */
+.quick-hints {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  opacity: .55;
+  transition: opacity .2s;
+}
+.quick-hints:hover {
+  opacity: .85;
+}
+.quick-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  cursor: default;
+  transition: color .15s;
+}
+.quick-hint kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  box-shadow: 0 1px 0 var(--border);
+}
+.quick-hint-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.quick-hint:hover {
+  color: var(--accent);
+  cursor: pointer;
 }
 .error-banner {
   padding: 10px 16px;

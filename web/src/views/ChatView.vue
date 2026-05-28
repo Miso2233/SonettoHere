@@ -33,6 +33,7 @@
       :error="error"
       @action="handleToolAction"
       @cite="addCitation"
+      @toggle-private="setPrivateMode(!privateMode)"
     />
 
     <ChatInput
