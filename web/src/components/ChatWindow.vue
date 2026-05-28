@@ -193,7 +193,7 @@ watch(
 )
 
 // ── Typewriter: Built for Dream/Answer/Chatting/You ──
-const words = ['Dream', 'Answer', 'Chatting', 'You', 'Code', 'Heart', 'Logic', 'Empathy', 'Create', 'Connect'];
+const words = ['Dreaming', 'Answering', 'Chatting', 'Creating', 'Connecting', 'Building', 'Tinkering', 'Exploring', 'Heart', 'Logic', 'Empathy', 'You', 'Caring', 'Listening']
 const displayedWord = ref(words[0])
 let wordIndex = 0
 let charIndex = words[0].length
