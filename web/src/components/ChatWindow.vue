@@ -326,7 +326,7 @@ function closeContextMenu() {
   flex: 1;
   overflow-y: auto;
   padding: 20px 24px;
-  background: radial-gradient(ellipse 80% 60% at 30% 45%, #f5f5f5 0%, #ffffff 70%);
+  background: #ffffff;
 }
 .messages-list {
   max-width: 768px;
