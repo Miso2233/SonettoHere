@@ -13,7 +13,7 @@ def build_agent(
     model: BaseChatModel,
     tools: list[BaseTool],
     system_prompt: str,
-    recursion_limit: int = 30,
+    recursion_limit: int = 120,
     checkpointer: MemorySaver | None = None,
 ) -> CompiledStateGraph:
     """构建 ReAct Agent 图。
