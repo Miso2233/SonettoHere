@@ -133,7 +133,7 @@ const presets = [
   { id: 'kimi', label: 'Kimi', base_url: 'https://api.moonshot.cn/v1' },
   { id: 'minimax', label: 'MiniMax', base_url: 'https://api.minimax.chat/v1' },
   { id: 'openrouter', label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1' },
-  { id: 'mimo', label: 'Mimo', base_url: 'https://api.mimo-v2.com/v1' },
+  { id: 'mimo', label: 'Mimo', base_url: 'https://www.mimo-v2.com/v1' },
   { id: 'custom', label: 'Custom', base_url: '' },
 ]
 
