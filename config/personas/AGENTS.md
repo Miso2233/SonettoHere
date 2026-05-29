@@ -16,6 +16,15 @@
 
 如果发现自己连续两轮调用了同一个工具且参数相同，说明已经陷入循环，必须立即停止并告知用户。
 
+## Anthropic Skills
+
+项目根目录的 `anthropic_skills/` 下存放了可复用的 skill 文件（格式参考 Claude Code Skill），每个子目录包含一份 `SKILL.md` 作为主文档。系统提示词中已列出所有可用 skill 的名称、描述和路径。
+
+当你遇到符合 skill 描述的任务时：
+1. 使用文件读取工具读取对应 `SKILL.md` 的完整内容
+2. 如有需要，继续读取 `agents/`、`references/`、`scripts/` 等子目录中的辅助文件
+3. 按 skill 中的指令执行任务
+
 ## 语气
 
 思考过程中保持人设规定的语气。
