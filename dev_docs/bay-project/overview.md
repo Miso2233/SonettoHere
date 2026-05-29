@@ -214,24 +214,6 @@ providers:
   5. **完成** — 保存至 providers.yaml
 - [x] 列表页：卡片显示 + 测试连接 / 拉取模型 / 编辑 / 删除
 - [x] API 封装：`api/index.ts` 新增 8 个 provider 相关方法
-
-### Phase 4 — Playground 多提供商对比
-
-目标：在 Playground 页面支持多个提供商并排输出对比。
-
-- [ ] 改造 Playground 布局，支持多列并排
-- [ ] 每列独立绑定一个 provider + model
-- [ ] 同步输入，独立输出
-- [ ] 对比模式高亮差异（相同/不同输出）
-
-### Phase 5 — OpenRouter 深度集成与自定义端点
-
-目标：增强 OpenRouter 支持，并允许用户添加任意 OpenAI 兼容 API。
-
-- [ ] `OpenRouterProvider` — 支持 OpenRouter 特有的路由策略（claude-3.5-sonnet 等）、用量统计、fallback 配置
-- [ ] 自定义端点（Custom OpenAI-compatible）— 允许用户输入任意 base URL + API key 接入未预设的提供商
-- [ ] 模型列表去重与别名 — 自动合并同名模型，允许用户自定义显示名
-
 ---
 
 ## 五、数据流
