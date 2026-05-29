@@ -96,6 +96,14 @@ cd web && npm install && npm run dev
 
 ---
 
+## 界面预览
+
+| 首页对话 | 系统状态悬停 | 模型提供商管理 |
+|---|---|---|
+| ![首页](images/%E9%A6%96%E9%A1%B5.png) | ![系统状态](images/%E7%B3%BB%E7%BB%9F%E7%8A%B6%E6%80%81.png) | ![模型提供商](images/%E6%A8%A1%E5%9E%8B%E6%8F%90%E4%BE%9B%E5%95%86.png) |
+
+---
+
 ## Web 模式
 
 ```bash
