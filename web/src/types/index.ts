@@ -97,7 +97,12 @@ export type ServerEvent =
 
 export interface ChatMessage {
   type: 'chat'
-  payload: { message: string; private?: boolean }
+  payload: {
+    message: string
+    private?: boolean
+    provider_id?: string
+    model_name?: string
+  }
 }
 
 export interface CancelMessage {
@@ -243,4 +248,30 @@ export interface HealthResponse {
   native_tools: ComponentHealth
   mcp_tools: ComponentHealth
   timestamp: number
+}
+
+// === 提供商管理 ===
+
+export interface ProviderConfig {
+  id: string
+  provider_type: string
+  label: string
+  api_key: string
+  base_url: string
+  models: string[]
+  enabled: boolean
+}
+
+export interface ListProvidersResponse {
+  providers: ProviderConfig[]
+}
+
+export interface TestConnectionResponse {
+  status: 'ok' | 'error'
+  latency_ms: number | null
+  detail: string | null
+}
+
+export interface DiscoverModelsResponse {
+  models: string[]
 }

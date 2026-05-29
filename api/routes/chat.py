@@ -33,7 +33,7 @@ def _get_final_answer(event) -> str:
     return final_answer
 
 
-async def _stream_turn(graph, inputs, config, ws, session, system_prompt) -> str:
+async def _stream_turn(graph, inputs, config, ws, session, system_prompt, model_name: str | None = None) -> str:
     """流式执行 Agent 图，返回最终回答。"""
     final_answer = ""
     async for event in graph.astream_events(inputs, config=config, version="v2"):
@@ -41,12 +41,12 @@ async def _stream_turn(graph, inputs, config, ws, session, system_prompt) -> str
             final_answer = _get_final_answer(event)
         # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
         if event.get("event") == "on_chain_end" and event.get("name") == "tools":
-            usage = await _calculate_context_usage(session, system_prompt)
+            usage = await _calculate_context_usage(session, system_prompt, model_name=model_name)
             await ws.send_json({"type": "context_usage", "payload": usage})
     return final_answer
 
 
-async def _calculate_context_usage(session, system_prompt) -> dict:
+async def _calculate_context_usage(session, system_prompt, model_name: str | None = None) -> dict:
     """
     从 checkpointer 拉取消息列表，估算上下文用量。
     返回字典，包括现用量、最大用量、占比、模型名称。
@@ -68,7 +68,7 @@ async def _calculate_context_usage(session, system_prompt) -> dict:
         messages=counting_messages,
         system_prompt=system_prompt,
         max_tokens=settings.model_context_window,
-        model_name=settings.model_name,
+        model_name=model_name or settings.model_name,
     )
 
 
@@ -77,28 +77,37 @@ async def _run_agent_turn(
     session: SessionState,
     user_message: str,
     private_mode: bool = False,
+    provider_id: str | None = None,
+    model_name: str | None = None,
 ):
     """
     在指定的session中编排一轮 Agent 对话。
     无返回值。
     以内置的 WebSocketCallback回调函数和前端通信系统作为副作用。
+
+    若指定了 provider_id + model_name，则从 ProviderManager 动态创建 LLM；
+    否则退化到 app_state.llm 全局 fallback。
     """
     # 1. [准备环境] 从 WebSocket 获取应用状态
-    app_state = ws.app.state            # 应用状态 包含五个属性 所有对话共享
-        # app_state.llm	                ChatOpenAI	                LLM 模型实例
-        # app_state.system_prompt	    str	                        组装好的系统提示词，粗糙估算上下文用量
-        # app_state.tools	            list[BaseTool]	            Agent 可用的工具列表
-        # app_state.session_manager	    SessionManager	            会话生命周期管理器（创建/查询/过期清理）
-        # app_state.ltm	                LongTermMemoryInterface	    长期记忆接口，send_history() 将对话入队供后台消费写入 MEMORY.md
+    app_state = ws.app.state
     ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
 
-        # session.session_id	        str	                        当前会话唯一标识
-        # session.message_count	        int	                        消息计数器（供列表页同步读取）
-        # session._active_task	        asyncio.Task | None	        当前正在执行的 Agent Task
-        # session.checkpointer	        MemorySaver	                LangGraph 持久化检查点（线程安全的图状态存储）
+    # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
+    if provider_id and model_name and hasattr(app_state, 'provider_manager'):
+        try:
+            provider = app_state.provider_manager.get(provider_id)
+            llm = provider.create_llm(model_name, temperature=0.7, streaming=True)
+            current_model_name = model_name
+        except KeyError:
+            llm = app_state.llm
+            current_model_name = None
+    else:
+        llm = app_state.llm
+        current_model_name = None
+
     system_prompt = build_system_prompt()
     agent_sonetto = build_agent(
-        model=app_state.llm,
+        model=llm,
         tools=app_state.tools,
         system_prompt=system_prompt,
         checkpointer=session.checkpointer,
@@ -114,10 +123,10 @@ async def _run_agent_turn(
     _run_error: str | None = None
     try:
         # turn 开始时推送当前上下文用量（含刚加入的 user message）
-        initial_turn_usage = await _calculate_context_usage(session, system_prompt)
+        initial_turn_usage = await _calculate_context_usage(session, system_prompt, model_name=current_model_name)
         await ws.send_json({"type": "context_usage", "payload": initial_turn_usage})
 
-        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt)
+        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt, model_name=current_model_name)
         await ws.send_json({                                                # [向前端通信] 1. 向客户端推送最终答案
             "type": "answer",
             "payload": {"content": final_answer}
@@ -137,7 +146,7 @@ async def _run_agent_turn(
         })
     finally:
         session._active_task = None
-        context_usage = await _calculate_context_usage(session, system_prompt)
+        context_usage = await _calculate_context_usage(session, system_prompt, model_name=current_model_name)
         await ws.send_json({                                                # [向前端通信] 3. 推送 turn 结束 + 上下文用量
             "type": "done",
             "payload": {
@@ -228,17 +237,20 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                     if agent_task and not agent_task.done():
                         continue  # 已有 Agent 运行中，忽略此次输入
 
-                    user_message = msg["payload"]["message"].strip()
+                    payload = msg["payload"]
+                    user_message = payload["message"].strip()
                     if not user_message:
                         continue
 
-                    private_mode = msg["payload"].get("private", False)
+                    private_mode = payload.get("private", False)
+                    provider_id = payload.get("provider_id")
+                    model_name = payload.get("model_name")
 
                     # 设置当前连接的上下文变量，供工具函数使用
                     interaction.current_ws.set(ws)
 
                     agent_task = asyncio.create_task(
-                        _run_agent_turn(ws, session, user_message, private_mode)
+                        _run_agent_turn(ws, session, user_message, private_mode, provider_id, model_name)
                     )
                     session._active_task = agent_task  # 立即写入，消除竞争窗口 会话状态 供外部读取 典型用法为绿色黄色呼吸灯
 

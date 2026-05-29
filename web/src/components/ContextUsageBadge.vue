@@ -40,9 +40,12 @@
 
     <!-- 模型名 → 余额弹窗 -->
     <span class="model-name hover-trigger" @mouseenter="onBalanceHover">
-      {{ usage.model_name }}
+      {{ displayModelName }}
       <div class="hover-card card-balance">
-        <template v-if="balanceLoading">
+        <template v-if="!isDeepSeek">
+          <div class="balance-idle">余额查询仅支持 DeepSeek</div>
+        </template>
+        <template v-else-if="balanceLoading">
           <div class="balance-loading">查询中…</div>
         </template>
         <template v-else-if="balanceError">
@@ -88,7 +91,12 @@ import { ref, computed } from 'vue'
 import type { ContextUsage, DeepSeekBalanceResponse } from '@/types'
 import { api } from '@/api'
 
-const props = defineProps<{ usage: ContextUsage | null }>()
+const props = defineProps<{
+  usage: ContextUsage | null
+  selectedModel?: string
+}>()
+
+const displayModelName = computed(() => props.selectedModel || props.usage?.model_name || '')
 
 const circumference = 2 * Math.PI * 13
 
@@ -116,7 +124,12 @@ const level = computed(() => {
   return 'danger'
 })
 
+const isDeepSeek = computed(() => {
+  return displayModelName.value.toLowerCase().includes('deepseek')
+})
+
 async function onBalanceHover() {
+  if (!isDeepSeek.value) return
   if (balanceFetched || balanceLoading.value) return
   balanceFetched = true
   balanceLoading.value = true

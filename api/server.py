@@ -10,7 +10,9 @@ from starlette.responses import FileResponse
 
 from api.dependencies import get_llm, get_system_prompt, get_tools
 from api.health import get_health_report
-from api.routes import chat, files, memory, sessions, balance
+from api.providers.manager import ProviderManager
+from api.providers.store import ProviderConfigStore
+from api.routes import chat, files, memory, sessions, balance, providers
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from skills.mcp import init_mcp_tools, close_mcp
@@ -21,8 +23,19 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动：初始化共享资源
-    app.state.llm = get_llm()
+    # 1. 初始化 Provider 管理器（优先从 YAML 加载）
+    provider_store = ProviderConfigStore()
+    if provider_store.is_empty:
+        migrated = provider_store.migrate_from_env()
+        if migrated:
+            print(f"[provider] migrated {migrated.label} from .env → providers.yaml")
+    provider_manager = ProviderManager(provider_store)
+    provider_manager.load_all()
+    app.state.provider_manager = provider_manager
+    print(f"[provider] loaded {provider_manager.count} provider(s)")
+
+    # 2. 其他共享资源（LLM 从 ProviderManager 优先退化到 .env）
+    app.state.llm = get_llm(provider_manager)
     app.state.system_prompt = get_system_prompt()
     app.state.native_tools = get_tools()
     app.state.session_manager = SessionManager()
@@ -63,6 +76,9 @@ def create_app() -> FastAPI:
 
     # WebSocket 路由（无 /api 前缀）
     app.include_router(chat.router)
+
+    # Provider CRUD 路由
+    app.include_router(providers.router, prefix="/api")
 
     # 健康检查
     @app.get("/api/health")

@@ -6,24 +6,34 @@ from agent.prompts import build_system_prompt
 from config.settings import get_settings
 from skills import get_all_skills
 
-_llm: ChatOpenAI | None = None
 _system_prompt: str | None = None
 _tools: list | None = None
 
 
-def get_llm() -> ChatOpenAI:
-    global _llm
-    if _llm is None:
-        settings = get_settings()
-        _llm = ChatOpenAI(
-            model="deepseek-v4-flash",
-            api_key=settings.deepseek_api_key,
-            base_url=settings.deepseek_base_url,
-            temperature=0.7,
-            streaming=True,
-            extra_body={"thinking": {"type": "disabled"}},
-        )
-    return _llm
+def get_llm(provider_manager=None):
+    """获取 LLM。
+
+    优先使用 ProviderManager 的第一个 enabled provider，
+    若无则退化到 .env 配置（首次启动 / 未配置提供商时的向后兼容）。
+    """
+    if provider_manager is not None and provider_manager.count > 0:
+        for provider in provider_manager.iter_enabled():
+            return provider.create_llm(
+                provider.default_model,
+                temperature=0.7,
+                streaming=True,
+            )
+
+    # env fallback
+    settings = get_settings()
+    return ChatOpenAI(
+        model=settings.model_name or "deepseek-v4-flash",
+        api_key=settings.deepseek_api_key,
+        base_url=settings.deepseek_base_url,
+        temperature=0.7,
+        streaming=True,
+        extra_body={"thinking": {"type": "disabled"}},
+    )
 
 
 def get_system_prompt() -> str:

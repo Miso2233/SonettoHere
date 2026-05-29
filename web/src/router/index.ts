@@ -12,6 +12,11 @@ const router = createRouter({
       name: 'playground',
       component: () => import('@/views/PlaygroundView.vue'),
     },
+    {
+      path: '/providers',
+      name: 'providers',
+      component: () => import('@/views/ProvidersView.vue'),
+    },
   ],
 })
 

@@ -52,18 +52,39 @@
           </div>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
         </div>
-        <div class="input-actions">
-          <button
-            v-if="!isStreaming"
-            class="btn-send"
-            :disabled="!text.trim() || disabled"
-            @click="handleSend"
-          >
-            <Icon name="send" :size="16" />
-          </button>
-          <button v-else class="btn-stop" @click="$emit('stop')">
-            <Icon name="stop" :size="12" />
-          </button>
+        <div class="input-right-group">
+          <div class="dropdown">
+            <button class="dropdown-trigger" @click.stop="toggleDropdown('provider')">
+              {{ selectedProviderId ? (providers.find(p => p.id === selectedProviderId)?.label || selectedProviderId) : '默认模型' }}
+              <span class="dropdown-arrow">▾</span>
+            </button>
+            <div v-if="openDropdown === 'provider'" class="dropdown-menu">
+              <button class="dropdown-option" :class="{ selected: !selectedProviderId }" @click="selectProvider('')">默认模型</button>
+              <button v-for="p in providers" :key="p.id" class="dropdown-option" :class="{ selected: selectedProviderId === p.id }" @click="selectProvider(p.id)">{{ p.label }}</button>
+            </div>
+          </div>
+          <div v-if="currentModels.length" class="dropdown">
+            <button class="dropdown-trigger" @click.stop="toggleDropdown('model')">
+              {{ selectedModelName || '选择模型' }}
+              <span class="dropdown-arrow">▾</span>
+            </button>
+            <div v-if="openDropdown === 'model'" class="dropdown-menu">
+              <button v-for="m in currentModels" :key="m" class="dropdown-option" :class="{ selected: selectedModelName === m }" @click="selectModel(m)">{{ m }}</button>
+            </div>
+          </div>
+          <div class="input-actions">
+            <button
+              v-if="!isStreaming"
+              class="btn-send"
+              :disabled="!text.trim() || disabled"
+              @click="handleSend"
+            >
+              <Icon name="send" :size="16" />
+            </button>
+            <button v-else class="btn-stop" @click="$emit('stop')">
+              <Icon name="stop" :size="12" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -71,11 +92,12 @@
 </template>
 
 <script setup lang="ts">
+import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
-import type { Citation } from '@/types'
+import type { Citation, ProviderConfig } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { buildRefsBlock } from '@/utils/references'
-import { nextTick, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -84,9 +106,10 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [message: string]
+  send: [message: string, providerId?: string, modelName?: string]
   stop: []
   removeCitation: [id: string]
+  modelChange: [providerId: string, modelName: string]
 }>()
 
 const text = ref('')
@@ -94,6 +117,49 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const filePaths = ref<string[]>([])
 const loading = ref(false)
 const showMenu = ref(false)
+
+// ── LLM 选择器 ──
+const providers = ref<ProviderConfig[]>([])
+const selectedProviderId = ref('')
+const selectedModelName = ref('')
+const currentModels = ref<string[]>([])
+const openDropdown = ref<'provider' | 'model' | null>(null)
+
+function toggleDropdown(name: 'provider' | 'model') {
+  openDropdown.value = openDropdown.value === name ? null : name
+}
+
+function selectProvider(id: string) {
+  selectedProviderId.value = id
+  openDropdown.value = null
+  const p = providers.value.find(p => p.id === id)
+  currentModels.value = p?.models ?? []
+  selectedModelName.value = currentModels.value[0] || ''
+  emit('modelChange', selectedProviderId.value, selectedModelName.value)
+}
+
+function selectModel(name: string) {
+  selectedModelName.value = name
+  openDropdown.value = null
+  emit('modelChange', selectedProviderId.value, selectedModelName.value)
+}
+
+function onDocumentClick() {
+  openDropdown.value = null
+}
+onMounted(() => document.addEventListener('click', onDocumentClick))
+onUnmounted(() => document.removeEventListener('click', onDocumentClick))
+
+async function loadProviders() {
+  try {
+    const res = await api.listProviders()
+    providers.value = res.providers.filter(p => p.enabled)
+  } catch {
+    // 静默失败
+  }
+}
+
+onMounted(loadProviders)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')
@@ -152,7 +218,7 @@ function handleSend() {
 
   const finalMsg = refs.length > 0 ? msg + buildRefsBlock(refs) : msg
 
-  emit('send', finalMsg)
+  emit('send', finalMsg, selectedProviderId.value || undefined, selectedModelName.value || undefined)
   text.value = ''
   filePaths.value = []
   nextTick(() => autoResize())
@@ -176,6 +242,74 @@ function autoResize() {
   border-top: 1px solid var(--border);
   padding: 12px 24px 16px;
   background: var(--bg-card);
+}
+
+/* ── 自定义 Dropdown ── */
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+.dropdown-trigger {
+  font-size: 11px;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 110px;
+}
+.dropdown-trigger:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.dropdown-arrow {
+  font-size: 9px;
+  line-height: 1;
+  opacity: 0.6;
+}
+.dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  right: 0;
+  z-index: 200;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 140px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.dropdown-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: #374151;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+.dropdown-option:hover {
+  background: #f3f4f6;
+}
+.dropdown-option.selected {
+  color: #000000;
+  font-weight: 600;
+  background: #f9fafb;
 }
 
 /* 文件引用标签条 */
@@ -338,6 +472,11 @@ function autoResize() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+.input-right-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 .input-actions {
   display: flex;

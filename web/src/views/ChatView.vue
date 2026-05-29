@@ -24,7 +24,7 @@
           </div>
         </div>
       </span>
-      <ContextUsageBadge :usage="contextUsage" />
+      <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
     </header>
 
     <ChatWindow
@@ -44,6 +44,7 @@
       @send="onSend"
       @stop="cancel"
       @remove-citation="removeCitation"
+      @model-change="onModelChange"
     />
     <div v-else class="sub-agent-readonly-bar">
       <span class="sub-agent-readonly-text">🔒 子 Agent 会话 — 只读</span>
@@ -66,6 +67,12 @@ const { sessionId, sessions } = useSession()
 const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, privateMode, setPrivateMode } =
   useChat(sessionId)
 
+const selectedModelName = ref('')
+
+function onModelChange(_providerId: string, modelName: string) {
+  selectedModelName.value = modelName
+}
+
 const isSubagent = computed(() => {
   return sessions.value.some(
     s => s.session_id === sessionId.value && s.is_subagent
@@ -82,8 +89,8 @@ function removeCitation(id: string) {
   citations.value = citations.value.filter(c => c.id !== id)
 }
 
-function onSend(message: string) {
-  send(message)
+function onSend(message: string, providerId?: string, modelName?: string) {
+  send(message, providerId, modelName)
   citations.value = []
 }
 

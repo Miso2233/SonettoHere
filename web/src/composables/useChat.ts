@@ -433,7 +433,7 @@ export function useChat(sessionId: Ref<string>) {
     { immediate: true }
   )
 
-  function send(message: string) {
+  function send(message: string, providerId?: string, modelName?: string) {
     const ch = activeChannel.value
     if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) {
       console.warn(`[useChat:send] WebSocket 未就绪, readyState=${ch.ws?.readyState}, session=${sessionId.value}`)
@@ -451,7 +451,10 @@ export function useChat(sessionId: Ref<string>) {
     }
     ch.currentTurn = turn
 
-    const payload: ClientMessage = { type: 'chat', payload: { message, private: ch.privateMode } }
+    const payload: ClientMessage = {
+      type: 'chat',
+      payload: { message, private: ch.privateMode, provider_id: providerId, model_name: modelName },
+    }
     ch.ws.send(JSON.stringify(payload))
   }
 
