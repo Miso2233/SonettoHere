@@ -61,7 +61,7 @@ class SonettoQQBot(botpy.Client):
             tools=self.tools,
             system_prompt=system_prompt,
         )
-        config = {"configurable": {"thread_id": session["thread_id"]}}
+        config = {"configurable": {"thread_id": session["thread_id"]}, "recursion_limit": 120}
 
         try:
             result = await graph.ainvoke(

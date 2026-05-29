@@ -1,19 +1,16 @@
-"""Agent 图构建 — LangGraph create_react_agent。"""
+"""Agent 图构建 — langchain.agents.create_agent。"""
 
+from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
 from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
-from langgraph.prebuilt import create_react_agent
 from langgraph.checkpoint.memory import MemorySaver
-
-from agent.state import AgentState
 
 
 def build_agent(
     model: BaseChatModel,
     tools: list[BaseTool],
     system_prompt: str,
-    recursion_limit: int = 120,
     checkpointer: MemorySaver | None = None,
 ) -> CompiledStateGraph:
     """构建 ReAct Agent 图。
@@ -24,10 +21,9 @@ def build_agent(
     if checkpointer is None:
         checkpointer = MemorySaver()
 
-    return create_react_agent(
+    return create_agent(
         model=model,
         tools=tools,
-        state_schema=AgentState,
-        prompt=system_prompt,
+        system_prompt=system_prompt,
         checkpointer=checkpointer,
-    ).with_config({"recursion_limit": recursion_limit})
+    )

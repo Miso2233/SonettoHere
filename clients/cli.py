@@ -107,6 +107,7 @@ class SonettoCLI:
             config = {
                 "configurable": {"thread_id": self.session_id},
                 "callbacks": [PrinterCallback()],
+                "recursion_limit": 120,
             }
             self._turn_messages = [{"role": "user", "content": user_input}]
 
