@@ -6,6 +6,7 @@
 import { computed } from 'vue'
 import chatRaw from '@/assets/icons/sidebar/chat.svg?raw'
 import memoryRaw from '@/assets/icons/sidebar/memory.svg?raw'
+import modelRaw from '@/assets/icons/sidebar/model.svg?raw'
 import citeSpeechRaw from '@/assets/icons/context-menu/cite-speech.svg?raw'
 import copyRaw from '@/assets/icons/context-menu/copy.svg?raw'
 import attachRaw from '@/assets/icons/chat-input/attach.svg?raw'
@@ -25,6 +26,7 @@ const props = withDefaults(defineProps<{
 const svgContents: Record<string, string> = {
   chat: chatRaw,
   memory: memoryRaw,
+  model: modelRaw,
   'cite-speech': citeSpeechRaw,
   copy: copyRaw,
   attach: attachRaw,
