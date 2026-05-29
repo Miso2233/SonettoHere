@@ -162,6 +162,20 @@ class CallSubAgentSkill(SkillBase):
                     if messages:
                         last = messages[-1]
                         final_answer = last.content if hasattr(last, "content") else str(last)
+
+            # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
+            if not final_answer:
+                try:
+                    cpt = await sub.checkpointer.aget_tuple(config)
+                    if cpt is not None:
+                        messages = cpt.checkpoint.get("channel_values", {}).get("messages", [])
+                        if messages:
+                            last = messages[-1]
+                            candidate = last.content if hasattr(last, "content") else str(last)
+                            if candidate:
+                                final_answer = candidate
+                except Exception:
+                    pass
         except Exception as e:
             print(f"[call_sub_agent] _run_background agent failed: {e}", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
