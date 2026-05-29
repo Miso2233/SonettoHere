@@ -1,8 +1,6 @@
-# SonettoHere
+# SonettoHere v1.0.0
 
-![首页](images/%E9%A6%96%E9%A1%B5.png)
-
-基于 LangChain + LangGraph 的 ReAct AI Agent，支持 **多 LLM 提供商**、**子 Agent 副驾驶**、**Anthropic Skill 体系**。
+基于 LangChain + LangGraph 的 ReAct AI Agent 后端 + Vue 3 Web 界面，内置 30 个 Skill。
 
 ## Quick Start
 
@@ -16,163 +14,119 @@ pip install -r requirements.txt
 
 ### 2. 配置
 
+运行后会自动从 `.env.example` 复制生成 `.env`，编辑并填写 API Key：
+
 ```bash
-# 首次启动会自动创建 .env，或手动复制：
+# 首次启动会自动创建 .env，或手动：
 cp .env.example .env
 ```
 
-**最少只需填写** `DEEPSEEK_API_KEY` 即可开始对话。
+**最少只需填写** `DEEPSEEK_API_KEY` 即可开始对话。其他 Key 按需填写（见下方 Skills 表）。
 
 ### 3. 启动
 
-**推荐（Windows）：** 双击 `start.bat` 一键启动后端 + 前端，自动打开浏览器。
+#### Plan A **推荐启动方案**
 
-**手动启动：**
+> **一键启动（Windows）：** 双击 `start.bat` 即可同时启动后端和前端，并自动打开浏览器。
+
+启动后会自动创建以下文件，**建议在启动前编辑好以获得更好的对话体验**：
+
+- `config/personas/USER.md` — 你的自述信息（职业、兴趣等），让 AI 更了解你
+- `config/personas/SOUL.md` — AI 的性格设定，默认是助手角色，可自定义人设
+
+这两个文件留空不影响基础对话，但填写后 AI 能给出更贴合你需求的回复。
+
+#### Plan B
+
+**终端 1 — 后端：**
 
 ```bash
-# 终端 1 — 后端
 python main.py web
+```
 
-# 终端 2 — 前端（开发模式）
+**终端 2 — 前端（开发模式）：**
+
+```bash
 cd web && npm install && npm run dev
 ```
 
 浏览器访问 `http://localhost:5173`。
 
-启动前建议编辑 `config/personas/` 下的文件以获得更贴合你的对话体验：
-- `USER.md` — 你的自述信息
-- `SOUL.md` — AI 性格设定
-
----
-
-## 核心亮点
-
-### 🧠 Anthropic Skill 体系
-
-项目根目录的 `anthropic_skills/` 存放可复用的 **Claude Code Skill** 文件，每个子目录包含 `SKILL.md` 作为主文档。启动时系统自动扫描所有 SKILL.md 的元数据（名称、描述、路径）注入到提示词中，Agent 在需要时通过文件工具按需读取完整内容并执行。
-
-这一机制让技能的定义和使用完全与代码解耦，无需重启即可添加新技能。
-
-![系统状态](images/%E7%B3%BB%E7%BB%9F%E7%8A%B6%E6%80%81.png)
-
-### 🔄 子 Agent 副驾驶
-
-内置 `call_sub_agent` 工具，支持在对话中**创建独立的子 Agent 会话**执行子任务：
-
-- **隔离上下文**：子 Agent 拥有独立的上下文窗口，不污染主对话
-- **嵌套限制**：最多 2 层嵌套，防止无限递归
-- **前后端双通道**：前端 WebSocket 连接时实时流式输出；前端未连接时自动切换后端静默执行
-- **兜底提取**：即使事件流未捕获到最终回答，也能从 checkpoint 持久化状态中可靠读取
-
-适用于代码分析、多步骤搜索、文件处理等需要独立推理空间的场景。
-
-### 🌐 多 LLM 提供商（Project Bay）
-
-支持动态切换和组合多家 LLM 提供商：
-
-- **预配提供商**：`providers.yaml` 中配置多家 API Key
-- **运行时切换**：前端对话时按消息粒度指定 `provider_id` + `model_name`
-- **健康自检**：后端定期检查各提供商的连通性和延迟
-- **模型发现**：自动探测提供商支持的模型列表
-
-主 LLM 不可用时自动降级到备用提供商，保障服务连续性。
-
-![模型提供商](images/%E6%A8%A1%E5%9E%8B%E6%8F%90%E4%BE%9B%E5%95%86.png)
-
----
 
 ## 能力概览
 
-内置 30+ 个 Built-in Skill，涵盖日常工具链：
+SonettoHere 内置 **30 个 Skill**，每个 Skill 由 `SKILL.md`（领域知识文档）+ 执行代码组成，LLM 按需加载文档后再调用。
 
 | 领域 | Skills | 需要配置 |
-|------|--------|----------|
+|------|--------|---------|
 | **Todo** | 添加/列出/完成/取消/删除/更新/查询任务、列出项目 | `TODOIST_API_TOKEN` |
 | **地图** | 周边搜索、地址编码、公交/骑行路线、模糊地址 | `AMAP_API_KEY` |
 | **网络** | 天气查询、智能搜索、网页抓取、节假日日历 | `UAPIS_API_KEY` |
 | **文件** | 读写删改、目录操作、PDF/Word 阅读 | — |
 | **开发** | 语法检查、代码质量分析、单元测试、调试器 | — |
 | **系统** | 当前时间、Python 脚本执行 | — |
-| **子 Agent** | 创建独立副驾驶会话执行复杂子任务 | — |
+| **任务追踪** | 多步骤任务进度管理 | — |
 | **交互** | 向用户提问 | — |
 | **娱乐** | 答案之书、塔罗牌 | `UAPIS_API_KEY` |
 | **B站** | 视频下载 | — |
 
-> 所有 Key 仅在用到对应 Skill 时必需，不影响基础对话。
-
----
-
-## 界面预览
-
-| 首页对话 | 系统状态悬停 | 模型提供商管理 |
-|---|---|---|
-| ![首页](images/%E9%A6%96%E9%A1%B5.png) | ![系统状态](images/%E7%B3%BB%E7%BB%9F%E7%8A%B6%E6%80%81.png) | ![模型提供商](images/%E6%A8%A1%E5%9E%8B%E6%8F%90%E4%BE%9B%E5%95%86.png) |
-
----
+> 所有 Key 仅在用到对应 Skill 时必需，不会影响基础对话。
 
 ## Web 模式
 
 ```bash
 python main.py web
-cd web && npm run dev    # 另开终端
+# 另开终端：
+cd web && npm run dev
 ```
 
-功能：
-- 多会话管理 + 实时流式对话
-- 长期记忆查看与随机记忆卡片
-- **子会话**：侧边栏展示子 Agent 执行状态
-- **ANTHROPIC_SKILLS**：悬停已连接状态查看技能数量
-- **提供商管理**：对话时动态选择模型
-
----
+浏览器访问 `http://localhost:5173`，支持：
+- 多会话管理
+- 实时流式对话
+- 长期记忆查看
+- 随机记忆卡片
 
 ## 项目结构
 
 ```
 SonettoHere/
-├── main.py                   # 入口
-├── pyproject.toml
-├── requirements.txt
-├── .env.example
-├── providers.yaml            # 多 LLM 提供商配置
-├── anthropic_skills/         # Anthropic Skill 目录（自动扫描注入）
-│   └── skill-creator/        #   示例：技能创建器
+├── main.py                  # 入口（自动初始化缺失文件）
+├── pyproject.toml           # 项目元数据
+├── requirements.txt         # 依赖
+├── .env.example             # 环境变量模板
 │
 ├── agent/
-│   ├── graph.py              # LangGraph create_react_agent
-│   ├── state.py              # AgentState
-│   └── prompts.py            # 系统提示词组装（含 skill 扫描注入）
+│   ├── graph.py             # LangGraph StateGraph
+│   ├── state.py             # AgentState
+│   └── prompts.py           # 系统提示词组装
 │
 ├── config/
-│   └── personas/
-│       ├── AGENTS.md         # 行为规则 + skill 使用指导
-│       ├── SOUL.md           # 性格设定
-│       └── USER.md           # 用户自述
+│   └── personas/            # 人设文件（首次启动自动创建）
+│       ├── AGENTS.md        # 行为规则
+│       ├── SOUL.md          # 性格设定（可自定义）
+│       └── USER.md          # 用户自述（可编辑）
 │
 ├── memory/
-│   ├── memory_manager.py     # YAML 持久化存储
-│   ├── narrative.py          # 长期记忆异步引擎
-│   └── user_init.py
+│   ├── memory_manager.py    # YAML 持久化存储引擎
+│   ├── narrative.py         # 长期记忆异步引擎
+│   └── user_init.py         # 文件自动初始化
 │
-├── skills/                   # 30+ Built-in Skill
-│   ├── base.py               # SkillBase 基类
-│   ├── __init__.py
+├── skills/                  # 30 个 Skill
+│   ├── base.py              # SkillBase 基类
+│   ├── __init__.py          # 集中注册
 │   └── {todo,map,network,...}/
 │
-├── api/                      # FastAPI 后端
-│   ├── server.py             # 应用工厂
-│   ├── health.py             # 健康自检（LLM/记忆/工具/A_SKILLS/提供商）
-│   └── routes/
-│       ├── chat.py           # WebSocket 流式对话
-│       ├── providers.py      # 提供商 CRUD
-│       └── ...
-│
-├── web/                      # Vue 3 + Vite 前端
 ├── clients/
-│   ├── cli.py                # CLI 模式
-│   └── qqbot.py              # QQ Bot
-├── tests/
-└── docs/
+│   ├── cli.py               # CLI 入口
+│   └── qqbot.py             # QQ Bot 适配器
+│
+├── api/                     # FastAPI Web 服务
+│   ├── server.py            # 应用工厂
+│   └── routes/              # REST & WebSocket
+│
+├── web/                     # Vue 3 前端（需 npm run build）
+├── tests/                   # 测试
+└── docs/                    # 开发文档
 ```
 
 ## 架构
@@ -182,17 +136,16 @@ SonettoHere/
               ↑                                    ↓
               │                    [final answer / 返回文档]
               └── LLM 读完文档后继续循环，下一步带真实参数调用
-
-子 Agent 副驾驶：
-主 Agent → call_sub_agent → 创建子会话 → 独立 Agent 执行 → 返回结果
-                              ↑                    |
-                              └── 前端流式输出 ←───┘
 ```
 
+- **LLM 后端**：DeepSeek Chat（OpenAI 兼容 tool calling）
 - **Agent 框架**：LangGraph `create_react_agent` + MemorySaver
-- **多 LLM 后端**：DeepSeek / OpenAI / Anthropic / 任何 OpenAI 兼容 API
 - **记忆系统**：短期记忆（token 阈值裁剪）+ 长期记忆（异步 YAML 持久化）
-- **前端**：Vue 3 + Vite，WebSocket 实时流式对话
+- **前端**：Vue 3 + Vite，实时流式对话
+
+## 致谢
+
+- [bilibili-downloader](https://github.com/tyokyo320/bilibili-downloader) — B 站视频下载核心逻辑
 
 ## License
 
