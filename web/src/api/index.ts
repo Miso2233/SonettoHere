@@ -7,6 +7,10 @@ import type {
   ContextUsage,
   DeepSeekBalanceResponse,
   HealthResponse,
+  ListProvidersResponse,
+  ProviderConfig,
+  TestConnectionResponse,
+  DiscoverModelsResponse,
 } from '@/types'
 
 const BASE = '/api'
@@ -17,7 +21,12 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     ...options,
   })
   if (!res.ok) {
-    throw new Error(`API ${url} 返回 ${res.status}`)
+    let detail = `API ${url} 返回 ${res.status}`
+    try {
+      const body = await res.json()
+      if (body.detail) detail += `: ${body.detail}`
+    } catch { /* ignore parse errors */ }
+    throw new Error(detail)
   }
   return res.json()
 }
@@ -49,4 +58,49 @@ export const api = {
 
   health: () =>
     request<HealthResponse>('/health'),
+
+  // ── Provider ──
+
+  listProviders: () =>
+    request<ListProvidersResponse>('/providers'),
+
+  getProvider: (id: string) =>
+    request<ProviderConfig>(`/providers/${id}`),
+
+  createProvider: (body: Partial<ProviderConfig>) =>
+    request<ProviderConfig>('/providers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateProvider: (id: string, body: Partial<ProviderConfig>) =>
+    request<ProviderConfig>(`/providers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
+  deleteProvider: (id: string) =>
+    request<{ status: string }>(`/providers/${id}`, { method: 'DELETE' }),
+
+  testConnection: (body: { api_key: string; base_url: string; provider_type?: string }) =>
+    request<TestConnectionResponse>('/providers/test', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  discoverModels: (body: { api_key: string; base_url: string; provider_type?: string }) =>
+    request<DiscoverModelsResponse>('/providers/discover-models', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  discoverModelsForExisting: (id: string) =>
+    request<DiscoverModelsResponse>(`/providers/${id}/discover-models`, {
+      method: 'POST',
+    }),
+
+  testExistingProvider: (id: string) =>
+    request<TestConnectionResponse>(`/providers/${id}/test`, {
+      method: 'POST',
+    }),
 }

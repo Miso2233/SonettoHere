@@ -205,17 +205,15 @@ providers:
 
 目标：提供可视化的提供商配置界面，并通过 `client.models.list()` 自动发现模型。
 
-- [ ] 创建 `/providers` 路由和 `ProviderManager.vue`
-- [ ] 实现 `ProviderSetupWizard.vue`（向导式添加流程）
-- 添加工作流步骤：
-  1. **选择提供商** — 从预设列表（DeepSeek / Qwen / Kimi / Minimax / OpenRouter）中选择，或自定义 OpenAI 兼容端点
-  2. **填写凭据** — 输入 API Key 与 Base URL（敏感字段掩码显示）
-  3. **拉取模型** — 前端调用后端代理 API，后端执行 `client = OpenAI(api_key=..., base_url=...)` → `models = client.models.list()` 返回模型列表
-  4. **勾选启用** — 用户从列表中选择要使用的模型（支持全选/取消）
-  5. **完成** — 配置保存至 providers.yaml
-- [ ] 实现 `ProviderCard.vue`（显示/启禁/删除）
-- [ ] 实现 `ProviderTest.vue`（发送测试请求验证连接）
-- [ ] 实现 `useProviders.ts` composable（含模型拉取 API）
+- [x] 创建 `/providers` 路由和 `ProvidersView.vue`（单文件集成向导、卡片、测试、API 调用）
+- [x] 实现向导式添加流程（内联于 ProvidersView）：
+  1. **选择提供商** — 从预设列表（DeepSeek / Qwen / Kimi / Minimax / OpenRouter / Custom）中选择
+  2. **填写凭据** — API Key（密文输入）与 Base URL（Preset 自动填充）
+  3. **拉取模型** — 前端调用 `POST /api/providers/discover-models`，后端代理执行 `client.models.list()`
+  4. **勾选模型** — 全选/取消/单独勾选
+  5. **完成** — 保存至 providers.yaml
+- [x] 列表页：卡片显示 + 测试连接 / 拉取模型 / 编辑 / 删除
+- [x] API 封装：`api/index.ts` 新增 8 个 provider 相关方法
 
 ### Phase 4 — Playground 多提供商对比
 

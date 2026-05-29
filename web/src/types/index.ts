@@ -244,3 +244,29 @@ export interface HealthResponse {
   mcp_tools: ComponentHealth
   timestamp: number
 }
+
+// === 提供商管理 ===
+
+export interface ProviderConfig {
+  id: string
+  provider_type: string
+  label: string
+  api_key: string
+  base_url: string
+  models: string[]
+  enabled: boolean
+}
+
+export interface ListProvidersResponse {
+  providers: ProviderConfig[]
+}
+
+export interface TestConnectionResponse {
+  status: 'ok' | 'error'
+  latency_ms: number | null
+  detail: string | null
+}
+
+export interface DiscoverModelsResponse {
+  models: string[]
+}
