@@ -1,5 +1,7 @@
 # SonettoHere
 
+![首页](images/%E9%A6%96%E9%A1%B5.png)
+
 基于 LangChain + LangGraph 的 ReAct AI Agent，支持 **多 LLM 提供商**、**子 Agent 副驾驶**、**Anthropic Skill 体系**。
 
 ## Quick Start
@@ -51,6 +53,8 @@ cd web && npm install && npm run dev
 
 这一机制让技能的定义和使用完全与代码解耦，无需重启即可添加新技能。
 
+![系统状态](images/%E7%B3%BB%E7%BB%9F%E7%8A%B6%E6%80%81.png)
+
 ### 🔄 子 Agent 副驾驶
 
 内置 `call_sub_agent` 工具，支持在对话中**创建独立的子 Agent 会话**执行子任务：
@@ -72,6 +76,8 @@ cd web && npm install && npm run dev
 - **模型发现**：自动探测提供商支持的模型列表
 
 主 LLM 不可用时自动降级到备用提供商，保障服务连续性。
+
+![模型提供商](images/%E6%A8%A1%E5%9E%8B%E6%8F%90%E4%BE%9B%E5%95%86.png)
 
 ---
 
