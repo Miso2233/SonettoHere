@@ -90,7 +90,7 @@ api/
 ├── providers/                 # ★ 新增：提供商适配层
 │   ├── __init__.py            #    ProviderAdapter 基类
 │   ├── registry.py            #    提供商注册表（按名称索引）
-│   ├── store.py               #    配置存储（YAML + env fallback）
+│   ├── store.py               #    配置存储（YAML）
 │   ├── openai_adapter.py      #    OpenAI 兼容 API 通用适配器（所有提供商共用）
 │   ├── openrouter_adapter.py  #    OpenRouter 专用适配器（路由/用量增强）
 │   └── ...                    #    未来特殊适配器
