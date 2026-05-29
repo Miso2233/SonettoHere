@@ -1,5 +1,18 @@
 <template>
   <div class="chat-input-wrapper">
+    <!-- ── LLM 选择器 ── -->
+    <div class="model-selector">
+      <select v-model="selectedProviderId" class="model-select" @change="onProviderChange">
+        <option value="">默认模型</option>
+        <option v-for="p in providers" :key="p.id" :value="p.id">
+          {{ p.label }}
+        </option>
+      </select>
+      <select v-if="currentModels.length" v-model="selectedModelName" class="model-select">
+        <option v-for="m in currentModels" :key="m" :value="m">{{ m }}</option>
+      </select>
+    </div>
+
     <div v-if="filePaths.length" class="file-refs-bar">
       <span
         v-for="(fp, idx) in filePaths"
@@ -71,11 +84,12 @@
 </template>
 
 <script setup lang="ts">
+import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
-import type { Citation } from '@/types'
+import type { Citation, ProviderConfig } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { buildRefsBlock } from '@/utils/references'
-import { nextTick, ref } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -84,7 +98,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [message: string]
+  send: [message: string, providerId?: string, modelName?: string]
   stop: []
   removeCitation: [id: string]
 }>()
@@ -94,6 +108,30 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const filePaths = ref<string[]>([])
 const loading = ref(false)
 const showMenu = ref(false)
+
+// ── LLM 选择器 ──
+const providers = ref<ProviderConfig[]>([])
+const selectedProviderId = ref('')
+const selectedModelName = ref('')
+
+const currentModels = ref<string[]>([])
+
+function onProviderChange() {
+  const p = providers.value.find(p => p.id === selectedProviderId.value)
+  currentModels.value = p?.models ?? []
+  selectedModelName.value = currentModels.value[0] || ''
+}
+
+async function loadProviders() {
+  try {
+    const res = await api.listProviders()
+    providers.value = res.providers.filter(p => p.enabled)
+  } catch {
+    // 静默失败
+  }
+}
+
+onMounted(loadProviders)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')
@@ -152,7 +190,7 @@ function handleSend() {
 
   const finalMsg = refs.length > 0 ? msg + buildRefsBlock(refs) : msg
 
-  emit('send', finalMsg)
+  emit('send', finalMsg, selectedProviderId.value || undefined, selectedModelName.value || undefined)
   text.value = ''
   filePaths.value = []
   nextTick(() => autoResize())
@@ -176,6 +214,28 @@ function autoResize() {
   border-top: 1px solid var(--border);
   padding: 12px 24px 16px;
   background: var(--bg-card);
+}
+
+/* ── LLM 选择器 ── */
+.model-selector {
+  display: flex;
+  gap: 6px;
+  padding: 0 0 8px 0;
+}
+.model-select {
+  font-size: 12px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+  max-width: 200px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+.model-select:focus {
+  border-color: var(--accent);
 }
 
 /* 文件引用标签条 */

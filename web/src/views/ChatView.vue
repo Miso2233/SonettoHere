@@ -82,8 +82,8 @@ function removeCitation(id: string) {
   citations.value = citations.value.filter(c => c.id !== id)
 }
 
-function onSend(message: string) {
-  send(message)
+function onSend(message: string, providerId?: string, modelName?: string) {
+  send(message, providerId, modelName)
   citations.value = []
 }
 
