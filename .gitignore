@@ -47,5 +47,5 @@ config/personas/memory.yaml
 # Provider credentials (明文 API key)
 providers.yaml
 
-# Anthropic Skills
-anthropic_skills/
+# Anthropic Skills（忽略 skill 子目录，保留目录本身用于 .gitkeep）
+anthropic_skills/*/
