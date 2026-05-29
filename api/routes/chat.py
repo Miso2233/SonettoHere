@@ -33,7 +33,7 @@ def _get_final_answer(event) -> str:
     return final_answer
 
 
-async def _stream_turn(graph, inputs, config, ws, session, system_prompt) -> str:
+async def _stream_turn(graph, inputs, config, ws, session, system_prompt, model_name: str | None = None) -> str:
     """流式执行 Agent 图，返回最终回答。"""
     final_answer = ""
     async for event in graph.astream_events(inputs, config=config, version="v2"):
@@ -41,12 +41,12 @@ async def _stream_turn(graph, inputs, config, ws, session, system_prompt) -> str
             final_answer = _get_final_answer(event)
         # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
         if event.get("event") == "on_chain_end" and event.get("name") == "tools":
-            usage = await _calculate_context_usage(session, system_prompt)
+            usage = await _calculate_context_usage(session, system_prompt, model_name=model_name)
             await ws.send_json({"type": "context_usage", "payload": usage})
     return final_answer
 
 
-async def _calculate_context_usage(session, system_prompt) -> dict:
+async def _calculate_context_usage(session, system_prompt, model_name: str | None = None) -> dict:
     """
     从 checkpointer 拉取消息列表，估算上下文用量。
     返回字典，包括现用量、最大用量、占比、模型名称。
@@ -68,7 +68,7 @@ async def _calculate_context_usage(session, system_prompt) -> dict:
         messages=counting_messages,
         system_prompt=system_prompt,
         max_tokens=settings.model_context_window,
-        model_name=settings.model_name,
+        model_name=model_name or settings.model_name,
     )
 
 
@@ -97,10 +97,13 @@ async def _run_agent_turn(
         try:
             provider = app_state.provider_manager.get(provider_id)
             llm = provider.create_llm(model_name, temperature=0.7, streaming=True)
+            current_model_name = model_name
         except KeyError:
             llm = app_state.llm
+            current_model_name = None
     else:
         llm = app_state.llm
+        current_model_name = None
 
     system_prompt = build_system_prompt()
     agent_sonetto = build_agent(
@@ -120,10 +123,10 @@ async def _run_agent_turn(
     _run_error: str | None = None
     try:
         # turn 开始时推送当前上下文用量（含刚加入的 user message）
-        initial_turn_usage = await _calculate_context_usage(session, system_prompt)
+        initial_turn_usage = await _calculate_context_usage(session, system_prompt, model_name=current_model_name)
         await ws.send_json({"type": "context_usage", "payload": initial_turn_usage})
 
-        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt)
+        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt, model_name=current_model_name)
         await ws.send_json({                                                # [向前端通信] 1. 向客户端推送最终答案
             "type": "answer",
             "payload": {"content": final_answer}
@@ -143,7 +146,7 @@ async def _run_agent_turn(
         })
     finally:
         session._active_task = None
-        context_usage = await _calculate_context_usage(session, system_prompt)
+        context_usage = await _calculate_context_usage(session, system_prompt, model_name=current_model_name)
         await ws.send_json({                                                # [向前端通信] 3. 推送 turn 结束 + 上下文用量
             "type": "done",
             "payload": {

@@ -24,7 +24,7 @@
           </div>
         </div>
       </span>
-      <ContextUsageBadge :usage="contextUsage" />
+      <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
     </header>
 
     <ChatWindow
@@ -44,6 +44,7 @@
       @send="onSend"
       @stop="cancel"
       @remove-citation="removeCitation"
+      @model-change="onModelChange"
     />
     <div v-else class="sub-agent-readonly-bar">
       <span class="sub-agent-readonly-text">🔒 子 Agent 会话 — 只读</span>
@@ -65,6 +66,12 @@ import ChatInput from '@/components/ChatInput.vue'
 const { sessionId, sessions } = useSession()
 const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, privateMode, setPrivateMode } =
   useChat(sessionId)
+
+const selectedModelName = ref('')
+
+function onModelChange(_providerId: string, modelName: string) {
+  selectedModelName.value = modelName
+}
 
 const isSubagent = computed(() => {
   return sessions.value.some(

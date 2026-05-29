@@ -109,6 +109,7 @@ const emit = defineEmits<{
   send: [message: string, providerId?: string, modelName?: string]
   stop: []
   removeCitation: [id: string]
+  modelChange: [providerId: string, modelName: string]
 }>()
 
 const text = ref('')
@@ -134,11 +135,13 @@ function selectProvider(id: string) {
   const p = providers.value.find(p => p.id === id)
   currentModels.value = p?.models ?? []
   selectedModelName.value = currentModels.value[0] || ''
+  emit('modelChange', selectedProviderId.value, selectedModelName.value)
 }
 
 function selectModel(name: string) {
   selectedModelName.value = name
   openDropdown.value = null
+  emit('modelChange', selectedProviderId.value, selectedModelName.value)
 }
 
 function onDocumentClick() {

@@ -129,11 +129,12 @@ import { onMounted, ref, computed } from 'vue'
 // ── 预设提供商列表 ──
 const presets = [
   { id: 'deepseek', label: 'DeepSeek', base_url: 'https://api.deepseek.com' },
-  { id: 'qwen', label: '通义千问 Qwen', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-  { id: 'kimi', label: '月之暗面 Kimi', base_url: 'https://api.moonshot.cn/v1' },
+  { id: 'qwen', label: 'Qwen', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
+  { id: 'kimi', label: 'Kimi', base_url: 'https://api.moonshot.cn/v1' },
   { id: 'minimax', label: 'MiniMax', base_url: 'https://api.minimax.chat/v1' },
   { id: 'openrouter', label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1' },
-  { id: 'custom', label: '自定义 Custom', base_url: '' },
+  { id: 'mimo', label: 'Mimo', base_url: 'https://api.mimo-v2.com/v1' },
+  { id: 'custom', label: 'Custom', base_url: '' },
 ]
 
 // ── 模式 ──
