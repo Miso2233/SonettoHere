@@ -26,6 +26,7 @@ class HealthResponse(BaseModel):
     memory: ComponentHealth
     native_tools: ComponentHealth
     mcp_tools: ComponentHealth
+    providers: dict[str, ComponentHealth] = {}
     timestamp: float
 
 
@@ -149,6 +150,25 @@ async def check_mcp_tools(app: FastAPI) -> ComponentHealth:
         return ComponentHealth(status="error", latency_ms=round(elapsed, 1), detail=str(e))
 
 
+async def check_health_providers(app: FastAPI) -> dict[str, ComponentHealth]:
+    """遍历 ProviderManager 中所有 enabled provider 并行健康检查。"""
+    mgr = getattr(app.state, "provider_manager", None)
+    if mgr is None or mgr.count == 0:
+        return {}
+
+    async def _check_one(provider) -> tuple[str, ComponentHealth]:
+        result = await provider.check_health()
+        return (provider.provider_name, ComponentHealth(
+            status=result.status,
+            latency_ms=result.latency_ms,
+            detail=result.detail,
+        ))
+
+    tasks = [_check_one(p) for p in mgr.iter_enabled()]
+    results = await asyncio.gather(*tasks)
+    return dict(results)
+
+
 async def get_health_report(app: FastAPI) -> HealthResponse:
     from version import __version__
 
@@ -156,9 +176,11 @@ async def get_health_report(app: FastAPI) -> HealthResponse:
     memory = await check_memory(app)
     native_tools = await check_native_tools(app)
     mcp_tools = await check_mcp_tools(app)
+    providers = await check_health_providers(app)
 
+    all_checks = [llm, memory, native_tools, mcp_tools] + list(providers.values())
     overall: Literal["ok", "degraded"] = (
-        "ok" if all(c.status == "ok" for c in [llm, memory, native_tools, mcp_tools]) else "degraded"
+        "ok" if all(c.status == "ok" for c in all_checks) else "degraded"
     )
 
     return HealthResponse(
@@ -168,5 +190,6 @@ async def get_health_report(app: FastAPI) -> HealthResponse:
         memory=memory,
         native_tools=native_tools,
         mcp_tools=mcp_tools,
+        providers=providers,
         timestamp=time.time(),
     )

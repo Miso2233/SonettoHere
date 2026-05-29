@@ -47,6 +47,28 @@ class ProviderManager:
     def count(self) -> int:
         return len(self._providers)
 
+    # ── 配置 CRUD（委托 store 并同步缓存）────────────────
+
+    def list_configs(self) -> list[ProviderConfig]:
+        """返回所有配置（不论 enabled 与否）。"""
+        return self._store.load_all()
+
+    def get_config(self, provider_id: str) -> ProviderConfig | None:
+        """按 id 查找配置。"""
+        return self._store.get(provider_id)
+
+    def save_config(self, config: ProviderConfig) -> None:
+        """保存配置并在加载缓冲。"""
+        self._store.save(config)
+        self.load_all()
+
+    def delete_config(self, provider_id: str) -> bool:
+        """删除配置并在加载缓冲。"""
+        result = self._store.delete(provider_id)
+        if result:
+            self.load_all()
+        return result
+
     # ── Provider 工厂 ──────────────────────────────────
 
     @staticmethod

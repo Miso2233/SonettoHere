@@ -43,3 +43,6 @@ output/bilibili/
 config/personas/memory.yaml
 *.lock
 *.clean
+
+# Provider credentials (明文 API key)
+providers.yaml
