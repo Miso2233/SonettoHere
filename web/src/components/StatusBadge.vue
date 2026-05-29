@@ -43,12 +43,21 @@ const props = defineProps<{
 
 const items = computed(() => {
   if (!props.health) return []
-  return [
+  const result = [
     makeItem('LLM', props.health.llm),
     makeItem('MEMORY', props.health.memory),
     makeItem('SKILLS', props.health.native_tools),
     makeItem('MCP', props.health.mcp_tools),
   ]
+  if (props.health.anthropic_skills_count != null) {
+    result.push({
+      name: 'ANTHROPIC_SKILLS',
+      ok: true,
+      latency: '0 ms',
+      info: `${props.health.anthropic_skills_count} 个技能`,
+    })
+  }
+  return result
 })
 
 function makeItem(name: string, c: ComponentHealth) {

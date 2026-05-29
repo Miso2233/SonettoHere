@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+from pathlib import Path
 from typing import Literal
 
 import httpx
@@ -11,6 +12,8 @@ from pydantic import BaseModel
 from config.settings import get_settings
 from memory.memory_manager import MemoryManager
 from memory.narrative import MEMORY_PATH
+
+ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent / "anthropic_skills"
 
 
 class ComponentHealth(BaseModel):
@@ -26,6 +29,7 @@ class HealthResponse(BaseModel):
     memory: ComponentHealth
     native_tools: ComponentHealth
     mcp_tools: ComponentHealth
+    anthropic_skills_count: int = 0
     providers: dict[str, ComponentHealth] = {}
     timestamp: float
 
@@ -178,6 +182,11 @@ async def get_health_report(app: FastAPI) -> HealthResponse:
     mcp_tools = await check_mcp_tools(app)
     providers = await check_health_providers(app)
 
+    # 统计 anthropic_skills 下的 skill 数量
+    skills_count = 0
+    if ANTHROPIC_SKILLS_DIR.is_dir():
+        skills_count = len([p for p in ANTHROPIC_SKILLS_DIR.iterdir() if p.is_dir()])
+
     all_checks = [llm, memory, native_tools, mcp_tools] + list(providers.values())
     overall: Literal["ok", "degraded"] = (
         "ok" if all(c.status == "ok" for c in all_checks) else "degraded"
@@ -190,6 +199,7 @@ async def get_health_report(app: FastAPI) -> HealthResponse:
         memory=memory,
         native_tools=native_tools,
         mcp_tools=mcp_tools,
+        anthropic_skills_count=skills_count,
         providers=providers,
         timestamp=time.time(),
     )

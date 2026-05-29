@@ -247,6 +247,7 @@ export interface HealthResponse {
   memory: ComponentHealth
   native_tools: ComponentHealth
   mcp_tools: ComponentHealth
+  anthropic_skills_count: number
   timestamp: number
 }
 
