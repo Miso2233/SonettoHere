@@ -23,15 +23,7 @@ WEB_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动：初始化共享资源
-    app.state.llm = get_llm()
-    app.state.system_prompt = get_system_prompt()
-    app.state.native_tools = get_tools()
-    app.state.session_manager = SessionManager()
-    app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
-    app.state.ltm.start_listening(app.state.llm)
-
-    # Provider 管理器：从 YAML 加载多提供商配置
+    # 1. 初始化 Provider 管理器（优先从 YAML 加载）
     provider_store = ProviderConfigStore()
     if provider_store.is_empty:
         migrated = provider_store.migrate_from_env()
@@ -41,6 +33,14 @@ async def lifespan(app: FastAPI):
     provider_manager.load_all()
     app.state.provider_manager = provider_manager
     print(f"[provider] loaded {provider_manager.count} provider(s)")
+
+    # 2. 其他共享资源（LLM 从 ProviderManager 优先退化到 .env）
+    app.state.llm = get_llm(provider_manager)
+    app.state.system_prompt = get_system_prompt()
+    app.state.native_tools = get_tools()
+    app.state.session_manager = SessionManager()
+    app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
+    app.state.ltm.start_listening(app.state.llm)
 
     # 加载 MCP 工具（Word 文档编辑能力）
     app.state.mcp_tools = await init_mcp_tools()

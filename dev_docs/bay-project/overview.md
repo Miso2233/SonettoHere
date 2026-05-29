@@ -182,22 +182,22 @@ providers:
 
 目标：建立 ProviderManager，使后端能管理多个 LLM 提供商。
 
-- [ ] 定义 `Provider` 抽象基类
-- [ ] 实现 `ProviderManager`（注册、查找、健康检查）
-- [ ] 实现 `ProviderConfigStore`（YAML 文件读写，API key 直接存储）
-- [ ] 实现 `OpenAIProvider`（兼容现有 DeepSeek 配置）
-- [ ] 重构 `api/dependencies.py` 使用 ProviderManager
-- [ ] 添加 `/api/providers` CRUD 路由
-- [ ] 适配 health check 支持多提供商
-- [ ] 迁移 `.env` 中 DeepSeek 配置到 providers.yaml
+- [x] 定义 `Provider` 抽象基类
+- [x] 实现 `ProviderManager`（注册、查找、健康检查）
+- [x] 实现 `ProviderConfigStore`（YAML 文件读写，API key 直接存储）
+- [x] 实现 `OpenAIProvider`（兼容现有 DeepSeek 配置）
+- [x] 重构 `api/dependencies.py` 使用 ProviderManager
+- [x] 添加 `/api/providers` CRUD 路由
+- [x] 适配 health check 支持多提供商
+- [x] 迁移 `.env` 中 DeepSeek 配置到 providers.yaml
 
 ### Phase 2 — 每次请求动态指定 LLM
 
 目标：每条 WebSocket 消息可独立指定 LLM 提供商和模型，同一 Session 内不同消息可使用不同模型。
 
-- [ ] WebSocket `chat` 消息体扩展 `provider_id` + `model_name` 字段
-- [ ] `_run_agent_turn()` 在每次 turn 开始时从消息解析 provider/model → `registry.get(provider_id).create_llm(model)`
-- [ ] `app_state.llm` 全局单例保留作为默认 fallback（首次启动/旧 session 向后兼容）
+- [x] WebSocket `chat` 消息体扩展 `provider_id` + `model_name` 字段
+- [x] `_run_agent_turn()` 在每次 turn 开始时从消息解析 provider/model → `manager.get(provider_id).create_llm(model)`
+- [x] `app_state.llm` 全局单例保留作为默认 fallback（首次启动/旧 session 向后兼容）
 - [ ] 前端 ChatWindow 添加 LLM 选择器（下拉框，可选 provider + model）
 - [ ] 前端选择器状态按 session 持久化（localStorage），切换时自动带入下次消息
 
