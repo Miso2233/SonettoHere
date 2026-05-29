@@ -15,27 +15,45 @@
       </div>
       <div v-else class="card-grid">
         <div v-for="p in providers" :key="p.id" class="provider-card">
+          <!-- 顶部信息区 -->
           <div class="card-header">
-            <strong>{{ p.label }}</strong>
-            <span class="badge" :class="p.enabled ? 'on' : 'off'">
-              {{ p.enabled ? '启用' : '停用' }}
-            </span>
+            <div class="card-title-row">
+              <span class="card-label">{{ p.label }}</span>
+              <span class="card-type-badge">OPENAI</span>
+            </div>
+            <button
+              class="toggle-btn"
+              :class="{ active: p.enabled }"
+              :title="p.enabled ? '已启用' : '已停用'"
+              @click="toggleProvider(p.id, !p.enabled)"
+            ></button>
           </div>
-          <div class="card-meta">
-            <div class="meta-row"><span class="meta-label">类型</span>{{ p.provider_type }}</div>
-            <div class="meta-row"><span class="meta-label">端点</span><span class="url">{{ p.base_url }}</span></div>
-            <div class="meta-row"><span class="meta-label">模型</span>{{ p.models.length }} 个</div>
+
+          <!-- API 信息 -->
+          <div class="card-url">{{ p.base_url }}</div>
+
+          <!-- 模型列表 -->
+          <div class="card-models-section">
+            <div class="card-models-title">模型（{{ p.models.length }}）</div>
+            <div class="card-models-tags">
+              <span v-for="m in p.models" :key="m" class="model-tag">{{ m }}</span>
+              <span v-if="p.models.length === 0" class="model-tag empty">未配置</span>
+            </div>
           </div>
+
+          <!-- 测试结果 -->
+          <Transition name="fade">
+            <div v-if="testResult?.[p.id]" class="test-result" :class="testResult[p.id].status">
+              <span v-if="testResult[p.id].status === 'ok'">✓</span>
+              <span v-else>✗</span>
+              {{ testResult[p.id].latency_ms ?? '-' }}ms
+            </div>
+          </Transition>
+
+          <!-- 操作按钮 -->
           <div class="card-actions">
-            <button class="btn sm" @click="testProvider(p.id)">测试</button>
-            <button class="btn sm" @click="discoverProvider(p.id)">拉取模型</button>
-            <button class="btn sm" @click="startEdit(p)">编辑</button>
-            <button class="btn sm danger" @click="deleteProvider(p.id)">删除</button>
-          </div>
-          <div v-if="testResult?.[p.id]" class="test-result" :class="testResult[p.id].status">
-            {{ testResult[p.id].status === 'ok' ? '✓' : '✗' }}
-            {{ testResult[p.id].latency_ms }}ms —
-            {{ testResult[p.id].detail || (testResult[p.id].status === 'ok' ? '连接正常' : '未知错误') }}
+            <button class="action-btn" @click="testProvider(p.id)">测试连接</button>
+            <button class="action-btn" @click="deleteProvider(p.id)">删除</button>
           </div>
         </div>
       </div>
@@ -305,6 +323,16 @@ async function discoverProvider(id: string) {
   }
 }
 
+async function toggleProvider(id: string, enabled: boolean) {
+  try {
+    await api.updateProvider(id, { enabled })
+    const p = providers.value.find(p => p.id === id)
+    if (p) p.enabled = enabled
+  } catch (e: any) {
+    alert('切换失败: ' + e.message)
+  }
+}
+
 onMounted(loadProviders)
 </script>
 
@@ -356,68 +384,147 @@ onMounted(loadProviders)
 
 .card-grid {
   display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
 .provider-card {
-  background: var(--bg-card);
+  background: #ffffff;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 16px;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
+/* ── 顶部信息区 ── */
 .card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
 }
-.card-header strong {
-  font-size: 15px;
-}
-
-.badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 600;
-}
-.badge.on { background: #d1fae5; color: #065f46; }
-.badge.off { background: #f3f4f6; color: #6b7280; }
-
-.card-meta {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 10px;
-}
-.meta-row {
-  margin: 4px 0;
+.card-title-row {
   display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.card-label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+.card-type-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9ca3af;
+  letter-spacing: 0.5px;
+}
+
+/* ── 开关按钮 ── */
+.toggle-btn {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  border: none;
+  background: #d1d5db;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.2s;
+}
+.toggle-btn::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+.toggle-btn.active {
+  background: #1f2937;
+}
+.toggle-btn.active::after {
+  transform: translateX(16px);
+}
+
+/* ── API URL ── */
+.card-url {
+  font-size: 12px;
+  color: #9ca3af;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+/* ── 模型列表区 ── */
+.card-models-section {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
-.meta-label {
-  color: var(--text-primary);
+.card-models-title {
+  font-size: 12px;
+  color: #9ca3af;
   font-weight: 500;
-  min-width: 40px;
 }
-.url {
-  word-break: break-all;
+.card-models-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.model-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  color: #6b7280;
+  font-family: 'SF Mono', 'Consolas', monospace;
+}
+.model-tag.empty {
+  color: #d1d5db;
+  font-family: inherit;
 }
 
-.card-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+/* ── 测试结果 ── */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 .test-result {
-  margin-top: 8px;
   font-size: 12px;
   padding: 6px 10px;
   border-radius: 6px;
 }
-.test-result.ok { background: #d1fae5; color: #065f46; }
-.test-result.error { background: #fee2e2; color: #991b1b; }
+.test-result.ok { background: #ecfdf5; color: #065f46; }
+.test-result.error { background: #fef2f2; color: #991b1b; }
+
+/* ── 操作按钮 ── */
+.card-actions {
+  display: flex;
+  gap: 8px;
+}
+.action-btn {
+  padding: 6px 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #6b7280;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.action-btn:hover {
+  opacity: 0.7;
+}
 
 /* ── Form ── */
 .wizard-form {
