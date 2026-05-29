@@ -116,6 +116,7 @@ async def _run_agent_turn(
     config = {
         "configurable": {"thread_id": session.session_id},
         "callbacks": [ws_callback],
+        "recursion_limit": 120,
     }
 
     # 2. [执行轮次] 流式执行 Agent 图，副作用推送最终回答，另有config回调副作用

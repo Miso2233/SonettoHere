@@ -148,11 +148,10 @@ class CallSubAgentSkill(SkillBase):
             model=app_state.llm,
             tools=app_state.tools,
             system_prompt=system_prompt,
-            recursion_limit=72,
             checkpointer=sub.checkpointer,
         )
         inputs = {"messages": [HumanMessage(content=task)]}
-        config = {"configurable": {"thread_id": sub.session_id}}
+        config = {"configurable": {"thread_id": sub.session_id}, "recursion_limit": 72}
 
         final_answer = ""
         try:
