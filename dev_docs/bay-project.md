@@ -17,7 +17,7 @@
 | 配置 | `.env` 中单一 `DEEPSEEK_API_KEY`、`DEEPSEEK_BASE_URL` | 只能切换，无法并存 |
 | 后端 | `api/dependencies.py` 中创建唯一 `ChatOpenAI` 实例 | 提供商逻辑与业务耦合 |
 | 前端 | 无提供商选择 UI，所有请求发往唯一的 WebSocket | 用户无法感知或切换后端 |
-| 会话 | session 与 LLM 提供商无关 | 无法按会话选择不同模型 |
+| 会话 | session 与 LLM 提供商无关 | 无法按消息指定不同模型 |
 
 ### 1.2 愿景
 
@@ -25,7 +25,7 @@
 |------|------|---------|
 | 提供商数量 | 1（DeepSeek） | 多个并存，按需切换 |
 | 配置方式 | `.env` 环境变量 | YAML 配置文件 + 前端管理（API key 直接写入 YAML） |
-| 模型选择 | 编译时固定 | 运行时按会话选择 |
+| 模型选择 | 编译时固定 | 每次消息可指定 |
 | 前端界面 | 无提供商管理页面 | 提供商管理仪表盘 |
 | API 协议 | 仅 OpenAI 兼容 | 统一 OpenAI 协议（DeepSeek / Qwen / Kimi / Minimax / OpenRouter） |
 
@@ -33,7 +33,7 @@
 
 1. **单一事实来源** — 所有提供商配置集中管理，不散落在 `.env` 和各模块中
 2. **Provider Adapter 模式** — 每个提供商实现统一接口，核心逻辑不感知具体实现
-3. **按会话选择** — 每个 session 可绑定不同提供商/模型，互不影响
+3. **每次请求选择** — 每条消息独立指定提供商/模型，互不影响；Session 仅负责对话历史
 4. **渐进迁移** — 不破坏现有 DeepSeek 工作流，新能力逐步叠加
 5. **前端可视化管理** — 提供商配置在前端页面完成，降低运维门槛
 
@@ -66,11 +66,11 @@
          │
          ▼
 ┌─────────────────────────────────────────────────────┐
-│               Session → Provider 绑定                 │
+│               Per-request LLM 路由                    │
 │                                                     │
-│  Session A ──→ DeepSeek / deepseek-chat             │
-│  Session B ──→ Qwen / qwen-max                      │
-│  Session C ──→ OpenRouter / claude-sonnet-4         │
+│  Msg 1 ──→ DeepSeek / deepseek-chat                 │
+│  Msg 2 ──→ Qwen / qwen-max                          │
+│  Msg 3 ──→ OpenRouter / claude-sonnet-4             │
 └─────────────────────────────────────────────────────┘
          │
          ▼
@@ -79,7 +79,7 @@
 │                                                     │
 │  /providers  → 向导式添加（选提供商 → 填凭据 → 拉取模型）│
 │  /playground → 多提供商并排对比                       │
-│  session header → 当前模型切换                       │
+│  ChatWindow header → LLM 选择器                        │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -95,11 +95,11 @@ api/
 │   ├── openrouter_adapter.py  #    OpenRouter 专用适配器（路由/用量增强）
 │   └── ...                    #    未来特殊适配器
 ├── routes/
-│   ├── chat.py                #    修改：session 关联 provider
-│   ├── sessions.py            #    修改：session provider 字段
+│   ├── chat.py                #    修改：每次消息从 payload 解析 provider，动态创建 LLM
+│   ├── sessions.py            #    （无需改动，session 不持有 provider）
 │   └── providers.py           # ★ 新增：提供商 CRUD 路由
 ├── dependencies.py            # 修改：ProviderRegistry 替代单一 LLM
-└── session_manager.py         # 修改：session 携带 provider 标识
+└── session_manager.py         #    无需改动（session 不持有 provider）
 ```
 
 ### 2.3 前端模块
@@ -112,8 +112,8 @@ web/src/
 │   ├── PlaygroundView.vue     # 改造：多提供商并排对比
 │   └── ProviderManager.vue    # ★ 新增：提供商管理页面
 ├── components/
-│   ├── ChatWindow.vue         # 修改：显示当前提供商/模型
-│   ├── SessionSidebar.vue     # 修改：会话卡片显示模型名
+│   ├── ChatWindow.vue         # 修改：添加 LLM 选择器（provider + model 下拉框）
+│   ├── SessionSidebar.vue     #    无需改动（session 不绑定模型）
 │   └── providers/             # ★ 新增：提供商管理子组件
 │       ├── ProviderSetupWizard.vue  # 向导：选提供商 → 填凭据 → 拉取模型
 │       ├── ProviderCard.vue         # 单个提供商配置卡片
@@ -191,15 +191,15 @@ providers:
 - [ ] 适配 health check 支持多提供商
 - [ ] 迁移 `.env` 中 DeepSeek 配置到 providers.yaml
 
-### Phase 2 — Session-Provider 绑定
+### Phase 2 — 每次请求动态指定 LLM
 
-目标：每个会话可独立选择 LLM 提供商和模型。
+目标：每条 WebSocket 消息可独立指定 LLM 提供商和模型，同一 Session 内不同消息可使用不同模型。
 
-- [ ] Session 模型添加 `provider_id` 和 `model_name` 字段
-- [ ] WebSocket 握手时接受 provider 选择
-- [ ] Chat 路由根据 session provider 创建对应的 LLM 实例
-- [ ] 前端 Session 列表显示模型信息
-- [ ] 前端会话切换时保持 provider 选择
+- [ ] WebSocket `chat` 消息体扩展 `provider_id` + `model_name` 字段
+- [ ] `_run_agent_turn()` 在每次 turn 开始时从消息解析 provider/model → `registry.get(provider_id).create_llm(model)`
+- [ ] `app_state.llm` 全局单例保留作为默认 fallback（首次启动/旧 session 向后兼容）
+- [ ] 前端 ChatWindow 添加 LLM 选择器（下拉框，可选 provider + model）
+- [ ] 前端选择器状态按 session 持久化（localStorage），切换时自动带入下次消息
 
 ### Phase 3 — 前端提供商管理页面 & 模型发现
 
@@ -238,25 +238,25 @@ providers:
 
 ## 五、数据流
 
-### 5.1 会话创建 & 模型选择
+### 5.1 每次消息的 LLM 路由
 
 ```
-用户选择 Provider/Model
+用户在 ChatWindow LLM 选择器选定 Provider/Model
        │
        ▼
-前端 POST /api/sessions { provider_id: "deepseek-main", model: "deepseek-chat" }
+用户发送消息 → WebSocket 发送 {"type": "chat", "payload": {"message": "...", "provider_id": "deepseek-main", "model": "deepseek-chat"}}
        │
        ▼
-后端创建 Session，记录 provider_id + model_name
+后端 _run_agent_turn() 解析消息 payload
        │
        ▼
-前端 WebSocket 连接 /ws/chat/{session_id}
-       │
-       ▼
-后端从 session 获取 provider_id → Registry 获取 Adapter → Adapter.create_llm(model)
+registry.get(provider_id).create_llm(model) → 创建本次使用的 LLM 实例
        │
        ▼
 LangGraph Agent 使用该 LLM 实例执行
+       │
+       ▼
+下一条消息可换另一个 provider/model，互不影响
 ```
 
 ### 5.2 提供商健康检查
@@ -287,7 +287,7 @@ Registry.iter_adapters() → 遍历所有 enabled provider
 | 配置存储 | 数据库 / YAML / 纯 env | YAML | 无外部依赖，与现有内存系统一致；API key 直接写入 YAML |
 | API key 存储 | 明文 / 加密 / 仅 env 引用 | 明文 YAML | API key 直接写入 YAML，简化实现；用户自行控制 YAML 文件权限 |
 | 适配器协议 | langchain / 原生 OpenAI SDK | OpenAI SDK 统一 | 所有目标提供商均兼容 OpenAI API，无需多协议适配；`openai` SDK 更轻量通用 |
-| Session 绑定 | 创建时固定 / 运行时切换 | 创建时固定 | 简化实现；切换等价于新会话 |
+| Session 绑定 | 创建时固定 / 运行时切换 / **每次请求指定** | 每次请求指定 | Session 仅管理对话历史；每条消息独立指定 provider/model，前端选择器持久化选择状态 |
 | 前端配置 | 仅读 / 读写 | 读写 | 降低运维门槛，赋予用户自主权 |
 
 ---
@@ -295,6 +295,6 @@ Registry.iter_adapters() → 遍历所有 enabled provider
 ## 七、向后兼容
 
 1. **`.env` 一键迁移** — 首次启动时若 `providers.yaml` 不存在，从 `.env` 读取 `DEEPSEEK_*` 并将 API key 写入 YAML
-2. **无 provider 选择的旧 session** — 默认使用第一个 enabled provider（= 原有 DeepSeek）
+2. **无 provider 指定的消息** — 若 WebSocket `chat` 消息未携带 provider_id/model，fallback 到 `app_state.llm`（原有 DeepSeek 单例），完全向后兼容
 3. **API 版本化** — 新增 `/api/providers` 路由不影响现有 `/api/sessions` 等端点
 4. **Playground 共存** — 原有单栏模式保留，多栏对比为新增模式
