@@ -24,7 +24,7 @@
 | 能力 | 现状 | 湾区目标 |
 |------|------|---------|
 | 提供商数量 | 1（DeepSeek） | 多个并存，按需切换 |
-| 配置方式 | `.env` 环境变量 | 环境变量 + 配置文件 + 前端管理 |
+| 配置方式 | `.env` 环境变量 | YAML 配置文件 + 前端管理（API key 直接写入 YAML） |
 | 模型选择 | 编译时固定 | 运行时按会话选择 |
 | 前端界面 | 无提供商管理页面 | 提供商管理仪表盘 |
 | API 协议 | 仅 OpenAI 兼容 | 统一 OpenAI 协议（DeepSeek / Qwen / Kimi / Minimax / OpenRouter） |
@@ -61,7 +61,7 @@
 │  │   └────┬─────┘  └────┬─────┘        │            │
 │  └────────┴──────────────┴──────────────┘            │
 │                                                     │
-│  ProviderConfigStore (YAML / env fallback)           │
+│  ProviderConfigStore (YAML)                            │
 └─────────────────────────────────────────────────────┘
          │
          ▼
@@ -156,7 +156,7 @@ providers:
   - id: deepseek-main
     provider_type: openai          # 所有提供商统一使用 openai 类型
     label: DeepSeek
-    api_key_env: DEEPSEEK_API_KEY  # 引用环境变量
+    api_key: sk-xxxxxxxxxxxx        # API key 直接写入 YAML
     base_url: https://api.deepseek.com
     models:                        # 从 API 拉取后缓存
       - deepseek-chat
@@ -166,7 +166,7 @@ providers:
   - id: openrouter-main
     provider_type: openai
     label: OpenRouter
-    api_key_env: OPENROUTER_API_KEY
+    api_key: sk-yyyyyyyyyyyy
     base_url: https://openrouter.ai/api/v1
     models:
       - openai/gpt-4o
@@ -184,7 +184,7 @@ providers:
 
 - [ ] 定义 `ProviderAdapter` 抽象基类
 - [ ] 实现 `ProviderRegistry`（注册、查找、健康检查）
-- [ ] 实现 `ProviderConfigStore`（YAML 文件存储 + 环境变量回退）
+- [ ] 实现 `ProviderConfigStore`（YAML 文件读写，API key 直接存储）
 - [ ] 实现 `OpenAIAdapter`（兼容现有 DeepSeek 配置）
 - [ ] 重构 `api/dependencies.py` 使用 Registry
 - [ ] 添加 `/api/providers` CRUD 路由
@@ -284,8 +284,8 @@ Registry.iter_adapters() → 遍历所有 enabled provider
 
 | 决策 | 选项 | 选择 | 理由 |
 |------|------|------|------|
-| 配置存储 | 数据库 / YAML / 纯 env | YAML + env fallback | 无外部依赖，与现有内存系统一致；敏感值仍走 env |
-| API key 存储 | 明文 / 加密 / 仅 env 引用 | env 引用 | API key 不应落盘，配置文件只存 env 变量名 |
+| 配置存储 | 数据库 / YAML / 纯 env | YAML | 无外部依赖，与现有内存系统一致；API key 直接写入 YAML |
+| API key 存储 | 明文 / 加密 / 仅 env 引用 | 明文 YAML | API key 直接写入 YAML，简化实现；用户自行控制 YAML 文件权限 |
 | 适配器协议 | langchain / 原生 OpenAI SDK | OpenAI SDK 统一 | 所有目标提供商均兼容 OpenAI API，无需多协议适配；`openai` SDK 更轻量通用 |
 | Session 绑定 | 创建时固定 / 运行时切换 | 创建时固定 | 简化实现；切换等价于新会话 |
 | 前端配置 | 仅读 / 读写 | 读写 | 降低运维门槛，赋予用户自主权 |
@@ -294,7 +294,7 @@ Registry.iter_adapters() → 遍历所有 enabled provider
 
 ## 七、向后兼容
 
-1. **现有 `.env` 配置自动导入** — 首次启动时若 `providers.yaml` 不存在，从 `.env` 读取 `DEEPSEEK_*` 并生成
+1. **`.env` 一键迁移** — 首次启动时若 `providers.yaml` 不存在，从 `.env` 读取 `DEEPSEEK_*` 并将 API key 写入 YAML
 2. **无 provider 选择的旧 session** — 默认使用第一个 enabled provider（= 原有 DeepSeek）
 3. **API 版本化** — 新增 `/api/providers` 路由不影响现有 `/api/sessions` 等端点
 4. **Playground 共存** — 原有单栏模式保留，多栏对比为新增模式
