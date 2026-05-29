@@ -53,6 +53,7 @@
           <!-- 操作按钮 -->
           <div class="card-actions">
             <button class="action-btn" @click="testProvider(p.id)">测试连接</button>
+            <button class="action-btn" @click="startEdit(p)">编辑</button>
             <button class="action-btn" @click="deleteProvider(p.id)">删除</button>
           </div>
         </div>
@@ -87,10 +88,10 @@
 
       <!-- 测试 & 拉取模型 -->
       <div class="form-row">
-        <button type="button" class="btn" :disabled="!form.api_key || !form.base_url" @click="handleTest">
+        <button type="button" class="btn" :disabled="!isEditing && (!form.api_key || !form.base_url)" @click="handleTest">
           {{ testing ? '测试中...' : '测试连接' }}
         </button>
-        <button type="button" class="btn" :disabled="!form.api_key || !form.base_url" @click="handleDiscover">
+        <button type="button" class="btn" :disabled="!isEditing && (!form.api_key || !form.base_url)" @click="handleDiscover">
           {{ discovering ? '拉取中...' : '拉取模型列表' }}
         </button>
       </div>
@@ -196,12 +197,18 @@ async function handleDiscover() {
   discovering.value = true
   formError.value = ''
   try {
-    const res = await api.discoverModels({
-      api_key: form.value.api_key,
-      base_url: form.value.base_url,
-    })
-    discoveredModels.value = res.models
-    selectedModels.value = [...res.models]
+    if (isEditing.value && !form.value.api_key) {
+      const res = await api.discoverModelsForExisting(editingId.value)
+      discoveredModels.value = res.models
+      selectedModels.value = [...res.models]
+    } else {
+      const res = await api.discoverModels({
+        api_key: form.value.api_key,
+        base_url: form.value.base_url,
+      })
+      discoveredModels.value = res.models
+      selectedModels.value = [...res.models]
+    }
   } catch (e: any) {
     formError.value = e.message
   } finally {
