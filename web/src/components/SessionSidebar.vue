@@ -6,7 +6,7 @@
     </div>
     <div class="session-list">
       <button
-        v-for="s in sessions"
+        v-for="(s, index) in sessions"
         :key="s.session_id"
         class="session-item"
         :class="{ active: s.session_id === activeId }"
@@ -16,10 +16,10 @@
       >
         <div class="session-item-main">
           <span class="session-id">
-            {{ formatId(s.session_id) }}
+            Session #{{ sessions.length - index }}
             <span v-if="s.is_subagent" class="sub-badge" title="子 Agent 会话（只读）">sub</span>
           </span>
-          <span class="session-count">{{ s.message_count }} 条消息</span>
+          <span class="session-count">{{ formatRelativeTime(s.last_active ?? s.created_at) }} · {{ s.message_count }} 条消息</span>
         </div>
         <div class="session-item-right">
           <span
@@ -81,8 +81,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
-import type { SessionInfo } from '@/types'
+import type { SessionInfo } from '@/types';
+import { computed, nextTick, ref } from 'vue';
 
 const props = defineProps<{
   sessions: SessionInfo[]
@@ -103,10 +103,6 @@ const cardTop = ref(0)
 const cardLeft = ref(0)
 
 let hoverLeaveTimer: ReturnType<typeof setTimeout> | null = null
-
-function formatId(id: string): string {
-  return id.length > 10 ? id.slice(0, 10) + '…' : id
-}
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts * 1000
