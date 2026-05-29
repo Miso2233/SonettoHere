@@ -32,7 +32,7 @@
 ### 1.3 核心原则
 
 1. **单一事实来源** — 所有提供商配置集中管理，不散落在 `.env` 和各模块中
-2. **Provider Adapter 模式** — 每个提供商实现统一接口，核心逻辑不感知具体实现
+2. **Provider 模式** — 每个提供商实现统一接口，核心逻辑不感知具体实现
 3. **每次请求选择** — 每条消息独立指定提供商/模型，互不影响；Session 仅负责对话历史
 4. **渐进迁移** — 不破坏现有 DeepSeek 工作流，新能力逐步叠加
 5. **前端可视化管理** — 提供商配置在前端页面完成，降低运维门槛
@@ -45,7 +45,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   Provider Registry                  │
+│                   Provider Manager                    │
 │                                                     │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
 │  │ DeepSeek │  │  Qwen    │  │  Kimi    │          │
@@ -88,17 +88,17 @@
 ```
 api/
 ├── providers/                 # ★ 新增：提供商适配层
-│   ├── __init__.py            #    ProviderAdapter 基类
+│   ├── __init__.py            #    Provider 基类
 │   ├── registry.py            #    提供商注册表（按名称索引）
 │   ├── store.py               #    配置存储（YAML）
-│   ├── openai_adapter.py      #    OpenAI 兼容 API 通用适配器（所有提供商共用）
-│   ├── openrouter_adapter.py  #    OpenRouter 专用适配器（路由/用量增强）
+│   ├── openai_provider.py      #    OpenAI 兼容 API 通用 Provider（所有提供商共用）
+│   ├── openrouter_provider.py  #    OpenRouter 专用 Provider（路由/用量增强）
 │   └── ...                    #    未来特殊适配器
 ├── routes/
 │   ├── chat.py                #    修改：每次消息从 payload 解析 provider，动态创建 LLM
 │   ├── sessions.py            #    （无需改动，session 不持有 provider）
 │   └── providers.py           # ★ 新增：提供商 CRUD 路由
-├── dependencies.py            # 修改：ProviderRegistry 替代单一 LLM
+├── dependencies.py            # 修改：ProviderManager 替代单一 LLM
 └── session_manager.py         #    无需改动（session 不持有 provider）
 ```
 
@@ -126,10 +126,10 @@ web/src/
 
 ---
 
-## 三、Provider Adapter 接口定义
+## 三、Provider 接口定义
 
 ```python
-class ProviderAdapter(ABC):
+class Provider(ABC):
     """所有 LLM 提供商适配器必须实现的接口"""
 
     @property
@@ -178,15 +178,15 @@ providers:
 
 ## 四、实施阶段
 
-### Phase 1 — Provider Registry 与 Adapter（后端基础设施）
+### Phase 1 — Provider Manager 与 Provider 基类（后端基础设施）
 
-目标：建立 Provider Registry，使后端能管理多个 LLM 提供商。
+目标：建立 ProviderManager，使后端能管理多个 LLM 提供商。
 
-- [ ] 定义 `ProviderAdapter` 抽象基类
-- [ ] 实现 `ProviderRegistry`（注册、查找、健康检查）
+- [ ] 定义 `Provider` 抽象基类
+- [ ] 实现 `ProviderManager`（注册、查找、健康检查）
 - [ ] 实现 `ProviderConfigStore`（YAML 文件读写，API key 直接存储）
-- [ ] 实现 `OpenAIAdapter`（兼容现有 DeepSeek 配置）
-- [ ] 重构 `api/dependencies.py` 使用 Registry
+- [ ] 实现 `OpenAIProvider`（兼容现有 DeepSeek 配置）
+- [ ] 重构 `api/dependencies.py` 使用 ProviderManager
 - [ ] 添加 `/api/providers` CRUD 路由
 - [ ] 适配 health check 支持多提供商
 - [ ] 迁移 `.env` 中 DeepSeek 配置到 providers.yaml
@@ -230,7 +230,7 @@ providers:
 
 目标：增强 OpenRouter 支持，并允许用户添加任意 OpenAI 兼容 API。
 
-- [ ] `OpenRouterAdapter` — 支持 OpenRouter 特有的路由策略（claude-3.5-sonnet 等）、用量统计、fallback 配置
+- [ ] `OpenRouterProvider` — 支持 OpenRouter 特有的路由策略（claude-3.5-sonnet 等）、用量统计、fallback 配置
 - [ ] 自定义端点（Custom OpenAI-compatible）— 允许用户输入任意 base URL + API key 接入未预设的提供商
 - [ ] 模型列表去重与别名 — 自动合并同名模型，允许用户自定义显示名
 
@@ -265,10 +265,10 @@ LangGraph Agent 使用该 LLM 实例执行
 GET /api/health
        │
        ▼
-Registry.iter_adapters() → 遍历所有 enabled provider
+ProviderManager.iter_enabled() → 遍历所有 enabled provider
        │
        ▼
-各 Adapter.check_health() → 并行调用各提供商 API（5s timeout）
+各 Provider.check_health() → 并行调用各提供商 API（5s timeout）
        │
        ▼
 聚合结果：{

@@ -1,4 +1,4 @@
-"""Provider Adapter 抽象基类与类型定义。"""
+"""Provider 抽象基类与类型定义。"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict, field
@@ -32,8 +32,8 @@ class HealthStatus:
     detail: str | None = None
 
 
-class ProviderAdapter(ABC):
-    """所有 LLM 提供商适配器必须实现的接口。"""
+class Provider(ABC):
+    """所有 LLM 提供商必须实现的接口。"""
 
     def __init__(self, config: ProviderConfig):
         self.config = config

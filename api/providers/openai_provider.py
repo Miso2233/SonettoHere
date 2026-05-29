@@ -1,11 +1,11 @@
-"""OpenAI 兼容 API 的通用 ProviderAdapter 实现。"""
+"""OpenAI 兼容 API 的通用 Provider 实现。"""
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from api.providers import HealthStatus, ProviderAdapter
+from api.providers import HealthStatus, Provider
 
 
-class OpenAIAdapter(ProviderAdapter):
+class OpenAIProvider(Provider):
     """适配所有 OpenAI 兼容 API 的提供商（DeepSeek / Qwen / Kimi 等）。"""
 
     def create_llm(self, model: str, **kwargs) -> BaseChatModel:
