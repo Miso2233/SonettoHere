@@ -32,11 +32,7 @@ class AskUserQASkill(SkillBase):
 
         ws = interaction.current_ws.get()
 
-        interaction_id = interaction.register({
-            "tool_name": self.name,
-            "question": question,
-            "mode": "qa",
-        })
+        interaction_id = interaction.register()
 
         await ws.send_json({
             "type": "ask_user",

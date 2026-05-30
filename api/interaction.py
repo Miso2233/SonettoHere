@@ -12,29 +12,27 @@ import uuid
 # 当前连接对应的 WebSocket 实例（在 chat.py 中设置）
 current_ws: contextvars.ContextVar = contextvars.ContextVar("current_ws")
 
-# 全局待处理交互表：interaction_id → (Future, meta)
-_pending: dict[str, tuple[asyncio.Future, dict]] = {}
+# 全局待处理交互表：interaction_id → Future
+_pending: dict[str, asyncio.Future] = {}
 
 
-def register(meta: dict) -> str:
+def register() -> str:
     """注册一次待处理的用户交互，返回 interaction_id。"""
     interaction_id = uuid.uuid4().hex
-    _pending[interaction_id] = (asyncio.Future(), meta)
+    _pending[interaction_id] = asyncio.Future()
     return interaction_id
 
 
 def consume_future(interaction_id: str) -> asyncio.Future | None:
     """取出 Future 引用，调用者负责 await。不弹出条目，留给 resolve/cleanup 清理。"""
-    entry = _pending.get(interaction_id)
-    return entry[0] if entry else None
+    return _pending.get(interaction_id)
 
 
 def resolve(interaction_id: str, response) -> bool:
     """用用户响应结果唤醒挂起的 Future。返回是否成功唤醒。"""
-    entry = _pending.get(interaction_id)
-    if not entry:
+    future = _pending.get(interaction_id)
+    if not future:
         return False
-    future, _ = entry
     if future.done():
         return False
     future.set_result(response)
