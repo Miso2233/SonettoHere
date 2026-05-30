@@ -169,7 +169,7 @@ return [
 
 ## 第四步：Kaleidoscope——设计新气泡
 
-参考 [kaleidoscope-project.md](kaleidoscope-project.md)。
+参考 [kaleidoscope-project.md](../projects/kaleidoscope/kaleidoscope-project.md)。
 
 ### 4a. 设计气泡的三个状态
 
@@ -259,7 +259,7 @@ def _extract_xxx(
 
 ## 第六步：收集反馈与 DEBUG
 
-参照 `dev_docs/kaleidoscope-project.md` 中的记载方案进行 DEBUG：
+参照 `dev_docs/projects/kaleidoscope/kaleidoscope-project.md` 中的记载方案进行 DEBUG：
 
 - 运行中状态是否有合理的加载提示？
 - 完成状态的数据展示是否完整清晰？
