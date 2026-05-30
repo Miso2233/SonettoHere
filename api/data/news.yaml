@@ -7,7 +7,7 @@ news:
     date: "2026-05-30"
     tags: ["技能", "文件", "前端"]
     version: "PREVIEW"
-    pr_number:
+    pr_number: 79
 
   - id: "memory-crud-skills"
     en_title: ""
