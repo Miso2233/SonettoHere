@@ -195,83 +195,73 @@ async def _run_agent_turn(
             )
 
 
+def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | None:
+    """WebSocket 重连时，若会话有未完成的 sub-agent 任务则自动恢复执行。"""
+    if session._sub_agent_task is None or session._pending_result is None:
+        return None
+    if session._pending_result.done():
+        return None
+    task = session._sub_agent_task
+    session._sub_agent_task = None  # 消费掉，防止重连后重复启动
+    interaction.current_ws.set(ws)
+    agent_task = asyncio.create_task(
+        _run_agent_turn(ws, session, task, private_mode=False)
+    )
+    session._active_task = agent_task
+    return agent_task
+
+
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str):
+    """WebSocket 聊天端点 — 接收用户消息、驱动 Agent、处理取消和用户交互。"""
     await ws.accept()
 
+    # ── 初始化会话 ────────────────────────────────────────
     app_state = ws.app.state
-    sm = app_state.session_manager
-    session = sm.get_or_create(session_id)  # 建立或取得会话
+    session = app_state.session_manager.get_or_create(session_id)
 
-    # 连接建立后立即推送初始上下文用量
-    settings = get_settings()
-    try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        existing_messages = cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
-    except Exception:
-        existing_messages = []
-    initial_usage = estimate_context_usage(
-        messages=existing_messages,
-        system_prompt=app_state.system_prompt,
-        max_tokens=settings.model_context_window,
-        model_name=settings.model_name,
-    )
+    # ── 推送初始上下文用量 ─────────────────────────────────
+    initial_usage = await _calculate_context_usage(session, app_state.system_prompt)
     await ws.send_json({"type": "context_usage", "payload": initial_usage})
 
-    agent_task: asyncio.Task | None = None  # 局部变量 用于存储当前正在执行的 Agent Task
+    # ── 断线重连时恢复 sub-agent ──────────────────────────
+    agent_task = _resume_sub_agent(ws, session)
 
-    # ── Sub-agent 自动启动 ────────────────────────────────
-    if session._sub_agent_task is not None and session._pending_result is not None:
-        print(f"[ws:{session_id[:8]}] sub-agent detected, auto-starting", file=sys.stderr)
-        if session._pending_result.done():
-            print(f"[ws:{session_id[:8]}] pending_result already done, skipping", file=sys.stderr)
-            pass
-        else:
-            task = session._sub_agent_task
-            session._sub_agent_task = None  # 消费掉，防止重连后重复启动
-            interaction.current_ws.set(ws)
-            agent_task = asyncio.create_task(
-                _run_agent_turn(ws, session, task, private_mode=False)
-            )
-            session._active_task = agent_task
-            print(f"[ws:{session_id[:8]}] sub-agent task created", file=sys.stderr)
-
+    # ── 消息主循环 ────────────────────────────────────────
     try:
         while True:
             raw = await ws.receive_text()
             msg = json.loads(raw)
-            msg_type = msg.get("type", "")
 
-            match msg_type:
+            match msg.get("type", ""):
                 case "ping":
                     await ws.send_json({"type": "pong", "payload": {}})
 
                 case "chat":
                     if agent_task and not agent_task.done():
-                        continue  # 已有 Agent 运行中，忽略此次输入
+                        continue  # 已有 Agent 运行中，忽略本次输入
 
                     payload = msg["payload"]
                     user_message = payload["message"].strip()
                     if not user_message:
                         continue
 
-                    private_mode = payload.get("private", False)
-                    provider_id = payload.get("provider_id")
-                    model_name = payload.get("model_name")
-
-                    # 设置当前连接的上下文变量，供工具函数使用
-                    interaction.current_ws.set(ws)
+                    interaction.current_ws.set(ws)  # 供工具函数通过 WebSocket 推送交互
 
                     agent_task = asyncio.create_task(
-                        _run_agent_turn(ws, session, user_message, private_mode, provider_id, model_name)
+                        _run_agent_turn(
+                            ws, session, user_message,
+                            private_mode=payload.get("private", False),
+                            provider_id=payload.get("provider_id"),
+                            model_name=payload.get("model_name"),
+                        )
                     )
-                    session._active_task = agent_task  # 立即写入，消除竞争窗口 会话状态 供外部读取 典型用法为绿色黄色呼吸灯
+                    session._active_task = agent_task  # 供外部 REST 接口查询活跃状态
 
                 case "user_response":
-                    interaction_id = msg["payload"].get("interaction_id", "")
-                    response = msg["payload"].get("response", "")
+                    payload = msg.get("payload", {})
+                    interaction_id = payload.get("interaction_id", "")
+                    response = payload.get("response", "")
                     if interaction_id:
                         interaction.resolve(interaction_id, response)
 
@@ -281,7 +271,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                         agent_task = None
 
     except WebSocketDisconnect:
-        pass
+        pass  # 客户端断开是正常行为
     finally:
         if agent_task and not agent_task.done():
             agent_task.cancel()
