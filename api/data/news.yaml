@@ -7,7 +7,7 @@ news:
     date: "2026-05-30"
     tags: ["记忆", "技能", "前端"]
     version: "PREVIEW"
-    pr_number:
+    pr_number: 77
 
   - id: "provider-ui"
     en_title: "Provider Manager"
