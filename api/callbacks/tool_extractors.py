@@ -265,6 +265,71 @@ def _extract_file_operations(
     return None
 
 
+# ── 文件精确编辑 ────────────────────────────────────────────────────────
+
+@register("file_edit")
+def _extract_file_edit(
+    _tool_name: str, parsed: dict[str, Any], tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """按 operation 返回不同字段：edit → old/new/replaced_count；read → lines；search → matches。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+
+    operation = ""
+    if tool_input:
+        try:
+            input_parsed = ast.literal_eval(tool_input)
+        except (ValueError, SyntaxError, TypeError):
+            pass
+        else:
+            if isinstance(input_parsed, dict):
+                operation = str(input_parsed.get("operation", "") or "")
+
+    if operation == "edit":
+        return {
+            "operation": "edit",
+            "file_path": data.get("file_path", ""),
+            "replaced_count": data.get("replaced_count", 0),
+            "replace_all": data.get("replace_all", False),
+            "message": data.get("message", ""),
+        }
+
+    if operation == "read":
+        lines = data.get("lines", [])
+        return {
+            "operation": "read",
+            "file_path": data.get("file_path", ""),
+            "total_lines": data.get("total_lines", 0),
+            "offset": data.get("offset", 0),
+            "content": data.get("content", ""),
+            "line_count": len(lines),
+        }
+
+    if operation == "multi_edit":
+        results = data.get("results", [])
+        return {
+            "operation": "multi_edit",
+            "file_path": data.get("file_path", ""),
+            "total_edits": data.get("total_edits", 0),
+            "success_count": data.get("success_count", 0),
+            "failed_count": data.get("failed_count", 0),
+            "results": results,
+        }
+
+    if operation == "search":
+        matches = data.get("matches", [])
+        return {
+            "operation": "search",
+            "file_path": data.get("file_path", ""),
+            "pattern": data.get("pattern", ""),
+            "total_matches": data.get("total_matches", 0),
+            "matches": matches,
+        }
+
+    return None
+
+
 # ── 塔罗占卜 ───────────────────────────────────────────────────────────
 
 @register("tarot")

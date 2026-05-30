@@ -1,4 +1,14 @@
 news:
+  - id: "file-edit-tool"
+    en_title: ""
+    title: "文件精确编辑工具上线"
+    description: "新增文件精确编辑 Skill（file_edit），支持精确字符串替换、多笔顺序编辑、按行号读取和正则搜索。配有专属前端气泡组件，展示替换结果、代码行号视图和匹配列表。"
+    type: "feat"
+    date: "2026-05-30"
+    tags: ["技能", "文件", "前端"]
+    version: "PREVIEW"
+    pr_number:
+
   - id: "memory-crud-skills"
     en_title: ""
     title: "记忆管理工具上线"
