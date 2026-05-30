@@ -9,8 +9,8 @@ const router = createRouter({
     { path: '/memory', name: 'memory', component: MemoryView },
     {
       path: '/playground',
-      name: 'playground',
-      component: () => import('@/views/PlaygroundView.vue'),
+      name: 'news',
+      component: () => import('@/views/NewsView.vue'),
     },
     {
       path: '/providers',

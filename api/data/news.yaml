@@ -1,0 +1,100 @@
+news:
+  - id: "provider-ui"
+    en_title: "Provider Manager"
+    title: "提供商管理页面上线"
+    description: "提供商管理页面（/providers）现已上线。支持提供商列表的卡片式展示，以及新增、编辑、删除、连接测试和模型列表拉取等操作。告别 .env 手动配置，体验更直观的管理方式。"
+    type: "feat"
+    date: "2026-05-25"
+    tags: ["前端", "提供商", "UI"]
+    version: "v1.2.0"
+    pr_number: 69
+
+  - id: "sub-agent-ping"
+    en_title: "Agent Health Check"
+    title: "子 Agent ping-pong 状态检测优化"
+    description: "优化了子 Agent 的状态检测机制。通过 ping-pong 测试确认子 Agent 的响应状态，显著增强子会话的可靠性监控，有效减少假死会话的残留问题。"
+    type: "fix"
+    date: "2026-05-23"
+    tags: ["Agent", "修复", "稳定性"]
+    version: "v1.2.0"
+    pr_number: 74
+
+  - id: "memory-moment"
+    en_title: "Memory Moments"
+    title: "记忆系统优化与 Moment 功能"
+    description: "新增 Moment 功能，用于展示最具代表性的记忆条目。同时优化了 LongTermMemoryInterface 长期记忆接口，支持记忆的创建、更新、合并去重，并增强了叙事（Narrative）生成能力。"
+    type: "enhance"
+    date: "2026-05-20"
+    tags: ["记忆", "Moment", "优化"]
+    version: "v1.0.0"
+    pr_number: 50
+
+  - id: "v1.2.0-release"
+    en_title: "v1.2.0 Release"
+    title: "发布 v1.2.0 版本"
+    description: "我们正式发布 v1.2.0 版本。该版本聚合了湾区计划、万花筒计划、Anthropic Skills、MCP 工具桥接、子 Agent 系统、记忆 Moment 以及 UI 重新设计等重大特性，带来更强大的功能与更流畅的体验。"
+    type: "feat"
+    date: "2026-05-18"
+    tags: ["发布", "版本"]
+    version: "v1.2.0"
+    pr_number: 75
+
+  - id: "ui-redesign"
+    en_title: "UI Redesign"
+    title: "前端 UI 重新设计：黑白风格"
+    description: "前端 UI 迎来简洁的黑白风格重新设计。包括全新的侧边栏、卡片布局和导航系统。新增可折叠侧边栏（折叠后宽度 58px）、Health Panel 系统状态面板以及打字机（Typewriter）效果的欢迎动画。"
+    type: "refactor"
+    date: "2026-05-15"
+    tags: ["前端", "UI", "设计"]
+    version: "v1.1.0"
+    pr_number: 56
+
+  - id: "mcp-tools"
+    en_title: "MCP Bridge"
+    title: "集成 MCP 工具桥接"
+    description: "实现了 MCP（Model Context Protocol）客户端桥接，支持通过 MCP 协议连接外部工具服务。现已提供 Word 文档编辑能力（包括创建、编辑、格式转换、批注等）。MCP 工具在应用启动时通过 init_mcp_tools() 加载，并在关闭时通过 close_mcp() 自动清理。"
+    type: "feat"
+    date: "2026-05-12"
+    tags: ["MCP", "工具桥接", "集成"]
+    version: "v1.1.0"
+    pr_number: 53
+
+  - id: "sub-agent-events"
+    en_title: "Sub-agent Lifecycle"
+    title: "子 Agent 事件处理与状态监控"
+    description: "实现了子 Agent（Sub-agent）的完整生命周期管理。支持 call_sub_agent 工具调用、sub_session_created 事件推送，以及子会话的创建与监控。"
+    type: "enhance"
+    date: "2026-05-10"
+    tags: ["Agent", "会话管理", "事件系统"]
+    version: "v1.1.0"
+    pr_number: 60
+
+  - id: "anthropic-skills"
+    en_title: "Anthropic Skills"
+    title: "集成 Anthropic Skills 系统"
+    description: "引入了基于 SKILL.md 说明书机制的 Skill 工具库体系。每个 Skill 继承自 SkillBase（继承 LangChain 的 BaseTool），并通过 get_all_skills() 注册到 create_react_agent。首批技能包括前端计数器、目录扫描、网页注入检测等。"
+    type: "feat"
+    date: "2026-05-08"
+    tags: ["技能", "Anthropic", "LangChain"]
+    version: "v1.2.0"
+    pr_number: 73
+
+  - id: "bay-project"
+    en_title: "Project Bay"
+    title: "湾区计划：多 LLM 提供商支持"
+    description: "湾区计划（Project Bay）实现了多 LLM 提供商支持方案。采用 Provider Adapter 模式适配不同 API，结合 YAML 与环境变量回退的配置存储方式，支持按会话绑定不同提供商。首次启动时自动从 .env 生成 providers.yaml。"
+    type: "feat"
+    date: "2026-05-05"
+    tags: ["后端", "提供商", "架构"]
+    version: "v1.2.0"
+    pr_number: 69
+
+  - id: "kaleidoscope-initial"
+    en_title: "Project Kaleidoscope"
+    title: "森罗计划上线：工具气泡系统"
+    description: "森罗计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。谨以此命名向知名 Minecraft 模组 Kaleidoscope 森罗物语系列致敬。"
+    type: "feat"
+    date: "2026-05-01"
+    tags: ["前端", "工具系统", "气泡组件"]
+    version: "v1.0.0"
+    pr_number: 21
