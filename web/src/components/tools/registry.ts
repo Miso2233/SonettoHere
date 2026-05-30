@@ -4,6 +4,7 @@ import TodoBubble from './TodoBubble.vue'
 import TaskTrackerBubble from './TaskTrackerBubble.vue'
 import PythonBubble from './PythonBubble.vue'
 import FilesBubble from './FilesBubble.vue'
+import FileEditBubble from './FileEditBubble.vue'
 import TarotBubble from './TarotBubble.vue'
 import AnswerBookBubble from './AnswerBookBubble.vue'
 import MapBubble from './MapBubble.vue'
@@ -41,6 +42,7 @@ const registry: Record<string, Component> = {
   'file_write': FilesBubble,
   'file_list': FilesBubble,
   'file_operations': FilesBubble,
+  'file_edit': FileEditBubble,
   'tarot': TarotBubble,
   'answer_book': AnswerBookBubble,
   'nearby_search': MapBubble,

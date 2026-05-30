@@ -49,6 +49,7 @@ def get_all_skills() -> list[BaseTool]:
 
     # Files
     from skills.files.skill_file_ops import FileOperationsSkill
+    from skills.files.skill_file_edit import FileEditSkill
     from skills.files.skill_pdf_reader import PDFReaderSkill
     from skills.files.skill_doc_reader import DocReaderSkill
 
@@ -111,6 +112,7 @@ def get_all_skills() -> list[BaseTool]:
         ImageUnderstandSkill(client=client),
         # Files
         FileOperationsSkill(client=client),
+        FileEditSkill(client=client),
         PDFReaderSkill(client=client),
         DocReaderSkill(client=client),
         # Development
