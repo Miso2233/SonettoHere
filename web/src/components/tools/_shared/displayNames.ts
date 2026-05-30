@@ -55,6 +55,13 @@ const DISPLAY_NAMES: Record<string, string> = {
   ask_user_single_choice: '请选择',
   ask_user_multi_choice: '多选',
   task_tracker: '任务追踪',
+
+  /* Memory */
+  read_memories: '读取记忆',
+  create_memory: '创建记忆',
+  update_memory: '更新记忆',
+  delete_memory: '删除记忆',
+  merge_memories: '合并记忆',
 }
 
 // ── Word MCP 工具独立显示名 ──

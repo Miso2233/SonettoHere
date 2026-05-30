@@ -1,0 +1,51 @@
+"""Skill: update_memory — 更新已有记忆条目。"""
+
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+
+from skills.base import SkillBase, format_error, format_success
+
+
+class UpdateMemoryInput(BaseModel):
+    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
+    id: str = Field(default="", description="要更新的记忆 ID（来自 read_memories 的输出）")
+    content: str = Field(default="", description="更新后的完整记忆内容")
+    reason: str = Field(default="", description="修改原因，说明为什么要更新这条记忆")
+
+
+MEMORY_PATH = Path(__file__).resolve().parent.parent.parent / "config" / "personas" / "memory.yaml"
+
+
+class UpdateMemorySkill(SkillBase):
+    name: str = "update_memory"
+    description: str = (
+        "根据 ID 更新一条已有长期记忆的内容。"
+        "★ 首次使用先 get_doc=true 阅读完整说明。"
+    )
+    args_schema: type[BaseModel] = UpdateMemoryInput
+
+    def _run(self, get_doc: bool = False, id: str = "", content: str = "", reason: str = "") -> str:
+        if get_doc:
+            return self._load_doc()
+
+        if not id:
+            return format_error("id 不能为空，请提供要更新的记忆 ID")
+        if not content:
+            return format_error("content 不能为空，请提供更新后的内容")
+        if not reason:
+            return format_error("reason 不能为空，请说明更新原因")
+
+        from memory.memory_manager import MemoryManager
+
+        mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+        try:
+            mm.update(id, reason=reason, new_description=content)
+        except ValueError:
+            return format_error(f"未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。")
+        return format_success({
+            "id": id,
+            "content": content,
+            "reason": reason,
+            "message": f"已更新 [{id}]: {content}",
+        })

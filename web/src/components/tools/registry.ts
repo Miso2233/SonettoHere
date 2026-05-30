@@ -22,6 +22,7 @@ import DebuggerBubble from './DebuggerBubble.vue'
 import ScraperBubble from './ScraperBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
 import WordBubble from './WordBubble.vue'
+import MemoryBubble from './MemoryBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -64,6 +65,13 @@ const registry: Record<string, Component> = {
   'ask_user_qa': AskUserBubble,
   'ask_user_single_choice': AskUserBubble,
   'ask_user_multi_choice': AskUserBubble,
+
+  /* Memory */
+  'read_memories': MemoryBubble,
+  'create_memory': MemoryBubble,
+  'update_memory': MemoryBubble,
+  'delete_memory': MemoryBubble,
+  'merge_memories': MemoryBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {
