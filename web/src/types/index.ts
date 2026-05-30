@@ -287,7 +287,7 @@ export interface NewsEntry {
   type: string
   date: string
   tags: string[]
-  version: string | null
+  version: string
   pr_number: number | null
 }
 

@@ -106,29 +106,32 @@ const formattedDate = computed(() => {
   border-radius: 100px;
   flex-shrink: 0;
   white-space: nowrap;
+  background: #f3f4f6;
+  color: #9ca3af;
+  transition: background 0.2s, color 0.2s;
 }
 
-.card-type-badge.type-feat {
+.news-card:hover .card-type-badge.type-feat {
   background: #dcfce7;
   color: #166534;
 }
 
-.card-type-badge.type-enhance {
+.news-card:hover .card-type-badge.type-enhance {
   background: #dbeafe;
   color: #1e40af;
 }
 
-.card-type-badge.type-fix {
+.news-card:hover .card-type-badge.type-fix {
   background: #fef3c7;
   color: #92400e;
 }
 
-.card-type-badge.type-refactor {
+.news-card:hover .card-type-badge.type-refactor {
   background: #f3e8ff;
   color: #6b21a8;
 }
 
-.card-type-badge.type-docs {
+.news-card:hover .card-type-badge.type-docs {
   background: #f3f4f6;
   color: #6b7280;
 }

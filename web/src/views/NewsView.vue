@@ -6,15 +6,29 @@
       <span class="news-count" v-if="!loading">共 {{ news.length }} 条更新</span>
     </div>
 
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading">加载中...</div>
+    <div class="news-body">
+      <!-- 卡片列表 -->
+      <div class="news-content">
+        <div v-if="loading" class="loading">加载中...</div>
+        <div v-else-if="news.length === 0" class="empty">暂无更新动态</div>
+        <div v-else class="card-grid" ref="cardGridRef">
+          <NewsCard v-for="entry in news" :key="entry.id" :entry="entry" />
+        </div>
+      </div>
 
-    <!-- 空状态 -->
-    <div v-else-if="news.length === 0" class="empty">暂无更新动态</div>
-
-    <!-- 卡片网格 -->
-    <div v-else class="card-grid">
-      <NewsCard v-for="entry in news" :key="entry.id" :entry="entry" />
+      <!-- 版本演进时间轴 -->
+      <div v-if="versionNodes.length > 0" class="version-timeline" :style="tlBounds">
+        <div class="tl-track"></div>
+        <div
+          v-for="node in versionNodes"
+          :key="node.version"
+          class="tl-node"
+          :style="{ top: node.top + '%' }"
+        >
+          <div class="tl-dot"></div>
+          <span class="tl-label">{{ node.version }}</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -23,16 +37,42 @@
 import { api } from '@/api'
 import type { NewsEntry } from '@/types'
 import NewsCard from '@/components/NewsCard.vue'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const news = ref<NewsEntry[]>([])
 const loading = ref(false)
+const cardGridRef = ref<HTMLElement | null>(null)
+const tlBounds = ref<{ top: string; height: string }>()
+
+let observer: ResizeObserver | null = null
+
+function updateTimelineBounds() {
+  const grid = cardGridRef.value
+  const body = grid?.closest<HTMLElement>('.news-body')
+  if (!body || !grid) return
+
+  const cards = grid.querySelectorAll<HTMLElement>('.news-card')
+  if (cards.length < 2) return
+
+  const bodyRect = body.getBoundingClientRect()
+  const firstRect = cards[0].getBoundingClientRect()
+  const lastRect = cards[cards.length - 1].getBoundingClientRect()
+
+  const top = firstRect.top + firstRect.height / 2 - bodyRect.top
+  const bottom = lastRect.top + lastRect.height / 2 - bodyRect.top
+
+  tlBounds.value = {
+    top: top + 'px',
+    height: (bottom - top) + 'px',
+  }
+}
 
 async function loadNews() {
   loading.value = true
   try {
     const res = await api.listNews()
-    news.value = res.news
+    news.value = res.news.sort((a, b) => b.date.localeCompare(a.date))
+    requestAnimationFrame(updateTimelineBounds)
   } catch (e: any) {
     console.error('加载更新动态失败', e)
   } finally {
@@ -40,21 +80,49 @@ async function loadNews() {
   }
 }
 
-onMounted(loadNews)
+onMounted(() => {
+  loadNews()
+  observer = new ResizeObserver(updateTimelineBounds)
+  observer.observe(document.querySelector('.news-view')!)
+})
+
+onUnmounted(() => {
+  observer?.disconnect()
+})
+
+const versionNodes = computed(() => {
+  const entries = news.value
+  if (entries.length === 0) return []
+
+  const seen = new Set<string>()
+  const nodes: { version: string; top: number }[] = []
+
+  entries.forEach((entry, idx) => {
+    if (!seen.has(entry.version)) {
+      seen.add(entry.version)
+      nodes.push({
+        version: entry.version,
+        top: entries.length > 1 ? (idx / (entries.length - 1)) * 100 : 50,
+      })
+    }
+  })
+
+  return nodes
+})
 </script>
 
 <style scoped>
 .news-view {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 40px 48px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 }
 
 .header h2 {
@@ -67,6 +135,14 @@ onMounted(loadNews)
   color: var(--text-secondary);
 }
 
+.news-body {
+  position: relative;
+}
+
+.news-content {
+  max-width: 720px;
+}
+
 .loading,
 .empty {
   text-align: center;
@@ -75,8 +151,56 @@ onMounted(loadNews)
 }
 
 .card-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── 版本时间轴 ── */
+
+.version-timeline {
+  position: absolute;
+  left: calc(50% + 360px);
+  transform: translateX(-50%);
+  width: 80px;
+  pointer-events: none;
+}
+
+.tl-track {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  transform: translateX(-50%);
+}
+
+.tl-node {
+  position: absolute;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transform: translateY(-50%);
+}
+
+.tl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-primary);
+  flex-shrink: 0;
+  position: relative;
+  left: -4px;
+}
+
+.tl-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Consolas', monospace;
+  white-space: nowrap;
+  padding-left: 12px;
 }
 </style>

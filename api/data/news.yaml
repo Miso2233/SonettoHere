@@ -6,7 +6,7 @@ news:
     type: "feat"
     date: "2026-05-25"
     tags: ["前端", "提供商", "UI"]
-    version: null
+    version: "v1.2.0"
     pr_number: null
 
   - id: "sub-agent-ping"
@@ -16,7 +16,7 @@ news:
     type: "fix"
     date: "2026-05-23"
     tags: ["Agent", "修复", "稳定性"]
-    version: null
+    version: "v1.2.0"
     pr_number: null
 
   - id: "memory-moment"

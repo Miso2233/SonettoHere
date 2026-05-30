@@ -20,7 +20,7 @@ class NewsEntry(BaseModel):
     type: str
     date: str
     tags: list[str] = []
-    version: str | None = None
+    version: str
     pr_number: int | None = None
 
 
