@@ -8,6 +8,7 @@ import type {
   DeepSeekBalanceResponse,
   HealthResponse,
   ListProvidersResponse,
+  ListNewsResponse,
   ProviderConfig,
   TestConnectionResponse,
   DiscoverModelsResponse,
@@ -103,4 +104,9 @@ export const api = {
     request<TestConnectionResponse>(`/providers/${id}/test`, {
       method: 'POST',
     }),
+
+  // ── News ──
+
+  listNews: () =>
+    request<ListNewsResponse>('/news'),
 }

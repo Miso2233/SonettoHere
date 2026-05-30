@@ -17,7 +17,7 @@
         <router-link to="/providers" class="nav-item">
           <Icon name="model" :size="18" /> <span class="nav-label">模型&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MODELS</span>
         </router-link>
-        <router-link to="/playground" class="nav-item pg-nav">Playground</router-link>
+        <router-link to="/playground" class="nav-item pg-nav">动态 NEWS</router-link>
       </nav>
       <SessionSidebar
         :sessions="sessions"
