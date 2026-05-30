@@ -90,9 +90,9 @@ news:
     pr_number: 69
 
   - id: "kaleidoscope-initial"
-    en_title: "Tool Bubbles"
-    title: "万花筒计划上线：工具气泡系统"
-    description: "万花筒计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。"
+    en_title: "Project Kaleidoscope"
+    title: "森罗计划上线：工具气泡系统"
+    description: "森罗计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。谨以此命名向知名 Minecraft 模组 Kaleidoscope 森罗物语系列致敬。"
     type: "feat"
     date: "2026-05-01"
     tags: ["前端", "工具系统", "气泡组件"]
