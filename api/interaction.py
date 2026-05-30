@@ -29,7 +29,7 @@ def consume_future(interaction_id: str) -> asyncio.Future | None:
 
 
 def resolve(interaction_id: str, response) -> bool:
-    """用用户响应结果唤醒挂起的 Future。返回是否成功唤醒。"""
+    """用用户响应结果唤醒并解决挂起的 Future。返回是否成功。"""
     future = _pending.get(interaction_id)
     if not future:
         return False
