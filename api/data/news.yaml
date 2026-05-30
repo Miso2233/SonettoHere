@@ -7,7 +7,7 @@ news:
     date: "2026-05-25"
     tags: ["前端", "提供商", "UI"]
     version: "v1.2.0"
-    pr_number: null
+    pr_number: 69
 
   - id: "sub-agent-ping"
     en_title: "Agent Health Check"
@@ -17,7 +17,7 @@ news:
     date: "2026-05-23"
     tags: ["Agent", "修复", "稳定性"]
     version: "v1.2.0"
-    pr_number: null
+    pr_number: 74
 
   - id: "memory-moment"
     en_title: "Memory Moments"
@@ -26,8 +26,8 @@ news:
     type: "enhance"
     date: "2026-05-20"
     tags: ["记忆", "Moment", "优化"]
-    version: "v1.2.0"
-    pr_number: null
+    version: "v1.0.0"
+    pr_number: 50
 
   - id: "v1.2.0-release"
     en_title: "v1.2.0 Release"
@@ -37,7 +37,7 @@ news:
     date: "2026-05-18"
     tags: ["发布", "版本"]
     version: "v1.2.0"
-    pr_number: null
+    pr_number: 75
 
   - id: "ui-redesign"
     en_title: "UI Redesign"
@@ -46,8 +46,8 @@ news:
     type: "refactor"
     date: "2026-05-15"
     tags: ["前端", "UI", "设计"]
-    version: "v1.2.0"
-    pr_number: null
+    version: "v1.1.0"
+    pr_number: 56
 
   - id: "mcp-tools"
     en_title: "MCP Bridge"
@@ -56,8 +56,8 @@ news:
     type: "feat"
     date: "2026-05-12"
     tags: ["MCP", "工具桥接", "集成"]
-    version: "v1.2.0"
-    pr_number: null
+    version: "v1.1.0"
+    pr_number: 53
 
   - id: "sub-agent-events"
     en_title: "Sub-agent Lifecycle"
@@ -66,8 +66,8 @@ news:
     type: "enhance"
     date: "2026-05-10"
     tags: ["Agent", "会话管理", "事件系统"]
-    version: "v1.2.0"
-    pr_number: null
+    version: "v1.1.0"
+    pr_number: 60
 
   - id: "anthropic-skills"
     en_title: "Anthropic Skills"
@@ -77,7 +77,7 @@ news:
     date: "2026-05-08"
     tags: ["技能", "Anthropic", "LangChain"]
     version: "v1.2.0"
-    pr_number: null
+    pr_number: 73
 
   - id: "bay-project"
     en_title: "Project Bay"
@@ -87,7 +87,7 @@ news:
     date: "2026-05-05"
     tags: ["后端", "提供商", "架构"]
     version: "v1.2.0"
-    pr_number: null
+    pr_number: 69
 
   - id: "kaleidoscope-initial"
     en_title: "Tool Bubbles"
@@ -96,5 +96,5 @@ news:
     type: "feat"
     date: "2026-05-01"
     tags: ["前端", "工具系统", "气泡组件"]
-    version: "v1.1.0"
-    pr_number: null
+    version: "v1.0.0"
+    pr_number: 21

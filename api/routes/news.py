@@ -21,7 +21,7 @@ class NewsEntry(BaseModel):
     date: str
     tags: list[str] = []
     version: str
-    pr_number: int | None = None
+    pr_number: int
 
 
 class ListNewsResponse(BaseModel):

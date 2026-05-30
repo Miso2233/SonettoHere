@@ -22,9 +22,9 @@
       <span v-for="tag in entry.tags" :key="tag" class="model-tag">{{ tag }}</span>
     </div>
 
-    <!-- 底部：日期 -->
+    <!-- 底部：PR -->
     <div class="news-footer">
-      <span class="news-date">{{ formattedDate }}</span>
+      <span class="news-pr">#{{ entry.pr_number }}</span>
     </div>
   </div>
 </template>
@@ -49,11 +49,6 @@ const paragraphs = computed(() => {
   const text = props.entry.description
   // 按句号分割，过滤空串，每句补回句号
   return text.split('。').filter(s => s.trim()).map(s => s.trim() + '。')
-})
-
-const formattedDate = computed(() => {
-  const d = new Date(props.entry.date)
-  return d.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
 })
 </script>
 
@@ -181,8 +176,10 @@ const formattedDate = computed(() => {
   gap: 8px;
 }
 
-.news-date {
+.news-pr {
   font-size: 12px;
-  color: #9ca3af;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Consolas', monospace;
 }
 </style>

@@ -71,7 +71,7 @@ async function loadNews() {
   loading.value = true
   try {
     const res = await api.listNews()
-    news.value = res.news.sort((a, b) => b.date.localeCompare(a.date))
+    news.value = res.news.sort((a, b) => b.pr_number - a.pr_number)
     requestAnimationFrame(updateTimelineBounds)
   } catch (e: any) {
     console.error('加载更新动态失败', e)

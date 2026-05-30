@@ -288,7 +288,7 @@ export interface NewsEntry {
   date: string
   tags: string[]
   version: string
-  pr_number: number | null
+  pr_number: number
 }
 
 export interface ListNewsResponse {
