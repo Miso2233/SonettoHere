@@ -1,4 +1,14 @@
 news:
+  - id: "memory-crud-skills"
+    en_title: ""
+    title: "记忆管理工具上线"
+    description: "记忆 CRUD 操作变为主 Agent 可直接调用的独立 Skill，并配专属前端气泡组件。主 Agent 现在能自主读取、创建、更新和删除长期记忆，支持按主题分区管理。"
+    type: "feat"
+    date: "2026-05-30"
+    tags: ["记忆", "技能", "前端"]
+    version: "PREVIEW"
+    pr_number: 77
+
   - id: "provider-ui"
     en_title: "Provider Manager"
     title: "提供商管理页面上线"
@@ -32,7 +42,7 @@ news:
   - id: "v1.2.0-release"
     en_title: "v1.2.0 Release"
     title: "发布 v1.2.0 版本"
-    description: "我们正式发布 v1.2.0 版本。该版本聚合了湾区计划、万花筒计划、Anthropic Skills、MCP 工具桥接、子 Agent 系统、记忆 Moment 以及 UI 重新设计等重大特性，带来更强大的功能与更流畅的体验。"
+    description: "我们正式发布 v1.2.0 版本。该版本聚合了湾区计划、森罗计划、Anthropic Skills、MCP 工具桥接、子 Agent 系统、记忆 Moment 以及 UI 重新设计等重大特性，带来更强大的功能与更流畅的体验。"
     type: "feat"
     date: "2026-05-18"
     tags: ["发布", "版本"]

@@ -77,6 +77,13 @@ def get_all_skills() -> list[BaseTool]:
     from skills.bilibili.skill_download import BilibiliDownloadSkill
     from skills.bilibili.skill_set_cookie import BilibiliSetCookieSkill
 
+    # Memory
+    from skills.memory.skill_read_memories import ReadMemoriesSkill
+    from skills.memory.skill_create_memory import CreateMemorySkill
+    from skills.memory.skill_update_memory import UpdateMemorySkill
+    from skills.memory.skill_delete_memory import DeleteMemorySkill
+    from skills.memory.skill_merge_memories import MergeMemoriesSkill
+
     return [
         # System
         TimeSkill(client=client),
@@ -125,4 +132,10 @@ def get_all_skills() -> list[BaseTool]:
         # Bilibili
         BilibiliSetCookieSkill(client=client),
         BilibiliDownloadSkill(client=client),
+        # Memory
+        ReadMemoriesSkill(client=client),
+        CreateMemorySkill(client=client),
+        UpdateMemorySkill(client=client),
+        DeleteMemorySkill(client=client),
+        MergeMemoriesSkill(client=client),
     ]

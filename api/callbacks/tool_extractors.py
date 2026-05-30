@@ -961,6 +961,45 @@ def _extract_scrape(
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# 记忆 CRUD 工具系列
+# ═══════════════════════════════════════════════════════════════════════
+
+
+@register("read_memories")
+def _extract_read_memories(
+    _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 items（列表），count。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    result: dict[str, Any] = {}
+    items = data.get("items")
+    if isinstance(items, list):
+        result["items"] = items
+        result["count"] = len(items)
+    return result if result else None
+
+
+@register("create_memory")
+@register("update_memory")
+@register("delete_memory")
+@register("merge_memories")
+def _extract_memory_generic(
+    tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 id / kept_id / removed_id, content, section, message。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    result: dict[str, Any] = {}
+    for field in ("id", "kept_id", "removed_id", "content", "section", "message", "reason"):
+        if field in data:
+            result[field] = data[field]
+    return result if result else None
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Word MCP 工具系列（word_* 前缀）
 # ═══════════════════════════════════════════════════════════════════════
 
