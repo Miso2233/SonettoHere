@@ -31,7 +31,11 @@
       <HealthPanel :health="health!" v-if="health" />
     </aside>
     <main class="main">
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" :key="$route.path" />
+        </Transition>
+      </router-view>
     </main>
   </div>
 </template>
@@ -291,6 +295,20 @@ html, body {
   overflow: hidden;
   padding: 0;
   margin: 0;
+}
+
+/* ── Page transition ── */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
 }
 
 /* ── Shared markdown rendered content ── */
