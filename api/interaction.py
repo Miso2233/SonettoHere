@@ -23,7 +23,7 @@ def register() -> str:
     return interaction_id
 
 
-def consume_future(interaction_id: str) -> asyncio.Future | None:
+def get_future(interaction_id: str) -> asyncio.Future | None:
     """取出 Future 引用，调用者负责 await。不弹出条目，留给 resolve/cleanup 清理。"""
     return _pending.get(interaction_id)
 

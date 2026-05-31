@@ -45,7 +45,7 @@ class AskUserQASkill(SkillBase):
             },
         })
 
-        future = interaction.consume_future(interaction_id)
+        future = interaction.get_future(interaction_id)
         try:
             answer = await future
             return format_success({"question": question, "answer": answer})
