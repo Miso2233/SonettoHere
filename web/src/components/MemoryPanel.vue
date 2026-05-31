@@ -2,21 +2,12 @@
   <div class="memory-panel">
     <MomentCard />
 
-    <div class="memory-header">
-      <h2>记忆分区</h2>
-      <button class="btn-refresh" @click="refresh" :disabled="loading">
-        {{ loading ? '刷新中……' : '刷新' }}
-      </button>
-    </div>
-
     <!-- Vignette 瀑布流（默认启用） -->
     <template v-if="useVignette">
       <!-- 骨架屏：加载中且无数据 -->
       <div v-if="loading && sections.length === 0" class="skeleton-container">
         <div v-for="i in 3" :key="i" class="skeleton-card">
-          <div class="skeleton-header"></div>
-          <div class="skeleton-row"></div>
-          <div class="skeleton-row"></div>
+          <div class="skeleton-pulse"></div>
         </div>
       </div>
 
@@ -97,40 +88,12 @@ onMounted(() => refresh())
   margin: 0 auto;
 }
 
-/* ── 头部 ── */
-.memory-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 24px;
-  margin-bottom: 16px;
-}
-.memory-header h2 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-.btn-refresh {
-  padding: 6px 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s;
-}
-.btn-refresh:hover:not(:disabled) {
-  background: var(--bg-secondary);
-}
-
 /* ── 瀑布流容器 ── */
 .sections-container {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 12px;
 }
 
 /* ── 骨架屏 ── */
@@ -140,36 +103,23 @@ onMounted(() => refresh())
   gap: 12px;
 }
 .skeleton-card {
-  height: 120px;
+  height: 80px;
   border-radius: var(--radius);
   background: var(--bg-card);
   border: 1px solid var(--border);
-  padding: 16px 20px;
+  padding: 20px;
 }
-.skeleton-header {
-  width: 40%;
-  height: 18px;
+.skeleton-pulse {
+  width: 60%;
+  height: 16px;
   background: var(--bg-secondary);
   border-radius: 4px;
-  margin-bottom: 16px;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-.skeleton-row {
-  width: 100%;
-  height: 14px;
-  background: var(--bg-secondary);
-  border-radius: 4px;
-  margin-bottom: 10px;
-  animation: shimmer 1.5s ease-in-out infinite;
-}
-.skeleton-row:last-child {
-  width: 70%;
+  animation: skeleton-fade 1.8s ease-in-out infinite;
 }
 
-@keyframes shimmer {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
+@keyframes skeleton-fade {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
 }
 
 /* ── 空态 / 加载占位（回退路径用） ── */

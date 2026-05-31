@@ -34,7 +34,7 @@
         :disabled="currentIndex === 0"
         @click="prev"
       >
-        ◀ 上一条
+        上一条
       </button>
       <span class="nav-position">{{ currentIndex + 1 }} / {{ items.length }}</span>
       <button
@@ -42,7 +42,7 @@
         :disabled="currentIndex === items.length - 1"
         @click="next"
       >
-        下一条 ▶
+        下一条
       </button>
     </div>
   </div>
@@ -87,10 +87,7 @@ function toggleHistory() {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  transition: box-shadow 0.2s;
-}
-.section-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow);
 }
 
 /* ── 分区头部 ── */
@@ -98,7 +95,8 @@ function toggleHistory() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 20px 24px 0;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
 }
 .section-title {
   flex: 1;
@@ -114,7 +112,7 @@ function toggleHistory() {
 
 /* ── 条目内容区 ── */
 .section-body {
-  padding: 24px 24px 20px;
+  padding: 20px;
 }
 .item-text {
   margin: 0;
@@ -178,30 +176,29 @@ function toggleHistory() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px 20px;
+  padding: 0 20px 20px;
 }
 .btn-nav {
-  padding: 6px 16px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 12px;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
 .btn-nav:hover:not(:disabled) {
   background: var(--bg-secondary);
   color: var(--text-primary);
-  border-color: var(--text-tertiary);
 }
 .btn-nav:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }
 .nav-position {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-tertiary);
 }
 </style>
