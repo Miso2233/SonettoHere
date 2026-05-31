@@ -25,7 +25,7 @@
         :session-statuses="allSessionStatuses"
         :collapsed="effectiveCollapsed"
         @create="createSession"
-        @switch="switchSession"
+        @switch="handleSwitchSession"
         @delete="deleteSession"
       />
       <HealthPanel :health="health!" v-if="health" />
@@ -45,6 +45,7 @@ import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
 import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 const { effectiveCollapsed, toggleSidebar } = useSidebar()
 
@@ -52,6 +53,13 @@ function onSidebarClick(e: MouseEvent) {
   if (e.target === e.currentTarget) {
     toggleSidebar()
   }
+}
+
+const router = useRouter()
+
+function handleSwitchSession(id: string) {
+  switchSession(id)
+  router.push('/')
 }
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
