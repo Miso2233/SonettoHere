@@ -1,31 +1,42 @@
 news:
+  - id: "v1.3.0-release"
+    en_title: "v1.3.0 Release"
+    title: "发布 v1.3.0 版本"
+    description: "v1.3.0 聚焦简化与打磨。移除 CLI 和 QQ Bot 入口，专注 Web UI 体验；新增文件精确编辑和记忆管理独立 Skill；侧栏点击会话可直接切换聊天；用户交互不再受超时限制；首页上线更新动态新闻页，版本发布信息一目了然。"
+    type: "feat"
+    date: "2026-05-31"
+    tags: ["发布", "版本"]
+    version: "v1.3.0"
+    pr_number: 85
+
   - id: "remove-cli-qqbot"
-    en_title: ""
+    en_title: "CLI & QQ Bot Removal"
     title: "移除 CLI 和 QQ Bot 支持"
     description: "移除了 cli.py 和 qqbot.py 两个客户端入口，项目现在仅通过 Web UI 提供对话界面。同时清理了 colorama 和 qq-botpy 依赖，简化项目结构和启动方式（直接 python main.py 即可）。"
     type: "refactor"
     date: "2026-05-31"
     tags: ["重构", "清理", "简化"]
-    version: ""
+    version: "v1.3.0"
     pr_number: 85
+
   - id: "file-edit-tool"
-    en_title: ""
+    en_title: "Precise File Editing"
     title: "文件精确编辑工具上线"
     description: "新增文件精确编辑 Skill（file_edit），支持精确字符串替换、多笔顺序编辑、按行号读取和正则搜索。配有专属前端气泡组件，展示替换结果、代码行号视图和匹配列表。"
     type: "feat"
     date: "2026-05-30"
     tags: ["技能", "文件", "前端"]
-    version: "PREVIEW"
+    version: "v1.3.0"
     pr_number: 79
 
   - id: "memory-crud-skills"
-    en_title: ""
+    en_title: "Memory Management Tools"
     title: "记忆管理工具上线"
     description: "记忆 CRUD 操作变为主 Agent 可直接调用的独立 Skill，并配专属前端气泡组件。主 Agent 现在能自主读取、创建、更新和删除长期记忆，支持按主题分区管理。"
     type: "feat"
     date: "2026-05-30"
     tags: ["记忆", "技能", "前端"]
-    version: "PREVIEW"
+    version: "v1.3.0"
     pr_number: 77
 
   - id: "provider-ui"
@@ -61,7 +72,7 @@ news:
   - id: "v1.2.0-release"
     en_title: "v1.2.0 Release"
     title: "发布 v1.2.0 版本"
-    description: "我们正式发布 v1.2.0 版本。该版本聚合了湾区计划、森罗计划、Anthropic Skills、MCP 工具桥接、子 Agent 系统、记忆 Moment 以及 UI 重新设计等重大特性，带来更强大的功能与更流畅的体验。"
+    description: "聚合了湾区计划、森罗计划、Anthropic Skills、MCP 工具桥接、子 Agent 系统、记忆 Moment 以及 UI 重新设计等重大特性，带来更强大的功能与更流畅的体验。"
     type: "feat"
     date: "2026-05-18"
     tags: ["发布", "版本"]
@@ -70,7 +81,7 @@ news:
 
   - id: "ui-redesign"
     en_title: "UI Redesign"
-    title: "前端 UI 重新设计：黑白风格"
+    title: "前端 UI 重新设计"
     description: "前端 UI 迎来简洁的黑白风格重新设计。包括全新的侧边栏、卡片布局和导航系统。新增可折叠侧边栏（折叠后宽度 58px）、Health Panel 系统状态面板以及打字机（Typewriter）效果的欢迎动画。"
     type: "refactor"
     date: "2026-05-15"
@@ -121,7 +132,7 @@ news:
   - id: "kaleidoscope-initial"
     en_title: "Project Kaleidoscope"
     title: "森罗计划上线：工具气泡系统"
-    description: "森罗计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。谨以此命名向知名 Minecraft 模组 Kaleidoscope 森罗物语系列致敬。"
+    description: "森罗计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。"
     type: "feat"
     date: "2026-05-01"
     tags: ["前端", "工具系统", "气泡组件"]
