@@ -141,6 +141,7 @@ const versionNodes = computed(() => {
 
 .news-content {
   max-width: 720px;
+  margin: 0 auto;
 }
 
 .loading,
@@ -160,7 +161,7 @@ const versionNodes = computed(() => {
 
 .version-timeline {
   position: absolute;
-  left: calc(50% + 360px);
+  left: calc(75% + 180px);
   transform: translateX(-50%);
   width: 80px;
   pointer-events: none;
