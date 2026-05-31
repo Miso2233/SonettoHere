@@ -9,7 +9,7 @@
       </div>
       <nav class="sidebar-nav">
         <router-link to="/" class="nav-item">
-          <Icon name="chat" :size="18" /> <span class="nav-label">对话&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CHATING</span>
+          <Icon name="chat" :size="18" /> <span class="nav-label">对话&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;CHATTING</span>
         </router-link>
         <router-link to="/memory" class="nav-item">
           <Icon name="memory" :size="18" /> <span class="nav-label">记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY</span>
@@ -25,7 +25,7 @@
         :session-statuses="allSessionStatuses"
         :collapsed="effectiveCollapsed"
         @create="createSession"
-        @switch="switchSession"
+        @switch="handleSwitchSession"
         @delete="deleteSession"
       />
       <HealthPanel :health="health!" v-if="health" />
@@ -45,6 +45,7 @@ import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
 import { onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
 const { effectiveCollapsed, toggleSidebar } = useSidebar()
 
@@ -52,6 +53,13 @@ function onSidebarClick(e: MouseEvent) {
   if (e.target === e.currentTarget) {
     toggleSidebar()
   }
+}
+
+const router = useRouter()
+
+function handleSwitchSession(id: string) {
+  switchSession(id)
+  router.push('/')
 }
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =
