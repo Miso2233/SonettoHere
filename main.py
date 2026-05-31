@@ -1,31 +1,19 @@
-"""SonettoHere v1.0.0 — LangGraph ReAct AI Agent 入口。"""
+"""SonettoHere v2.0.0 — LangGraph ReAct AI Agent Web 入口。"""
 
-import sys
+import uvicorn
 
+from api.server import create_app
 from memory.user_init import ensure_all
 
 
 def main():
-    print("SonettoHere v1.0.0")
+    print("SonettoHere v2.0.0")
     print()
 
     ensure_all()
 
-    mode = sys.argv[1] if len(sys.argv) > 1 else "cli"
-
-    if mode == "cli":
-        from clients.cli import main as cli_main
-        cli_main()
-    elif mode == "qqbot":
-        from clients.qqbot import main as qqbot_main
-        qqbot_main()
-    elif mode == "web":
-        import uvicorn
-        from api.server import create_app
-        app = create_app()
-        uvicorn.run(app, host="0.0.0.0", port=8000)
-    else:
-        print(f"未知模式: {mode}，可选: cli / qqbot / web")
+    app = create_app()
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 if __name__ == "__main__":

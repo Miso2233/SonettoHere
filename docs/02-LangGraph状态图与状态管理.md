@@ -163,7 +163,7 @@ async for event in self.graph.astream_events(
 - **无持久化**：不适合需要跨进程重启保持对话的场景
 - **无限增长**：长对话的消息历史持续累加，直到 `ShortTermMemory` 裁剪
 
-对于教学和本地 CLI 使用，这些限制是可接受的。生产环境可换用 `SqliteSaver` 或 `PostgresSaver`。
+对于教学和本地使用，这些限制是可接受的。生产环境可换用 `SqliteSaver` 或 `PostgresSaver`。
 
 ---
 
@@ -192,7 +192,7 @@ async for event in self.graph.astream_events(inputs, config=config, version="v2"
         ...
 ```
 
-这些事件类型覆盖了 ReAct 循环的每一个关键节点，CLI 客户端利用它们在终端实时呈现：
+这些事件类型覆盖了 ReAct 循环的每一个关键节点，WebSocket 回调利用它们在浏览器实时呈现：
 
 - 青色（Cyan）→ LLM 思考过程
 - 品红（Magenta）→ Skill 调用
@@ -212,7 +212,7 @@ async for event in self.graph.astream_events(inputs, config=config, version="v2"
 | Conditional Edge | 检查 `AIMessage.tool_calls` 是否存在 | `create_react_agent` 内部 |
 | Checkpointer | `MemorySaver` | [agent/graph.py:19](../agent/graph.py) |
 | Recursion Limit | `30` | [agent/graph.py:27](../agent/graph.py) |
-| Streaming | `astream_events(version="v2")` | [clients/cli.py:118](../clients/cli.py) |
+| Streaming | `astream_events(version="v2")` | [graph.py](../agent/graph.py) |
 
 ---
 

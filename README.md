@@ -31,7 +31,7 @@ cp .env.example .env
 
 ```bash
 # 终端 1 — 后端
-python main.py web
+python main.py
 
 # 终端 2 — 前端（开发模式）
 cd web && npm install && npm run dev
@@ -152,9 +152,6 @@ SonettoHere/
 │       └── ...
 │
 ├── web/                      # Vue 3 + Vite 前端
-├── clients/
-│   ├── cli.py                # CLI 模式
-│   └── qqbot.py              # QQ Bot
 ├── tests/
 └── docs/
 ```
