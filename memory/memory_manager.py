@@ -130,6 +130,33 @@ class MemoryManager:
                 for id, item in items.items()
             ]
 
+    def get_memories_grouped(self) -> dict:
+        """按 theme 分组返回记忆数据，用于 Vignette 前端瀑布流展示。"""
+        with portalocker.Lock(self._lock_path, timeout=5):
+            items = self._read_all()
+            groups: dict[str, list[dict]] = {}
+            for id, item in items.items():
+                theme = item.theme
+                if theme not in groups:
+                    groups[theme] = []
+                groups[theme].append({
+                    "id": id,
+                    "description": item.description,
+                    "history": item.show_description_history(),
+                    "_sort_time": item.latest_update_time,
+                })
+            # 每组内按更新时间倒序
+            for theme in groups:
+                groups[theme].sort(key=lambda x: x["_sort_time"], reverse=True)
+                for entry in groups[theme]:
+                    del entry["_sort_time"]
+            # 分区间按条目数降序
+            sections = [
+                {"theme": theme, "items": items}
+                for theme, items in sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)
+            ]
+            return {"sections": sections}
+
     def show_description_history(self, id: str) -> list[dict]:
         """返回指定条目的描述变更历史（从当前到最早）。"""
         with portalocker.Lock(self._lock_path, timeout=5):

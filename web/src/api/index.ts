@@ -4,6 +4,7 @@ import type {
   SessionInfo,
   NarrativeResponse,
   MomentResponse,
+  VignetteResponse,
   ContextUsage,
   DeepSeekBalanceResponse,
   HealthResponse,
@@ -50,6 +51,9 @@ export const api = {
 
   getMoment: () =>
     request<MomentResponse>('/moment'),
+
+  getMemories: () =>
+    request<VignetteResponse>('/memories'),
 
   getContextUsage: (sessionId: string) =>
     request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),

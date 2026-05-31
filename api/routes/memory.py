@@ -15,6 +15,13 @@ async def get_narrative(request: Request):
     return {"narrative": ltm.get_narrative()}
 
 
+@router.get("/memories")
+async def get_memories(request: Request):
+    ltm = request.app.state.ltm
+    mm = MemoryManager(yaml_file=str(ltm._memory_path))
+    return mm.get_memories_grouped()
+
+
 @router.get("/moment")
 async def get_moment(request: Request):
     ltm = request.app.state.ltm
