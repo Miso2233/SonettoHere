@@ -32,11 +32,7 @@ class AskUserQASkill(SkillBase):
 
         ws = interaction.current_ws.get()
 
-        interaction_id = interaction.register({
-            "tool_name": self.name,
-            "question": question,
-            "mode": "qa",
-        })
+        interaction_id, future = interaction.register()
 
         await ws.send_json({
             "type": "ask_user",
@@ -49,12 +45,9 @@ class AskUserQASkill(SkillBase):
             },
         })
 
-        future = interaction.consume_future(interaction_id)
         try:
-            answer = await asyncio.wait_for(future, timeout=300)
+            answer = await future
             return format_success({"question": question, "answer": answer})
-        except asyncio.TimeoutError:
-            return format_error("等待用户回复超时")
         except asyncio.CancelledError:
             return format_error("用户取消了回复")
         finally:
