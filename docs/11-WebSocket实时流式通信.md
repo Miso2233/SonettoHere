@@ -372,16 +372,7 @@ async for event in graph.astream_events(inputs, config=config, version="v2"):
 
 `astream_events` 是 LangGraph 的流式事件 API。它生成的事件还会触发 `config["callbacks"]` 中注册的回调——从而驱动 WebSocket 事件流。
 
-### 对比：CLI 版回调 vs Web 版回调
-
-| 对比维度 | `PrinterCallback`（CLI） | `WebSocketCallback`（Web） |
-|---------|-------------------------|---------------------------|
-| 输出目标 | 终端（`print`） | 浏览器（`ws.send_json`） |
-| 输出格式 | 彩色 ANSI 文本 | 结构化 JSON |
-| 事件语义 | 视觉装饰（┌── [Thinking]） | 机器可读（`type: "thinking_start"`） |
-| 可复用性 | 仅供 CLI | 可供任何 Web 客户端 |
-
-两者实现了相同模式（LangChain `BaseCallbackHandler`），但适配到不同的输出通道。这正是回调模式的价值——核心逻辑（Agent）与输出通道（CLI/Web）完全解耦。
+`WebSocketCallback` 实现了 LangChain `BaseCallbackHandler` 模式，将 Agent 事件转换为结构化的 WebSocket JSON 消息推送给前端浏览器。
 
 ---
 

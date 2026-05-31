@@ -22,10 +22,6 @@ class Settings(BaseSettings):
     # 高德地图
     amap_api_key: str = ""
 
-    # QQ Bot
-    qq_appid: str = ""
-    qq_token: str = ""
-
     # 模型上下文窗口大小（DeepSeek V4 Flash = 1M tokens）
     model_context_window: int = 256_000 # 避免上下文丢失现象
 
@@ -35,6 +31,7 @@ class Settings(BaseSettings):
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
+        "extra": "ignore",
     }
 
 
