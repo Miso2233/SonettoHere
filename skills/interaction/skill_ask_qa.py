@@ -32,7 +32,7 @@ class AskUserQASkill(SkillBase):
 
         ws = interaction.current_ws.get()
 
-        interaction_id = interaction.register()
+        interaction_id, future = interaction.register()
 
         await ws.send_json({
             "type": "ask_user",
@@ -45,7 +45,6 @@ class AskUserQASkill(SkillBase):
             },
         })
 
-        future = interaction.get_future(interaction_id)
         try:
             answer = await future
             return format_success({"question": question, "answer": answer})
