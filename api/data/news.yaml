@@ -1,4 +1,13 @@
 news:
+  - id: "remove-cli-qqbot"
+    en_title: ""
+    title: "移除 CLI 和 QQ Bot 支持"
+    description: "移除了 cli.py 和 qqbot.py 两个客户端入口，项目现在仅通过 Web UI 提供对话界面。同时清理了 colorama 和 qq-botpy 依赖，简化项目结构和启动方式（直接 python main.py 即可）。"
+    type: "refactor"
+    date: "2026-05-31"
+    tags: ["重构", "清理", "简化"]
+    version: ""
+    pr_number: 85
   - id: "file-edit-tool"
     en_title: ""
     title: "文件精确编辑工具上线"
