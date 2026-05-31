@@ -52,7 +52,7 @@
 
           <!-- 操作按钮 -->
           <div class="card-actions">
-            <button class="action-btn" @click="testProvider(p.id)">测试连接</button>
+            <button class="action-btn" @click="testProvider(p.id)">PING</button>
             <button class="action-btn" @click="startEdit(p)">编辑</button>
             <button class="action-btn" @click="deleteProvider(p.id)">删除</button>
           </div>
@@ -89,7 +89,7 @@
       <!-- 测试 & 拉取模型 -->
       <div class="form-row">
         <button type="button" class="btn" :disabled="!isEditing && (!form.api_key || !form.base_url)" @click="handleTest">
-          {{ testing ? '测试中...' : '测试连接' }}
+          {{ testing ? '测试中...' : 'PING' }}
         </button>
         <button type="button" class="btn" :disabled="!isEditing && (!form.api_key || !form.base_url)" @click="handleDiscover">
           {{ discovering ? '拉取中...' : '拉取模型列表' }}
@@ -124,7 +124,7 @@
 <script setup lang="ts">
 import { api } from '@/api'
 import type { ProviderConfig, TestConnectionResponse } from '@/types'
-import { onMounted, ref, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 // ── 预设提供商列表 ──
 const presets = [
