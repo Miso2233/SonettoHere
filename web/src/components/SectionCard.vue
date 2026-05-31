@@ -2,7 +2,6 @@
   <div class="section-card">
     <!-- 分区头部 -->
     <div class="section-header">
-      <span class="section-icon">{{ icon }}</span>
       <span class="section-title">{{ theme }}</span>
       <span class="section-count">{{ items.length }} 条</span>
     </div>
@@ -64,17 +63,6 @@ const showHistory = ref(false)
 /** 当前条目 */
 const currentItem = computed<VignetteMemoryItem>(() => props.items[currentIndex.value])
 
-/** 分区图标 */
-const THEME_ICONS: Record<string, string> = {
-  '身份': '👤',
-  '音乐': '🎵',
-  '品味': '🎨',
-  '地点与路径': '📍',
-  '瞬间': '💭',
-  '时效待办': '⏰',
-}
-const icon = computed(() => THEME_ICONS[props.theme] || '📌')
-
 function prev() {
   if (currentIndex.value > 0) {
     currentIndex.value--
@@ -111,11 +99,6 @@ function toggleHistory() {
   align-items: center;
   gap: 10px;
   padding: 20px 24px 0;
-}
-.section-icon {
-  font-size: 20px;
-  line-height: 1;
-  flex-shrink: 0;
 }
 .section-title {
   flex: 1;
