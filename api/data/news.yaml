@@ -5,7 +5,6 @@ news:
     type: "feat"
     date: "2026-06-01"
     tags: ["记忆", "Vignette", "UI"]
-    version: "PREVIEW"
     pr_number: 87
 
   - id: "v1.3.0-release"
