@@ -1,4 +1,14 @@
 news:
+  - id: "time-traveler-undo"
+    en_title: "Project Time Traveler"
+    title: "对话撤回功能上线"
+    description: "Project Time Traveler 首个功能「Single-Undo」上线。在聊天界面右键自己的消息即可撤回最近一轮对话，包含用户消息、AI 回复和所有工具调用，状态干净回退，不再需要手动删除或重新提问。"
+    type: "feat"
+    date: "2026-06-01"
+    tags: ["TimeTraveler", "撤回", "对话"]
+    version: "PREVIEW"
+    pr_number: 89
+
   - id: "vignette-waterfall"
     en_title: "Project Vignette"
     title: "Vignette 记忆分区上线"
