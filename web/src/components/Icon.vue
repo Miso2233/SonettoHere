@@ -9,6 +9,7 @@ import memoryRaw from '@/assets/icons/sidebar/memory.svg?raw'
 import modelRaw from '@/assets/icons/sidebar/model.svg?raw'
 import citeSpeechRaw from '@/assets/icons/context-menu/cite-speech.svg?raw'
 import copyRaw from '@/assets/icons/context-menu/copy.svg?raw'
+import undoArrowRaw from '@/assets/icons/context-menu/undo-arrow.svg?raw'
 import attachRaw from '@/assets/icons/chat-input/attach.svg?raw'
 import fileRaw from '@/assets/icons/chat-input/file.svg?raw'
 import menuFileRaw from '@/assets/icons/chat-input/menu-file.svg?raw'
@@ -29,6 +30,7 @@ const svgContents: Record<string, string> = {
   model: modelRaw,
   'cite-speech': citeSpeechRaw,
   copy: copyRaw,
+  'undo-arrow': undoArrowRaw,
   attach: attachRaw,
   file: fileRaw,
   'menu-file': menuFileRaw,

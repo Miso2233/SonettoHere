@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph.state import CompiledStateGraph
 
 
 @dataclass
@@ -16,6 +17,7 @@ class SessionState:
     message_count: int = 0
     _active_task: asyncio.Task | None = field(default=None, repr=False)
     checkpointer: MemorySaver = field(default_factory=MemorySaver)
+    _graph: CompiledStateGraph | None = field(default=None, repr=False)
 
     # ── Sub-agent 字段 ─────────────────────────────────────
     is_subagent: bool = False

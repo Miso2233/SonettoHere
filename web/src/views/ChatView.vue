@@ -55,6 +55,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { Citation } from '@/types'
+import { api } from '@/api'
 import { useSession } from '@/composables/useSession'
 import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
@@ -64,7 +65,7 @@ import ChatWindow from '@/components/ChatWindow.vue'
 import ChatInput from '@/components/ChatInput.vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, privateMode, setPrivateMode } =
+const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode } =
   useChat(sessionId)
 
 const selectedModelName = ref('')
@@ -98,6 +99,19 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
   if (payload.action === 'user_response') {
     const d = payload.data as { interactionId: string; response: string | string[] }
     sendUserResponse(d.interactionId, d.response)
+  } else if (payload.action === 'undo') {
+    handleUndo()
+  }
+}
+
+async function handleUndo() {
+  try {
+    const result = await api.undoMessages(sessionId.value, 1)
+    if (result.deleted_count > 0) {
+      removeTurns(1)
+    }
+  } catch (e) {
+    console.error('撤回失败:', e)
   }
 }
 </script>
