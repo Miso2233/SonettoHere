@@ -87,6 +87,7 @@ onMounted(() => {
   --bg-card: #ffffff;
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
   --accent: #000000;
   --accent-light: #b9b9b9;
   --border: #e5e7eb;

@@ -200,6 +200,28 @@ export interface MomentResponse {
   moment: MomentItem | null
 }
 
+// === Vignette：记忆分区瀑布流 ===
+
+export interface MemoryHistoryEntry {
+  description: string
+  time: string
+}
+
+export interface VignetteMemoryItem {
+  id: string
+  description: string
+  history: MemoryHistoryEntry[]
+}
+
+export interface VignetteSection {
+  theme: string
+  items: VignetteMemoryItem[]
+}
+
+export interface VignetteResponse {
+  sections: VignetteSection[]
+}
+
 // === 引用 ===
 
 export interface Citation {
