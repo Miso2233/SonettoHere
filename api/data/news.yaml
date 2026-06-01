@@ -1,4 +1,12 @@
 news:
+  - id: "vignette-waterfall"
+    title: "Vignette 记忆分区瀑布流上线"
+    description: "新增 Vignette 记忆分区瀑布流视图，按分区直观展示记忆卡片。SectionCard 卡片组件全面重构，单条轮播模式使信息密度更低，视觉更加精炼统一。"
+    type: "feat"
+    date: "2026-06-01"
+    tags: ["记忆", "Vignette", "UI"]
+    pr_number: 87
+
   - id: "v1.3.0-release"
     en_title: "v1.3.0 Release"
     title: "发布 v1.3.0 版本"
