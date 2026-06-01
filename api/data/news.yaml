@@ -6,7 +6,7 @@ news:
     type: "feat"
     date: "2026-06-01"
     tags: ["TimeTraveler", "撤回", "对话"]
-    version: "PREVIEW"
+    version: "v1.4.0"
     pr_number: 89
 
   - id: "vignette-waterfall"
@@ -16,7 +16,7 @@ news:
     type: "feat"
     date: "2026-06-01"
     tags: ["记忆", "Vignette", "UI"]
-    version: "PREVIEW"
+    version: "v1.4.0"
     pr_number: 87
 
   - id: "v1.3.0-release"
