@@ -51,6 +51,24 @@ async def get_messages(session_id: str, request: Request):
     return {"session_id": session_id, "messages": [{"role": m.type, "content": m.content} for m in msgs]}
 
 
+@router.post("/sessions/{session_id}/undo")
+async def undo_session_messages(session_id: str, request: Request, n: int = 1):
+    """撤回最近 n 轮对话（默认撤回最后一轮）。"""
+    from api.time_traveler import undo_rounds
+
+    sm = request.app.state.session_manager
+    session = sm.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session._graph is None:
+        raise HTTPException(status_code=400, detail="No agent graph available for this session")
+
+    config = {"configurable": {"thread_id": session_id}}
+    deleted = await undo_rounds(session._graph, config, n=n)
+    session.message_count = max(0, session.message_count - deleted)
+    return {"deleted_count": deleted}
+
+
 @router.get("/sessions/{session_id}/context-usage")
 async def get_context_usage(session_id: str, request: Request):
     sm = request.app.state.session_manager

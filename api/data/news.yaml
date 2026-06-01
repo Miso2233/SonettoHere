@@ -1,7 +1,18 @@
 news:
+  - id: "time-traveler-undo"
+    en_title: "Project Time Traveler"
+    title: "对话撤回功能上线"
+    description: "Project Time Traveler 首个功能「Single-Undo」上线。在聊天界面右键自己的消息即可撤回最近一轮对话，包含用户消息、AI 回复和所有工具调用，状态干净回退，不再需要手动删除或重新提问。"
+    type: "feat"
+    date: "2026-06-01"
+    tags: ["TimeTraveler", "撤回", "对话"]
+    version: "PREVIEW"
+    pr_number: 89
+
   - id: "vignette-waterfall"
-    title: "Vignette 记忆分区瀑布流上线"
-    description: "新增 Vignette 记忆分区瀑布流视图，按分区直观展示记忆卡片。SectionCard 卡片组件全面重构，单条轮播模式使信息密度更低，视觉更加精炼统一。"
+    en_title: "Project Vignette"
+    title: "Vignette 记忆分区上线"
+    description: "新增 Vignette 记忆分区视图，按分区直观展示记忆卡片。SectionCard 卡片组件全面重构，单条轮播模式使信息密度更低，视觉更加精炼统一。"
     type: "feat"
     date: "2026-06-01"
     tags: ["记忆", "Vignette", "UI"]
@@ -141,7 +152,7 @@ news:
   - id: "kaleidoscope-initial"
     en_title: "Project Kaleidoscope"
     title: "森罗计划上线：工具气泡系统"
-    description: "森罗计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。"
+    description: "森罗计划带来完整的 Tool Bubble（工具气泡）系统，为每种工具提供专属的渲染组件。现已支持 Bilibili 下载、Todo 管理、Python 执行、文件操作、地图搜索、天气查询、PDF/Word 阅读、代码分析等 30 余种工具组件，并基于注册机制自动匹配兜底组件。谨以此计划名向知名Minecraft模组Kaleidoscope森罗物语系列致敬。"
     type: "feat"
     date: "2026-05-01"
     tags: ["前端", "工具系统", "气泡组件"]

@@ -6,7 +6,7 @@
         <div
           class="cite-source"
           :data-user-msg-idx="idx"
-          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户')"
+          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户', idx)"
         >
           <MessageBubble role="user" :content="turn.userMessage" />
         </div>
@@ -46,7 +46,7 @@
       <template v-if="currentTurn">
         <div
           class="cite-source"
-          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', currentTurn.userMessage, '用户')"
+          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', currentTurn.userMessage, '用户', -1)"
         >
           <MessageBubble role="user" :content="currentTurn.userMessage" />
         </div>
@@ -124,7 +124,7 @@
 
 <script setup lang="ts">
 import type { ChatTurn, Citation } from '@/types'
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
 import MessageBubble from './MessageBubble.vue'
@@ -264,17 +264,35 @@ const pendingCitation = ref<{
   sourceType: Citation['sourceType']
 } | null>(null)
 
-const ctxMenuItems: ContextMenuItem[] = [
-  { label: '引用', action: 'cite', icon: 'cite-speech' },
-  { label: '复制', action: 'copy', icon: 'copy' },
-]
+/** 右键点击的用户消息在 turns 中的索引（-1 表示当前正在生成的 turn） */
+const pendingUserMsgIdx = ref<number | null>(null)
+
+const ctxMenuItems = computed((): ContextMenuItem[] => {
+  const items: ContextMenuItem[] = [
+    { label: '引用', action: 'cite', icon: 'cite-speech' },
+    { label: '复制', action: 'copy', icon: 'copy' },
+  ]
+  // 仅在右键最后一条已完成用户消息时显示「撤回」
+  if (
+    pendingCitation.value?.sourceType === 'user_message'
+    && pendingUserMsgIdx.value !== null
+    && pendingUserMsgIdx.value === props.turns.length - 1
+    && props.turns.length > 0
+  ) {
+    items.push({ label: '撤回', action: 'undo', icon: 'undo-arrow' })
+  }
+  return items
+})
 
 function onBubbleContextMenu(
   event: MouseEvent,
   sourceType: Citation['sourceType'],
   fullText: string,
   sourceLabel: string,
+  userMsgIdx?: number,
 ) {
+  pendingUserMsgIdx.value = userMsgIdx ?? null
+
   let citeText = fullText
 
   // 检查是否有文本选中
@@ -311,6 +329,8 @@ function handleContextMenuSelect(action: string) {
     emit('cite', citation)
   } else if (action === 'copy' && pendingCitation.value) {
     navigator.clipboard.writeText(pendingCitation.value.text)
+  } else if (action === 'undo') {
+    emit('action', { action: 'undo', data: { n: 1 } })
   }
   closeContextMenu()
 }
@@ -318,6 +338,7 @@ function handleContextMenuSelect(action: string) {
 function closeContextMenu() {
   ctxMenuVisible.value = false
   pendingCitation.value = null
+  pendingUserMsgIdx.value = null
 }
 </script>
 

@@ -475,9 +475,21 @@ export function useChat(sessionId: Ref<string>) {
     ch.ws.send(JSON.stringify(payload))
   }
 
+  /** 从当前会话的 turns 列表中移除最后 count 条轮次（撤回后的前端同步）。 */
+  function removeTurns(count: number) {
+    const ch = getOrCreateChannel(sessionId.value)
+    if (ch.turns.length === 0) return
+    const actual = Math.min(count, ch.turns.length)
+    ch.turns.splice(ch.turns.length - actual, actual)
+    if (!ch.privateMode) {
+      persistTurns(sessionId.value)
+    }
+    void refreshSessions()
+  }
+
   return {
     connected, isStreaming, turns, currentTurn, error, contextUsage,
-    send, cancel, sendUserResponse,
+    send, cancel, sendUserResponse, removeTurns,
     privateMode, setPrivateMode,
   }
 }

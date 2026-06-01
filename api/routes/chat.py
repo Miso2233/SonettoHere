@@ -126,6 +126,7 @@ async def _run_agent_turn(
         system_prompt=system_prompt,
         checkpointer=session.checkpointer,
     )
+    session._graph = agent_sonetto
     inputs = {"messages": [HumanMessage(content=user_message)]}
     config = {
         "configurable": {"thread_id": session.session_id},

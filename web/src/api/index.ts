@@ -58,6 +58,9 @@ export const api = {
   getContextUsage: (sessionId: string) =>
     request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),
 
+  undoMessages: (sessionId: string, n: number = 1) =>
+    request<{ deleted_count: number }>(`/sessions/${sessionId}/undo?n=${n}`, { method: 'POST' }),
+
   getDeepSeekBalance: () =>
     request<DeepSeekBalanceResponse>('/deepseek-balance'),
 
