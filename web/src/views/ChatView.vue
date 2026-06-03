@@ -153,6 +153,9 @@ async function handleUndo() {
   background: color-mix(in srgb, var(--status-warn) 10%, transparent);
   color: var(--status-warn);
 }
+.private-toggle:not(.active) .private-indicator {
+  background: var(--accent);
+}
 .private-indicator {
   width: 8px;
   height: 8px;
