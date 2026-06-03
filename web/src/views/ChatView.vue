@@ -9,7 +9,7 @@
           @click="setPrivateMode(!privateMode)"
         >
           <span class="private-indicator"></span>
-          私密
+          {{ privateMode ? '私密' : '记忆' }}
         </button>
         <div class="hover-card card-private">
           <div class="card-row">
@@ -152,6 +152,9 @@ async function handleUndo() {
   border-color: var(--status-warn);
   background: color-mix(in srgb, var(--status-warn) 10%, transparent);
   color: var(--status-warn);
+}
+.private-toggle:not(.active) .private-indicator {
+  background: var(--accent);
 }
 .private-indicator {
   width: 8px;
