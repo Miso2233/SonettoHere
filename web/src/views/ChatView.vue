@@ -9,7 +9,7 @@
           @click="setPrivateMode(!privateMode)"
         >
           <span class="private-indicator"></span>
-          私密
+          {{ privateMode ? '私密' : '记忆' }}
         </button>
         <div class="hover-card card-private">
           <div class="card-row">
