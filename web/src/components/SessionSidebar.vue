@@ -5,7 +5,7 @@
       <button class="btn-new" @click="$emit('create')" title="新会话">+</button>
     </div>
     <div class="session-list">
-      <button
+      <div
         v-for="(s, index) in sessions"
         :key="s.session_id"
         class="session-item"
@@ -45,7 +45,7 @@
             &times;
           </button>
         </div>
-      </button>
+      </div>
       <div v-if="sessions.length === 0" class="no-sessions">
         暂无会话
       </div>

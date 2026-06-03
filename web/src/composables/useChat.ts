@@ -61,8 +61,12 @@ export function disconnectSession(sid: string) {
     clearTimeout(ch.reconnectTimer)
     ch.reconnectTimer = null
   }
-  ch.ws?.close()
-  ch.ws = null
+  // 先清除 onclose，再手动关闭 WS — 防止 onclose 触发意外重连
+  if (ch.ws) {
+    ch.ws.onclose = null
+    ch.ws.close()
+    ch.ws = null
+  }
   ch.connected = false
   ch.initialized = false
   channels.delete(sid)
