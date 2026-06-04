@@ -25,12 +25,12 @@ class RunPythonSkill(SkillBase):
     name: str = "run_python"
     description: str = (
         "在隔离环境中执行 Python 代码，返回 stdout 输出。"
-        "用于计算、数据处理、文本转换。★ 首次使用请先 get_doc=true 了解安全限制。"
+        "用于计算、数据处理、文本转换。★ 首次使用先 get_doc=true 了解安全限制。"
     )
     args_schema: type[BaseModel] = RunPythonInput
 
     def _run(self, get_doc: bool = False, code: str = "") -> str:
-        raise NotImplementedError("run_python 仅支持异步模式")
+        raise NotImplementedError("run_python 仅支持异步模式，请使用 _arun")
 
     async def _arun(self, get_doc: bool = False, code: str = "") -> str:
         if get_doc:
@@ -38,6 +38,7 @@ class RunPythonSkill(SkillBase):
         if not code:
             return format_error("code 不能为空")
 
+        # 请求用户确认（通过通用 interaction 机制）
         ws = interaction.current_ws.get()
         interaction_id, future = interaction.register()
 
@@ -64,7 +65,10 @@ class RunPythonSkill(SkillBase):
             try:
                 exec(code, {"__builtins__": __builtins__})
                 output = sys.stdout.getvalue()
-                return format_success({"output": output} if output else {"output": "（代码执行完毕，无输出）", "code": code})
+                return format_success({
+                    "output": output if output else "（代码执行完毕，无输出）",
+                    "code": code,
+                })
             except Exception as e:
                 return format_error(f"代码执行错误: {e}")
             finally:

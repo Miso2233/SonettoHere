@@ -1,32 +1,44 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
+    <!-- 确认模式：显示代码和选择按钮 -->
     <template v-if="toolCall.status === 'running' && isConfirmMode && !submitted">
       <div class="py-confirm-header">
         <span class="py-confirm-icon">⚠️</span>
-        <span class="py-confirm-title">请确认执行</span>
+        <span class="py-confirm-title">{{ toolCall.interaction?.question }}</span>
       </div>
-      
+
+      <!-- 代码展示区 -->
       <div class="py-section">
         <div class="py-section-header">
           <span class="py-section-label">📝 代码</span>
         </div>
         <div class="py-code-block" v-html="highlightedCode"></div>
       </div>
-      
+
+      <!-- 确认按钮 -->
       <div class="py-confirm-actions">
-        <button class="btn-cancel" @click="cancelExecution">取消</button>
-        <button class="btn-execute" @click="confirmExecution">执行代码</button>
+        <button
+          v-for="(option, idx) in toolCall.interaction?.options"
+          :key="idx"
+          :class="['btn-action', idx === 0 ? 'btn-cancel' : 'btn-execute']"
+          @click="submitResponse(option)"
+        >
+          {{ option }}
+        </button>
       </div>
     </template>
 
+    <!-- 运行中 -->
     <div v-else-if="toolCall.status === 'running'" class="bubble-running">
       <span>正在执行代码...</span>
     </div>
 
+    <!-- 错误 -->
     <div v-else-if="toolCall.status === 'error'" class="bubble-error">
       {{ toolCall.output || '执行失败' }}
     </div>
 
+    <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
       <div class="py-section">
         <div class="py-section-header">
@@ -61,13 +73,12 @@ const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }):
 const submitted = ref(false)
 
 const isConfirmMode = computed(() => {
-  return props.toolCall.interaction?.mode === 'confirm' && 
-         props.toolCall.name === 'run_python'
+  return props.toolCall.interaction?.mode === 'confirm'
 })
 
 const code = computed(() => {
   if (props.toolCall.interaction?.code) {
-    return props.toolCall.interaction.code
+    return props.toolCall.interaction.code as string
   }
   const tdCode = props.toolCall.toolData?.code
   if (typeof tdCode === 'string' && tdCode) return tdCode
@@ -98,24 +109,13 @@ const stdoutLineCount = computed(() => {
   return stdout.value.split('\n').length
 })
 
-function confirmExecution() {
+function submitResponse(response: string) {
   submitted.value = true
   emit('action', {
     action: 'user_response',
     data: {
       interactionId: props.toolCall.interaction?.interactionId,
-      response: '执行',
-    },
-  })
-}
-
-function cancelExecution() {
-  submitted.value = true
-  emit('action', {
-    action: 'user_response',
-    data: {
-      interactionId: props.toolCall.interaction?.interactionId,
-      response: '取消',
+      response: response,
     },
   })
 }
@@ -291,16 +291,19 @@ function copyCode() {
   margin-top: 12px;
 }
 
-.btn-cancel {
+.btn-action {
   padding: 6px 18px;
-  border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
   font-size: 13px;
   cursor: pointer;
   font-family: inherit;
   transition: all 0.15s;
+}
+
+.btn-cancel {
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .btn-cancel:hover {
@@ -308,15 +311,9 @@ function copyCode() {
 }
 
 .btn-execute {
-  padding: 6px 18px;
   border: none;
-  border-radius: 6px;
   background: #ef4444;
   color: #fff;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.15s;
 }
 
 .btn-execute:hover {
