@@ -2,6 +2,7 @@
 
 import asyncio
 import io
+import json
 import sys
 
 from pydantic import BaseModel, Field
@@ -70,23 +71,34 @@ class RunPythonSkill(SkillBase):
 
         try:
             answer = await future
-            if answer != "执行":
-                return format_error("用户取消了代码执行")
 
-            old_stdout = sys.stdout
-            sys.stdout = io.StringIO()
+            action = answer
+            reason = ""
+            if isinstance(answer, dict):
+                action = answer.get("action", "")
+                reason = answer.get("reason", "")
 
-            try:
-                exec(code, {"__builtins__": __builtins__})
-                output = sys.stdout.getvalue()
-                return format_success({
-                    "output": output if output else "（代码执行完毕，无输出）",
-                    "code": code,
-                })
-            except Exception as e:
-                return format_error(f"代码执行错误: {e}")
-            finally:
-                sys.stdout = old_stdout
+            if action == "approve":
+                old_stdout = sys.stdout
+                sys.stdout = io.StringIO()
+
+                try:
+                    exec(code, {"__builtins__": __builtins__})
+                    output = sys.stdout.getvalue()
+                    return format_success({
+                        "output": output if output else "（代码执行完毕，无输出）",
+                        "code": code,
+                    })
+                except Exception as e:
+                    return format_error(f"代码执行错误: {e}")
+                finally:
+                    sys.stdout = old_stdout
+            else:
+                if reason:
+                    return format_error(f"用户拒绝执行代码。原因：{reason}")
+                else:
+                    return format_error("用户拒绝执行代码")
+
         except asyncio.CancelledError:
             return format_error("用户取消了回复")
         finally:
