@@ -91,6 +91,7 @@ async def _run_agent_turn(
     session: SessionState,
     user_message: str,
     private_mode: bool = False,
+    auto_approve: bool = False,
     provider_id: str | None = None,
     model_name: str | None = None,
 ):
@@ -104,6 +105,7 @@ async def _run_agent_turn(
     """
     # 1. [准备环境] 从 WebSocket 获取应用状态
     app_state = ws.app.state
+    session.auto_approve = auto_approve
     ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
 
     # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
@@ -247,12 +249,15 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                     if not user_message:
                         continue
 
+                    auto_approve = payload.get("auto_approve", False)
                     interaction.current_ws.set(ws)  # 供工具函数通过 WebSocket 推送交互
+                    interaction.auto_approve.set(auto_approve)  # 设置自动批准模式
 
                     agent_task = asyncio.create_task(
                         _run_agent_turn(
                             ws, session, user_message,
                             private_mode=payload.get("private", False),
+                            auto_approve=auto_approve,
                             provider_id=payload.get("provider_id"),
                             model_name=payload.get("model_name"),
                         )

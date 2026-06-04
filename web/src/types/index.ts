@@ -101,6 +101,7 @@ export interface ChatMessage {
   payload: {
     message: string
     private?: boolean
+    auto_approve?: boolean
     provider_id?: string
     model_name?: string
   }
@@ -176,6 +177,7 @@ export interface SessionInfo {
   last_active?: number
   has_active_agent?: boolean
   is_subagent?: boolean
+  auto_approve?: boolean
 }
 
 export interface CreateSessionResponse {

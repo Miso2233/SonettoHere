@@ -90,6 +90,7 @@ interface SessionChannel {
   _awaitingToolName: string | null
   parentSessionId: string | null  // sub-agent 用：完成时切回主会话
   privateMode: boolean
+  autoApprove: boolean
 }
 
 const channels = reactive(new Map<string, SessionChannel>())
@@ -120,6 +121,7 @@ function getOrCreateChannel(sid: string): SessionChannel {
       _awaitingToolName: null,
       parentSessionId: null,
       privateMode: false,
+      autoApprove: true,
     })
   }
   return channels.get(sid)!
@@ -401,9 +403,14 @@ export function useChat(sessionId: Ref<string>) {
   const contextUsage = computed(() => activeChannel.value.contextUsage)
 
   const privateMode = computed(() => activeChannel.value.privateMode)
+  const autoApprove = computed(() => activeChannel.value.autoApprove)
 
   function setPrivateMode(val: boolean) {
     activeChannel.value.privateMode = val
+  }
+
+  function setAutoApprove(val: boolean) {
+    activeChannel.value.autoApprove = val
   }
 
   // Session 切换：只确保新 Session 的 WS 连接，不断开旧的
@@ -458,7 +465,7 @@ export function useChat(sessionId: Ref<string>) {
 
     const payload: ClientMessage = {
       type: 'chat',
-      payload: { message, private: ch.privateMode, provider_id: providerId, model_name: modelName },
+      payload: { message, private: ch.privateMode, auto_approve: ch.autoApprove, provider_id: providerId, model_name: modelName },
     }
     ch.ws.send(JSON.stringify(payload))
   }
@@ -496,6 +503,7 @@ export function useChat(sessionId: Ref<string>) {
     connected, isStreaming, turns, currentTurn, error, contextUsage,
     send, cancel, sendUserResponse, removeTurns,
     privateMode, setPrivateMode,
+    autoApprove, setAutoApprove,
   }
 }
 

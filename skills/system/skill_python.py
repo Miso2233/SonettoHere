@@ -38,7 +38,21 @@ class RunPythonSkill(SkillBase):
         if not code:
             return format_error("code 不能为空")
 
-        # 请求用户确认（通过通用 interaction 机制）
+        if interaction.auto_approve.get():
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+            try:
+                exec(code, {"__builtins__": __builtins__})
+                output = sys.stdout.getvalue()
+                return format_success({
+                    "output": output if output else "（代码执行完毕，无输出）",
+                    "code": code,
+                })
+            except Exception as e:
+                return format_error(f"代码执行错误: {e}")
+            finally:
+                sys.stdout = old_stdout
+
         ws = interaction.current_ws.get()
         interaction_id, future = interaction.register()
 
