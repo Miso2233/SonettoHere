@@ -379,6 +379,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
           options: ae.payload.options,
           interactionId: ae.payload.interaction_id,
           submitted: false,
+          code: ae.payload.code,
         }
       }
       break

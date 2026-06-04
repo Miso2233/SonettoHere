@@ -1,10 +1,12 @@
 """Skill: run_python — 执行 Python 代码。"""
 
+import asyncio
 import io
 import sys
 
 from pydantic import BaseModel, Field
 
+from api import interaction
 from skills.base import SkillBase, format_error, format_success
 
 
@@ -28,19 +30,46 @@ class RunPythonSkill(SkillBase):
     args_schema: type[BaseModel] = RunPythonInput
 
     def _run(self, get_doc: bool = False, code: str = "") -> str:
+        raise NotImplementedError("run_python 仅支持异步模式")
+
+    async def _arun(self, get_doc: bool = False, code: str = "") -> str:
         if get_doc:
             return self._load_doc()
         if not code:
             return format_error("code 不能为空")
 
-        old_stdout = sys.stdout
-        sys.stdout = io.StringIO()
+        ws = interaction.current_ws.get()
+        interaction_id, future = interaction.register()
+
+        await ws.send_json({
+            "type": "ask_user",
+            "payload": {
+                "tool_name": self.name,
+                "question": "即将执行以下 Python 代码，是否确认执行？",
+                "mode": "confirm",
+                "options": ["执行", "取消"],
+                "interaction_id": interaction_id,
+                "code": code,
+            },
+        })
 
         try:
-            exec(code, {"__builtins__": __builtins__})
-            output = sys.stdout.getvalue()
-            return format_success({"output": output} if output else {"output": "（代码执行完毕，无输出）"})
-        except Exception as e:
-            return format_error(f"代码执行错误: {e}")
+            answer = await future
+            if answer != "执行":
+                return format_error("用户取消了代码执行")
+
+            old_stdout = sys.stdout
+            sys.stdout = io.StringIO()
+
+            try:
+                exec(code, {"__builtins__": __builtins__})
+                output = sys.stdout.getvalue()
+                return format_success({"output": output} if output else {"output": "（代码执行完毕，无输出）", "code": code})
+            except Exception as e:
+                return format_error(f"代码执行错误: {e}")
+            finally:
+                sys.stdout = old_stdout
+        except asyncio.CancelledError:
+            return format_error("用户取消了回复")
         finally:
-            sys.stdout = old_stdout
+            interaction.cleanup(interaction_id)

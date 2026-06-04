@@ -1,18 +1,33 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <!-- 运行中 -->
-    <div v-if="toolCall.status === 'running'" class="bubble-running">
+    <template v-if="toolCall.status === 'running' && isConfirmMode && !submitted">
+      <div class="py-confirm-header">
+        <span class="py-confirm-icon">⚠️</span>
+        <span class="py-confirm-title">请确认执行</span>
+      </div>
+      
+      <div class="py-section">
+        <div class="py-section-header">
+          <span class="py-section-label">📝 代码</span>
+        </div>
+        <div class="py-code-block" v-html="highlightedCode"></div>
+      </div>
+      
+      <div class="py-confirm-actions">
+        <button class="btn-cancel" @click="cancelExecution">取消</button>
+        <button class="btn-execute" @click="confirmExecution">执行代码</button>
+      </div>
+    </template>
+
+    <div v-else-if="toolCall.status === 'running'" class="bubble-running">
       <span>正在执行代码...</span>
     </div>
 
-    <!-- 错误 -->
     <div v-else-if="toolCall.status === 'error'" class="bubble-error">
       {{ toolCall.output || '执行失败' }}
     </div>
 
-    <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
-      <!-- 代码区 -->
       <div class="py-section">
         <div class="py-section-header">
           <span class="py-section-label">📝 代码</span>
@@ -21,7 +36,6 @@
         <div class="py-code-block" v-html="highlightedCode"></div>
       </div>
 
-      <!-- 输出区 -->
       <div v-if="stdout" class="py-section">
         <div class="py-section-header">
           <span class="py-section-label">📤 输出</span>
@@ -30,38 +44,43 @@
         <pre class="py-stdout">{{ stdout }}</pre>
       </div>
 
-      <!-- 无 toolData 降级 -->
       <div v-if="!code" class="raw-output">{{ toolCall.output }}</div>
     </template>
   </BubbleChrome>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
 import { highlightPython } from '@/utils/python-highlight'
 
 const props = defineProps<{ toolCall: ToolCall }>()
-defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
+const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
+
+const submitted = ref(false)
+
+const isConfirmMode = computed(() => {
+  return props.toolCall.interaction?.mode === 'confirm' && 
+         props.toolCall.name === 'run_python'
+})
 
 const code = computed(() => {
-  // 优先从 toolData 取完整代码（后端 ast.literal_eval 解析，不受截断影响）
+  if (props.toolCall.interaction?.code) {
+    return props.toolCall.interaction.code
+  }
   const tdCode = props.toolCall.toolData?.code
   if (typeof tdCode === 'string' && tdCode) return tdCode
-  // 降级：解析 input 字段（可能是 JSON 或 Python repr 格式）
   const raw = props.toolCall.input
-  // 先尝试 JSON
   try {
     const parsed = JSON.parse(raw)
     return typeof parsed.code === 'string' ? parsed.code : ''
-  } catch { /* not JSON */ }
-  // 再尝试 Python repr（单引号 → 双引号）
+  } catch { }
   try {
     const jsonLike = raw.replace(/'/g, '"')
     const parsed = JSON.parse(jsonLike)
     return typeof parsed.code === 'string' ? parsed.code : ''
-  } catch { /* not Python repr either */ }
+  } catch { }
   return ''
 })
 
@@ -78,6 +97,28 @@ const stdoutLineCount = computed(() => {
   if (!stdout.value) return 0
   return stdout.value.split('\n').length
 })
+
+function confirmExecution() {
+  submitted.value = true
+  emit('action', {
+    action: 'user_response',
+    data: {
+      interactionId: props.toolCall.interaction?.interactionId,
+      response: '执行',
+    },
+  })
+}
+
+function cancelExecution() {
+  submitted.value = true
+  emit('action', {
+    action: 'user_response',
+    data: {
+      interactionId: props.toolCall.interaction?.interactionId,
+      response: '取消',
+    },
+  })
+}
 
 function copyCode() {
   if (!code.value) return
@@ -155,7 +196,6 @@ function copyCode() {
   border-color: var(--accent-light);
 }
 
-/* ── 代码块 ── */
 .py-code-block {
   background: #eff1f5;
   border-radius: 8px;
@@ -191,14 +231,12 @@ function copyCode() {
   padding-right: 16px;
 }
 
-/* Syntax colors — Catppuccin Latte */
 .py-code-block :deep(.py-kw)      { color: #8839ef; font-style: italic; }
 .py-code-block :deep(.py-builtin) { color: #1e66f5; }
 .py-code-block :deep(.py-str)     { color: #40a02b; }
 .py-code-block :deep(.py-comment) { color: #8c8fa1; font-style: italic; }
 .py-code-block :deep(.py-num)     { color: #fe640b; }
 
-/* ── 标准输出 ── */
 .py-stdout {
   font-family: 'MapleMono', 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
@@ -213,7 +251,6 @@ function copyCode() {
   overflow-y: auto;
 }
 
-/* ── 降级输出 ── */
 .raw-output {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
@@ -224,5 +261,65 @@ function copyCode() {
   padding: 8px 12px;
   background: var(--bg-primary);
   border-radius: 6px;
+}
+
+.py-confirm-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: color-mix(in srgb, #f59e0b 12%, transparent);
+  border-radius: 6px;
+  border: 1px solid #f59e0b;
+}
+
+.py-confirm-icon {
+  font-size: 18px;
+}
+
+.py-confirm-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.py-confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.btn-cancel {
+  padding: 6px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.btn-cancel:hover {
+  border-color: var(--accent-light);
+}
+
+.btn-execute {
+  padding: 6px 18px;
+  border: none;
+  border-radius: 6px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.btn-execute:hover {
+  background: #dc2626;
 }
 </style>
