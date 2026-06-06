@@ -31,7 +31,7 @@
           @click="setAutoApprove(!autoApprove)"
         >
           <span class="auto-approve-indicator"></span>
-          {{ autoApprove ? '自动' : '审核' }}
+          {{ autoApprove ? 'ATE' : 'ABE' }}
         </button>
         <div class="hover-card card-auto-approve">
           <div class="card-row">
@@ -75,16 +75,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { Citation } from '@/types'
 import { api } from '@/api'
-import { useSession } from '@/composables/useSession'
+import ChatInput from '@/components/ChatInput.vue'
+import ChatWindow from '@/components/ChatWindow.vue'
+import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
-import StatusBadge from '@/components/StatusBadge.vue'
-import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
-import ChatWindow from '@/components/ChatWindow.vue'
-import ChatInput from '@/components/ChatInput.vue'
+import { useSession } from '@/composables/useSession'
+import type { Citation } from '@/types'
+import { computed, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
 const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, autoApprove, setAutoApprove } =
