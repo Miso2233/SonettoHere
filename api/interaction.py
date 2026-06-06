@@ -12,6 +12,9 @@ import uuid
 # 当前连接对应的 WebSocket 实例（在 chat.py 中设置）
 current_ws: contextvars.ContextVar = contextvars.ContextVar("current_ws")
 
+# 当前会话的自动批准模式（在 chat.py 中设置）
+auto_approve: contextvars.ContextVar = contextvars.ContextVar("auto_approve", default=False)
+
 # 全局待处理交互表：interaction_id → Future
 _pending: dict[str, asyncio.Future] = {}
 

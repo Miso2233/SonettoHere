@@ -18,6 +18,7 @@ class SessionState:
     _active_task: asyncio.Task | None = field(default=None, repr=False)
     checkpointer: MemorySaver = field(default_factory=MemorySaver)
     _graph: CompiledStateGraph | None = field(default=None, repr=False)
+    auto_approve: bool = False
 
     # ── Sub-agent 字段 ─────────────────────────────────────
     is_subagent: bool = False

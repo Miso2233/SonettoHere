@@ -1,4 +1,14 @@
 news:
+  - id: "code-guardian"
+    en_title: "Code Guardian"
+    title: "代码执行前审查功能正式发布"
+    description: "我们引入了对于Python执行工具的审批系统。审核模式下展示待执行代码的完整预览，支持允许或拒绝操作，拒绝时可附带详细反馈。双模式（自动/审核）架构兼顾开发效率与安全管控。"
+    type: "feat"
+    date: "2026-06-04"
+    tags: ["Python", "代码执行", "安全"]
+    version: "PREVIEW"
+    pr_number: 93
+
   - id: "time-traveler-undo"
     en_title: "Project Time Traveler"
     title: "对话撤回功能上线"

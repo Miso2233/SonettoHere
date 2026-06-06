@@ -24,6 +24,28 @@
           </div>
         </div>
       </span>
+      <span class="auto-approve-trigger hover-trigger">
+        <button
+          class="auto-approve-toggle"
+          :class="{ active: autoApprove }"
+          @click="setAutoApprove(!autoApprove)"
+        >
+          <span class="auto-approve-indicator"></span>
+          {{ autoApprove ? 'ATE' : 'ABE' }}
+        </button>
+        <div class="hover-card card-auto-approve">
+          <div class="card-row">
+            <span class="card-label">自动执行</span>
+            <span class="card-value" :class="autoApprove ? 'status-warn' : 'status-off'">
+              {{ autoApprove ? '已开启' : '已关闭' }}
+            </span>
+          </div>
+          <div class="card-divider"></div>
+          <div class="auto-approve-desc">
+            {{ autoApprove ? 'Python 代码将直接执行，无需用户确认。点击切换为手动审核模式。' : 'Python 代码执行前需要您确认。点击切换为自动执行模式。' }}
+          </div>
+        </div>
+      </span>
       <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
     </header>
 
@@ -53,19 +75,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import type { Citation } from '@/types'
 import { api } from '@/api'
-import { useSession } from '@/composables/useSession'
+import ChatInput from '@/components/ChatInput.vue'
+import ChatWindow from '@/components/ChatWindow.vue'
+import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
+import StatusBadge from '@/components/StatusBadge.vue'
 import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
-import StatusBadge from '@/components/StatusBadge.vue'
-import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
-import ChatWindow from '@/components/ChatWindow.vue'
-import ChatInput from '@/components/ChatInput.vue'
+import { useSession } from '@/composables/useSession'
+import type { Citation } from '@/types'
+import { computed, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode } =
+const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, autoApprove, setAutoApprove } =
   useChat(sessionId)
 
 const selectedModelName = ref('')
@@ -189,12 +211,56 @@ async function handleUndo() {
   opacity: 1;
   transform: translateY(0);
 }
+.auto-approve-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  user-select: none;
+}
+.auto-approve-toggle:hover {
+  border-color: var(--text-secondary);
+}
+/* 自动模式（autoApprove = true） */
+.auto-approve-toggle.active {
+  border-color: var(--status-warn);
+  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
+  color: var(--status-warn);
+}
+/* 审核模式（autoApprove = false）指示器 */
+.auto-approve-toggle:not(.active) .auto-approve-indicator {
+  background: var(--accent);
+}
+.auto-approve-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.auto-approve-trigger {
+  position: relative;
+}
+.auto-approve-trigger:hover .hover-card {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
+}
 .private-desc {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.6;
   white-space: normal;
   max-width: 240px;
+}
+.status-warn {
+  color: var(--status-warn);
 }
 .status-on {
   color: var(--status-warn);
@@ -223,6 +289,13 @@ async function handleUndo() {
   height: 1px;
   background: var(--border);
   margin: 4px 0;
+}
+.auto-approve-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: normal;
+  max-width: 240px;
 }
 .sub-agent-readonly-bar {
   display: flex;
