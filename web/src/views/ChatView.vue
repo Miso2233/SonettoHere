@@ -26,8 +26,8 @@
       </span>
       <span class="auto-approve-trigger hover-trigger">
         <button
-          class="auto-approve-toggle review-mode"
-          :class="{ active: !autoApprove }"
+          class="auto-approve-toggle"
+          :class="{ active: autoApprove }"
           @click="setAutoApprove(!autoApprove)"
         >
           <span class="auto-approve-indicator"></span>
@@ -36,7 +36,7 @@
         <div class="hover-card card-auto-approve">
           <div class="card-row">
             <span class="card-label">自动执行</span>
-            <span class="card-value" :class="autoApprove ? 'status-off' : 'status-warn'">
+            <span class="card-value" :class="autoApprove ? 'status-warn' : 'status-off'">
               {{ autoApprove ? '已开启' : '已关闭' }}
             </span>
           </div>
@@ -228,13 +228,13 @@ async function handleUndo() {
 .auto-approve-toggle:hover {
   border-color: var(--text-secondary);
 }
-/* 审核模式（autoApprove = false） */
+/* 自动模式（autoApprove = true） */
 .auto-approve-toggle.active {
   border-color: var(--status-warn);
   background: color-mix(in srgb, var(--status-warn) 10%, transparent);
   color: var(--status-warn);
 }
-/* 自动模式（autoApprove = true）指示器为灰色 */
+/* 审核模式（autoApprove = false）指示器 */
 .auto-approve-toggle:not(.active) .auto-approve-indicator {
   background: var(--accent);
 }

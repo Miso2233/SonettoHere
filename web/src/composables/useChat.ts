@@ -121,7 +121,7 @@ function getOrCreateChannel(sid: string): SessionChannel {
       _awaitingToolName: null,
       parentSessionId: null,
       privateMode: false,
-      autoApprove: true,
+      autoApprove: false,
     })
   }
   return channels.get(sid)!
