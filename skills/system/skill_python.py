@@ -2,13 +2,25 @@
 
 import asyncio
 import io
-import json
 import sys
 
 from pydantic import BaseModel, Field
 
 from api import interaction
 from skills.base import SkillBase, format_error, format_success
+
+
+def _exec_code(code: str) -> str:
+    """在线程中执行代码并捕获 stdout。返回输出文本。"""
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
+    try:
+        exec(code, {"__builtins__": __builtins__})
+        return sys.stdout.getvalue() or "（代码执行完毕，无输出）"
+    except Exception as e:
+        raise RuntimeError(f"代码执行错误: {e}") from e
+    finally:
+        sys.stdout = old_stdout
 
 
 class RunPythonInput(BaseModel):
@@ -40,19 +52,11 @@ class RunPythonSkill(SkillBase):
             return format_error("code 不能为空")
 
         if interaction.auto_approve.get():
-            old_stdout = sys.stdout
-            sys.stdout = io.StringIO()
             try:
-                exec(code, {"__builtins__": __builtins__})
-                output = sys.stdout.getvalue()
-                return format_success({
-                    "output": output if output else "（代码执行完毕，无输出）",
-                    "code": code,
-                })
+                output = await asyncio.to_thread(_exec_code, code)
+                return format_success({"output": output, "code": code})
             except Exception as e:
-                return format_error(f"代码执行错误: {e}")
-            finally:
-                sys.stdout = old_stdout
+                return format_error(str(e))
 
         ws = interaction.current_ws.get()
         interaction_id, future = interaction.register()
@@ -79,20 +83,11 @@ class RunPythonSkill(SkillBase):
                 reason = answer.get("reason", "")
 
             if action == "approve":
-                old_stdout = sys.stdout
-                sys.stdout = io.StringIO()
-
                 try:
-                    exec(code, {"__builtins__": __builtins__})
-                    output = sys.stdout.getvalue()
-                    return format_success({
-                        "output": output if output else "（代码执行完毕，无输出）",
-                        "code": code,
-                    })
+                    output = await asyncio.to_thread(_exec_code, code)
+                    return format_success({"output": output, "code": code})
                 except Exception as e:
-                    return format_error(f"代码执行错误: {e}")
-                finally:
-                    sys.stdout = old_stdout
+                    return format_error(str(e))
             else:
                 if reason:
                     return format_error(f"用户拒绝执行代码。原因：{reason}")

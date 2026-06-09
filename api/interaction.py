@@ -9,6 +9,8 @@ import asyncio
 import contextvars
 import uuid
 
+from skills.base import format_error
+
 # 当前连接对应的 WebSocket 实例（在 chat.py 中设置）
 current_ws: contextvars.ContextVar = contextvars.ContextVar("current_ws")
 
@@ -41,3 +43,18 @@ def resolve(interaction_id: str, response) -> bool:
 def cleanup(interaction_id: str):
     """清理（超时或取消时调用）。"""
     _pending.pop(interaction_id, None)
+
+
+def cancel_all(reason: str | None = None):
+    """将所有挂起的交互 Future 以取消原因标记为已完成，并清空 _pending。
+
+    在取消 Agent 任务时由 _run_agent_turn 的 CancelledError 处理器调用。
+    返回值套用统一错误响应格式。
+    """
+    if reason is None:
+        reason = "用户取消了该工具调用"
+    formatted = format_error(reason)
+    for interaction_id, future in list(_pending.items()):
+        if not future.done():
+            future.set_result(formatted)
+        _pending.pop(interaction_id, None)

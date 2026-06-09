@@ -6,7 +6,7 @@ import sys
 import traceback
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agent.graph import build_agent
 from agent.prompts import build_system_prompt
@@ -15,6 +15,7 @@ from api.callbacks.websocket_callback import WebSocketCallback
 from api.context_usage import estimate_context_usage
 from api.session_manager import SessionState
 from config.settings import get_settings
+from skills.base import format_error
 
 router = APIRouter()
 
@@ -86,6 +87,94 @@ async def _calculate_context_usage(session, system_prompt, model_name: str | Non
     )
 
 
+async def _inject_cancel_tool_messages(session, config, ws: WebSocket) -> None:
+    """为 checkpoint 中孤立的 tool_calls 注入统一格式的正常 ToolMessage，
+    并通知前端使对应工具气泡进入错误状态。
+
+    由 CancelledError 处理器调用，确保取消后 checkpoint 状态一致，
+    下一条消息不会触发 "tool_calls without corresponding ToolMessage" 错误。
+
+    注入的 ToolMessage 使用 status="success"（默认），content 套用 format_error()
+    统一错误响应格式，使 LLM 在下一轮能正确识别工具调用已被取消。
+
+    前端 tool_error 事件：如果对应工具气泡尚在 'running' 状态，则标记为 'error'；
+    若工具从未启动过（无对应气泡）则事件被前端静默忽略。
+
+    与 time_traveler.py 的 undo_rounds() 使用同一模式（graph.aupdate_state）。
+    注意必需传入 as_node="tools"，否则 aupdate_state 评估路由时会从 model 节点的
+    model_to_tools 条件边走，检测到人造 ToolMessage 后返回 "model" 但该边目的地
+    不含 "model" 导致 KeyError 使写入失败。
+    """
+    graph = session._graph
+    if graph is None:
+        return
+
+    try:
+        state = await graph.aget_state(config)
+    except Exception:
+        return  # checkpoint 不可读时静默跳过
+
+    messages = state.values.get("messages", [])
+    if not messages:
+        return
+
+    # 从后往前找最后一个 AIMessage
+    last_ai = None
+    for i in range(len(messages) - 1, -1, -1):
+        if isinstance(messages[i], AIMessage):
+            last_ai = messages[i]
+            break
+
+    if last_ai is None:
+        return
+
+    tool_calls = getattr(last_ai, "tool_calls", [])
+    if not tool_calls:
+        return
+
+    # 收集其后所有 ToolMessage 的 tool_call_id 集合
+    try:
+        idx = messages.index(last_ai)
+    except ValueError:
+        return
+    following = messages[idx + 1:]
+
+    tool_msg_ids = {m.tool_call_id for m in following if isinstance(m, ToolMessage)}
+
+    orphaned = [tc for tc in tool_calls if tc["id"] not in tool_msg_ids]
+    if not orphaned:
+        return  # checkpoint 已一致
+
+    # 通知前端：使运行的工具体进入错误状态
+    for tc in orphaned:
+        try:
+            await ws.send_json({
+                "type": "tool_error",
+                "payload": {
+                    "tool_name": tc["name"],
+                    "error": "用户取消了该工具调用",
+                },
+            })
+        except Exception:
+            pass  # WebSocket 已断开时静默忽略
+
+    # 生成取消 ToolMessage 并写入 checkpoint
+    cancel_msgs = []
+    for tc in orphaned:
+        cancel_msgs.append(
+            ToolMessage(
+                content=format_error("用户取消了该工具调用"),
+                name=tc["name"],
+                tool_call_id=tc["id"],
+            )
+        )
+    try:
+        await graph.aupdate_state(config, {"messages": cancel_msgs}, as_node="tools")
+    except Exception as e:
+        print(f"[cancel] aupdate_state failed: {type(e).__name__}: {e}", file=sys.stderr)
+        raise
+
+
 async def _run_agent_turn(
     ws: WebSocket,
     session: SessionState,
@@ -150,6 +239,15 @@ async def _run_agent_turn(
             "payload": {"content": final_answer}
         })
     except asyncio.CancelledError:
+        # 清理 interaction 挂起 Future
+        interaction.cancel_all()
+
+        # 修复 checkpoint：为孤立 tool_calls 注入取消 ToolMessage，并通知前端
+        try:
+            await _inject_cancel_tool_messages(session, config, ws)
+        except Exception as e:
+            print(f"[cancel] checkpoint cleanup error: {e}", file=sys.stderr)
+
         await ws.send_json({                                                # [向前端通信] 2. 通知客户端生成已被取消
             "type": "error",
             "payload": {"code": "CANCELLED", "message": "生成已取消"},
