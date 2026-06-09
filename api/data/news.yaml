@@ -1,13 +1,14 @@
 news:
   - id: "cancel-tool-checkpoint"
     en_title: "Cancel Tool Message Checkpoint"
-    title: "取消时工具状态持久化与前端同步"
-    description: "优化 Agent 取消机制：取消时自动为孤立工具调用注入统一格式的取消 ToolMessage 到 Checkpoint，避免下条消息因状态不一致报错；同时向前端推送 tool_error 事件使工具气泡进入错误状态。Python 代码执行工具改为线程运行，取消时不再等待代码执行完毕，响应更及时。"
+    title: "工具调用时允许截停"
+    description: "Project Time Traveler 第二个功能「Cancel-Tool」上线。覆盖绝大部分工具，允许工具运行时手动截停。LLM将从工具返回结果中知晓用户截停操作。"
     type: "feat"
     date: "2026-06-09"
-    tags: ["Agent", "取消", "稳定", "Python"]
+    tags: ["Skill", "取消", "稳定"]
     version: "PREVIEW"
-    pr_number:
+    pr_number: 94
+
   - id: "code-guardian"
     en_title: "Code Guardian"
     title: "代码执行前审查功能正式发布"
