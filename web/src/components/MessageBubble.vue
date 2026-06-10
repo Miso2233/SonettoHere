@@ -24,11 +24,17 @@ import ReferenceChip from './ReferenceChip.vue';
 
 const props = defineProps<{ role: 'user' | 'assistant'; content: string }>()
 
+/** 匹配前端自动追加的 ISO 时间尾缀（2026-06-10 14:30） */
+const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \d{2}:\d{2}）$/
+
 const parsed = computed(() => {
   if (props.role !== 'user') {
     return { cleanText: props.content, refs: [] }
   }
-  return parseReferences(props.content)
+  const result = parseReferences(props.content)
+  // 隐藏时间尾缀——后端 LLM 仍可见，仅前端气泡不展示
+  result.cleanText = result.cleanText.replace(TIME_SUFFIX_RE, '')
+  return result
 })
 
 const rendered = computed(() => renderMarkdown(parsed.value.cleanText))
