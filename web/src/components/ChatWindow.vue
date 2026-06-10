@@ -8,7 +8,7 @@
           :data-user-msg-idx="idx"
           @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户', idx)"
         >
-          <MessageBubble role="user" :content="turn.userMessage" />
+          <MessageBubble role="user" :content="turn.userMessage" :refs="turn.refs" />
         </div>
         <template v-for="(ev, i) in turn.events" :key="i">
           <div
@@ -48,7 +48,7 @@
           class="cite-source"
           @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', currentTurn.userMessage, '用户', -1)"
         >
-          <MessageBubble role="user" :content="currentTurn.userMessage" />
+          <MessageBubble role="user" :content="currentTurn.userMessage" :refs="currentTurn.refs" />
         </div>
         <template v-for="(ev, i) in currentTurn.events" :key="i">
           <div

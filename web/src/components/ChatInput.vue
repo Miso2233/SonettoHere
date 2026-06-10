@@ -96,7 +96,6 @@ import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
 import type { Citation, ProviderConfig } from '@/types'
 import type { ParsedRef } from '@/utils/references'
-import { buildRefsBlock } from '@/utils/references'
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps<{
@@ -106,7 +105,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [message: string, providerId?: string, modelName?: string]
+  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string]
   stop: []
   removeCitation: [id: string]
   modelChange: [providerId: string, modelName: string]
@@ -205,17 +204,6 @@ function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  // 时间尾缀（ISO 短格式 + 星期，含日期）
-  const now = new Date()
-  const y = now.getFullYear()
-  const mo = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  const hh = String(now.getHours()).padStart(2, '0')
-  const mm = String(now.getMinutes()).padStart(2, '0')
-  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-  const wd = weekdays[now.getDay()]
-  const msgWithTime = msg + `（${y}-${mo}-${d} ${wd} ${hh}:${mm}）`
-
   const refs: ParsedRef[] = []
 
   for (const fp of filePaths.value) {
@@ -227,9 +215,7 @@ function handleSend() {
     refs.push({ type: 'cite', text: cit.text, label })
   }
 
-  const finalMsg = refs.length > 0 ? msgWithTime + buildRefsBlock(refs) : msgWithTime
-
-  emit('send', finalMsg, selectedProviderId.value || undefined, selectedModelName.value || undefined)
+  emit('send', msg, refs, selectedProviderId.value || undefined, selectedModelName.value || undefined)
   text.value = ''
   filePaths.value = []
   nextTick(() => autoResize())

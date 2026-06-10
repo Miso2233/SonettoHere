@@ -1,3 +1,5 @@
+import type { ParsedRef } from '@/utils/references'
+
 // === WebSocket 服务端 → 客户端事件 ===
 
 export interface ThinkingStartEvent {
@@ -164,6 +166,7 @@ export type TurnEvent = ThinkingBlock | ToolCall
 export interface ChatTurn {
   id: string
   userMessage: string
+  refs: ParsedRef[]
   events: TurnEvent[]
   finalAnswer: string | null
 }

@@ -45,3 +45,23 @@ export function buildRefsBlock(refs: ParsedRef[]): string {
   if (refs.length === 0) return ''
   return `\n\n${REFS_START}${JSON.stringify(refs)}${REFS_END}`
 }
+
+/** 构造前端自动追加的 ISO 时间尾缀，如（2026-06-10 Wed 14:30） */
+export function buildTimestamp(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const mo = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const wd = weekdays[now.getDay()]
+  return `（${y}-${mo}-${d} ${wd} ${hh}:${mm}）`
+}
+
+/** 构建 WebSocket 发送用的平面字符串（结构化 → 序列化） */
+export function buildFlatMessage(text: string, timestamp: string, refs: ParsedRef[]): string {
+  const base = text + timestamp
+  if (refs.length === 0) return base
+  return base + buildRefsBlock(refs)
+}
