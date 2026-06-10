@@ -70,8 +70,9 @@ def _scan_anthropic_skills() -> str:
     return "\n".join(lines)
 
 
+@lru_cache(maxsize=1)
 def build_system_prompt() -> str:
-    """组装完整系统提示词，启动时调用一次。"""
+    """组装完整系统提示词，进程生命周期内只组装一次（LRU 缓存）。"""
     ensure_user_md()
     parts = [
         "## 行为规则",
