@@ -1,7 +1,6 @@
 """系统提示词组装。"""
 
 import re
-from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
@@ -74,7 +73,6 @@ def _scan_anthropic_skills() -> str:
 def build_system_prompt() -> str:
     """组装完整系统提示词，启动时调用一次。"""
     ensure_user_md()
-    now = datetime.now().strftime("%Y年%m月%d日 %H:%M:%S")
     parts = [
         "## 行为规则",
         _read_persona("AGENTS.md"),
@@ -87,8 +85,6 @@ def build_system_prompt() -> str:
         "",
         "## 我对用户的记忆",
         get_narrative(),
-        "",
-        f"当前时间：{now}",
         "",
         _scan_anthropic_skills(),
     ]
