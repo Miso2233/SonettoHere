@@ -257,6 +257,10 @@ class TestCrudTools:
 class TestGetNarrative:
     """模块级 get_narrative 测试。"""
 
+    def setup_method(self):
+        """每个测试前清除 LRU 缓存，防止 monkeypatch 的 MEMORY_PATH 被缓存污染。"""
+        narrative.get_narrative.cache_clear()
+
     def test_file_not_exists(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
         monkeypatch.setattr(narrative, "MEMORY_PATH", p)
