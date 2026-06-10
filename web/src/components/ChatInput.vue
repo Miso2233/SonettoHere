@@ -205,14 +205,16 @@ function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  // 时间尾缀（ISO 短格式，含日期）
+  // 时间尾缀（ISO 短格式 + 星期，含日期）
   const now = new Date()
   const y = now.getFullYear()
   const mo = String(now.getMonth() + 1).padStart(2, '0')
   const d = String(now.getDate()).padStart(2, '0')
   const hh = String(now.getHours()).padStart(2, '0')
   const mm = String(now.getMinutes()).padStart(2, '0')
-  const msgWithTime = msg + `（${y}-${mo}-${d} ${hh}:${mm}）`
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const wd = weekdays[now.getDay()]
+  const msgWithTime = msg + `（${y}-${mo}-${d} ${wd} ${hh}:${mm}）`
 
   const refs: ParsedRef[] = []
 

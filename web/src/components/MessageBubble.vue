@@ -24,8 +24,8 @@ import ReferenceChip from './ReferenceChip.vue';
 
 const props = defineProps<{ role: 'user' | 'assistant'; content: string }>()
 
-/** 匹配前端自动追加的 ISO 时间尾缀（2026-06-10 14:30） */
-const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \d{2}:\d{2}）$/
+/** 匹配前端自动追加的时间尾缀，如（2026-06-10 Wed 14:30） */
+const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
 
 const parsed = computed(() => {
   if (props.role !== 'user') {
