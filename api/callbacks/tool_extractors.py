@@ -1030,8 +1030,8 @@ def _extract_scrape(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-@register("read_memories")
-def _extract_read_memories(
+@register("list_memories")
+def _extract_list_memories(
     _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
 ) -> dict[str, Any] | None:
     """返回 items（列表），count。"""
@@ -1043,6 +1043,21 @@ def _extract_read_memories(
     if isinstance(items, list):
         result["items"] = items
         result["count"] = len(items)
+    return result if result else None
+
+
+@register("read_memories")
+def _extract_read_memories(
+    _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回单条记忆的 id、description、theme，可选 history。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    result: dict[str, Any] = {}
+    for key in ("id", "description", "theme", "history", "history_count", "formatted"):
+        if key in data:
+            result[key] = data[key]
     return result if result else None
 
 

@@ -79,6 +79,7 @@ def get_all_skills() -> list[BaseTool]:
     from skills.bilibili.skill_set_cookie import BilibiliSetCookieSkill
 
     # Memory
+    from skills.memory.skill_list_memories import ListMemoriesSkill
     from skills.memory.skill_read_memories import ReadMemoriesSkill
     from skills.memory.skill_create_memory import CreateMemorySkill
     from skills.memory.skill_update_memory import UpdateMemorySkill
@@ -135,6 +136,7 @@ def get_all_skills() -> list[BaseTool]:
         BilibiliSetCookieSkill(client=client),
         BilibiliDownloadSkill(client=client),
         # Memory
+        ListMemoriesSkill(client=client),
         ReadMemoriesSkill(client=client),
         CreateMemorySkill(client=client),
         UpdateMemorySkill(client=client),

@@ -10,8 +10,8 @@
     </div>
 
     <template v-else-if="toolCall.status === 'done'">
-      <!-- read_memories — 列表视图 -->
-      <div v-if="isReadMemories && items.length" class="memory-list">
+      <!-- list_memories — 列表视图 -->
+      <div v-if="isListMemories && items.length" class="memory-list">
         <div class="memory-stats">共 {{ items.length }} 条记忆</div>
         <div v-for="theme in themes" :key="theme" class="theme-group">
           <div class="theme-header">{{ theme }}</div>
@@ -54,7 +54,7 @@ const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }):
 
 // ── 工具名称判断 ──
 const toolName = computed(() => props.toolCall.name)
-const isReadMemories = computed(() => toolName.value === 'read_memories')
+const isListMemories = computed(() => toolName.value === 'list_memories')
 
 // ── 数据源：优先 toolData，降级到 parse output ──
 const data = computed(() => {
