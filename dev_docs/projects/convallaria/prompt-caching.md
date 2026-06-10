@@ -4,7 +4,7 @@
 
 铃兰计划（Project Convallaria）旨在最大化 Anthropic Prompt Caching 的缓存命中率。核心策略：**确保每次 API 调用发送的系统提示词前缀字节级一致，且尽可能长**。
 
-Anthropic 的 Prompt Caching 对系统提示词前缀有 **5 分钟 TTL**，前缀越长 → 缓存节省越多，前缀越稳定 → 缓存命中率越高。
+前缀越长 → 缓存节省越多，前缀越稳定 → 缓存命中率越高。
 
 ---
 
