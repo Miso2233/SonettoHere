@@ -1,4 +1,14 @@
 news:
+  - id: "convallaria-prompt-caching"
+    en_title: "Project Convallaria"
+    title: "铃兰计划首期完成"
+    description: "铃兰计划（Project Convallaria）首期聚焦 Prompt Caching 前缀稳定优化。系统提示词在进程生命周期内字节级一致，大幅提升模型缓存命中率。同时完成前端消息元数据结构化改造、记忆读取工具拆分（list_memories/read_memories），以及移除固定位置的时间变量"
+    type: "feat"
+    date: "2026-06-10"
+    tags: ["模型费用", "性能", "缓存"]
+    version: "PREVIEW"
+    pr_number: 95
+
   - id: "cancel-tool-checkpoint"
     en_title: "Cancel Tool Message Checkpoint"
     title: "工具调用时允许截停"

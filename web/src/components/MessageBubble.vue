@@ -1,15 +1,15 @@
 <template>
   <div class="message-row" :class="role">
     <div class="bubble" :class="role">
-      <div v-if="parsed.cleanText" class="markdown-body" v-html="rendered"></div>
-      <div v-if="parsed.refs.length" class="ref-chips">
+      <div v-if="content" class="markdown-body" v-html="rendered"></div>
+      <div v-if="refs?.length" class="ref-chips">
         <ReferenceChip
-          v-for="(ref, idx) in parsed.refs"
+          v-for="(r, idx) in refs"
           :key="idx"
-          :type="ref.type"
-          :label="ref.label"
-          :path="ref.path"
-          :text="ref.text"
+          :type="r.type"
+          :label="r.label"
+          :path="r.path"
+          :text="r.text"
         />
       </div>
     </div>
@@ -18,20 +18,13 @@
 
 <script setup lang="ts">
 import { renderMarkdown } from '@/utils/markdown';
-import { parseReferences } from '@/utils/references';
+import type { ParsedRef } from '@/utils/references';
 import { computed } from 'vue';
 import ReferenceChip from './ReferenceChip.vue';
 
-const props = defineProps<{ role: 'user' | 'assistant'; content: string }>()
+const props = defineProps<{ role: 'user' | 'assistant'; content: string; refs?: ParsedRef[] }>()
 
-const parsed = computed(() => {
-  if (props.role !== 'user') {
-    return { cleanText: props.content, refs: [] }
-  }
-  return parseReferences(props.content)
-})
-
-const rendered = computed(() => renderMarkdown(parsed.value.cleanText))
+const rendered = computed(() => renderMarkdown(props.content))
 </script>
 
 <style scoped>

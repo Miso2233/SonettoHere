@@ -57,6 +57,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   task_tracker: '任务追踪',
 
   /* Memory */
+  list_memories: '记忆列表',
   read_memories: '读取记忆',
   create_memory: '创建记忆',
   update_memory: '更新记忆',

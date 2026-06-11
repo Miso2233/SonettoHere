@@ -1,8 +1,25 @@
 import { reactive, computed, watch, nextTick, type Ref } from 'vue'
 import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent } from '@/types'
 import { refreshSessions, switchSession } from '@/composables/useSession'
+import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
+import type { ParsedRef } from '@/utils/references'
+
+/** 匹配旧格式尾缀（用于 localStorage 迁移） */
+const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
 
 export const TURNS_KEY_PREFIX = 'sonetto_turns_'
+
+/** 将旧格式 turn（userMessage 含 __refs__ 和时间尾缀）迁移为新格式 */
+function migrateLegacyTurn(turn: any): ChatTurn {
+  if (Array.isArray(turn.refs)) {
+    return turn as ChatTurn  // 已经是新格式
+  }
+  // 旧格式：从 userMessage 中提取 refs 和时间尾缀
+  const prevMsg = (turn.userMessage ?? '') as string
+  const { cleanText, refs } = parseReferences(prevMsg || '')
+  const text = refs.length > 0 ? cleanText : prevMsg.replace(TIME_SUFFIX_RE, '')
+  return { ...turn, userMessage: text, refs }
+}
 
 // 从 localStorage 恢复所有会话的消息缓存（页面刷新后仍保留）
 function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
@@ -17,8 +34,9 @@ function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
         const raw = localStorage.getItem(key) || '[]'
         const data = JSON.parse(raw)
         if (Array.isArray(data)) {
-          console.log(`[useChat:load] 从 localStorage 加载会话 ${sid}: ${data.length} 条 turn, 序列化长度 ${raw.length}`)
-          map.set(sid, data)
+          const migrated = data.map(migrateLegacyTurn)
+          console.log(`[useChat:load] 从 localStorage 加载会话 ${sid}: ${data.length} 条 turn (迁移 ${migrated.length}), 序列化长度 ${raw.length}`)
+          map.set(sid, migrated)
         } else {
           console.warn(`[useChat:load] 键 ${key} 的数据不是数组，跳过`)
         }
@@ -217,6 +235,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
     subCh.currentTurn = {
       id: crypto.randomUUID(),
       userMessage: event.payload.task || '(子 Agent 任务)',
+      refs: [],
       events: [],
       finalAnswer: null,
     }
@@ -445,19 +464,22 @@ export function useChat(sessionId: Ref<string>) {
     { immediate: true }
   )
 
-  function send(message: string, providerId?: string, modelName?: string) {
+  function send(text: string, refs: ParsedRef[] = [], providerId?: string, modelName?: string) {
     const ch = activeChannel.value
     if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) {
       console.warn(`[useChat:send] WebSocket 未就绪, readyState=${ch.ws?.readyState}, session=${sessionId.value}`)
       return
     }
-    console.log(`[useChat:send] 发送消息 (session=${sessionId.value}): "${message.slice(0, 80)}..."`)
     ch.isStreaming = true
     ch.error = null
 
+    const timestamp = buildTimestamp()
+    const flatMsg = buildFlatMessage(text, timestamp, refs)
+
     const turn: ChatTurn = {
       id: crypto.randomUUID(),
-      userMessage: message,
+      userMessage: text,
+      refs,
       events: [],
       finalAnswer: null,
     }
@@ -465,7 +487,7 @@ export function useChat(sessionId: Ref<string>) {
 
     const payload: ClientMessage = {
       type: 'chat',
-      payload: { message, private: ch.privateMode, auto_approve: ch.autoApprove, provider_id: providerId, model_name: modelName },
+      payload: { message: flatMsg, private: ch.privateMode, auto_approve: ch.autoApprove, provider_id: providerId, model_name: modelName },
     }
     ch.ws.send(JSON.stringify(payload))
   }

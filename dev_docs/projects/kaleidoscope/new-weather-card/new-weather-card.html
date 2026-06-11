@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>极简线框 · 天气卡片 + SVG 图标库</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f5f5f5;
+    color: #1a1a1a;
+    padding: 48px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ─── 页头 ─── */
+  .page-header {
+    max-width: 700px;
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .page-header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+  .page-header p {
+    margin-top: 8px;
+    font-size: 14px;
+    color: #666;
+  }
+  .page-header .meta {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #aaa;
+    font-family: "SF Mono", "Consolas", monospace;
+  }
+
+  /* ─── 分隔标题 ─── */
+  .section-title {
+    max-width: 700px;
+    width: 100%;
+    font-size: 13px;
+    font-weight: 600;
+    color: #999;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding-bottom: 10px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid #ddd;
+  }
+  .section-title .num {
+    color: #ccc;
+    margin-right: 8px;
+  }
+
+  /* ─── 演示区 ─── */
+  .showcase {
+    max-width: 700px;
+    width: 100%;
+    margin-bottom: 56px;
+  }
+
+  /* ════════════════════════════════════════
+     设计 #1 — 极简线框风（成品版）
+     ════════════════════════════════════════ */
+  .card-lineframe {
+    border: 1px solid #1a1a1a;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: #fff;
+  }
+  .card-lineframe .lf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .card-lineframe .lf-header-left { display: flex; flex-direction: column; gap: 2px; }
+  .card-lineframe .lf-city {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #999;
+  }
+  .card-lineframe .lf-time {
+    font-size: 10px;
+    color: #bbb;
+    letter-spacing: 0.3px;
+  }
+  .card-lineframe .lf-temp-row {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .card-lineframe .lf-temp {
+    font-size: 52px;
+    font-weight: 200;
+    line-height: 1;
+    letter-spacing: -2px;
+    color: #1a1a1a;
+  }
+  .card-lineframe .lf-unit {
+    font-size: 20px;
+    font-weight: 300;
+    color: #888;
+  }
+  .card-lineframe .lf-cond-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #555;
+  }
+  .card-lineframe .lf-cond-row .divider {
+    color: #ddd;
+    font-weight: 300;
+  }
+  .card-lineframe .lf-details {
+    display: flex;
+    gap: 0;
+    border-top: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 10px 0;
+  }
+  .card-lineframe .lf-detail-item {
+    flex: 1;
+    text-align: center;
+    font-size: 10px;
+    color: #999;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    border-right: 1px solid #e0e0e0;
+  }
+  .card-lineframe .lf-detail-item:last-child { border-right: none; }
+  .card-lineframe .lf-detail-item .lf-dv {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+    margin-top: 3px;
+  }
+  .card-lineframe .lf-forecast {
+    display: flex;
+    gap: 4px;
+  }
+  .card-lineframe .lf-fc-day {
+    flex: 1;
+    text-align: center;
+    padding: 8px 4px;
+    border: 1px solid #eee;
+    transition: border-color 0.15s;
+  }
+  .card-lineframe .lf-fc-day:hover { border-color: #1a1a1a; }
+  .card-lineframe .lf-fc-day .fc-icon { margin: 4px auto; }
+  .card-lineframe .lf-fc-day .day { font-size: 10px; color: #aaa; }
+  .card-lineframe .lf-fc-day .hi { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+  .card-lineframe .lf-fc-day .lo { font-size: 11px; color: #bbb; }
+  .card-lineframe .lf-fc-day .fc-cond { font-size: 10px; color: #999; margin-top: 2px; }
+
+  /* ─── 控制面板 ─── */
+  .controls {
+    max-width: 700px;
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+    margin-bottom: 56px;
+  }
+  .controls button {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 6px 14px;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #444;
+    cursor: pointer;
+    transition: all 0.12s;
+    border-radius: 2px;
+  }
+  .controls button:hover {
+    border-color: #1a1a1a;
+    color: #1a1a1a;
+  }
+  .controls button.active {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+  }
+
+  /* ─── SVG 图标库 ─── */
+  .icon-gallery {
+    max-width: 700px;
+    width: 100%;
+    margin-bottom: 48px;
+  }
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 12px;
+  }
+  .icon-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 8px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+  }
+  .icon-item .icon-preview {
+    width: 48px;
+    height: 48px;
+    color: #1a1a1a;
+  }
+  .icon-item .icon-preview svg {
+    width: 100%;
+    height: 100%;
+  }
+  .icon-item .icon-name {
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 0.3px;
+  }
+  .icon-item .icon-desc {
+    font-size: 10px;
+    color: #bbb;
+  }
+
+  /* ─── SVG 矢量预览 ─── */
+  .svg-showcase {
+    max-width: 700px;
+    width: 100%;
+    margin-bottom: 48px;
+  }
+  .svg-showcase .svg-large-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    justify-content: center;
+    padding: 32px 20px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+  }
+  .svg-showcase .svg-large-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 80px;
+  }
+  .svg-showcase .svg-large-item .preview {
+    width: 56px;
+    height: 56px;
+    color: #1a1a1a;
+  }
+  .svg-showcase .svg-large-item .preview svg {
+    width: 100%;
+    height: 100%;
+  }
+  .svg-showcase .svg-large-item .label {
+    font-size: 10px;
+    color: #999;
+  }
+
+  /* ─── 代码区 ─── */
+  .code-block {
+    max-width: 700px;
+    width: 100%;
+    margin-bottom: 40px;
+  }
+  .code-block pre {
+    font-family: "SF Mono", "Consolas", "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    padding: 20px;
+    overflow-x: auto;
+    white-space: pre;
+    color: #333;
+  }
+  .code-block .code-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    background: #1a1a1a;
+    color: #ccc;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  .code-block .code-header button {
+    font-family: inherit;
+    font-size: 10px;
+    background: transparent;
+    border: 1px solid #555;
+    color: #ccc;
+    padding: 2px 10px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .code-block .code-header button:hover {
+    background: #333;
+    color: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>#1 极简线框 · 天气卡片</h1>
+  <p>只有线条，没有色块。用 1px 边框撑起所有信息层级。</p>
+  <div class="meta">设计原型 · 数据来自组件 WeatherBubble.vue</div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     演示区
+     ════════════════════════════════════════════ -->
+<div class="showcase">
+  <div class="section-title"><span class="num">01</span> 实时演示</div>
+
+  <!-- ─── 卡片本体 ─── -->
+  <div class="card-lineframe" id="weather-card">
+    <div class="lf-header">
+      <div class="lf-header-left">
+        <div class="lf-city" id="w-city">Beijing · 北京</div>
+        <div class="lf-time" id="w-time">2026.06.10 Wed 22:00</div>
+      </div>
+      <div id="w-header-icon" style="width:36px;height:36px;color:#1a1a1a;"></div>
+    </div>
+
+    <div class="lf-temp-row">
+      <span class="lf-temp" id="w-temp">28</span>
+      <span class="lf-unit">°C</span>
+    </div>
+
+    <div class="lf-cond-row">
+      <span id="w-icon-sm" style="width:18px;height:18px;color:#666;display:inline-flex;"></span>
+      <span id="w-condition">晴</span>
+      <span class="divider">|</span>
+      <span id="w-wind">东南风 2级</span>
+    </div>
+
+    <div class="lf-details">
+      <div class="lf-detail-item">湿度<span class="lf-dv" id="w-humidity">63%</span></div>
+      <div class="lf-detail-item">体感<span class="lf-dv" id="w-feel">27°C</span></div>
+      <div class="lf-detail-item">能见度<span class="lf-dv" id="w-visibility">10km</span></div>
+      <div class="lf-detail-item">气压<span class="lf-dv" id="w-pressure">1005hPa</span></div>
+    </div>
+
+    <div class="lf-forecast" id="w-forecast"></div>
+  </div>
+
+  <!-- ─── 切换按钮 ─── -->
+  <div class="controls" id="condition-buttons">
+    <button data-cond="sunny" class="active">晴</button>
+    <button data-cond="cloudy">多云</button>
+    <button data-cond="overcast">阴天</button>
+    <button data-cond="rainy">雨天</button>
+    <button data-cond="thunder">雷雨</button>
+    <button data-cond="snowy">雪天</button>
+    <button data-cond="foggy">雾霾</button>
+    <button data-cond="windy">大风</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     SVG 手绘图标库
+     ════════════════════════════════════════════ -->
+<div class="icon-gallery">
+  <div class="section-title"><span class="num">02</span> SVG 天气图标库</div>
+  <div class="icon-grid" id="icon-grid"></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     大图预览
+     ════════════════════════════════════════════ -->
+<div class="svg-showcase">
+  <div class="section-title"><span class="num">03</span> 矢量预览（56×56）</div>
+  <div class="svg-large-row" id="svg-large-row"></div>
+</div>
+
+<!-- ════════════════════════════════════════════
+     嵌入 HTML 代码
+     ════════════════════════════════════════════ -->
+<div class="code-block">
+  <div class="code-header">
+    <span>天气卡片 · 完整 HTML 片段</span>
+    <button onclick="copyCode()">复制</button>
+  </div>
+  <pre id="code-content"></pre>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     JavaScript
+     ════════════════════════════════════════════════ -->
+<script>
+// ─── 数据集 ───
+const CONDITIONS = {
+  sunny: {
+    label: "晴",
+    city: "Beijing · 北京",
+    condition: "晴",
+    temp: "28",
+    wind: "东南风 2级",
+    humidity: "63%",
+    temp_feel: "27°C",
+    visibility: "10km",
+    pressure: "1005hPa",
+    forecast: [
+      {day:"6/10", hi:"28°", lo:"18°", cond:"晴"},
+      {day:"6/11", hi:"30°", lo:"20°", cond:"多云"},
+      {day:"6/12", hi:"27°", lo:"19°", cond:"阴"},
+      {day:"6/13", hi:"24°", lo:"17°", cond:"小雨"},
+      {day:"6/14", hi:"26°", lo:"18°", cond:"多云"},
+    ]
+  },
+  cloudy: {
+    label: "多云",
+    condition: "多云",
+    temp: "26",
+    wind: "南风 3级",
+    humidity: "58%",
+    temp_feel: "25°C",
+    visibility: "8km",
+    pressure: "1002hPa",
+    forecast: [
+      {day:"6/10", hi:"26°", lo:"19°", cond:"多云"},
+      {day:"6/11", hi:"28°", lo:"20°", cond:"阴"},
+      {day:"6/12", hi:"25°", lo:"18°", cond:"多云"},
+      {day:"6/13", hi:"22°", lo:"16°", cond:"小雨"},
+      {day:"6/14", hi:"24°", lo:"17°", cond:"阴"},
+    ]
+  },
+  overcast: {
+    label: "阴天",
+    condition: "阴",
+    temp: "22",
+    wind: "东北风 2级",
+    humidity: "72%",
+    temp_feel: "21°C",
+    visibility: "6km",
+    pressure: "1008hPa",
+    forecast: [
+      {day:"6/10", hi:"22°", lo:"16°", cond:"阴"},
+      {day:"6/11", hi:"24°", lo:"17°", cond:"阴"},
+      {day:"6/12", hi:"21°", lo:"15°", cond:"小雨"},
+      {day:"6/13", hi:"19°", lo:"14°", cond:"小雨"},
+      {day:"6/14", hi:"23°", lo:"16°", cond:"多云"},
+    ]
+  },
+  rainy: {
+    label: "雨天",
+    condition: "小雨",
+    temp: "20",
+    wind: "北风 2级",
+    humidity: "89%",
+    temp_feel: "19°C",
+    visibility: "4km",
+    pressure: "1003hPa",
+    forecast: [
+      {day:"6/10", hi:"20°", lo:"15°", cond:"小雨"},
+      {day:"6/11", hi:"21°", lo:"16°", cond:"小雨"},
+      {day:"6/12", hi:"18°", lo:"14°", cond:"中雨"},
+      {day:"6/13", hi:"22°", lo:"16°", cond:"阴"},
+      {day:"6/14", hi:"25°", lo:"17°", cond:"多云"},
+    ]
+  },
+  thunder: {
+    label: "雷雨",
+    condition: "雷阵雨",
+    temp: "24",
+    wind: "西南风 4级",
+    humidity: "82%",
+    temp_feel: "23°C",
+    visibility: "3km",
+    pressure: "998hPa",
+    forecast: [
+      {day:"6/10", hi:"24°", lo:"18°", cond:"雷阵雨"},
+      {day:"6/11", hi:"26°", lo:"19°", cond:"多云"},
+      {day:"6/12", hi:"22°", lo:"16°", cond:"雷阵雨"},
+      {day:"6/13", hi:"20°", lo:"15°", cond:"中雨"},
+      {day:"6/14", hi:"25°", lo:"17°", cond:"晴"},
+    ]
+  },
+  snowy: {
+    label: "雪天",
+    condition: "小雪",
+    temp: "-2",
+    wind: "西北风 3级",
+    humidity: "76%",
+    temp_feel: "-6°C",
+    visibility: "2km",
+    pressure: "1012hPa",
+    forecast: [
+      {day:"6/10", hi:"-2°", lo:"-8°", cond:"小雪"},
+      {day:"6/11", hi:"0°", lo:"-7°", cond:"阴"},
+      {day:"6/12", hi:"2°", lo:"-5°", cond:"多云"},
+      {day:"6/13", hi:"-1°", lo:"-6°", cond:"小雪"},
+      {day:"6/14", hi:"3°", lo:"-4°", cond:"晴"},
+    ]
+  },
+  foggy: {
+    label: "雾霾",
+    condition: "霾",
+    temp: "15",
+    wind: "静风",
+    humidity: "68%",
+    temp_feel: "14°C",
+    visibility: "0.5km",
+    pressure: "1015hPa",
+    forecast: [
+      {day:"6/10", hi:"15°", lo:"10°", cond:"霾"},
+      {day:"6/11", hi:"17°", lo:"11°", cond:"霾"},
+      {day:"6/12", hi:"20°", lo:"12°", cond:"多云"},
+      {day:"6/13", hi:"22°", lo:"14°", cond:"阴"},
+      {day:"6/14", hi:"24°", lo:"15°", cond:"晴"},
+    ]
+  },
+  windy: {
+    label: "大风",
+    condition: "大风",
+    temp: "16",
+    wind: "北风 5-6级",
+    humidity: "35%",
+    temp_feel: "12°C",
+    visibility: "15km",
+    pressure: "1006hPa",
+    forecast: [
+      {day:"6/10", hi:"16°", lo:"8°", cond:"大风"},
+      {day:"6/11", hi:"18°", lo:"9°", cond:"多云"},
+      {day:"6/12", hi:"20°", lo:"10°", cond:"晴"},
+      {day:"6/13", hi:"22°", lo:"12°", cond:"晴"},
+      {day:"6/14", hi:"19°", lo:"11°", cond:"多云"},
+    ]
+  }
+};
+
+// ─── SVG 图标工厂 ───
+
+function svgSunny(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="16" cy="16" r="6"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="16" y1="26" x2="16" y2="30"/>
+    <line x1="2" y1="16" x2="6" y2="16"/>
+    <line x1="26" y1="16" x2="30" y2="16"/>
+    <line x1="5.2" y1="5.2" x2="8.2" y2="8.2"/>
+    <line x1="23.8" y1="23.8" x2="26.8" y2="26.8"/>
+    <line x1="5.2" y1="26.8" x2="8.2" y2="23.8"/>
+    <line x1="23.8" y1="8.2" x2="26.8" y2="5.2"/>
+  </svg>`;
+}
+
+function svgCloudy(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <g opacity="0.7">
+      <circle cx="13" cy="11" r="5"/>
+      <line x1="13" y1="3" x2="13" y2="4.5" opacity="0.5"/>
+      <line x1="13" y1="17.5" x2="13" y2="19" opacity="0.5"/>
+      <line x1="5" y1="11" x2="6.5" y2="11" opacity="0.5"/>
+      <line x1="19.5" y1="11" x2="21" y2="11" opacity="0.5"/>
+      <line x1="6.7" y1="4.7" x2="7.8" y2="5.8" opacity="0.4"/>
+      <line x1="18.2" y1="16.2" x2="19.3" y2="17.3" opacity="0.4"/>
+    </g>
+    <path d="M7 21 Q7 16.5 11 16.5 Q12 13 16 14 Q19 13 20.5 16.5 Q24.5 16 25 21 L7 21Z"/>
+  </svg>`;
+}
+
+function svgOvercast(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 19 Q5 14 9.5 14 Q10.5 10 15 11 Q19 10 20 14 Q25 13 25.5 19 L5 19Z"/>
+    <path d="M7 23 Q7 19 11 19 Q12 16 16 17 Q19.5 16 21 19 Q24.5 18.5 24.5 23 L7 23Z" opacity="0.5"/>
+  </svg>`;
+}
+
+function svgRainy(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 17 Q5 12 9.5 12 Q10.5 8 15 9 Q19 8 20 12 Q25 11 25.5 17 L5 17Z"/>
+    <line x1="9" y1="21" x2="7.5" y2="26"/>
+    <line x1="14" y1="21" x2="12.5" y2="27"/>
+    <line x1="19" y1="21" x2="17.5" y2="26"/>
+    <line x1="24" y1="21" x2="23" y2="25" opacity="0.5"/>
+  </svg>`;
+}
+
+function svgThunder(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 16 Q5 11 9.5 11 Q10.5 7 15 8 Q19 7 20 11 Q25 10 25.5 16 L5 16Z"/>
+    <polyline points="15,16 12,21 15.5,21 13,27" opacity="0.9"/>
+    <line x1="8" y1="20" x2="7" y2="23" opacity="0.5"/>
+    <line x1="22" y1="20" x2="23" y2="23" opacity="0.5"/>
+  </svg>`;
+}
+
+function svgSnowy(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 15 Q5 10 9.5 10 Q10.5 6 15 7 Q19 6 20 10 Q25 9 25.5 15 L5 15Z"/>
+    <circle cx="9" cy="22" r="1.8" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="24" r="1.8" fill="currentColor" stroke="none"/>
+    <circle cx="21" cy="22" r="1.8" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="27" r="1.2" fill="currentColor" stroke="none" opacity="0.6"/>
+    <circle cx="18" cy="27" r="1.2" fill="currentColor" stroke="none" opacity="0.6"/>
+  </svg>`;
+}
+
+function svgFoggy(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="6" y1="9" x2="26" y2="9" opacity="0.25"/>
+    <line x1="8" y1="13" x2="24" y2="13" opacity="0.4"/>
+    <line x1="5" y1="17" x2="27" y2="17" opacity="0.55"/>
+    <line x1="7" y1="21" x2="25" y2="21" opacity="0.4"/>
+    <line x1="10" y1="25" x2="22" y2="25" opacity="0.25"/>
+  </svg>`;
+}
+
+function svgWindy(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 11 Q10 6 16 8 Q19 9 21 7.5" opacity="0.8"/>
+    <path d="M3 16 Q9 12 16 14 Q22 16 26 12.5" opacity="0.6"/>
+    <path d="M4 21 Q11 17.5 18 19.5 Q23 21 27 18" opacity="0.45"/>
+    <path d="M8 26 Q14 23 20 25" opacity="0.3"/>
+  </svg>`;
+}
+
+function svgNight(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 6 Q24 10 24 15 Q24 21 19 25 Q22 24 24 22 Q26 20 27 17 Q26 20 23.5 22 Q20.5 24.5 17 24.5 Q12 24.5 9 21 Q6 17.5 6 13 Q6 9 9 6.5 Q11 4.5 14 4 Q10 6.5 9 10 Q8 13.5 9.5 17 Q11 20.5 14 22.5 Q17 24.5 20 24 Q22.5 23 24 21.5 Q22 24 19.5 25.5 Q16.5 27.5 13 27.5 Q8 27.5 4.5 24 Q1 20.5 1 15.5 Q1 11 4 7.5 Q6.5 5 10 4.5 Q12 4 14 4.5 Q17 5.5 20 6Z"/>
+  </svg>`;
+}
+
+function svgHail(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 16 Q5 11 9.5 11 Q10.5 7 15 8 Q19 7 20 11 Q25 10 25.5 16 L5 16Z"/>
+    <circle cx="10" cy="22" r="2" fill="currentColor" stroke="none"/>
+    <circle cx="16" cy="24" r="2" fill="currentColor" stroke="none"/>
+    <circle cx="22" cy="22" r="2" fill="currentColor" stroke="none"/>
+    <circle cx="13" cy="27" r="1.5" fill="currentColor" stroke="none" opacity="0.6"/>
+    <circle cx="19" cy="27" r="1.5" fill="currentColor" stroke="none" opacity="0.6"/>
+  </svg>`;
+}
+
+function svgSunCloud(size) {
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="11" r="4.5"/>
+    <line x1="12" y1="4" x2="12" y2="5.5" opacity="0.5"/>
+    <line x1="12" y1="16.5" x2="12" y2="18" opacity="0.5"/>
+    <line x1="5" y1="11" x2="6.5" y2="11" opacity="0.5"/>
+    <line x1="17.5" y1="11" x2="19" y2="11" opacity="0.5"/>
+    <line x1="6.9" y1="5.9" x2="8" y2="7" opacity="0.4"/>
+    <path d="M8 21 Q8 17 11.5 17 Q12.5 14 16 14.5 Q19 14 20 17 Q23.5 16.5 24 21 L8 21Z"/>
+  </svg>`;
+}
+
+// ─── 选择函数 ───
+function getIcon(condition, size) {
+  const c = (condition || "").toLowerCase();
+  if (c.includes("雷") || c.includes("暴")) return svgThunder(size);
+  if (c.includes("雪")) return svgSnowy(size);
+  if (c.includes("雨") || c.includes("冰")) return c.includes("冰") ? svgHail(size) : svgRainy(size);
+  if (c.includes("雾") || c.includes("霾")) return svgFoggy(size);
+  if (c.includes("晴") && c.includes("云")) return svgSunCloud(size);
+  if (c.includes("晴")) return svgSunny(size);
+  if (c.includes("多云")) return svgCloudy(size);
+  if (c.includes("阴") || c.includes("云")) return svgOvercast(size);
+  if (c.includes("风")) return svgWindy(size);
+  if (c.includes("夜") || c.includes("晚")) return svgNight(size);
+  return svgSunny(size);
+}
+
+// ─── 图标规范名映射 ───
+const ICON_MAP = {
+  sunny:       { name: "sunny",       label: "晴",         fn: svgSunny },
+  cloudy:      { name: "cloudy",      label: "多云",       fn: svgCloudy },
+  overcast:    { name: "overcast",    label: "阴天",       fn: svgOvercast },
+  rainy:       { name: "rainy",       label: "雨天",       fn: svgRainy },
+  thunder:     { name: "thunder",     label: "雷雨",       fn: svgThunder },
+  snowy:       { name: "snowy",       label: "雪天",       fn: svgSnowy },
+  foggy:       { name: "foggy",       label: "雾霾",       fn: svgFoggy },
+  windy:       { name: "windy",       label: "大风",       fn: svgWindy },
+  night:       { name: "night",       label: "夜间",       fn: svgNight },
+  hail:        { name: "hail",        label: "冰雹",       fn: svgHail },
+  suncloud:    { name: "suncloud",    label: "晴间多云",   fn: svgSunCloud },
+};
+
+// ─── 渲染卡片 ───
+function renderCard(condKey) {
+  const d = CONDITIONS[condKey] || CONDITIONS.sunny;
+  document.getElementById("w-city").textContent = d.city || "Beijing · 北京";
+  document.getElementById("w-time").textContent = "2026.06.10 22:00";
+  document.getElementById("w-temp").textContent = d.temp;
+  document.getElementById("w-condition").textContent = d.condition;
+  document.getElementById("w-wind").textContent = d.wind;
+  document.getElementById("w-humidity").textContent = d.humidity;
+  document.getElementById("w-feel").textContent = d.temp_feel;
+  document.getElementById("w-visibility").textContent = d.visibility;
+  document.getElementById("w-pressure").textContent = d.pressure;
+
+  document.getElementById("w-header-icon").innerHTML = getIcon(d.condition, 36);
+  document.getElementById("w-icon-sm").innerHTML = getIcon(d.condition, 18);
+
+  // 预报
+  const fcEl = document.getElementById("w-forecast");
+  fcEl.innerHTML = d.forecast.map(f => {
+    const icon = getIcon(f.cond, 20);
+    return `<div class="lf-fc-day">
+      <div class="day">${f.day}</div>
+      <div class="fc-icon" style="width:20px;height:20px;color:#666;margin:4px auto;">${icon}</div>
+      <div class="hi">${f.hi}</div>
+      <div class="lo">${f.lo}</div>
+      <div class="fc-cond">${f.cond}</div>
+    </div>`;
+  }).join('');
+
+  // 按钮激活态
+  document.querySelectorAll("#condition-buttons button").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.cond === condKey);
+  });
+}
+
+// ─── 渲染图标库 ───
+function renderIconGallery() {
+  const grid = document.getElementById("icon-grid");
+  grid.innerHTML = Object.values(ICON_MAP).map(item => {
+    const svg = item.fn(48);
+    return `<div class="icon-item">
+      <div class="icon-preview">${svg}</div>
+      <div class="icon-name">${item.name}</div>
+      <div class="icon-desc">${item.label}</div>
+    </div>`;
+  }).join('');
+
+  const row = document.getElementById("svg-large-row");
+  row.innerHTML = Object.values(ICON_MAP).map(item => {
+    const svg = item.fn(56);
+    return `<div class="svg-large-item">
+      <div class="preview">${svg}</div>
+      <div class="label">${item.label}</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── 生成静态 HTML 代码 ───
+function generateCardHTML(condKey) {
+  const d = CONDITIONS[condKey] || CONDITIONS.sunny;
+
+  // 生成预报 HTML
+  const fcHTML = d.forecast.map(f => {
+    const icon = getIcon(f.cond, 20);
+    return `          <div class="lf-fc-day">
+            <div class="day">${f.day}</div>
+            <div class="fc-icon">${icon.replace(/</g, '&lt;')}</div>
+            <div class="hi">${f.hi}</div>
+            <div class="lo">${f.lo}</div>
+            <div class="fc-cond">${f.cond}</div>
+          </div>`;
+  }).join('\n');
+
+  const iconFull = getIcon(d.condition, 36);
+  const iconSm = getIcon(d.condition, 18);
+
+  return `<!-- 天气卡片 · 极简线框风 -->
+<div class="card-lineframe">
+  <div class="lf-header">
+    <div class="lf-header-left">
+      <div class="lf-city">Beijing · 北京</div>
+      <div class="lf-time">2026.06.10 22:00</div>
+    </div>
+    <div style="width:36px;height:36px;color:#1a1a1a;">
+      ${iconFull}
+    </div>
+  </div>
+
+  <div class="lf-temp-row">
+    <span class="lf-temp">${d.temp}</span>
+    <span class="lf-unit">°C</span>
+  </div>
+
+  <div class="lf-cond-row">
+    <span style="width:18px;height:18px;color:#666;display:inline-flex;">${iconSm}</span>
+    <span>${d.condition}</span>
+    <span class="divider">|</span>
+    <span>${d.wind}</span>
+  </div>
+
+  <div class="lf-details">
+    <div class="lf-detail-item">湿度<span class="lf-dv">${d.humidity}</span></div>
+    <div class="lf-detail-item">体感<span class="lf-dv">${d.temp_feel}</span></div>
+    <div class="lf-detail-item">能见度<span class="lf-dv">${d.visibility}</span></div>
+    <div class="lf-detail-item">气压<span class="lf-dv">${d.pressure}</span></div>
+  </div>
+
+  <div class="lf-forecast">
+${fcHTML}
+  </div>
+</div>`;
+}
+
+function copyCode() {
+  const code = document.getElementById("code-content").textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    const btn = document.querySelector(".code-header button");
+    const orig = btn.textContent;
+    btn.textContent = "已复制";
+    setTimeout(() => btn.textContent = orig, 1500);
+  }).catch(() => {
+    // fallback
+    const ta = document.createElement("textarea");
+    ta.value = code;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  });
+}
+
+// ─── 事件绑定 ───
+document.getElementById("condition-buttons").addEventListener("click", e => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  renderCard(btn.dataset.cond);
+  updateCode(btn.dataset.cond);
+});
+
+function updateCode(condKey) {
+  const code = generateCardHTML(condKey);
+  document.getElementById("code-content").textContent = code;
+}
+
+// ─── 初始化 ───
+document.addEventListener("DOMContentLoaded", () => {
+  renderIconGallery();
+  renderCard("sunny");
+  updateCode("sunny");
+});
+</script>
+
+</body>
+</html>

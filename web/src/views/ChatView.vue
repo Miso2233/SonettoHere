@@ -84,6 +84,7 @@ import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
 import { useSession } from '@/composables/useSession'
 import type { Citation } from '@/types'
+import type { ParsedRef } from '@/utils/references'
 import { computed, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
@@ -112,8 +113,8 @@ function removeCitation(id: string) {
   citations.value = citations.value.filter(c => c.id !== id)
 }
 
-function onSend(message: string, providerId?: string, modelName?: string) {
-  send(message, providerId, modelName)
+function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string) {
+  send(text, refs, providerId, modelName)
   citations.value = []
 }
 

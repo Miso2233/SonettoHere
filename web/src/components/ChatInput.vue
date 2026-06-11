@@ -96,7 +96,6 @@ import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
 import type { Citation, ProviderConfig } from '@/types'
 import type { ParsedRef } from '@/utils/references'
-import { buildRefsBlock } from '@/utils/references'
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps<{
@@ -106,7 +105,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [message: string, providerId?: string, modelName?: string]
+  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string]
   stop: []
   removeCitation: [id: string]
   modelChange: [providerId: string, modelName: string]
@@ -216,9 +215,7 @@ function handleSend() {
     refs.push({ type: 'cite', text: cit.text, label })
   }
 
-  const finalMsg = refs.length > 0 ? msg + buildRefsBlock(refs) : msg
-
-  emit('send', finalMsg, selectedProviderId.value || undefined, selectedModelName.value || undefined)
+  emit('send', msg, refs, selectedProviderId.value || undefined, selectedModelName.value || undefined)
   text.value = ''
   filePaths.value = []
   nextTick(() => autoResize())
