@@ -1,14 +1,5 @@
 <template>
-  <div
-    class="chat-input-wrapper"
-    :class="{ 'is-dragging': isDragging }"
-    @dragover.prevent="onDragOver"
-    @dragleave.prevent="onDragLeave"
-    @drop.prevent="onDrop"
-  >
-    <div v-if="isDragging" class="drop-overlay">
-      <div class="drop-overlay-text">释放以添加文件引用</div>
-    </div>
+  <div class="chat-input-wrapper">
     <div v-if="refs.length" class="file-refs-bar">
       <span
         v-for="(r, idx) in refs"
@@ -131,8 +122,6 @@ const showMenu = ref(false)
 const showLinkInput = ref(false)
 const linkUrl = ref('')
 const linkInputRef = ref<HTMLInputElement | null>(null)
-const isDragging = ref(false)
-let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
 
 // ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
 
@@ -186,43 +175,6 @@ function confirmLink() {
 function cancelLink() {
   linkUrl.value = ''
   showLinkInput.value = false
-}
-
-// ── 拖拽文件/文件夹 ──
-
-function onDragOver() {
-  if (dragLeaveTimer) clearTimeout(dragLeaveTimer)
-  isDragging.value = true
-}
-
-function onDragLeave() {
-  // 延迟关闭防止子元素触发 flicker
-  dragLeaveTimer = setTimeout(() => {
-    isDragging.value = false
-  }, 100)
-}
-
-function onDrop(e: DragEvent) {
-  isDragging.value = false
-  if (props.disabled) return
-
-  const items = e.dataTransfer?.items
-  if (!items) return
-
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i]
-    const entry = item.webkitGetAsEntry?.()
-    if (!entry) continue
-
-    if (entry.isDirectory) {
-      refs.value.push({ type: 'folder', path: entry.name, label: entry.name } as ParsedRef)
-    } else if (entry.isFile) {
-      // Electron 环境可获取完整路径
-      const file = item.getAsFile()
-      const fullPath = (file as any)?.path ?? entry.name
-      refs.value.push({ type: 'file', path: fullPath, label: entry.name } as ParsedRef)
-    }
-  }
 }
 
 // ── LLM 选择器 ──
@@ -325,33 +277,9 @@ function autoResize() {
 
 <style scoped>
 .chat-input-wrapper {
-  position: relative;
   border-top: 1px solid var(--border);
   padding: 12px 24px 16px;
   background: var(--bg-card);
-  transition: background 0.15s;
-}
-.chat-input-wrapper.is-dragging {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-}
-
-/* 拖拽释放遮罩 */
-.drop-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  border: 2px dashed var(--accent);
-  border-radius: 12px;
-  pointer-events: none;
-}
-.drop-overlay-text {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--accent);
 }
 
 /* ── 自定义 Dropdown ── */
