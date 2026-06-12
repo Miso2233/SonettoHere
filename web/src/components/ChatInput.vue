@@ -196,7 +196,8 @@ async function _pick(type: string) {
     const res = await fetch(`/api/select-file?type=${type}`)
     const data = await res.json()
     if (data.path) {
-      refs.value.push({ type: 'file', path: data.path, label: getFileName(data.path) })
+      const refType = type === 'folder' ? 'folder' : 'file'
+      refs.value.push({ type: refType, path: data.path, label: getFileName(data.path) } as ParsedRef)
     }
   } catch {
     // 静默失败

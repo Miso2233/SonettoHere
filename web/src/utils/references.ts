@@ -5,6 +5,13 @@ export interface FileRef {
   path: string
 }
 
+/** 文件夹引用 */
+export interface FolderRef {
+  type: 'folder'
+  label: string
+  path: string
+}
+
 /** 文本引用（右键引用已有消息内容） */
 export interface CiteRef {
   type: 'cite'
@@ -20,7 +27,7 @@ export interface WebLinkRef {
   domain: string
 }
 
-export type ParsedRef = FileRef | CiteRef | WebLinkRef
+export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef
 
 /**
  * 引用 chip 渲染配置，每种 type 自注册 icon 名与 tooltip 函数。
@@ -35,6 +42,10 @@ export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
   file: {
     icon: 'file',
     tooltip: (r: ParsedRef) => (r as FileRef).path,
+  },
+  folder: {
+    icon: 'menu-folder',
+    tooltip: (r: ParsedRef) => (r as FolderRef).path,
   },
   cite: {
     icon: 'cite-speech',
