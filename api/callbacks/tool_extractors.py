@@ -656,58 +656,6 @@ def _extract_analyze_image(
     }
 
 
-# ── 智能搜索 ───────────────────────────────────────────────────────────
-
-@register("smart_search")
-def _extract_smart_search(
-    _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 query, total_results, results, sources, process_time_ms, metadata。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-
-    results_raw = data.get("results", [])
-    results = []
-    if isinstance(results_raw, list):
-        for item in results_raw:
-            if not isinstance(item, dict):
-                continue
-            results.append({
-                "title": item.get("title", ""),
-                "url": item.get("url", ""),
-                "snippet": item.get("snippet", ""),
-                "domain": item.get("domain", ""),
-                "source": item.get("source", ""),
-                "position": item.get("position", 0),
-                "score": item.get("score", 0),
-                "publish_time": item.get("publish_time", ""),
-            })
-
-    sources_raw = data.get("sources", [])
-    sources = []
-    if isinstance(sources_raw, list):
-        for src in sources_raw:
-            if not isinstance(src, dict):
-                continue
-            sources.append({
-                "name": src.get("name", ""),
-                "status": src.get("status", ""),
-                "result_count": src.get("result_count", 0),
-                "elapsed_ms": src.get("elapsed_ms", 0),
-                "first_result_host": src.get("first_result_host", ""),
-            })
-
-    return {
-        "query": data.get("query", ""),
-        "total_results": data.get("total_results", 0),
-        "results": results,
-        "sources": sources,
-        "process_time_ms": data.get("process_time_ms", 0),
-        "metadata": data.get("metadata"),
-    }
-
-
 # ── 节假日查询 ─────────────────────────────────────────────────────────
 
 @register("holiday_calendar")
@@ -986,42 +934,6 @@ def _extract_debugger(
             result["error_message"] = data["error_message"]
         if "traceback" in data:
             result["traceback"] = data["traceback"]
-    return result
-
-
-# ── 网页抓取 ───────────────────────────────────────────────────────────
-
-@register("scrape_webpage")
-def _extract_scrape(
-    _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 url, title；可选 content, meta, open_graph, twitter_card, structured_data, headings, links, images, screenshot_base64。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-
-    result: dict[str, Any] = {
-        "url": data.get("url", ""),
-        "title": data.get("title", ""),
-    }
-    if "content" in data:
-        result["content"] = data["content"]
-    if "meta" in data and isinstance(data["meta"], dict):
-        result["meta"] = data["meta"]
-    if "open_graph" in data and isinstance(data["open_graph"], dict):
-        result["open_graph"] = data["open_graph"]
-    if "twitter_card" in data and isinstance(data["twitter_card"], dict):
-        result["twitter_card"] = data["twitter_card"]
-    if "structured_data" in data and isinstance(data["structured_data"], list):
-        result["structured_data"] = data["structured_data"]
-    if "headings" in data and isinstance(data["headings"], list):
-        result["headings"] = data["headings"]
-    if "links" in data and isinstance(data["links"], list):
-        result["links"] = data["links"]
-    if "images" in data and isinstance(data["images"], list):
-        result["images"] = data["images"]
-    if "screenshot_base64" in data:
-        result["screenshot_base64"] = data["screenshot_base64"]
     return result
 
 
