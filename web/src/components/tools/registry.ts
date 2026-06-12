@@ -14,13 +14,13 @@ import TimeBubble from './TimeBubble.vue'
 import SyntaxBubble from './SyntaxBubble.vue'
 import CookieBubble from './CookieBubble.vue'
 import ImageBubble from './ImageBubble.vue'
-import SearchBubble from './SearchBubble.vue'
 import PdfReaderBubble from './PdfReaderBubble.vue'
 import DocReaderBubble from './DocReaderBubble.vue'
 import CodeQualityBubble from './CodeQualityBubble.vue'
 import UnitTestBubble from './UnitTestBubble.vue'
 import DebuggerBubble from './DebuggerBubble.vue'
-import ScraperBubble from './ScraperBubble.vue'
+import TavilySearchBubble from './TavilySearchBubble.vue'
+import TavilyExtractBubble from './TavilyExtractBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
 import WordBubble from './WordBubble.vue'
 import MemoryBubble from './MemoryBubble.vue'
@@ -56,13 +56,13 @@ const registry: Record<string, Component> = {
   'syntax_checker': SyntaxBubble,
   'bilibili_set_cookie': CookieBubble,
   'analyze_image': ImageBubble,
-  'smart_search': SearchBubble,
+  'tavily_search': TavilySearchBubble,
   'pdf_reader': PdfReaderBubble,
   'doc_reader': DocReaderBubble,
   'code_quality_analyzer': CodeQualityBubble,
   'unit_test_runner': UnitTestBubble,
   'debugger': DebuggerBubble,
-  'scrape_webpage': ScraperBubble,
+  'tavily_extract': TavilyExtractBubble,
   'ask_user_for_info': AskUserBubble,
   'ask_user_qa': AskUserBubble,
   'ask_user_single_choice': AskUserBubble,

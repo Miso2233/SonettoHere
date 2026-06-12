@@ -165,13 +165,13 @@ function getBubbleComponentName(name: string): string {
     'syntax_checker': 'SyntaxBubble.vue',
     'bilibili_set_cookie': 'CookieBubble.vue',
     'analyze_image': 'ImageBubble.vue',
-    'smart_search': 'SearchBubble.vue',
+    'tavily_search': 'TavilySearchBubble.vue',
     'pdf_reader': 'PdfReaderBubble.vue',
     'doc_reader': 'DocReaderBubble.vue',
     'code_quality_analyzer': 'CodeQualityBubble.vue',
     'unit_test_runner': 'UnitTestBubble.vue',
     'debugger': 'DebuggerBubble.vue',
-    'scrape_webpage': 'ScraperBubble.vue',
+    'tavily_extract': 'TavilyExtractBubble.vue',
   }
   return map[name] ?? name
 }
@@ -457,8 +457,8 @@ const mockTemplates: Record<string, MockTemplate> = {
     input: { query: '京都红叶最佳观赏时间' },
     doneOutput: '京都红叶最佳观赏期为**11月中旬至12月上旬**。\n\n推荐地点：\n- 岚山（竹林+红叶）\n- 永观堂（夜枫名所）\n- 东福寺（通天桥）\n- 清水寺（夜间特别参拜）',
   },
-  smart_search: {
-    input: { query: 'Go最新的版本是多少' },
+  tavily_search: {
+    input: { query: '2026 AI Agent 框架对比' },
     doneOutput: JSON.stringify({
       success: true,
       data: {
@@ -1055,7 +1055,7 @@ const mockTemplates: Record<string, MockTemplate> = {
       variables: { x: '1', y: '0', result: '未定义' },
     },
   },
-  scrape_webpage: {
+  tavily_extract: {
     input: { url: 'https://example.com/article', wait_ms: 5000 },
     doneOutput: JSON.stringify({
       success: true,
@@ -1107,7 +1107,7 @@ function buildMock(name: string, status: ToolStatus): ToolCall {
   // done
   return {
     ...base,
-    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'search' || name === 'smart_search' ? 3.68 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : name === 'scrape_webpage' ? 3.12 : 2.35),
+    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'tavily_search' ? 1.82 : name === 'tavily_extract' ? 2.64 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : 2.35),
     output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
     toolData: tpl?.toolData,
   }

@@ -42,10 +42,9 @@ def get_all_skills() -> list[BaseTool]:
 
     # Network
     from skills.network.skill_weather import WeatherSkill
-    from skills.network.skill_search import SmartSearchSkill
-    from skills.network.skill_scraper import WebScraperSkill
     from skills.network.skill_holiday import HolidayCalendarSkill
     from skills.network.skill_image_understand import ImageUnderstandSkill
+    from skills.network.tavily import TavilySearchSkill, TavilyExtractSkill
 
     # Files
     from skills.files.skill_file_ops import FileOperationsSkill
@@ -107,10 +106,10 @@ def get_all_skills() -> list[BaseTool]:
         FuzzyAddressSkill(client=client),
         # Network
         WeatherSkill(client=client),
-        SmartSearchSkill(client=client),
-        WebScraperSkill(client=client),
         HolidayCalendarSkill(client=client),
         ImageUnderstandSkill(client=client),
+        TavilySearchSkill(client=client),
+        TavilyExtractSkill(client=client),
         # Files
         FileOperationsSkill(client=client),
         FileEditSkill(client=client),
