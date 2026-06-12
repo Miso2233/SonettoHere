@@ -1025,6 +1025,87 @@ def _extract_scrape(
     return result
 
 
+# ── Tavily 搜索 ──────────────────────────────────────────────────────────
+
+@register("tavily_search")
+def _extract_tavily_search(
+    _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 query, answer, results, response_time。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+
+    results_raw = data.get("results", [])
+    results = []
+    if isinstance(results_raw, list):
+        for item in results_raw:
+            if not isinstance(item, dict):
+                continue
+            entry: dict[str, Any] = {
+                "url": item.get("url", ""),
+                "title": item.get("title", ""),
+                "content": item.get("content", ""),
+                "score": item.get("score", 0),
+            }
+            if "raw_content" in item and item["raw_content"]:
+                entry["raw_content"] = item["raw_content"]
+            if "published_date" in item:
+                entry["published_date"] = item["published_date"]
+            results.append(entry)
+
+    return {
+        "query": data.get("query", ""),
+        "answer": data.get("answer", ""),
+        "results": results,
+        "response_time": data.get("response_time", 0),
+    }
+
+
+# ── Tavily 提取 ──────────────────────────────────────────────────────────
+
+@register("tavily_extract")
+def _extract_tavily_extract(
+    _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 results（url, title, raw_content, images）, failed_results, response_time。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+
+    results_raw = data.get("results", [])
+    results = []
+    if isinstance(results_raw, list):
+        for item in results_raw:
+            if not isinstance(item, dict):
+                continue
+            entry: dict[str, Any] = {
+                "url": item.get("url", ""),
+                "title": item.get("title", ""),
+                "raw_content": item.get("raw_content", ""),
+            }
+            if "images" in item and isinstance(item["images"], list):
+                entry["images"] = item["images"]
+            results.append(entry)
+
+    failed_raw = data.get("failed_results", [])
+    failed_results = []
+    if isinstance(failed_raw, list):
+        for item in failed_raw:
+            if not isinstance(item, dict):
+                continue
+            failed_results.append({
+                "url": item.get("url", ""),
+                "error": item.get("error", ""),
+            })
+
+    return {
+        "results": results,
+        "failed_results": failed_results,
+        "response_time": data.get("response_time", 0),
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # 记忆 CRUD 工具系列
 # ═══════════════════════════════════════════════════════════════════════

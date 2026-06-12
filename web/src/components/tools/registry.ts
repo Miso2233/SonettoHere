@@ -21,6 +21,8 @@ import CodeQualityBubble from './CodeQualityBubble.vue'
 import UnitTestBubble from './UnitTestBubble.vue'
 import DebuggerBubble from './DebuggerBubble.vue'
 import ScraperBubble from './ScraperBubble.vue'
+import TavilySearchBubble from './TavilySearchBubble.vue'
+import TavilyExtractBubble from './TavilyExtractBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
 import WordBubble from './WordBubble.vue'
 import MemoryBubble from './MemoryBubble.vue'
@@ -63,6 +65,8 @@ const registry: Record<string, Component> = {
   'unit_test_runner': UnitTestBubble,
   'debugger': DebuggerBubble,
   'scrape_webpage': ScraperBubble,
+  'tavily_search': TavilySearchBubble,
+  'tavily_extract': TavilyExtractBubble,
   'ask_user_for_info': AskUserBubble,
   'ask_user_qa': AskUserBubble,
   'ask_user_single_choice': AskUserBubble,

@@ -8,6 +8,8 @@ const DISPLAY_NAMES: Record<string, string> = {
   smart_search: '智能搜索',
   scraper: '网页抓取',
   scrape_webpage: '网页抓取',
+  tavily_search: 'Tavily 搜索',
+  tavily_extract: 'Tavily 提取',
   holiday: '节假日查询',
   image_understand: '图片理解',
   analyze_image: '图片理解',

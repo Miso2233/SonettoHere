@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # 高德地图
     amap_api_key: str = ""
 
+    # Tavily（网络搜索/提取）
+    tavily_api_key: str = ""
+
     # 模型上下文窗口大小（DeepSeek V4 Flash = 1M tokens）
     model_context_window: int = 256_000 # 避免上下文丢失现象
 
