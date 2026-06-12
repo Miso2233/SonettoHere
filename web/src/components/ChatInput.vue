@@ -13,6 +13,19 @@
         <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
       </span>
     </div>
+    <div v-if="showLinkInput" class="link-input-bar">
+      <input
+        ref="linkInputRef"
+        v-model="linkUrl"
+        type="url"
+        class="link-input"
+        placeholder="输入链接 URL……"
+        @keydown.enter.prevent="confirmLink"
+        @keydown.escape.prevent="cancelLink"
+      />
+      <button class="link-input-confirm" :disabled="!linkUrl.trim()" @click="confirmLink">✓</button>
+      <button class="link-input-cancel" @click="cancelLink">✕</button>
+    </div>
     <div class="chat-input">
       <textarea
         ref="textareaRef"
@@ -36,6 +49,9 @@
             </button>
             <button class="add-file-menu-item" @click="pickFolder">
               <Icon name="menu-folder" :size="14" /> 选择文件夹
+            </button>
+            <button class="add-file-menu-item" @click="startLinkInput">
+              <Icon name="link" :size="14" /> 加入链接
             </button>
           </div>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
@@ -103,6 +119,9 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const refs = ref<ParsedRef[]>([])
 const loading = ref(false)
 const showMenu = ref(false)
+const showLinkInput = ref(false)
+const linkUrl = ref('')
+const linkInputRef = ref<HTMLInputElement | null>(null)
 
 // ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
 
@@ -125,6 +144,38 @@ function getRefTooltip(r: ParsedRef): string {
 }
 
 defineExpose({ addRef })
+
+// ── 链接引用 ──
+
+const LINK_RE = /^https?:\/\/[^\s/$.?#].[^\s]*$/i
+
+function startLinkInput() {
+  showMenu.value = false
+  linkUrl.value = ''
+  showLinkInput.value = true
+  nextTick(() => linkInputRef.value?.focus())
+}
+
+function confirmLink() {
+  const url = linkUrl.value.trim()
+  if (!url) return
+  // 如果没有协议前缀，自动补 https://
+  const normalized = /^https?:\/\//i.test(url) ? url : 'https://' + url
+  if (!LINK_RE.test(normalized)) return
+  try {
+    const domain = new URL(normalized).hostname.replace(/^www\./, '')
+    refs.value.push({ type: 'web_link', url: normalized, label: domain, domain })
+    linkUrl.value = ''
+    showLinkInput.value = false
+  } catch {
+    // URL 解析失败，不做操作
+  }
+}
+
+function cancelLink() {
+  linkUrl.value = ''
+  showLinkInput.value = false
+}
 
 // ── LLM 选择器 ──
 const providers = ref<ProviderConfig[]>([])
@@ -345,6 +396,60 @@ function autoResize() {
   padding: 0 5px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+/* 链接输入条 */
+.link-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 8px 0;
+}
+.link-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.link-input:focus {
+  border-color: var(--accent);
+}
+.link-input::placeholder {
+  color: #9ca3af;
+}
+.link-input-confirm,
+.link-input-cancel {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.link-input-confirm:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.link-input-confirm:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.link-input-cancel:hover {
+  border-color: #c97a7a;
+  color: #c97a7a;
 }
 
 .chat-input {
