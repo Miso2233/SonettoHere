@@ -1,96 +1,60 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <!-- 运行中 -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
       <span>正在提取内容...</span>
     </div>
 
-    <!-- 错误 -->
     <div v-else-if="toolCall.status === 'error'" class="bubble-error">
       {{ toolCall.output || '提取失败' }}
     </div>
 
-    <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
-      <div v-if="hasData" class="tv-extract">
-        <!-- 结果概览 -->
-        <div class="tv-summary">
-          <span class="tv-summary-text">提取 {{ successCount }} 个页面 · {{ responseTime }}ms</span>
-          <span v-if="failCount" class="tv-fail-badge">{{ failCount }} 个失败</span>
+      <div v-if="hasData" class="te">
+        <div class="te-bar">
+          <span>提取 {{ ok }} 个页面 · {{ responseTime }}ms</span>
+          <span v-if="failCount" class="te-badge">{{ failCount }} 个失败</span>
         </div>
 
-        <!-- 多 URL Tab -->
-        <div v-if="pages.length > 0" class="tv-tabs">
-          <button
-            v-for="(page, i) in pages"
-            :key="i"
-            class="tv-tab"
-            :class="{ active: activeTab === i }"
-            @click="activeTab = i"
-          >
-            {{ page.title || page.url.slice(0, 30) + '…' }}
+        <div v-if="pages.length" class="te-tabs">
+          <button v-for="(p, i) in pages" :key="i" class="te-tab" :class="{ active: tab === i }" @click="tab = i">
+            {{ p.title || p.url.slice(0, 28) + '…' }}
           </button>
         </div>
 
-        <!-- 当前 Tab 内容 -->
-        <div v-if="currentPage" class="tv-page">
-          <div class="tv-page-header">
-            <a
-              class="tv-page-title"
-              :href="currentPage.url"
-              target="_blank"
-              rel="noopener noreferrer"
-              @click.prevent="openUrl(currentPage.url)"
-            >{{ currentPage.title || currentPage.url }}</a>
-            <div class="tv-page-url">{{ currentPage.url }}</div>
+        <div v-if="page" class="te-card">
+          <div class="te-card-head">
+            <a class="te-card-title" :href="page.url" target="_blank" rel="noopener noreferrer" @click.prevent="openUrl(page.url)">{{ page.title || page.url }}</a>
+            <div class="te-card-url">{{ page.url }}</div>
           </div>
 
-          <!-- 图片列表 -->
-          <div v-if="currentPage.images && currentPage.images.length" class="tv-images">
-            <div class="bubble-section-title">图片 ({{ currentPage.images.length }})</div>
-            <div class="tv-image-list">
-              <img
-                v-for="(img, j) in currentPage.images"
-                :key="j"
-                :src="img"
-                class="tv-image-thumb"
-                alt=""
-                @click="openUrl(img)"
-              />
+          <div v-if="page.images?.length" class="te-imgs">
+            <div class="te-label">图片（{{ page.images.length }}）</div>
+            <div class="te-imgs-list">
+              <img v-for="(img, j) in page.images" :key="j" :src="img" class="te-thumb" alt="" @click="openUrl(img)" />
             </div>
           </div>
 
-          <!-- Markdown 正文 -->
-          <div v-if="currentPage.raw_content" class="tv-content-section">
-            <div class="tv-content-header">
-              <span class="bubble-section-title">正文内容</span>
-              <button class="tv-toggle-btn" @click="contentExpanded = !contentExpanded">
-                {{ contentExpanded ? '收起' : '展开全部' }}
-              </button>
+          <div v-if="page.raw_content" class="te-body-wrap">
+            <div class="te-body-head">
+              <span class="te-label">正文</span>
+              <button class="te-btn" @click="expand = !expand">{{ expand ? '− 收起' : '+ 展开全部' }}</button>
             </div>
-            <div
-              class="tv-content-body"
-              :class="{ collapsed: !contentExpanded }"
-            >{{ currentPage.raw_content }}</div>
+            <div class="te-body" :class="{ folded: !expand }">{{ page.raw_content }}</div>
           </div>
 
-          <div v-else class="tv-no-content">该页面无正文内容</div>
+          <div v-else class="te-none">无正文内容</div>
         </div>
 
-        <!-- 失败列表 -->
-        <div v-if="failedItems.length" class="tv-failed">
-          <div class="bubble-section-title">失败的页面</div>
-          <div v-for="(f, i) in failedItems" :key="i" class="tv-failed-item">
-            <span class="tv-failed-url">{{ f.url }}</span>
-            <span v-if="f.error" class="tv-failed-error">{{ f.error }}</span>
+        <div v-if="fails.length" class="te-fails">
+          <div class="te-label">失败页面</div>
+          <div v-for="(f, i) in fails" :key="i" class="te-fail-item">
+            <span class="te-fail-url">{{ f.url }}</span>
+            <span v-if="f.error" class="te-fail-msg">{{ f.error }}</span>
           </div>
         </div>
       </div>
 
-      <!-- 降级 -->
-      <div v-else>
-        <div class="raw-output">{{ displayOutput }}</div>
-      </div>
+      <div v-else class="raw-output">{{ fallback }}</div>
     </template>
   </BubbleChrome>
 </template>
@@ -103,314 +67,248 @@ import BubbleChrome from './_shared/BubbleChrome.vue'
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
-const activeTab = ref(0)
-const contentExpanded = ref(false)
+const tab = ref(0)
+const expand = ref(false)
 
-// ── 数据源 ──
 const td = computed<Record<string, any>>(() => {
   if (props.toolCall.toolData) return props.toolCall.toolData as Record<string, any>
   if (props.toolCall.output) {
-    try {
-      const p = JSON.parse(props.toolCall.output)
-      if (p?.data) return p.data as Record<string, any>
-    } catch { /* ignore */ }
+    try { const p = JSON.parse(props.toolCall.output); if (p?.data) return p.data as Record<string, any> } catch { /* */ }
   }
   return {}
 })
 
 const hasData = computed(() => Object.keys(td.value).length > 0)
-
 const responseTime = computed(() => td.value.response_time ?? 0)
 
-// ── 成功页面 ──
-const pages = computed<Array<Record<string, any>>>(() => {
-  const results = td.value.results
-  return Array.isArray(results) ? results : []
-})
+const pages = computed<Array<Record<string, any>>>(() => Array.isArray(td.value.results) ? td.value.results : [])
+const ok = computed(() => pages.value.length)
 
-const successCount = computed(() => pages.value.length)
+const fails = computed<Array<Record<string, any>>>(() => Array.isArray(td.value.failed_results) ? td.value.failed_results : [])
+const failCount = computed(() => fails.value.length)
 
-// ── 失败页面 ──
-const failedItems = computed<Array<Record<string, any>>>(() => {
-  const failed = td.value.failed_results
-  return Array.isArray(failed) ? failed : []
-})
+const page = computed(() => pages.value[tab.value] ?? null)
 
-const failCount = computed(() => failedItems.value.length)
-
-// ── 当前 Tab ──
-const currentPage = computed(() => {
-  return pages.value[activeTab.value] || null
-})
-
-// ── 打开链接 ──
 function openUrl(url: string) {
   emit('action', { action: 'open_url', data: { url } })
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-// ── 降级 ──
-const displayOutput = computed(() => {
-  if (props.toolCall.output) {
-    return props.toolCall.output.length > 500
-      ? props.toolCall.output.slice(0, 500) + '...'
-      : props.toolCall.output
-  }
-  return null
-})
+const fallback = computed(() => props.toolCall.output
+  ? (props.toolCall.output.length > 500 ? props.toolCall.output.slice(0, 500) + '…' : props.toolCall.output)
+  : null)
 </script>
 
 <style scoped>
-/* ── 运行中 ── */
 .bubble-running {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: #888;
+}
+.bubble-error {
   padding: 8px 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #666;
 }
 
-.bubble-error {
-  font-size: 13px;
-  color: #b91c1c;
-  padding: 4px 0;
-}
-
-/* ── 主容器 ── */
-.tv-extract {
+.te {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 4px 0;
 }
 
-/* ── 摘要 ── */
-.tv-summary {
+/* ── 概览栏 ── */
+.te-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
+  background: #f5f5f5;
+  border-radius: 6px;
   font-size: 12px;
-  flex-wrap: wrap;
+  color: #333;
 }
-
-.tv-summary-text {
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.tv-fail-badge {
+.te-badge {
   font-size: 10px;
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: 3px;
-  background: #fde8e8;
-  color: #c0392b;
+  border: 1px solid #bbb;
+  border-radius: 2px;
+  color: #666;
 }
 
-/* ── Tab 栏 ── */
-.tv-tabs {
+/* ── Tab ── */
+.te-tabs {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
-
-.tv-tab {
+.te-tab {
   font-size: 11px;
   padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  color: #555;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all .15s;
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.te-tab:hover { border-color: #888; }
+.te-tab.active { background: #222; color: #fff; border-color: #222; }
 
-.tv-tab:hover {
-  border-color: var(--accent-light);
-}
-
-.tv-tab.active {
-  background: #1a6bb0;
-  color: #fff;
-  border-color: #1a6bb0;
-}
-
-/* ── 页面内容 ── */
-.tv-page {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+/* ── 卡片 ── */
+.te-card {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
   padding: 12px;
 }
-
-.tv-page-header {
+.te-card-head {
   margin-bottom: 10px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid #eee;
 }
-
-.tv-page-title {
+.te-card-title {
   font-size: 15px;
   font-weight: 600;
-  color: #1a6bb0;
+  color: #000;
   cursor: pointer;
   text-decoration: none;
   display: block;
   line-height: 1.4;
 }
-
-.tv-page-title:hover {
-  text-decoration: underline;
-}
-
-.tv-page-url {
+.te-card-title:hover { text-decoration: underline; }
+.te-card-url {
   font-size: 11px;
-  color: #0a7a3a;
+  color: #888;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* ── 图片 ── */
-.tv-images {
-  margin-bottom: 10px;
+/* ── 标签 -- */
+.te-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #666;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
-.tv-image-list {
+/* ── 图片 ── */
+.te-imgs {
+  margin-bottom: 10px;
+}
+.te-imgs-list {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-  margin-top: 6px;
 }
-
-.tv-image-thumb {
+.te-thumb {
   width: 80px;
   height: 60px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid var(--border);
+  border: 1px solid #ddd;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity .15s;
 }
-
-.tv-image-thumb:hover {
-  opacity: 0.8;
-}
+.te-thumb:hover { opacity: .7; }
 
 /* ── 正文 ── */
-.tv-content-section {
+.te-body-wrap {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
-
-.tv-content-header {
+.te-body-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-
-.tv-toggle-btn {
+.te-btn {
   font-size: 11px;
-  color: #1a6bb0;
+  color: #555;
   background: none;
-  border: 1px solid #cce5ff;
-  border-radius: 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
   padding: 2px 8px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background .15s;
 }
+.te-btn:hover { background: #eee; }
 
-.tv-toggle-btn:hover {
-  background: #f0f7ff;
-}
-
-.tv-content-body {
+.te-body {
   font-size: 12px;
-  line-height: 1.7;
-  color: var(--text-primary);
+  line-height: 1.8;
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
-  max-height: none;
-  overflow-y: visible;
 }
-
-.tv-content-body.collapsed {
-  max-height: 300px;
-  overflow-y: hidden;
+.te-body.folded {
+  max-height: 280px;
+  overflow: hidden;
   position: relative;
 }
-
-.tv-content-body.collapsed::after {
+.te-body.folded::after {
   content: '';
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  bottom: 0; left: 0; right: 0;
   height: 60px;
-  background: linear-gradient(transparent, var(--bg-primary));
+  background: linear-gradient(transparent, #fff);
   pointer-events: none;
 }
 
-.tv-no-content {
+.te-none {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #999;
   text-align: center;
   padding: 24px;
 }
 
 /* ── 失败列表 ── */
-.tv-failed {
-  border: 1px solid #fde8e8;
-  border-radius: 8px;
+.te-fails {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
   padding: 10px 12px;
-  background: #fff5f5;
+  background: #fafafa;
 }
-
-.tv-failed-item {
+.te-fail-item {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 6px 0;
+  padding: 5px 0;
   font-size: 12px;
-  border-top: 1px solid #fde8e8;
+  border-top: 1px solid #eee;
 }
-
-.tv-failed-item:first-child {
-  border-top: none;
-}
-
-.tv-failed-url {
+.te-fail-item:first-child { border-top: none; }
+.te-fail-url {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 11px;
-  color: var(--text-primary);
+  color: #333;
   word-break: break-all;
 }
-
-.tv-failed-error {
+.te-fail-msg {
   font-size: 11px;
-  color: #c0392b;
+  color: #888;
 }
 
 /* ── 降级 ── */
 .raw-output {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: var(--text-primary);
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 0;
   padding: 8px 12px;
-  background: var(--bg-primary);
-  border-radius: 6px;
+  background: #fafafa;
+  border-radius: 4px;
 }
 </style>

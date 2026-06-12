@@ -1,67 +1,49 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <!-- 运行中 -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
       <span>正在搜索...</span>
     </div>
 
-    <!-- 错误 -->
     <div v-else-if="toolCall.status === 'error'" class="bubble-error">
       {{ toolCall.output || '搜索失败' }}
     </div>
 
-    <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
-      <div v-if="hasData" class="tv-search">
-        <!-- 搜索概览 -->
-        <div class="tv-query-bar">
-          <span class="tv-query-text">{{ queryText }}</span>
-          <span class="tv-stats">{{ resultCount }} 条结果 · {{ responseTime }}ms</span>
+      <div v-if="hasData" class="ts">
+        <div class="ts-query-bar">
+          <span class="ts-query-text">{{ queryText }}</span>
+          <span class="ts-stats">{{ resultCount }} 条结果 · {{ responseTime }}ms</span>
         </div>
 
-        <!-- AI 回答横幅 -->
-        <div v-if="answerText" class="tv-answer">
-          <div class="tv-answer-label">AI 摘要</div>
-          <div class="tv-answer-content">{{ answerText }}</div>
+        <div v-if="answerText" class="ts-answer">
+          <div class="ts-answer-label">AI 摘要</div>
+          <div class="ts-answer-body">{{ answerText }}</div>
         </div>
 
-        <!-- 结果列表 -->
-        <div v-if="items.length" class="tv-list">
-          <div v-for="(item, i) in items" :key="i" class="tv-item">
-            <div class="tv-item-header">
-              <span class="tv-rank">{{ i + 1 }}</span>
-              <a
-                class="tv-title"
-                :href="item.url"
-                target="_blank"
-                rel="noopener noreferrer"
-                @click.prevent="openUrl(item.url)"
-              >{{ item.title || item.url }}</a>
+        <div v-if="items.length" class="ts-list">
+          <div v-for="(item, i) in items" :key="i" class="ts-item">
+            <div class="ts-item-head">
+              <span class="ts-rank">{{ i + 1 }}</span>
+              <a class="ts-link" :href="item.url" target="_blank" rel="noopener noreferrer" @click.prevent="openUrl(item.url)">{{ item.title || item.url }}</a>
             </div>
-            <div class="tv-url">{{ item.url }}</div>
-            <div class="tv-snippet">{{ item.content }}</div>
-            <div class="tv-meta">
-              <span v-if="item.score != null" class="tv-score">相关度 {{ (item.score * 100).toFixed(0) }}%</span>
-              <span v-if="item.published_date" class="tv-date">{{ item.published_date }}</span>
+            <div class="ts-url">{{ item.url }}</div>
+            <p class="ts-snippet">{{ item.content }}</p>
+            <div class="ts-meta">
+              <span v-if="item.score != null" class="ts-tag">相关度 {{ (item.score * 100).toFixed(0) }}%</span>
+              <span v-if="item.published_date" class="ts-date">{{ item.published_date }}</span>
             </div>
 
-            <!-- 全文内容（折叠） -->
-            <div v-if="item.raw_content" class="tv-raw-toggle">
-              <button class="tv-toggle-btn" @click="toggleRaw(i)">
-                {{ expandedRaw.has(i) ? '收起全文' : '展开全文' }}
-              </button>
-              <div v-if="expandedRaw.has(i)" class="tv-raw-content">{{ item.raw_content }}</div>
+            <div v-if="item.raw_content" class="ts-raw">
+              <button class="ts-raw-btn" @click="toggleRaw(i)">{{ expandedRaw.has(i) ? '− 收起全文' : '+ 展开全文' }}</button>
+              <div v-if="expandedRaw.has(i)" class="ts-raw-body">{{ item.raw_content }}</div>
             </div>
           </div>
         </div>
 
-        <div v-else class="tv-empty">未找到相关结果</div>
+        <div v-else class="ts-empty">无结果</div>
       </div>
 
-      <!-- 降级 -->
-      <div v-else>
-        <div class="raw-output">{{ displayOutput }}</div>
-      </div>
+      <div v-else class="raw-output">{{ fallback }}</div>
     </template>
   </BubbleChrome>
 </template>
@@ -74,175 +56,142 @@ import BubbleChrome from './_shared/BubbleChrome.vue'
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
-// 展开的全文索引集合
 const expandedRaw = ref<Set<number>>(new Set())
 
 function toggleRaw(i: number) {
   const s = expandedRaw.value
-  if (s.has(i)) s.delete(i)
-  else s.add(i)
-  // 触发重新渲染
+  s.has(i) ? s.delete(i) : s.add(i)
   expandedRaw.value = new Set(s)
 }
 
-// ── 数据源 ──
 const td = computed<Record<string, any>>(() => {
   if (props.toolCall.toolData) return props.toolCall.toolData as Record<string, any>
   if (props.toolCall.output) {
-    try {
-      const p = JSON.parse(props.toolCall.output)
-      if (p?.data) return p.data as Record<string, any>
-    } catch { /* ignore */ }
+    try { const p = JSON.parse(props.toolCall.output); if (p?.data) return p.data as Record<string, any> } catch { /* */ }
   }
   return {}
 })
 
 const hasData = computed(() => Object.keys(td.value).length > 0)
 
-// ── 核心字段 ──
 const queryText = computed(() => td.value.query || '')
 const answerText = computed(() => td.value.answer || '')
 const responseTime = computed(() => td.value.response_time ?? 0)
-
-const items = computed<Array<Record<string, any>>>(() => {
-  const results = td.value.results
-  return Array.isArray(results) ? results : []
-})
-
+const items = computed<Array<Record<string, any>>>(() => Array.isArray(td.value.results) ? td.value.results : [])
 const resultCount = computed(() => items.value.length)
 
-// ── 打开链接 ──
 function openUrl(url: string) {
   emit('action', { action: 'open_url', data: { url } })
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-// ── 降级 ──
-const displayOutput = computed(() => {
-  if (props.toolCall.output) {
-    return props.toolCall.output.length > 500
-      ? props.toolCall.output.slice(0, 500) + '...'
-      : props.toolCall.output
-  }
-  return null
-})
+const fallback = computed(() => props.toolCall.output
+  ? (props.toolCall.output.length > 500 ? props.toolCall.output.slice(0, 500) + '…' : props.toolCall.output)
+  : null)
 </script>
 
 <style scoped>
-/* ── 运行中 ── */
+/* ── 布局常量 ── */
 .bubble-running {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  padding: 12px 0;
+  font-size: 13px;
+  color: #888;
+}
+.bubble-error {
   padding: 8px 0;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #666;
 }
 
-.bubble-error {
-  font-size: 13px;
-  color: #b91c1c;
-  padding: 4px 0;
-}
-
-/* ── 主容器 ── */
-.tv-search {
+.ts {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   padding: 4px 0;
 }
 
-/* ── 搜索概览栏 ── */
-.tv-query-bar {
+/* ── 查询栏 ── */
+.ts-query-bar {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
+  background: #f5f5f5;
+  border-radius: 6px;
   flex-wrap: wrap;
 }
-
-.tv-query-text {
+.ts-query-text {
   font-size: 14px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #000;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
-.tv-stats {
+.ts-stats {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: #888;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
-/* ── AI 回答 ── */
-.tv-answer {
-  padding: 10px 14px;
-  background: #f0f7ff;
-  border: 1px solid #cce5ff;
-  border-radius: 8px;
+/* ── AI 摘要 ── */
+.ts-answer {
+  padding: 12px 14px;
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 6px;
 }
-
-.tv-answer-label {
-  font-size: 11px;
+.ts-answer-label {
+  font-size: 10px;
   font-weight: 700;
-  color: #1a6bb0;
-  margin-bottom: 4px;
+  color: #666;
+  letter-spacing: .8px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  margin-bottom: 6px;
 }
-
-.tv-answer-content {
+.ts-answer-body {
   font-size: 13px;
-  color: var(--text-primary);
-  line-height: 1.6;
+  color: #222;
+  line-height: 1.7;
 }
 
 /* ── 结果列表 ── */
-.tv-list {
+.ts-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.tv-item {
+.ts-item {
   padding: 10px 12px;
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  transition: border-color 0.15s;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  transition: border-color .15s;
 }
+.ts-item:hover { border-color: #000; }
 
-.tv-item:hover {
-  border-color: var(--accent-light);
-}
-
-.tv-item-header {
+.ts-item-head {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
-.tv-rank {
+.ts-rank {
   font-size: 11px;
   font-weight: 700;
-  color: var(--accent);
+  color: #000;
   flex-shrink: 0;
   min-width: 18px;
   text-align: center;
 }
 
-.tv-title {
+.ts-link {
   font-size: 14px;
   font-weight: 600;
-  color: #1a6bb0;
+  color: #000;
   cursor: pointer;
   text-decoration: none;
   line-height: 1.4;
@@ -250,24 +199,20 @@ const displayOutput = computed(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.ts-link:hover { text-decoration: underline; }
 
-.tv-title:hover {
-  text-decoration: underline;
-  color: #134d82;
-}
-
-.tv-url {
+.ts-url {
   font-size: 11px;
-  color: #0a7a3a;
+  color: #888;
   margin: 2px 0 0 26px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tv-snippet {
+.ts-snippet {
   font-size: 13px;
-  color: var(--text-primary);
+  color: #444;
   line-height: 1.5;
   margin: 4px 0 0 26px;
   display: -webkit-box;
@@ -276,7 +221,7 @@ const displayOutput = computed(() => {
   overflow: hidden;
 }
 
-.tv-meta {
+.ts-meta {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -284,60 +229,57 @@ const displayOutput = computed(() => {
   flex-wrap: wrap;
 }
 
-.tv-score {
+.ts-tag {
   font-size: 10px;
   padding: 1px 6px;
-  border-radius: 3px;
-  background: #e8f5e9;
-  color: #27ae60;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  color: #555;
   font-weight: 600;
 }
 
-.tv-date {
+.ts-date {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: #999;
 }
 
 /* ── 全文折叠 ── */
-.tv-raw-toggle {
+.ts-raw {
   margin: 8px 0 0 26px;
 }
 
-.tv-toggle-btn {
+.ts-raw-btn {
   font-size: 11px;
-  color: #1a6bb0;
+  color: #555;
   background: none;
-  border: 1px solid #cce5ff;
-  border-radius: 4px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
   padding: 2px 8px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background .15s;
 }
+.ts-raw-btn:hover { background: #eee; }
 
-.tv-toggle-btn:hover {
-  background: #f0f7ff;
-}
-
-.tv-raw-content {
+.ts-raw-body {
   margin-top: 8px;
   padding: 10px 12px;
   background: #fafafa;
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
   font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-primary);
+  line-height: 1.7;
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 400px;
   overflow-y: auto;
 }
 
-/* ── 空结果 ── */
-.tv-empty {
+/* ── 无结果 ── */
+.ts-empty {
   text-align: center;
-  padding: 32px 16px;
-  color: var(--text-secondary);
+  padding: 28px 16px;
+  color: #999;
   font-size: 13px;
 }
 
@@ -345,12 +287,11 @@ const displayOutput = computed(() => {
 .raw-output {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: var(--text-primary);
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 0;
   padding: 8px 12px;
-  background: var(--bg-primary);
-  border-radius: 6px;
+  background: #fafafa;
+  border-radius: 4px;
 }
 </style>
