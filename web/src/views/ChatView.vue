@@ -1,5 +1,23 @@
 <template>
-  <div class="chat-view">
+  <div
+    class="chat-view"
+    :class="{ 'is-dragging': isDragging }"
+    @dragover.prevent="onDragOver"
+    @dragleave.prevent="onDragLeave"
+    @drop.prevent="onDrop"
+  >
+    <div v-if="isDragging" class="drop-overlay">
+      <div class="drop-overlay-inner">
+        <div class="drop-overlay-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </div>
+        <div class="drop-overlay-text">释放文件以添加到引用</div>
+      </div>
+    </div>
     <header class="chat-header">
       <StatusBadge :connected="connected" :health="health" />
       <span class="private-trigger hover-trigger">
@@ -107,6 +125,44 @@ function addCitation(ref: ParsedRef) {
   chatInputRef.value?.addRef(ref)
 }
 
+// ── 全局拖拽引用 ──
+
+const isDragging = ref(false)
+let dragLeaveTimer: ReturnType<typeof setTimeout> | null = null
+
+function onDragOver() {
+  if (dragLeaveTimer) clearTimeout(dragLeaveTimer)
+  isDragging.value = true
+}
+
+function onDragLeave() {
+  dragLeaveTimer = setTimeout(() => {
+    isDragging.value = false
+  }, 100)
+}
+
+function onDrop(e: DragEvent) {
+  isDragging.value = false
+  if (!chatInputRef.value) return
+
+  const items = e.dataTransfer?.items
+  if (!items) return
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const entry = item.webkitGetAsEntry?.()
+    if (!entry) continue
+
+    if (entry.isDirectory) {
+      chatInputRef.value.addRef({ type: 'folder', path: entry.name, label: entry.name } as ParsedRef)
+    } else if (entry.isFile) {
+      const file = item.getAsFile()
+      const fullPath = (file as any)?.path ?? entry.name
+      chatInputRef.value.addRef({ type: 'file', path: fullPath, label: entry.name } as ParsedRef)
+    }
+  }
+}
+
 function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string) {
   send(text, refs, providerId, modelName)
 }
@@ -134,10 +190,48 @@ async function handleUndo() {
 
 <style scoped>
 .chat-view {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+.chat-view.is-dragging {
+  /* 拖动激活时阻止下层交互 */
+}
+
+/* 模糊毛玻璃拖拽遮罩 */
+.drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.drop-overlay-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px 60px;
+  border: 2px dashed var(--accent);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+.drop-overlay-icon {
+  color: var(--accent);
+  opacity: 0.8;
+}
+.drop-overlay-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--accent);
+  white-space: nowrap;
 }
 .chat-header {
   display: flex;
