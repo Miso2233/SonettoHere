@@ -229,15 +229,6 @@ export interface VignetteResponse {
   sections: VignetteSection[]
 }
 
-// === 引用 ===
-
-export interface Citation {
-  id: string
-  text: string
-  sourceLabel: string
-  sourceType: 'user_message' | 'assistant_message' | 'tool_result' | 'thinking'
-}
-
 // === DeepSeek 余额 ===
 
 export interface BalanceInfo {

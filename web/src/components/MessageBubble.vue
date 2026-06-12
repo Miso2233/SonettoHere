@@ -6,10 +6,7 @@
         <ReferenceChip
           v-for="(r, idx) in refs"
           :key="idx"
-          :type="r.type"
-          :label="r.label"
-          :path="r.path"
-          :text="r.text"
+          :chip="r"
         />
       </div>
     </div>

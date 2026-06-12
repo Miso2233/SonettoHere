@@ -1,28 +1,16 @@
 <template>
   <div class="chat-input-wrapper">
-    <div v-if="filePaths.length" class="file-refs-bar">
+    <div v-if="refs.length" class="file-refs-bar">
       <span
-        v-for="(fp, idx) in filePaths"
+        v-for="(r, idx) in refs"
         :key="idx"
         class="file-tag"
-        :title="fp"
+        :title="getRefTooltip(r)"
       >
-        <span class="file-tag-icon"><Icon name="file" :size="14" /></span>
-        <span class="file-tag-name">{{ getFileName(fp) }}</span>
-        <button class="file-tag-remove" @click="removeFile(idx)">✕</button>
-      </span>
-    </div>
-    <div v-if="citations?.length" class="file-refs-bar">
-      <span
-        v-for="cit in citations"
-        :key="cit.id"
-        class="file-tag"
-        :title="cit.text"
-      >
-        <span class="file-tag-icon">💬</span>
-        <span class="file-tag-name">{{ truncateText(cit.text, 40) }}</span>
-        <span class="file-tag-source">{{ cit.sourceLabel }}</span>
-        <button class="file-tag-remove" @click="$emit('removeCitation', cit.id)">✕</button>
+        <span class="file-tag-icon"><Icon :name="getRefIcon(r)" :size="14" /></span>
+        <span class="file-tag-name">{{ r.label }}</span>
+        <span class="file-tag-source">{{ r.type }}</span>
+        <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
       </span>
     </div>
     <div class="chat-input">
@@ -94,28 +82,49 @@
 <script setup lang="ts">
 import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
-import type { Citation, ProviderConfig } from '@/types'
+import type { ProviderConfig } from '@/types'
 import type { ParsedRef } from '@/utils/references'
+import { REF_CHIP_CONFIG } from '@/utils/references'
 import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
   disabled: boolean
-  citations?: Citation[]
 }>()
 
 const emit = defineEmits<{
   send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string]
   stop: []
-  removeCitation: [id: string]
   modelChange: [providerId: string, modelName: string]
 }>()
 
 const text = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
-const filePaths = ref<string[]>([])
+const refs = ref<ParsedRef[]>([])
 const loading = ref(false)
 const showMenu = ref(false)
+
+// ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
+
+function addRef(r: ParsedRef) {
+  refs.value.push(r)
+}
+
+function removeRef(idx: number) {
+  refs.value.splice(idx, 1)
+}
+
+/** 从 REF_CHIP_CONFIG 获取图标名 */
+function getRefIcon(r: ParsedRef): string {
+  return REF_CHIP_CONFIG[r.type]?.icon ?? 'file'
+}
+
+/** 从 REF_CHIP_CONFIG 获取 tooltip */
+function getRefTooltip(r: ParsedRef): string {
+  return REF_CHIP_CONFIG[r.type]?.tooltip(r) ?? r.label
+}
+
+defineExpose({ addRef })
 
 // ── LLM 选择器 ──
 const providers = ref<ProviderConfig[]>([])
@@ -187,7 +196,7 @@ async function _pick(type: string) {
     const res = await fetch(`/api/select-file?type=${type}`)
     const data = await res.json()
     if (data.path) {
-      filePaths.value.push(data.path)
+      refs.value.push({ type: 'file', path: data.path, label: getFileName(data.path) })
     }
   } catch {
     // 静默失败
@@ -196,34 +205,14 @@ async function _pick(type: string) {
   }
 }
 
-function removeFile(index: number) {
-  filePaths.value.splice(index, 1)
-}
-
 function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  const refs: ParsedRef[] = []
-
-  for (const fp of filePaths.value) {
-    refs.push({ type: 'file', path: fp, label: getFileName(fp) })
-  }
-
-  for (const cit of props.citations ?? []) {
-    const label = cit.text.length > 80 ? cit.text.slice(0, 80) + '…' : cit.text
-    refs.push({ type: 'cite', text: cit.text, label })
-  }
-
-  emit('send', msg, refs, selectedProviderId.value || undefined, selectedModelName.value || undefined)
+  emit('send', msg, refs.value, selectedProviderId.value || undefined, selectedModelName.value || undefined)
   text.value = ''
-  filePaths.value = []
+  refs.value = []
   nextTick(() => autoResize())
-}
-
-function truncateText(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text
-  return text.slice(0, maxLen) + '…'
 }
 
 function autoResize() {
@@ -309,7 +298,7 @@ function autoResize() {
   background: #f9fafb;
 }
 
-/* 文件引用标签条 */
+/* 引用标签条 */
 .file-refs-bar {
   display: flex;
   flex-wrap: wrap;

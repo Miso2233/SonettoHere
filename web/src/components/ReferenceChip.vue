@@ -1,30 +1,25 @@
 <template>
-  <span class="ref-chip" :class="'ref-chip--' + type" :title="tooltip">
+  <span class="ref-chip" :class="'ref-chip--' + chip.type" :title="tooltip">
     <span class="ref-chip-icon">
       <Icon :name="iconName" :size="12" />
     </span>
-    <span class="ref-chip-label">{{ label }}</span>
+    <span class="ref-chip-label">{{ chip.label }}</span>
   </span>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import Icon from '@/components/Icon.vue'
+import type { ParsedRef } from '@/utils/references'
+import { REF_CHIP_CONFIG } from '@/utils/references'
 
 const props = defineProps<{
-  type: 'file' | 'cite'
-  label: string
-  path?: string
-  text?: string
+  chip: ParsedRef
 }>()
 
-const iconName = computed(() => (props.type === 'file' ? 'file' : 'cite-speech'))
-
-const tooltip = computed(() => {
-  if (props.type === 'file' && props.path) return props.path
-  if (props.type === 'cite' && props.text) return props.text
-  return props.label
-})
+const cfg = computed(() => REF_CHIP_CONFIG[props.chip.type])
+const iconName = computed(() => cfg.value?.icon ?? 'file')
+const tooltip = computed(() => cfg.value?.tooltip(props.chip) ?? props.chip.label)
 </script>
 
 <style scoped>

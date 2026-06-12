@@ -60,12 +60,11 @@
 
     <ChatInput
       v-if="!isSubagent"
+      ref="chatInputRef"
       :is-streaming="isStreaming"
       :disabled="!connected"
-      :citations="citations"
       @send="onSend"
       @stop="cancel"
-      @remove-citation="removeCitation"
       @model-change="onModelChange"
     />
     <div v-else class="sub-agent-readonly-bar">
@@ -83,7 +82,6 @@ import StatusBadge from '@/components/StatusBadge.vue'
 import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
 import { useSession } from '@/composables/useSession'
-import type { Citation } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { computed, ref } from 'vue'
 
@@ -103,19 +101,14 @@ const isSubagent = computed(() => {
   )
 })
 
-const citations = ref<Citation[]>([])
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null)
 
-function addCitation(citation: Citation) {
-  citations.value.push(citation)
-}
-
-function removeCitation(id: string) {
-  citations.value = citations.value.filter(c => c.id !== id)
+function addCitation(ref: ParsedRef) {
+  chatInputRef.value?.addRef(ref)
 }
 
 function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string) {
   send(text, refs, providerId, modelName)
-  citations.value = []
 }
 
 function handleToolAction(payload: { action: string; data?: unknown }) {
