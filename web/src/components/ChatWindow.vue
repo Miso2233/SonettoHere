@@ -1,12 +1,13 @@
 <template>
   <div class="chat-window" ref="windowRef">
     <div class="messages-list">
-      <!-- 已完成的消息轮次 -->
-      <template v-for="(turn, idx) in turns" :key="turn.id">
+      <!-- 所有轮次（已完成 + 正在流式）合并在同一列表中，:key="turn.id" 确保
+           组件实例在 turn 从当前轮过渡到已完成时不销毁重建，避免 iframe 闪烁 -->
+      <template v-for="(turn, mergedIdx) in mergedTurns" :key="turn.id">
         <div
           class="cite-source"
-          :data-user-msg-idx="idx"
-          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户', idx)"
+          :data-user-msg-idx="turnsIndex(mergedIdx)"
+          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户', turnsIndex(mergedIdx))"
         >
           <MessageBubble role="user" :content="turn.userMessage" :refs="turn.refs" />
         </div>
@@ -33,46 +34,14 @@
             <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
           </div>
         </template>
+        <!-- finalAnswer：仅在已完成（非流式）轮次中展示 -->
         <div
-          v-if="turn.finalAnswer && !hasAnswerBlock(turn)"
+          v-if="turn.finalAnswer && !hasAnswerBlock(turn) && !isStreamingTurn(turn)"
           class="cite-source"
           @contextmenu.prevent="onBubbleContextMenu($event, 'assistant_message', turn.finalAnswer, 'AI')"
         >
           <MessageBubble role="assistant" :content="turn.finalAnswer" />
         </div>
-      </template>
-
-      <!-- 当前正在流式生成的消息 -->
-      <template v-if="currentTurn">
-        <div
-          class="cite-source"
-          @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', currentTurn.userMessage, '用户', -1)"
-        >
-          <MessageBubble role="user" :content="currentTurn.userMessage" :refs="currentTurn.refs" />
-        </div>
-        <template v-for="(ev, i) in currentTurn.events" :key="i">
-          <div
-            v-if="ev.kind === 'thinking'"
-            class="cite-source"
-            @contextmenu.prevent="onBubbleContextMenu($event, 'thinking', ev.tokens, '思考过程')"
-          >
-            <ThinkingBlock :block="ev" />
-          </div>
-          <div
-            v-else
-            class="cite-source"
-            @contextmenu.prevent="
-              onBubbleContextMenu(
-                $event,
-                'tool_result',
-                ev.output || ev.input || '',
-                ev.name,
-              )
-            "
-          >
-            <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
-          </div>
-        </template>
       </template>
 
       <!-- 错误提示 -->
@@ -159,6 +128,27 @@ function isNearBottom(): boolean {
 
 function hasAnswerBlock(turn: ChatTurn): boolean {
   return turn.events.some(e => e.kind === 'thinking' && e.becameAnswer)
+}
+
+/** 合并已完成轮次和当前流式轮次到单个列表，用 turn.id 作为 key，
+ *  使组件实例在过渡时不被销毁重建 */
+const mergedTurns = computed<ChatTurn[]>(() => {
+  if (!props.currentTurn) return props.turns
+  // currentTurn 可能已被 pushed 到 turns（becameAnswer 分支），去重
+  if (props.turns.some(t => t.id === props.currentTurn!.id)) return props.turns
+  return [...props.turns, props.currentTurn]
+})
+
+/** mergedTurns 中第 mergedIdx 项在 props.turns 中的索引（当前轮返回 -1） */
+function turnsIndex(mergedIdx: number): number {
+  // 前 props.turns.length 项索引与 mergedIdx 一致
+  if (mergedIdx < props.turns.length) return mergedIdx
+  return -1
+}
+
+/** 该轮次是否正在流式生成中 */
+function isStreamingTurn(turn: ChatTurn): boolean {
+  return props.currentTurn?.id === turn.id
 }
 
 function scrollToBottom() {

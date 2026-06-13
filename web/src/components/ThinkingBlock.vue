@@ -8,7 +8,7 @@
     </div>
     <div class="thinking-body" v-if="block.tokens">
       <div class="thinking-content">
-        <RenderMarkdown :content="block.tokens" />
+        <RenderMarkdown :content="block.tokens" :streaming="!block.done" />
       </div>
     </div>
   </div>

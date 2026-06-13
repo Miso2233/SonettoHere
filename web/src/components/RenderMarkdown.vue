@@ -13,13 +13,17 @@ const props = withDefaults(defineProps<{
   content: string
   /** 强制使用 sandbox 渲染（即使检测不到 script 标签） */
   forceSandbox?: boolean
+  /** 处于流式接收中时禁用沙箱，避免 iframe 因内容频繁变化而不断重载 */
+  streaming?: boolean
 }>(), {
   forceSandbox: false,
+  streaming: false,
 })
 
 const renderedHtml = computed(() => renderMarkdown(props.content))
 
 const useSandbox = computed(() => {
+  if (props.streaming) return false
   if (!props.content) return false
   if (props.forceSandbox) return true
   return contentNeedsIsolation(props.content)
