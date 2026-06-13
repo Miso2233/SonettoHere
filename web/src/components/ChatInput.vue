@@ -36,6 +36,7 @@
         rows="1"
         @keydown="onKeydown"
         @input="autoResize"
+        @paste="onPaste"
       ></textarea>
       <div class="input-bottom-bar">
         <div class="btn-add-file-wrapper">
@@ -187,6 +188,26 @@ function confirmLink() {
 function cancelLink() {
   linkUrl.value = ''
   showLinkInput.value = false
+}
+
+// ── 粘贴URL自动识别 ──
+
+function onPaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text/plain')?.trim()
+  if (!text) return
+
+  // 标准化 URL：无协议时补 https://
+  const normalized = /^https?:\/\//i.test(text) ? text : 'https://' + text
+  if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(normalized)) return
+
+  // 是 URL，阻止粘贴文本，改为添加链接引用
+  e.preventDefault()
+  try {
+    const domain = new URL(normalized).hostname.replace(/^www\./, '')
+    refs.value.push({ type: 'web_link', url: normalized, label: domain, domain } as ParsedRef)
+  } catch {
+    // URL 解析失败，走默认粘贴
+  }
 }
 
 // ── @ / # 自动补全（统一状态机） ──
