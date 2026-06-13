@@ -11,7 +11,7 @@
         @mouseenter="$emit('update:activeIndex', i)"
       >
         <span class="ac-item-icon"><Icon name="sparkles" :size="14" /></span>
-        <span class="ac-item-name">{{ s.name }}</span>
+        <span class="ac-item-name" v-html="highlightName(s.name)"></span>
         <span class="ac-item-desc">{{ s.description }}</span>
       </div>
       <div v-if="!items.length" class="ac-empty">无匹配技能</div>
@@ -29,6 +29,7 @@ const props = defineProps<{
   visible: boolean
   position: { x: number; y: number }
   activeIndex: number
+  filterText: string
 }>()
 
 const emit = defineEmits<{
@@ -54,6 +55,16 @@ watch(() => props.activeIndex, async () => {
     panel.scrollTop += itemRect.bottom - panelRect.bottom
   }
 })
+
+/** 将 name 中匹配 filterText 的部分用 <strong> 包裹 */
+function highlightName(name: string): string {
+  if (!props.filterText) return name
+  const lower = name.toLowerCase()
+  const needle = props.filterText.toLowerCase()
+  if (!lower.includes(needle)) return name
+  const re = new RegExp(`(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  return name.replace(re, '<strong>$1</strong>')
+}
 
 const panelStyle = computed(() => ({
   left: props.position.x + 'px',
@@ -122,5 +133,13 @@ console.log(`[SkillAutocomplete] render: visible=${props.visible}, items=${props
   font-size: 12px;
   color: #9ca3af;
   text-align: center;
+}
+</style>
+
+<style>
+/* v-html 渲染的加粗匹配字符 */
+.ac-item-name strong {
+  color: var(--accent, #2563eb);
+  font-weight: 700;
 }
 </style>

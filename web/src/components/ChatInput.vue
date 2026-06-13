@@ -35,7 +35,7 @@
         :disabled="disabled"
         rows="1"
         @keydown="onKeydown"
-        @input="onInput"
+        @input="autoResize"
       ></textarea>
       <div class="input-bottom-bar">
         <div class="btn-add-file-wrapper">
@@ -97,6 +97,7 @@
       :visible="showSkillAutocomplete"
       :position="skillAutocompletePos"
       :active-index="skillActiveIndex"
+      :filter-text="skillFilterText"
       @select="confirmSkill"
       @close="showSkillAutocomplete = false"
       @update:active-index="skillActiveIndex = $event"
@@ -111,7 +112,7 @@ import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
 import type { ProviderConfig, SkillInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { REF_CHIP_CONFIG } from '@/utils/references'
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -236,10 +237,10 @@ async function loadSkills() {
   }
 }
 
-function onInput() {
-  autoResize()
+// 监听输入变化检测 @ 触发
+watch(text, () => {
   const el = textareaRef.value
-  if (!el) return
+  if (!el || el !== document.activeElement) return
   const val = text.value
   const cursorPos = el.selectionStart
   const textBeforeCursor = val.slice(0, cursorPos)
@@ -247,23 +248,21 @@ function onInput() {
 
   if (atIdx !== -1) {
     const afterAt = textBeforeCursor.slice(atIdx + 1)
-    // @ 必须在词首
+    // @ 不在英文单词中间时触发（前面是空格/中文/标点/行首均可）
     const charBefore = atIdx === 0 ? ' ' : textBeforeCursor[atIdx - 1]
-    if (charBefore === ' ' || charBefore === '\n') {
+    if (!/\w/.test(charBefore)) {
       skillFilterText.value = afterAt
       atTriggerPos.value = atIdx
       skillActiveIndex.value = 0
       showSkillAutocomplete.value = true
       skillAutocompletePos.value = calcCursorPixelPos(el, cursorPos)
-      console.log(`[ChatInput] @触发: pos=${atIdx}, filterText="${afterAt}", skills=${skills.value.length}`)
       return
     }
   }
   if (showSkillAutocomplete.value) {
-    console.log('[ChatInput] @触发关闭（@ 消失或不在词首）')
     showSkillAutocomplete.value = false
   }
-}
+})
 
 function onKeydown(e: KeyboardEvent) {
   if (showSkillAutocomplete.value) {
