@@ -1,9 +1,9 @@
 <template>
   <div class="chat-input-wrapper">
-    <div v-if="refs.length" class="file-refs-bar">
+    <TransitionGroup name="ref-tag" tag="div" class="file-refs-bar">
       <span
         v-for="(r, idx) in refs"
-        :key="idx"
+        :key="r.type + r.label + idx"
         class="file-tag"
         :title="getRefTooltip(r)"
       >
@@ -12,7 +12,7 @@
         <span class="file-tag-source">{{ r.type }}</span>
         <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
       </span>
-    </div>
+    </TransitionGroup>
     <div v-if="showLinkInput" class="link-input-bar">
       <input
         ref="linkInputRef"
@@ -582,6 +582,9 @@ function autoResize() {
   gap: 6px;
   padding: 0 0 8px 0;
 }
+.file-refs-bar:empty {
+  display: none;
+}
 .file-tag {
   display: inline-flex;
   align-items: center;
@@ -621,6 +624,15 @@ function autoResize() {
   padding: 0 5px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+/* TransitionGroup 动画：从下往上缓出弹出 */
+.ref-tag-enter-active {
+  transition: all 0.25s ease-out;
+}
+.ref-tag-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
 }
 
 /* 链接输入条 */
