@@ -1,9 +1,9 @@
-"""Anthropic Skills 列表 API。"""
+"""Anthropic Skills & 内置工具列表 API。"""
 
 import re
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 
 router = APIRouter()
 
@@ -61,3 +61,15 @@ async def list_skills():
         })
 
     return {"skills": skills}
+
+
+@router.get("/tools")
+async def list_tools(request: Request):
+    """返回所有已加载的 Python 内置工具（native_tools + mcp_tools）。"""
+    tools = getattr(request.app.state, "tools", [])
+    return {
+        "tools": [
+            {"name": t.name, "description": t.description}
+            for t in tools
+        ]
+    }

@@ -93,14 +93,15 @@
       </div>
     </div>
     <SkillAutocomplete
-      :items="filteredSkills"
-      :visible="showSkillAutocomplete"
-      :position="skillAutocompletePos"
-      :active-index="skillActiveIndex"
-      :filter-text="skillFilterText"
-      @select="confirmSkill"
-      @close="showSkillAutocomplete = false"
-      @update:active-index="skillActiveIndex = $event"
+      :items="acFiltered"
+      :visible="acMode !== null"
+      :position="acPosition"
+      :active-index="acActiveIndex"
+      :filter-text="acFilterText"
+      :icon-name="acMode === 'tool' ? 'menu-file' : 'sparkles'"
+      @select="confirmItem"
+      @close="acMode = null"
+      @update:active-index="acActiveIndex = $event"
     />
   </div>
 </template>
@@ -109,8 +110,8 @@
 import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
 import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
-import type { ProviderConfig, SkillInfo } from '@/types'
-import type { ParsedRef } from '@/utils/references'
+import type { ProviderConfig, SkillInfo, ToolInfo } from '@/types'
+import type { ParsedRef, ToolRef } from '@/utils/references'
 import { REF_CHIP_CONFIG } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
@@ -188,103 +189,128 @@ function cancelLink() {
   showLinkInput.value = false
 }
 
-// ── Skill @-自动补全 ──
+// ── @ / # 自动补全（统一状态机） ──
+
+type AcMode = 'skill' | 'tool' | null
+
+const acMode = ref<AcMode>(null)
+const acFilterText = ref('')
+const acPosition = ref({ x: 0, y: 0 })
+const acActiveIndex = ref(0)
+const acTriggerPos = ref(-1)
+const acTriggerChar = ref('')
 
 const skills = ref<SkillInfo[]>([])
-const showSkillAutocomplete = ref(false)
-const skillFilterText = ref('')
-const skillAutocompletePos = ref({ x: 0, y: 0 })
-const skillActiveIndex = ref(0)
-const atTriggerPos = ref(-1)
+const tools = ref<ToolInfo[]>([])
 
-const filteredSkills = computed(() => {
-  if (!skillFilterText.value) return skills.value
-  const lower = skillFilterText.value.toLowerCase()
+/** 当前模式对应的数据源 */
+const acSource = computed(() =>
+  acMode.value === 'skill' ? skills.value
+  : acMode.value === 'tool' ? tools.value
+  : []
+)
 
-  // 筛选：仅匹配 name（前缀优先，子串兜底）
-  const scored = skills.value
-    .map(s => {
-      const nameLower = s.name.toLowerCase()
-      if (!nameLower.includes(lower)) return null  // 不匹配
+/** 筛选 + 排序后的候选项 */
+const acFiltered = computed(() => {
+  const src = acSource.value
+  if (!acFilterText.value) return src
+  const lower = acFilterText.value.toLowerCase()
 
+  const scored = src
+    .map(item => {
+      const nameLower = item.name.toLowerCase()
+      if (!nameLower.includes(lower)) return null
       const prefix = nameLower.startsWith(lower)
-      // 前缀匹配次数（至多匹配一次，值为 1 或 0）
       const count = prefix ? 1 : nameLower.split(lower).length - 1
       const score = prefix ? 4 : 2
-
-      return { skill: s, score, count }
+      return { item, score, count }
     })
     .filter((x): x is NonNullable<typeof x> => x !== null)
 
-  // 排序：score 降序 → count 降序 → name 字典序
   scored.sort((a, b) => {
     if (a.score !== b.score) return b.score - a.score
     if (a.count !== b.count) return b.count - a.count
-    return a.skill.name.localeCompare(b.skill.name)
+    return a.item.name.localeCompare(b.item.name)
   })
 
-  console.log(`[ChatInput] filteredSkills: filterText="${skillFilterText.value}", skills=${skills.value.length}, result=${scored.length}`)
-  return scored.map(s => s.skill)
+  return scored.map(s => s.item)
 })
 
 async function loadSkills() {
   try {
     const res = await api.listSkills()
     skills.value = res.skills
-    console.log(`[ChatInput] 加载 ${skills.value.length} 个技能:`, skills.value.slice(0, 3).map(s => s.name))
   } catch (e) {
     console.error('[ChatInput] 加载技能失败:', e)
   }
 }
 
-// 监听输入变化检测 @ 触发
+async function loadTools() {
+  try {
+    const res = await api.listTools()
+    tools.value = res.tools
+  } catch (e) {
+    console.error('[ChatInput] 加载工具失败:', e)
+  }
+}
+
+/** 检测 @ / # 触发 */
 watch(text, () => {
   const el = textareaRef.value
   if (!el || el !== document.activeElement) return
   const val = text.value
   const cursorPos = el.selectionStart
   const textBeforeCursor = val.slice(0, cursorPos)
-  const atIdx = textBeforeCursor.lastIndexOf('@')
 
-  if (atIdx !== -1) {
-    const afterAt = textBeforeCursor.slice(atIdx + 1)
-    // @ 不在英文单词中间时触发（前面是空格/中文/标点/行首均可）
-    const charBefore = atIdx === 0 ? ' ' : textBeforeCursor[atIdx - 1]
+  // 检查 @ 和 #，取较近者
+  let triggerPos = -1
+  let triggerChar = ''
+  for (const ch of ['@', '#'] as const) {
+    const idx = textBeforeCursor.lastIndexOf(ch)
+    if (idx > triggerPos) {
+      triggerPos = idx
+      triggerChar = ch
+    }
+  }
+
+  const mode: AcMode = triggerChar === '@' ? 'skill' : triggerChar === '#' ? 'tool' : null
+
+  if (triggerPos !== -1 && mode) {
+    const after = textBeforeCursor.slice(triggerPos + 1)
+    const charBefore = triggerPos === 0 ? ' ' : textBeforeCursor[triggerPos - 1]
     if (!/\w/.test(charBefore)) {
-      skillFilterText.value = afterAt
-      atTriggerPos.value = atIdx
-      skillActiveIndex.value = 0
-      showSkillAutocomplete.value = true
-      skillAutocompletePos.value = calcCursorPixelPos(el, cursorPos)
+      acMode.value = mode
+      acFilterText.value = after
+      acTriggerPos.value = triggerPos
+      acTriggerChar.value = triggerChar
+      acActiveIndex.value = 0
+      acPosition.value = calcCursorPixelPos(el, cursorPos)
       return
     }
   }
-  if (showSkillAutocomplete.value) {
-    showSkillAutocomplete.value = false
-  }
+  acMode.value = null
 })
 
 function onKeydown(e: KeyboardEvent) {
-  if (showSkillAutocomplete.value) {
+  if (acMode.value) {
+    const len = acFiltered.value.length
     if (e.key === 'Tab') {
       e.preventDefault()
-      confirmSkill()
+      confirmItem()
       return
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
-      const len = filteredSkills.value.length
-      skillActiveIndex.value = ((skillActiveIndex.value - 1) % len + len) % len
+      acActiveIndex.value = ((acActiveIndex.value - 1) % len + len) % len
       return
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      const len = filteredSkills.value.length
-      skillActiveIndex.value = (skillActiveIndex.value + 1) % len
+      acActiveIndex.value = (acActiveIndex.value + 1) % len
       return
     }
     if (e.key === 'Escape') {
-      showSkillAutocomplete.value = false
+      acMode.value = null
       return
     }
   }
@@ -296,21 +322,22 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-function confirmSkill() {
-  const skill = filteredSkills.value[skillActiveIndex.value]
-  if (!skill) return
+function confirmItem() {
+  const item = acFiltered.value[acActiveIndex.value]
+  if (!item) return
 
-  // 移除 @ 及后续文本
+  // 移除触发符及后续文本
   const el = textareaRef.value
   const cursorPos = el?.selectionStart ?? text.value.length
-  const before = text.value.slice(0, atTriggerPos.value)
-  const after = text.value.slice(cursorPos)
-  text.value = before + after
+  text.value = text.value.slice(0, acTriggerPos.value) + text.value.slice(cursorPos)
 
-  // 添加 SkillRef
-  refs.value.push({ type: 'skill', name: skill.name, label: skill.name } as ParsedRef)
+  // 创建对应类型的引用
+  const ref: ParsedRef = acMode.value === 'skill'
+    ? { type: 'skill', name: item.name, label: item.name }
+    : { type: 'tool', name: item.name, label: item.name }
+  refs.value.push(ref)
 
-  showSkillAutocomplete.value = false
+  acMode.value = null
   nextTick(() => autoResize())
 }
 
@@ -395,6 +422,7 @@ async function loadProviders() {
 
 onMounted(loadProviders)
 onMounted(loadSkills)
+onMounted(loadTools)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')

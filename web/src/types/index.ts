@@ -326,3 +326,14 @@ export interface SkillInfo {
 export interface ListSkillsResponse {
   skills: SkillInfo[]
 }
+
+// === 内置工具 ===
+
+export interface ToolInfo {
+  name: string
+  description: string
+}
+
+export interface ListToolsResponse {
+  tools: ToolInfo[]
+}

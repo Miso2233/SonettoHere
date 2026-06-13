@@ -10,30 +10,32 @@
         @click="$emit('select', s)"
         @mouseenter="$emit('update:activeIndex', i)"
       >
-        <span class="ac-item-icon"><Icon name="sparkles" :size="14" /></span>
+        <span class="ac-item-icon"><Icon :name="iconName" :size="14" /></span>
         <span class="ac-item-name" v-html="highlightName(s.name)"></span>
         <span class="ac-item-desc">{{ s.description }}</span>
       </div>
-      <div v-if="!items.length" class="ac-empty">无匹配技能</div>
+      <div v-if="!items.length" class="ac-empty">无匹配</div>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
 import Icon from '@/components/Icon.vue'
-import type { SkillInfo } from '@/types'
 import { computed, nextTick, ref, watch } from 'vue'
 
-const props = defineProps<{
-  items: SkillInfo[]
+const props = withDefaults(defineProps<{
+  items: { name: string; description: string }[]
   visible: boolean
   position: { x: number; y: number }
   activeIndex: number
   filterText: string
-}>()
+  iconName?: string
+}>(), {
+  iconName: 'sparkles',
+})
 
 const emit = defineEmits<{
-  select: [skill: SkillInfo]
+  select: [item: { name: string; description: string }]
   close: []
   'update:activeIndex': [index: number]
 }>()
@@ -68,12 +70,8 @@ function highlightName(name: string): string {
 
 const panelStyle = computed(() => ({
   left: props.position.x + 'px',
-  // 面板底边固定在光标行顶部（y 是行底，减 24 ≈ 行高），向上展开
   bottom: `${window.innerHeight - props.position.y + 28}px`,
 }))
-
-// 调试
-console.log(`[SkillAutocomplete] render: visible=${props.visible}, items=${props.items.length}, activeIndex=${props.activeIndex}`)
 </script>
 
 <style scoped>

@@ -11,6 +11,7 @@ import type {
   ListProvidersResponse,
   ListNewsResponse,
   ListSkillsResponse,
+  ListToolsResponse,
   ProviderConfig,
   TestConnectionResponse,
   DiscoverModelsResponse,
@@ -122,4 +123,7 @@ export const api = {
 
   listSkills: () =>
     request<ListSkillsResponse>('/skills'),
+
+  listTools: () =>
+    request<ListToolsResponse>('/tools'),
 }

@@ -34,7 +34,14 @@ export interface SkillRef {
   name: string
 }
 
-export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef | SkillRef
+/** 内置工具引用 */
+export interface ToolRef {
+  type: 'tool'
+  label: string
+  name: string
+}
+
+export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef | SkillRef | ToolRef
 
 /**
  * 引用 chip 渲染配置，每种 type 自注册 icon 名与 tooltip 函数。
@@ -65,6 +72,10 @@ export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
   skill: {
     icon: 'sparkles',
     tooltip: (r: ParsedRef) => `技能: ${(r as SkillRef).name}`,
+  },
+  tool: {
+    icon: 'sparkles',
+    tooltip: (r: ParsedRef) => `工具: ${(r as ToolRef).name}`,
   },
 }
 
