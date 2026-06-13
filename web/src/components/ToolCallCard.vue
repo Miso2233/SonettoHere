@@ -25,7 +25,7 @@
               </div>
             </div>
           </template>
-          <div v-if="inputDisplay.type === 'markdown'" class="markdown-body" v-html="inputDisplay.html"></div>
+          <RenderMarkdown v-if="inputDisplay.type === 'markdown'" :content="toolCall.input" />
         </div>
 
         <!-- 结果 section -->
@@ -41,7 +41,7 @@
             </div>
           </template>
           <pre v-else-if="outputDisplay.type === 'code'" class="code-block">{{ outputDisplay.raw }}</pre>
-          <div v-if="outputDisplay.type === 'markdown'" class="markdown-body" v-html="outputDisplay.html"></div>
+          <RenderMarkdown v-if="outputDisplay.type === 'markdown'" :content="toolCall.output || ''" />
         </div>
       </div>
     </div>
@@ -51,7 +51,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed } from 'vue'
 import type { ToolCall } from '@/types'
-import { renderMarkdown } from '@/utils/markdown'
+import RenderMarkdown from './RenderMarkdown.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 
@@ -80,7 +80,6 @@ interface CodeDisplay {
 
 interface MarkdownDisplay {
   type: 'markdown'
-  html: string
 }
 
 type SectionDisplay = KvDisplay | CodeDisplay | MarkdownDisplay
@@ -126,12 +125,12 @@ function detectCodeDisplay(raw: string): CodeDisplay {
 const inputDisplay = computed<SectionDisplay>(() => {
   const kv = parseJsonKv(props.toolCall.input)
   if (kv) return kv
-  return { type: 'markdown', html: renderMarkdown(props.toolCall.input) }
+  return { type: 'markdown' }
 })
 
 const outputDisplay = computed<SectionDisplay>(() => {
   if (!props.toolCall.output) {
-    return { type: 'markdown', html: '' }
+    return { type: 'markdown' }
   }
   const kv = parseJsonKv(props.toolCall.output)
   if (kv) return kv

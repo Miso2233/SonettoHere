@@ -33,7 +33,9 @@
         <div v-if="loading && !narrative" class="memory-loading">
           加载中……
         </div>
-        <div v-else-if="narrative" class="markdown-body" v-html="rendered"></div>
+        <div v-else-if="narrative">
+          <RenderMarkdown :content="narrative" />
+        </div>
         <div v-else class="memory-empty">
           暂无记忆叙事。开始一段对话后，AI 会自动生成关于你的记忆。
         </div>
@@ -43,12 +45,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { renderMarkdown } from '@/utils/markdown'
+import { ref, onMounted } from 'vue'
 import { api } from '@/api'
 import type { VignetteSection } from '@/types'
 import MomentCard from '@/components/MomentCard.vue'
 import SectionCard from '@/components/SectionCard.vue'
+import RenderMarkdown from '@/components/RenderMarkdown.vue'
 
 /** 可通过开发者工具切换为 false 回退到 Markdown 渲染 */
 const useVignette = ref(true)
@@ -56,10 +58,6 @@ const useVignette = ref(true)
 const narrative = ref('')
 const sections = ref<VignetteSection[]>([])
 const loading = ref(false)
-
-const rendered = computed(() => {
-  return renderMarkdown(narrative.value)
-})
 
 async function refresh() {
   loading.value = true
