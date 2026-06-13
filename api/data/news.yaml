@@ -1,4 +1,13 @@
 news:
+  - id: "llm-html-sandbox"
+    en_title: "LLM HTML Sandbox"
+    title: "LLM HTML 沙箱渲染支持"
+    description: "LLM 现在可以直接输出交互式 HTML/CSS/JS，自动在隔离沙箱中渲染。支持点击、动画、计数器等前端交互效果。对 Agent 而言，将 HTML 效果直接写在代码块外即可触发渲染。"
+    type: "feat"
+    date: "2026-06-13"
+    tags: ["前端", "沙箱", "交互"]
+    version: "PREVIEW"
+    pr_number: 99
   - id: "ruri-ref-system"
     en_title: "Project Ruri"
     title: "琉璃计划：引用系统重构"
