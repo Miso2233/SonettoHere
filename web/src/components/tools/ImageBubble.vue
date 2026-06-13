@@ -14,7 +14,7 @@
     <template v-else-if="toolCall.status === 'done'">
       <div v-if="hasData" class="image-result">
         <div class="image-content" v-if="response">
-          <div class="markdown-body" v-html="rendered"></div>
+          <RenderMarkdown :content="response" />
         </div>
       </div>
 
@@ -28,11 +28,10 @@
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
+import RenderMarkdown from '@/components/RenderMarkdown.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
-
-import { renderMarkdown } from '@/utils/markdown'
 
 const td = computed<Record<string, any>>(() => {
   if (props.toolCall.toolData) return props.toolCall.toolData as Record<string, any>
@@ -47,7 +46,6 @@ const td = computed<Record<string, any>>(() => {
 
 const hasData = computed(() => Object.keys(td.value).length > 0)
 const response = computed(() => td.value.response || '')
-const rendered = computed(() => renderMarkdown(response.value))
 
 const displayOutput = computed(() => {
   if (props.toolCall.output) {

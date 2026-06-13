@@ -7,19 +7,18 @@
       </span>
     </div>
     <div class="thinking-body" v-if="block.tokens">
-      <div class="thinking-content markdown-body" v-html="renderedTokens"></div>
+      <div class="thinking-content">
+        <RenderMarkdown :content="block.tokens" :streaming="!block.done" />
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import type { ThinkingBlock as ThinkingBlockType } from '@/types'
-import { renderMarkdown } from '@/utils/markdown'
+import RenderMarkdown from './RenderMarkdown.vue'
 
 const props = defineProps<{ block: ThinkingBlockType }>()
-
-const renderedTokens = computed(() => renderMarkdown(props.block.tokens))
 </script>
 
 <style scoped>

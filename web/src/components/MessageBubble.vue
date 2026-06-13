@@ -1,7 +1,7 @@
 <template>
   <div class="message-row" :class="role">
     <div class="bubble" :class="role">
-      <div v-if="content" class="markdown-body" v-html="rendered"></div>
+      <RenderMarkdown v-if="content" :content="content" />
       <div v-if="refs?.length" class="ref-chips">
         <ReferenceChip
           v-for="(r, idx) in refs"
@@ -14,14 +14,11 @@
 </template>
 
 <script setup lang="ts">
-import { renderMarkdown } from '@/utils/markdown';
 import type { ParsedRef } from '@/utils/references';
-import { computed } from 'vue';
 import ReferenceChip from './ReferenceChip.vue';
+import RenderMarkdown from './RenderMarkdown.vue';
 
 const props = defineProps<{ role: 'user' | 'assistant'; content: string; refs?: ParsedRef[] }>()
-
-const rendered = computed(() => renderMarkdown(props.content))
 </script>
 
 <style scoped>
