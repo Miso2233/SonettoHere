@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="visible" class="ac-backdrop" @click="$emit('close')" />
-    <div v-if="visible" class="ac-panel" :style="panelStyle">
+    <div v-if="visible" ref="panelRef" class="ac-panel" :style="panelStyle">
       <div
         v-for="(s, i) in items"
         :key="s.name"
@@ -22,7 +22,7 @@
 <script setup lang="ts">
 import Icon from '@/components/Icon.vue'
 import type { SkillInfo } from '@/types'
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 const props = defineProps<{
   items: SkillInfo[]
@@ -36,6 +36,24 @@ const emit = defineEmits<{
   close: []
   'update:activeIndex': [index: number]
 }>()
+
+const panelRef = ref<HTMLElement | null>(null)
+
+// 自动滚动：激活项超出可视区域时翻页
+watch(() => props.activeIndex, async () => {
+  await nextTick()
+  const panel = panelRef.value
+  if (!panel) return
+  const active = panel.querySelector('.ac-item.active') as HTMLElement | null
+  if (!active) return
+  const panelRect = panel.getBoundingClientRect()
+  const itemRect = active.getBoundingClientRect()
+  if (itemRect.top < panelRect.top) {
+    panel.scrollTop -= panelRect.top - itemRect.top
+  } else if (itemRect.bottom > panelRect.bottom) {
+    panel.scrollTop += itemRect.bottom - panelRect.bottom
+  }
+})
 
 const panelStyle = computed(() => ({
   left: props.position.x + 'px',

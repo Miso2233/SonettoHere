@@ -199,11 +199,31 @@ const atTriggerPos = ref(-1)
 const filteredSkills = computed(() => {
   if (!skillFilterText.value) return skills.value
   const lower = skillFilterText.value.toLowerCase()
-  const result = skills.value.filter(
-    s => s.name.toLowerCase().includes(lower) || s.description.toLowerCase().includes(lower)
-  )
-  console.log(`[ChatInput] filteredSkills: filterText="${skillFilterText.value}", skills=${skills.value.length}, result=${result.length}`)
-  return result
+
+  // 筛选：仅匹配 name（前缀优先，子串兜底）
+  const scored = skills.value
+    .map(s => {
+      const nameLower = s.name.toLowerCase()
+      if (!nameLower.includes(lower)) return null  // 不匹配
+
+      const prefix = nameLower.startsWith(lower)
+      // 前缀匹配次数（至多匹配一次，值为 1 或 0）
+      const count = prefix ? 1 : nameLower.split(lower).length - 1
+      const score = prefix ? 4 : 2
+
+      return { skill: s, score, count }
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  // 排序：score 降序 → count 降序 → name 字典序
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return b.score - a.score
+    if (a.count !== b.count) return b.count - a.count
+    return a.skill.name.localeCompare(b.skill.name)
+  })
+
+  console.log(`[ChatInput] filteredSkills: filterText="${skillFilterText.value}", skills=${skills.value.length}, result=${scored.length}`)
+  return scored.map(s => s.skill)
 })
 
 async function loadSkills() {
@@ -254,15 +274,14 @@ function onKeydown(e: KeyboardEvent) {
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault()
-      skillActiveIndex.value = Math.max(0, skillActiveIndex.value - 1)
+      const len = filteredSkills.value.length
+      skillActiveIndex.value = ((skillActiveIndex.value - 1) % len + len) % len
       return
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      skillActiveIndex.value = Math.min(
-        filteredSkills.value.length - 1,
-        skillActiveIndex.value + 1
-      )
+      const len = filteredSkills.value.length
+      skillActiveIndex.value = (skillActiveIndex.value + 1) % len
       return
     }
     if (e.key === 'Escape') {
