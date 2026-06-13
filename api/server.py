@@ -13,6 +13,7 @@ from api.health import get_health_report
 from api.providers.manager import ProviderManager
 from api.providers.store import ProviderConfigStore
 from api.routes import chat, files, memory, sessions, balance, providers
+from api.routes import skills as skills_router
 from api.routes import news as news_router
 from api.session_manager import SessionManager
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
@@ -80,6 +81,9 @@ def create_app() -> FastAPI:
 
     # Provider CRUD 路由
     app.include_router(providers.router, prefix="/api")
+
+    # Anthropic Skills
+    app.include_router(skills_router.router, prefix="/api")
 
     # 系统更新动态
     app.include_router(news_router.router, prefix="/api")

@@ -34,8 +34,8 @@
         placeholder="输入消息……"
         :disabled="disabled"
         rows="1"
-        @keydown.enter.exact.prevent="handleSend"
-        @input="autoResize"
+        @keydown="onKeydown"
+        @input="onInput"
       ></textarea>
       <div class="input-bottom-bar">
         <div class="btn-add-file-wrapper">
@@ -92,16 +92,26 @@
         </div>
       </div>
     </div>
+    <SkillAutocomplete
+      :items="filteredSkills"
+      :visible="showSkillAutocomplete"
+      :position="skillAutocompletePos"
+      :active-index="skillActiveIndex"
+      @select="confirmSkill"
+      @close="showSkillAutocomplete = false"
+      @update:active-index="skillActiveIndex = $event"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
-import type { ProviderConfig } from '@/types'
+import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
+import type { ProviderConfig, SkillInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { REF_CHIP_CONFIG } from '@/utils/references'
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
@@ -177,6 +187,153 @@ function cancelLink() {
   showLinkInput.value = false
 }
 
+// ── Skill @-自动补全 ──
+
+const skills = ref<SkillInfo[]>([])
+const showSkillAutocomplete = ref(false)
+const skillFilterText = ref('')
+const skillAutocompletePos = ref({ x: 0, y: 0 })
+const skillActiveIndex = ref(0)
+const atTriggerPos = ref(-1)
+
+const filteredSkills = computed(() => {
+  if (!skillFilterText.value) return skills.value
+  const lower = skillFilterText.value.toLowerCase()
+  const result = skills.value.filter(
+    s => s.name.toLowerCase().includes(lower) || s.description.toLowerCase().includes(lower)
+  )
+  console.log(`[ChatInput] filteredSkills: filterText="${skillFilterText.value}", skills=${skills.value.length}, result=${result.length}`)
+  return result
+})
+
+async function loadSkills() {
+  try {
+    const res = await api.listSkills()
+    skills.value = res.skills
+    console.log(`[ChatInput] 加载 ${skills.value.length} 个技能:`, skills.value.slice(0, 3).map(s => s.name))
+  } catch (e) {
+    console.error('[ChatInput] 加载技能失败:', e)
+  }
+}
+
+function onInput() {
+  autoResize()
+  const el = textareaRef.value
+  if (!el) return
+  const val = text.value
+  const cursorPos = el.selectionStart
+  const textBeforeCursor = val.slice(0, cursorPos)
+  const atIdx = textBeforeCursor.lastIndexOf('@')
+
+  if (atIdx !== -1) {
+    const afterAt = textBeforeCursor.slice(atIdx + 1)
+    // @ 必须在词首
+    const charBefore = atIdx === 0 ? ' ' : textBeforeCursor[atIdx - 1]
+    if (charBefore === ' ' || charBefore === '\n') {
+      skillFilterText.value = afterAt
+      atTriggerPos.value = atIdx
+      skillActiveIndex.value = 0
+      showSkillAutocomplete.value = true
+      skillAutocompletePos.value = calcCursorPixelPos(el, cursorPos)
+      console.log(`[ChatInput] @触发: pos=${atIdx}, filterText="${afterAt}", skills=${skills.value.length}`)
+      return
+    }
+  }
+  if (showSkillAutocomplete.value) {
+    console.log('[ChatInput] @触发关闭（@ 消失或不在词首）')
+    showSkillAutocomplete.value = false
+  }
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (showSkillAutocomplete.value) {
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      confirmSkill()
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      skillActiveIndex.value = Math.max(0, skillActiveIndex.value - 1)
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      skillActiveIndex.value = Math.min(
+        filteredSkills.value.length - 1,
+        skillActiveIndex.value + 1
+      )
+      return
+    }
+    if (e.key === 'Escape') {
+      showSkillAutocomplete.value = false
+      return
+    }
+  }
+
+  // Enter 发送（仅当面板未打开时）
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    handleSend()
+  }
+}
+
+function confirmSkill() {
+  const skill = filteredSkills.value[skillActiveIndex.value]
+  if (!skill) return
+
+  // 移除 @ 及后续文本
+  const el = textareaRef.value
+  const cursorPos = el?.selectionStart ?? text.value.length
+  const before = text.value.slice(0, atTriggerPos.value)
+  const after = text.value.slice(cursorPos)
+  text.value = before + after
+
+  // 添加 SkillRef
+  refs.value.push({ type: 'skill', name: skill.name, label: skill.name } as ParsedRef)
+
+  showSkillAutocomplete.value = false
+  nextTick(() => autoResize())
+}
+
+function calcCursorPixelPos(textarea: HTMLTextAreaElement, pos: number): { x: number; y: number } {
+  const style = getComputedStyle(textarea)
+  const mirror = document.createElement('div')
+  mirror.style.cssText = `
+    position: fixed; top: 0; left: -9999px; visibility: hidden; white-space: pre-wrap;
+    word-wrap: break-word; overflow-wrap: break-word;
+    font: ${style.font}; font-size: ${style.fontSize};
+    letter-spacing: ${style.letterSpacing};
+    width: ${textarea.clientWidth}px;
+    padding: ${style.padding};
+  `
+  mirror.textContent = textarea.value.slice(0, pos) + '.'
+  document.body.appendChild(mirror)
+
+  const textareaRect = textarea.getBoundingClientRect()
+  const mirrorRect = mirror.getBoundingClientRect()
+  const lineHeight = parseInt(style.lineHeight) || 24
+
+  // 计算光标所在行相对于 mirror 顶部的位置
+  const lines = mirror.textContent!.split('\n')
+  const lastLine = lines[lines.length - 1]
+  const linePixel = (lines.length - 1) * lineHeight
+
+  // 用 span 精确测量最后一行的宽度
+  const span = document.createElement('span')
+  span.textContent = lastLine
+  span.style.cssText = `visibility: hidden; white-space: pre; font: ${style.font}; font-size: ${style.fontSize};`
+  document.body.appendChild(span)
+
+  const x = textareaRect.left + span.getBoundingClientRect().width + parseInt(style.paddingLeft || '0') - 8
+  const y = textareaRect.top + mirrorRect.height - textarea.scrollTop + 4
+
+  document.body.removeChild(mirror)
+  document.body.removeChild(span)
+
+  return { x, y }
+}
+
 // ── LLM 选择器 ──
 const providers = ref<ProviderConfig[]>([])
 const selectedProviderId = ref('')
@@ -219,6 +376,7 @@ async function loadProviders() {
 }
 
 onMounted(loadProviders)
+onMounted(loadSkills)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')

@@ -27,7 +27,14 @@ export interface WebLinkRef {
   domain: string
 }
 
-export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef
+/** Anthropic Skill 引用 */
+export interface SkillRef {
+  type: 'skill'
+  label: string
+  name: string
+}
+
+export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef | SkillRef
 
 /**
  * 引用 chip 渲染配置，每种 type 自注册 icon 名与 tooltip 函数。
@@ -54,6 +61,10 @@ export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
   web_link: {
     icon: 'link',
     tooltip: (r: ParsedRef) => (r as WebLinkRef).url,
+  },
+  skill: {
+    icon: 'sparkles',
+    tooltip: (r: ParsedRef) => `技能: ${(r as SkillRef).name}`,
   },
 }
 

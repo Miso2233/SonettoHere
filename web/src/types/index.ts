@@ -314,3 +314,15 @@ export interface NewsEntry {
 export interface ListNewsResponse {
   news: NewsEntry[]
 }
+
+// === Anthropic Skills ===
+
+export interface SkillInfo {
+  name: string
+  description: string
+  path: string
+}
+
+export interface ListSkillsResponse {
+  skills: SkillInfo[]
+}
