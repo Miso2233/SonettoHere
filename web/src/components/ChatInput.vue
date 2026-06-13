@@ -98,7 +98,7 @@
       :position="acPosition"
       :active-index="acActiveIndex"
       :filter-text="acFilterText"
-      :icon-name="acMode === 'tool' ? 'menu-file' : 'sparkles'"
+      :icon-name="acMode === 'tool' ? 'tool' : 'sparkles'"
       @select="confirmItem"
       @close="acMode = null"
       @update:active-index="acActiveIndex = $event"

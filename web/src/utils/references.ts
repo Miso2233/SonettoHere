@@ -74,7 +74,7 @@ export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
     tooltip: (r: ParsedRef) => `技能: ${(r as SkillRef).name}`,
   },
   tool: {
-    icon: 'sparkles',
+    icon: 'tool',
     tooltip: (r: ParsedRef) => `工具: ${(r as ToolRef).name}`,
   },
 }
