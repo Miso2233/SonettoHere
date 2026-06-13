@@ -1,8 +1,82 @@
-export interface ParsedRef {
-  type: 'file' | 'cite'
+/** 文件引用 */
+export interface FileRef {
+  type: 'file'
   label: string
-  path?: string
-  text?: string
+  path: string
+}
+
+/** 文件夹引用 */
+export interface FolderRef {
+  type: 'folder'
+  label: string
+  path: string
+}
+
+/** 文本引用（右键引用已有消息内容） */
+export interface CiteRef {
+  type: 'cite'
+  label: string
+  text: string
+}
+
+/** 网页链接引用（保留供后续使用） */
+export interface WebLinkRef {
+  type: 'web_link'
+  label: string
+  url: string
+  domain: string
+}
+
+/** Anthropic Skill 引用 */
+export interface SkillRef {
+  type: 'skill'
+  label: string
+  name: string
+}
+
+/** 内置工具引用 */
+export interface ToolRef {
+  type: 'tool'
+  label: string
+  name: string
+}
+
+export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef | SkillRef | ToolRef
+
+/**
+ * 引用 chip 渲染配置，每种 type 自注册 icon 名与 tooltip 函数。
+ * 添加新类型只需在此增加一条记录，ReferenceChip 组件无需改动。
+ */
+export interface RefChipConfig {
+  icon: string
+  tooltip: (ref: ParsedRef) => string
+}
+
+export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
+  file: {
+    icon: 'file',
+    tooltip: (r: ParsedRef) => (r as FileRef).path,
+  },
+  folder: {
+    icon: 'menu-folder',
+    tooltip: (r: ParsedRef) => (r as FolderRef).path,
+  },
+  cite: {
+    icon: 'cite-speech',
+    tooltip: (r: ParsedRef) => (r as CiteRef).text,
+  },
+  web_link: {
+    icon: 'link',
+    tooltip: (r: ParsedRef) => (r as WebLinkRef).url,
+  },
+  skill: {
+    icon: 'sparkles',
+    tooltip: (r: ParsedRef) => `技能: ${(r as SkillRef).name}`,
+  },
+  tool: {
+    icon: 'tool',
+    tooltip: (r: ParsedRef) => `工具: ${(r as ToolRef).name}`,
+  },
 }
 
 export interface ParseResult {

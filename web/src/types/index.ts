@@ -229,15 +229,6 @@ export interface VignetteResponse {
   sections: VignetteSection[]
 }
 
-// === 引用 ===
-
-export interface Citation {
-  id: string
-  text: string
-  sourceLabel: string
-  sourceType: 'user_message' | 'assistant_message' | 'tool_result' | 'thinking'
-}
-
 // === DeepSeek 余额 ===
 
 export interface BalanceInfo {
@@ -322,4 +313,27 @@ export interface NewsEntry {
 
 export interface ListNewsResponse {
   news: NewsEntry[]
+}
+
+// === Anthropic Skills ===
+
+export interface SkillInfo {
+  name: string
+  description: string
+  path: string
+}
+
+export interface ListSkillsResponse {
+  skills: SkillInfo[]
+}
+
+// === 内置工具 ===
+
+export interface ToolInfo {
+  name: string
+  description: string
+}
+
+export interface ListToolsResponse {
+  tools: ToolInfo[]
 }

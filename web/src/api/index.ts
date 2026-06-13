@@ -10,6 +10,8 @@ import type {
   HealthResponse,
   ListProvidersResponse,
   ListNewsResponse,
+  ListSkillsResponse,
+  ListToolsResponse,
   ProviderConfig,
   TestConnectionResponse,
   DiscoverModelsResponse,
@@ -116,4 +118,12 @@ export const api = {
 
   listNews: () =>
     request<ListNewsResponse>('/news'),
+
+  // ── Anthropic Skills ──
+
+  listSkills: () =>
+    request<ListSkillsResponse>('/skills'),
+
+  listTools: () =>
+    request<ListToolsResponse>('/tools'),
 }

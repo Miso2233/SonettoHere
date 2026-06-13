@@ -1,29 +1,30 @@
 <template>
   <div class="chat-input-wrapper">
-    <div v-if="filePaths.length" class="file-refs-bar">
+    <div v-if="refs.length" class="file-refs-bar">
       <span
-        v-for="(fp, idx) in filePaths"
+        v-for="(r, idx) in refs"
         :key="idx"
         class="file-tag"
-        :title="fp"
+        :title="getRefTooltip(r)"
       >
-        <span class="file-tag-icon"><Icon name="file" :size="14" /></span>
-        <span class="file-tag-name">{{ getFileName(fp) }}</span>
-        <button class="file-tag-remove" @click="removeFile(idx)">✕</button>
+        <span class="file-tag-icon"><Icon :name="getRefIcon(r)" :size="14" /></span>
+        <span class="file-tag-name">{{ r.label }}</span>
+        <span class="file-tag-source">{{ r.type }}</span>
+        <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
       </span>
     </div>
-    <div v-if="citations?.length" class="file-refs-bar">
-      <span
-        v-for="cit in citations"
-        :key="cit.id"
-        class="file-tag"
-        :title="cit.text"
-      >
-        <span class="file-tag-icon">💬</span>
-        <span class="file-tag-name">{{ truncateText(cit.text, 40) }}</span>
-        <span class="file-tag-source">{{ cit.sourceLabel }}</span>
-        <button class="file-tag-remove" @click="$emit('removeCitation', cit.id)">✕</button>
-      </span>
+    <div v-if="showLinkInput" class="link-input-bar">
+      <input
+        ref="linkInputRef"
+        v-model="linkUrl"
+        type="url"
+        class="link-input"
+        placeholder="输入链接 URL……"
+        @keydown.enter.prevent="confirmLink"
+        @keydown.escape.prevent="cancelLink"
+      />
+      <button class="link-input-confirm" :disabled="!linkUrl.trim()" @click="confirmLink">✓</button>
+      <button class="link-input-cancel" @click="cancelLink">✕</button>
     </div>
     <div class="chat-input">
       <textarea
@@ -33,8 +34,9 @@
         placeholder="输入消息……"
         :disabled="disabled"
         rows="1"
-        @keydown.enter.exact.prevent="handleSend"
+        @keydown="onKeydown"
         @input="autoResize"
+        @paste="onPaste"
       ></textarea>
       <div class="input-bottom-bar">
         <div class="btn-add-file-wrapper">
@@ -48,6 +50,9 @@
             </button>
             <button class="add-file-menu-item" @click="pickFolder">
               <Icon name="menu-folder" :size="14" /> 选择文件夹
+            </button>
+            <button class="add-file-menu-item" @click="startLinkInput">
+              <Icon name="link" :size="14" /> 加入链接
             </button>
           </div>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
@@ -88,34 +93,312 @@
         </div>
       </div>
     </div>
+    <SkillAutocomplete
+      :items="acFiltered"
+      :visible="acMode !== null"
+      :position="acPosition"
+      :active-index="acActiveIndex"
+      :filter-text="acFilterText"
+      :icon-name="acMode === 'tool' ? 'tool' : 'sparkles'"
+      @select="confirmItem"
+      @close="acMode = null"
+      @update:active-index="acActiveIndex = $event"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
-import type { Citation, ProviderConfig } from '@/types'
-import type { ParsedRef } from '@/utils/references'
-import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
+import type { ProviderConfig, SkillInfo, ToolInfo } from '@/types'
+import type { ParsedRef, ToolRef } from '@/utils/references'
+import { REF_CHIP_CONFIG } from '@/utils/references'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
   isStreaming: boolean
   disabled: boolean
-  citations?: Citation[]
 }>()
 
 const emit = defineEmits<{
   send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string]
   stop: []
-  removeCitation: [id: string]
   modelChange: [providerId: string, modelName: string]
 }>()
 
 const text = ref('')
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
-const filePaths = ref<string[]>([])
+const refs = ref<ParsedRef[]>([])
 const loading = ref(false)
 const showMenu = ref(false)
+const showLinkInput = ref(false)
+const linkUrl = ref('')
+const linkInputRef = ref<HTMLInputElement | null>(null)
+
+// ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
+
+function addRef(r: ParsedRef) {
+  refs.value.push(r)
+}
+
+function removeRef(idx: number) {
+  refs.value.splice(idx, 1)
+}
+
+/** 从 REF_CHIP_CONFIG 获取图标名 */
+function getRefIcon(r: ParsedRef): string {
+  return REF_CHIP_CONFIG[r.type]?.icon ?? 'file'
+}
+
+/** 从 REF_CHIP_CONFIG 获取 tooltip */
+function getRefTooltip(r: ParsedRef): string {
+  return REF_CHIP_CONFIG[r.type]?.tooltip(r) ?? r.label
+}
+
+defineExpose({ addRef })
+
+// ── 链接引用 ──
+
+const LINK_RE = /^https?:\/\/[^\s/$.?#].[^\s]*$/i
+
+function startLinkInput() {
+  showMenu.value = false
+  linkUrl.value = ''
+  showLinkInput.value = true
+  nextTick(() => linkInputRef.value?.focus())
+}
+
+function confirmLink() {
+  const url = linkUrl.value.trim()
+  if (!url) return
+  // 如果没有协议前缀，自动补 https://
+  const normalized = /^https?:\/\//i.test(url) ? url : 'https://' + url
+  if (!LINK_RE.test(normalized)) return
+  try {
+    const domain = new URL(normalized).hostname.replace(/^www\./, '')
+    refs.value.push({ type: 'web_link', url: normalized, label: domain, domain })
+    linkUrl.value = ''
+    showLinkInput.value = false
+  } catch {
+    // URL 解析失败，不做操作
+  }
+}
+
+function cancelLink() {
+  linkUrl.value = ''
+  showLinkInput.value = false
+}
+
+// ── 粘贴URL自动识别 ──
+
+function onPaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text/plain')?.trim()
+  if (!text) return
+
+  // 标准化 URL：无协议时补 https://
+  const normalized = /^https?:\/\//i.test(text) ? text : 'https://' + text
+  if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(normalized)) return
+
+  // 是 URL，阻止粘贴文本，改为添加链接引用
+  e.preventDefault()
+  try {
+    const domain = new URL(normalized).hostname.replace(/^www\./, '')
+    refs.value.push({ type: 'web_link', url: normalized, label: domain, domain } as ParsedRef)
+  } catch {
+    // URL 解析失败，走默认粘贴
+  }
+}
+
+// ── @ / # 自动补全（统一状态机） ──
+
+type AcMode = 'skill' | 'tool' | null
+
+const acMode = ref<AcMode>(null)
+const acFilterText = ref('')
+const acPosition = ref({ x: 0, y: 0 })
+const acActiveIndex = ref(0)
+const acTriggerPos = ref(-1)
+const acTriggerChar = ref('')
+
+const skills = ref<SkillInfo[]>([])
+const tools = ref<ToolInfo[]>([])
+
+/** 当前模式对应的数据源 */
+const acSource = computed(() =>
+  acMode.value === 'skill' ? skills.value
+  : acMode.value === 'tool' ? tools.value
+  : []
+)
+
+/** 筛选 + 排序后的候选项 */
+const acFiltered = computed(() => {
+  const src = acSource.value
+  if (!acFilterText.value) return src
+  const lower = acFilterText.value.toLowerCase()
+
+  const scored = src
+    .map(item => {
+      const nameLower = item.name.toLowerCase()
+      if (!nameLower.includes(lower)) return null
+      const prefix = nameLower.startsWith(lower)
+      const count = prefix ? 1 : nameLower.split(lower).length - 1
+      const score = prefix ? 4 : 2
+      return { item, score, count }
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return b.score - a.score
+    if (a.count !== b.count) return b.count - a.count
+    return a.item.name.localeCompare(b.item.name)
+  })
+
+  return scored.map(s => s.item)
+})
+
+async function loadSkills() {
+  try {
+    const res = await api.listSkills()
+    skills.value = res.skills
+  } catch (e) {
+    console.error('[ChatInput] 加载技能失败:', e)
+  }
+}
+
+async function loadTools() {
+  try {
+    const res = await api.listTools()
+    tools.value = res.tools
+  } catch (e) {
+    console.error('[ChatInput] 加载工具失败:', e)
+  }
+}
+
+/** 检测 @ / # 触发 */
+watch(text, () => {
+  const el = textareaRef.value
+  if (!el || el !== document.activeElement) return
+  const val = text.value
+  const cursorPos = el.selectionStart
+  const textBeforeCursor = val.slice(0, cursorPos)
+
+  // 检查 @ 和 #，取较近者
+  let triggerPos = -1
+  let triggerChar = ''
+  for (const ch of ['@', '#'] as const) {
+    const idx = textBeforeCursor.lastIndexOf(ch)
+    if (idx > triggerPos) {
+      triggerPos = idx
+      triggerChar = ch
+    }
+  }
+
+  const mode: AcMode = triggerChar === '@' ? 'skill' : triggerChar === '#' ? 'tool' : null
+
+  if (triggerPos !== -1 && mode) {
+    const after = textBeforeCursor.slice(triggerPos + 1)
+    const charBefore = triggerPos === 0 ? ' ' : textBeforeCursor[triggerPos - 1]
+    if (!/\w/.test(charBefore)) {
+      acMode.value = mode
+      acFilterText.value = after
+      acTriggerPos.value = triggerPos
+      acTriggerChar.value = triggerChar
+      acActiveIndex.value = 0
+      acPosition.value = calcCursorPixelPos(el, cursorPos)
+      return
+    }
+  }
+  acMode.value = null
+})
+
+function onKeydown(e: KeyboardEvent) {
+  if (acMode.value) {
+    const len = acFiltered.value.length
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      confirmItem()
+      return
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      acActiveIndex.value = ((acActiveIndex.value - 1) % len + len) % len
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      acActiveIndex.value = (acActiveIndex.value + 1) % len
+      return
+    }
+    if (e.key === 'Escape') {
+      acMode.value = null
+      return
+    }
+  }
+
+  // Enter 发送（仅当面板未打开时）
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault()
+    handleSend()
+  }
+}
+
+function confirmItem() {
+  const item = acFiltered.value[acActiveIndex.value]
+  if (!item) return
+
+  // 移除触发符及后续文本
+  const el = textareaRef.value
+  const cursorPos = el?.selectionStart ?? text.value.length
+  text.value = text.value.slice(0, acTriggerPos.value) + text.value.slice(cursorPos)
+
+  // 创建对应类型的引用
+  const ref: ParsedRef = acMode.value === 'skill'
+    ? { type: 'skill', name: item.name, label: item.name }
+    : { type: 'tool', name: item.name, label: item.name }
+  refs.value.push(ref)
+
+  acMode.value = null
+  nextTick(() => autoResize())
+}
+
+function calcCursorPixelPos(textarea: HTMLTextAreaElement, pos: number): { x: number; y: number } {
+  const style = getComputedStyle(textarea)
+  const mirror = document.createElement('div')
+  mirror.style.cssText = `
+    position: fixed; top: 0; left: -9999px; visibility: hidden; white-space: pre-wrap;
+    word-wrap: break-word; overflow-wrap: break-word;
+    font: ${style.font}; font-size: ${style.fontSize};
+    letter-spacing: ${style.letterSpacing};
+    width: ${textarea.clientWidth}px;
+    padding: ${style.padding};
+  `
+  mirror.textContent = textarea.value.slice(0, pos) + '.'
+  document.body.appendChild(mirror)
+
+  const textareaRect = textarea.getBoundingClientRect()
+  const mirrorRect = mirror.getBoundingClientRect()
+  const lineHeight = parseInt(style.lineHeight) || 24
+
+  // 计算光标所在行相对于 mirror 顶部的位置
+  const lines = mirror.textContent!.split('\n')
+  const lastLine = lines[lines.length - 1]
+  const linePixel = (lines.length - 1) * lineHeight
+
+  // 用 span 精确测量最后一行的宽度
+  const span = document.createElement('span')
+  span.textContent = lastLine
+  span.style.cssText = `visibility: hidden; white-space: pre; font: ${style.font}; font-size: ${style.fontSize};`
+  document.body.appendChild(span)
+
+  const x = textareaRect.left + span.getBoundingClientRect().width + parseInt(style.paddingLeft || '0') - 8
+  const y = textareaRect.top + mirrorRect.height - textarea.scrollTop + 4
+
+  document.body.removeChild(mirror)
+  document.body.removeChild(span)
+
+  return { x, y }
+}
 
 // ── LLM 选择器 ──
 const providers = ref<ProviderConfig[]>([])
@@ -159,6 +442,8 @@ async function loadProviders() {
 }
 
 onMounted(loadProviders)
+onMounted(loadSkills)
+onMounted(loadTools)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')
@@ -187,7 +472,8 @@ async function _pick(type: string) {
     const res = await fetch(`/api/select-file?type=${type}`)
     const data = await res.json()
     if (data.path) {
-      filePaths.value.push(data.path)
+      const refType = type === 'folder' ? 'folder' : 'file'
+      refs.value.push({ type: refType, path: data.path, label: getFileName(data.path) } as ParsedRef)
     }
   } catch {
     // 静默失败
@@ -196,34 +482,14 @@ async function _pick(type: string) {
   }
 }
 
-function removeFile(index: number) {
-  filePaths.value.splice(index, 1)
-}
-
 function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  const refs: ParsedRef[] = []
-
-  for (const fp of filePaths.value) {
-    refs.push({ type: 'file', path: fp, label: getFileName(fp) })
-  }
-
-  for (const cit of props.citations ?? []) {
-    const label = cit.text.length > 80 ? cit.text.slice(0, 80) + '…' : cit.text
-    refs.push({ type: 'cite', text: cit.text, label })
-  }
-
-  emit('send', msg, refs, selectedProviderId.value || undefined, selectedModelName.value || undefined)
+  emit('send', msg, refs.value, selectedProviderId.value || undefined, selectedModelName.value || undefined)
   text.value = ''
-  filePaths.value = []
+  refs.value = []
   nextTick(() => autoResize())
-}
-
-function truncateText(text: string, maxLen: number): string {
-  if (text.length <= maxLen) return text
-  return text.slice(0, maxLen) + '…'
 }
 
 function autoResize() {
@@ -309,7 +575,7 @@ function autoResize() {
   background: #f9fafb;
 }
 
-/* 文件引用标签条 */
+/* 引用标签条 */
 .file-refs-bar {
   display: flex;
   flex-wrap: wrap;
@@ -355,6 +621,60 @@ function autoResize() {
   padding: 0 5px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+/* 链接输入条 */
+.link-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 8px 0;
+}
+.link-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.link-input:focus {
+  border-color: var(--accent);
+}
+.link-input::placeholder {
+  color: #9ca3af;
+}
+.link-input-confirm,
+.link-input-cancel {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  transition: all 0.12s;
+  flex-shrink: 0;
+}
+.link-input-confirm:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.link-input-confirm:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.link-input-cancel:hover {
+  border-color: #c97a7a;
+  color: #c97a7a;
 }
 
 .chat-input {

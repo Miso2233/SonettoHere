@@ -14,6 +14,9 @@ import attachRaw from '@/assets/icons/chat-input/attach.svg?raw'
 import fileRaw from '@/assets/icons/chat-input/file.svg?raw'
 import menuFileRaw from '@/assets/icons/chat-input/menu-file.svg?raw'
 import menuFolderRaw from '@/assets/icons/chat-input/menu-folder.svg?raw'
+import linkRaw from '@/assets/icons/chat-input/link.svg?raw'
+import sparklesRaw from '@/assets/icons/chat-input/sparkles.svg?raw'
+import toolRaw from '@/assets/icons/chat-input/tool.svg?raw'
 import sendRaw from '@/assets/icons/chat-input/send.svg?raw'
 import stopRaw from '@/assets/icons/chat-input/stop.svg?raw'
 
@@ -35,6 +38,9 @@ const svgContents: Record<string, string> = {
   file: fileRaw,
   'menu-file': menuFileRaw,
   'menu-folder': menuFolderRaw,
+  link: linkRaw,
+  sparkles: sparklesRaw,
+  tool: toolRaw,
   send: sendRaw,
   stop: stopRaw,
 }

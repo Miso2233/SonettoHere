@@ -123,7 +123,8 @@
 </template>
 
 <script setup lang="ts">
-import type { ChatTurn, Citation } from '@/types'
+import type { ChatTurn } from '@/types'
+import type { ParsedRef } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
@@ -139,7 +140,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'action', p: { action: string; data?: unknown }): void
-  (e: 'cite', citation: Citation): void
+  (e: 'cite', ref: ParsedRef): void
   (e: 'togglePrivate'): void
 }>()
 
@@ -258,11 +259,7 @@ const MAX_CITE_LENGTH = 1000
 
 const ctxMenuVisible = ref(false)
 const ctxMenuPos = ref({ x: 0, y: 0 })
-const pendingCitation = ref<{
-  text: string
-  sourceLabel: string
-  sourceType: Citation['sourceType']
-} | null>(null)
+const pendingCitation = ref<{ text: string } | null>(null)
 
 /** 右键点击的用户消息在 turns 中的索引（-1 表示当前正在生成的 turn） */
 const pendingUserMsgIdx = ref<number | null>(null)
@@ -274,8 +271,7 @@ const ctxMenuItems = computed((): ContextMenuItem[] => {
   ]
   // 仅在右键最后一条已完成用户消息时显示「撤回」
   if (
-    pendingCitation.value?.sourceType === 'user_message'
-    && pendingUserMsgIdx.value !== null
+    pendingUserMsgIdx.value !== null
     && pendingUserMsgIdx.value === props.turns.length - 1
     && props.turns.length > 0
   ) {
@@ -286,9 +282,9 @@ const ctxMenuItems = computed((): ContextMenuItem[] => {
 
 function onBubbleContextMenu(
   event: MouseEvent,
-  sourceType: Citation['sourceType'],
+  _sourceType: string,
   fullText: string,
-  sourceLabel: string,
+  _sourceLabel: string,
   userMsgIdx?: number,
 ) {
   pendingUserMsgIdx.value = userMsgIdx ?? null
@@ -313,20 +309,18 @@ function onBubbleContextMenu(
     citeText = citeText.slice(0, MAX_CITE_LENGTH) + '…'
   }
 
-  pendingCitation.value = { text: citeText, sourceLabel, sourceType }
+  pendingCitation.value = { text: citeText }
   ctxMenuPos.value = { x: event.clientX, y: event.clientY }
   ctxMenuVisible.value = true
 }
 
 function handleContextMenuSelect(action: string) {
   if (action === 'cite' && pendingCitation.value) {
-    const citation: Citation = {
-      id: crypto.randomUUID(),
-      text: pendingCitation.value.text,
-      sourceLabel: pendingCitation.value.sourceLabel,
-      sourceType: pendingCitation.value.sourceType,
-    }
-    emit('cite', citation)
+    const label = pendingCitation.value.text.length > 80
+      ? pendingCitation.value.text.slice(0, 80) + '…'
+      : pendingCitation.value.text
+    const citeRef: ParsedRef = { type: 'cite', text: pendingCitation.value.text, label }
+    emit('cite', citeRef)
   } else if (action === 'copy' && pendingCitation.value) {
     navigator.clipboard.writeText(pendingCitation.value.text)
   } else if (action === 'undo') {

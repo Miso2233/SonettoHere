@@ -1,4 +1,13 @@
 news:
+  - id: "ruri-ref-system"
+    en_title: "Project Ruri"
+    title: "琉璃计划：引用系统重构"
+    description: "琉璃计划旨在为用户提供更多彩的引用体验。引用系统全面重构为可辨识联合（Discriminated Union）架构，统一管理文件、文件夹、文本、网页链接、Anthropic Skill 和内置工具六种引用类型。新增 @ 触发技能补全、# 触发工具补全、粘贴 URL 自动识别为链接引用。引入 REF_CHIP_CONFIG 注册机制，新类型即插即用无需修改渲染组件。"
+    type: "feat"
+    date: "2026-06-13"
+    tags: ["Ruri", "引用", "重构", "UI"]
+    version: "PREVIEW"
+    pr_number: 98
   - id: "convallaria-prompt-caching"
     en_title: "Project Convallaria"
     title: "铃兰计划首期完成"
