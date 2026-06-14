@@ -1,4 +1,12 @@
 news:
+  - id: "url-paste-fix"
+    title: "粘贴 URL 识别修复"
+    description: "修复粘贴非 URL 文本（如中文）误触发链接引用的问题。改用 new URL() 解析和域名预检，仅真正像域名的内容才会被识别为链接引用。"
+    type: "fix"
+    date: "2026-06-14"
+    tags: ["引用", "修复", "输入"]
+    version: "v1.6.1"
+    pr_number: 107
   - id: "v1.6.0-release"
     title: "发布 v1.6.0 版本"
     description: "v1.6.0 版本包含多项重大更新。琉璃计划（Project Ruri）引用系统全面重构，支持 6 种引用类型和 @/# 触发补全。LLM 现在可直接输出交互式 HTML/JS/CSS 沙箱。新增固定会话功能，重要对话持久化保存。工具系统从 skill 全面重命名为 tool，命名规范统一。任务追踪新增动态状态标签和顶栏进度条。网络搜索替换为 Tavily 引擎。"
