@@ -1,11 +1,19 @@
 news:
+  - id: "v1.6.0-release"
+    title: "发布 v1.6.0 版本"
+    description: "v1.6.0 版本包含多项重大更新。琉璃计划（Project Ruri）引用系统全面重构，支持 6 种引用类型和 @/# 触发补全。LLM 现在可直接输出交互式 HTML/JS/CSS 沙箱。新增固定会话功能，重要对话持久化保存。工具系统从 skill 全面重命名为 tool，命名规范统一。任务追踪新增动态状态标签和顶栏进度条。网络搜索替换为 Tavily 引擎。"
+    type: "feat"
+    date: "2026-06-14"
+    tags: ["发布", "版本"]
+    version: "v1.6.0"
+    pr_number: 0
   - id: "task-status-patterns"
     title: "任务追踪状态语义升级"
     description: "任务追踪新增动态状态标签，根据任务清单组合自动切换（出发/就绪/待命/工作中）。顶栏进度条随状态语义变化，LLM 可通过调整任务列表精确表达当前阶段。同步更新了工具文档教会 LLM 状态模式的使用时机。"
     type: "feat"
     date: "2026-06-14"
     tags: ["任务追踪", "UI", "语义"]
-    version: "PREVIEW"
+    version: "v1.6.0"
     pr_number: 105
   - id: "skill-to-tool-rename"
     en_title: "Skill → Tool Rename & Task Tracker"
@@ -14,7 +22,7 @@ news:
     type: "refactor"
     date: "2026-06-14"
     tags: ["重构", "工具系统", "任务追踪", "UI"]
-    version: "PREVIEW"
+    version: "v1.6.0"
     pr_number: 104
   - id: "const-session"
     title: "固定会话功能上线"
@@ -22,7 +30,7 @@ news:
     type: "feat"
     date: "2026-06-14"
     tags: ["会话", "持久化", "固定"]
-    version: "PREVIEW"
+    version: "v1.6.0"
     pr_number: 102
   - id: "llm-html-sandbox"
     en_title: "LLM HTML Sandbox"
@@ -31,7 +39,7 @@ news:
     type: "feat"
     date: "2026-06-13"
     tags: ["前端", "沙箱", "交互"]
-    version: "PREVIEW"
+    version: "v1.6.0"
     pr_number: 99
   - id: "ruri-ref-system"
     en_title: "Project Ruri"
@@ -40,7 +48,7 @@ news:
     type: "feat"
     date: "2026-06-13"
     tags: ["Ruri", "引用", "重构", "UI"]
-    version: "PREVIEW"
+    version: "v1.6.0"
     pr_number: 98
   - id: "convallaria-prompt-caching"
     en_title: "Project Convallaria"
