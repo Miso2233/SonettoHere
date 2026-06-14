@@ -46,7 +46,7 @@ const items = computed(() => {
   const result = [
     makeItem('LLM', props.health.llm),
     makeItem('MEMORY', props.health.memory),
-    makeItem('SKILLS', props.health.native_tools),
+    makeItem('TOOLS', props.health.native_tools),
     makeItem('MCP', props.health.mcp_tools),
   ]
   if (props.health.anthropic_skills_count != null) {

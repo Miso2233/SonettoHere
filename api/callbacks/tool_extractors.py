@@ -588,7 +588,7 @@ def _extract_weather(
 
 # ── 时间查询 ───────────────────────────────────────────────────────────
 
-@register("time_skill")
+@register("time_tool")
 def _extract_time(
     _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
 ) -> dict[str, Any] | None:

@@ -21,32 +21,32 @@ bind_tools(model)  ← 将工具列表绑定到 LLM，使 LLM 能生成 tool_cal
 ```
 LangChain BaseTool
     ↓
-SkillBase (skills/base.py)         ← 本项目的 Tool 基类
+ToolBase (tools/base.py)         ← 本项目的 Tool 基类
     ↓              ↓
   简单 Skill      复杂 Skill（领域 Skill）
   (time_skill)    (todo_add, nearby_search, weather...)
                     ↓
-              两步调用模式：get_doc=true → 读 SKILL.md → 带真实参数执行
+              两步调用模式：get_doc=true → 读 TOOL.md → 带真实参数执行
 ```
 
 ---
 
-## SkillBase: 本项目的 Tool 基类
+## ToolBase: 本项目的 Tool 基类
 
-在 [skills/base.py](../skills/base.py) 中：
+在 [tools/base.py](../tools/base.py) 中：
 
 ```python
-class SkillBase(BaseTool):
+class ToolBase(BaseTool):
     client: SharedAPIClient | None = None
 
     def _load_doc(self) -> str:
-        """读取同目录下的 SKILL.md，作为领域知识返回给 LLM。"""
+        """读取同目录下的 TOOL.md，作为领域知识返回给 LLM。"""
         mod = sys.modules.get(self.__class__.__module__)
         if mod is not None and hasattr(mod, "__file__") and mod.__file__ is not None:
             skill_dir = Path(mod.__file__).parent
         else:
             skill_dir = Path(".")
-        doc_path = skill_dir / "SKILL.md"
+        doc_path = skill_dir / "TOOL.md"
         if doc_path.exists():
             return doc_path.read_text(encoding="utf-8")
         return "（本 Skill 暂无文档）"
@@ -56,19 +56,19 @@ class SkillBase(BaseTool):
 
 **1. 继承 `BaseTool`**
 
-`SkillBase` 继承了 LangChain 的 `BaseTool`，因此所有 Skill 实例都可以直接传入 `create_react_agent(tools=...)`。`BaseTool` 要求子类必须提供：
+`ToolBase` 继承了 LangChain 的 `BaseTool`，因此所有 Skill 实例都可以直接传入 `create_react_agent(tools=...)`。`BaseTool` 要求子类必须提供：
 - `name`：工具的唯一标识符，LLM 用它指定要调用哪个工具
 - `description`：工具的功能描述，LLM 用它判断"当前场景该用哪个工具"
 - `_run()`：工具的实际执行逻辑
 
 **2. `_load_doc()` 方法**
 
-这是两步调用模式的核心。当 LLM 以 `get_doc=true` 调用 Skill 时，`_run()` 不执行实际逻辑，而是调用 `_load_doc()` 返回同目录下 `SKILL.md` 的内容。LLM 阅读文档后，在下一轮推理中就会理解该领域的参数约定、协作流程和常见陷阱。
+这是两步调用模式的核心。当 LLM 以 `get_doc=true` 调用 Skill 时，`_run()` 不执行实际逻辑，而是调用 `_load_doc()` 返回同目录下 `TOOL.md` 的内容。LLM 阅读文档后，在下一轮推理中就会理解该领域的参数约定、协作流程和常见陷阱。
 
 **为什么需要领域文档？**
 - 领域知识（如"高德地图经纬度顺序是 `lng,lat`，不能搞反"）写在代码注释中 LLM 看不到
 - 将所有领域知识塞入系统提示词会超出上下文限制
-- 将知识放在每个 Skill 文件夹的 `SKILL.md` 中，按需加载，精准且不浪费 token
+- 将知识放在每个 Skill 文件夹的 `TOOL.md` 中，按需加载，精准且不浪费 token
 
 **3. `client` 属性**
 
@@ -84,7 +84,7 @@ class SkillBase(BaseTool):
 第 1 轮：
   LLM Thought:  用户想添加任务，但我还不了解 Todoist 的参数规则
   Action:        todo_add(get_doc=true)
-  Observation:   [SKILL.md 全文返回给 LLM]
+  Observation:   [TOOL.md 全文返回给 LLM]
 
 第 2 轮：
   LLM Thought:  了解了——需要先调用 todo_list_projects 确认项目名存在，
@@ -102,9 +102,9 @@ class SkillBase(BaseTool):
   Answer:        "已在'工作'项目中为你添加了'完成项目报告'，优先级中等，截止时间为明天下午5点～"
 ```
 
-### SKILL.md 的规范结构
+### TOOL.md 的规范结构
 
-以 Todo 领域的 [SKILL.md](../skills/todo/SKILL.md) 为例，文档包含：
+以 Todo 领域的 [TOOL.md](../tools/todo/TOOL.md) 为例，文档包含：
 1. **技能协作流程**：多个 Skill 之间的调用顺序建议
 2. **常见陷阱**：容易出错的地方和正确做法
 3. **参数约定**：每个参数的含义、格式和有效值
@@ -121,7 +121,7 @@ class SkillBase(BaseTool):
 `time_skill` 是一个典型例子。它没有 `get_doc` 参数，`description` 直接告诉 LLM "直接调用即可，无需先读文档"：
 
 ```python
-class TimeSkill(SkillBase):
+class TimeTool(ToolBase):
     name: str = "time_skill"
     description: str = "获取当前日期和时间。直接调用即可，无需先读文档。"
     args_schema: type[BaseModel] = TimeInput  # 空参数模型
@@ -159,7 +159,7 @@ def _run(self, get_doc=False, ...):
     # 实际业务逻辑...
 ```
 
-关键模式：`get_doc` 作为第一个参数，`_run()` 第一行检查 `get_doc`，为 `True` 时直接返回 `SKILL.md` 内容。
+关键模式：`get_doc` 作为第一个参数，`_run()` 第一行检查 `get_doc`，为 `True` 时直接返回 `TOOL.md` 内容。
 
 ---
 
@@ -191,7 +191,7 @@ class TodoAddInput(BaseModel):
 
 ## SharedAPIClient: 共享 HTTP 客户端
 
-在 [skills/base.py](../skills/base.py) 中：
+在 [tools/base.py](../tools/base.py) 中：
 
 ```python
 class SharedAPIClient:
@@ -225,14 +225,14 @@ class SharedAPIClient:
 
 ## Skill 集中注册
 
-在 [skills/__init__.py](../skills/__init__.py) 中，`get_all_skills()` 集中注册了全部 30 个 Skill：
+在 [tools/__init__.py](../tools/__init__.py) 中，`get_all_tools()` 集中注册了全部 30 个 Skill：
 
 ```python
-def get_all_skills() -> list[BaseTool]:
+def get_all_tools() -> list[BaseTool]:
     client = _get_client()
     return [
         # System
-        TimeSkill(client=client),
+        TimeTool(client=client),
         RunPythonSkill(client=client),
         # Todo
         TodoAddSkill(client=client),
@@ -255,14 +255,14 @@ def get_all_skills() -> list[BaseTool]:
 |------|-----------|----------|----------|
 | **System** | `time_skill` | 无 | 无 |
 | | `run_python` | 无（本地执行） | 无 |
-| **Todo** | `todo_add` / `todo_list` / `todo_complete` / `todo_uncomplete` / `todo_delete` / `todo_update` / `todo_query` / `todo_list_projects` | Todoist API | [SKILL.md](../skills/todo/SKILL.md) |
-| **Map** | `nearby_search` / `geocode_address` / `get_transit_route` / `get_cycling_route` / `fuzzy_address_search` | 高德地图 API | [SKILL.md](../skills/map/SKILL.md) |
-| **Network** | `get_current_weather` / `smart_search` / `web_scraper` / `holiday_calendar` | UAPI + HTTP | [SKILL.md](../skills/network/SKILL.md) |
-| **Files** | `file_operations` / `pdf_reader` / `doc_reader` | 本地文件系统 | [SKILL.md](../skills/files/SKILL.md) |
-| **Development** | `syntax_checker` / `code_quality` / `unit_test` / `debugger` | 本地执行 | [SKILL.md](../skills/development/SKILL.md) |
-| **Task** | `task_tracker` | 无（内存状态） | [SKILL.md](../skills/task/SKILL.md) |
-| **Interaction** | `ask_user` | 无 | [SKILL.md](../skills/interaction/SKILL.md) |
-| **Entertainment** | `answer_book` / `tarot` | UAPI + 内置塔罗牌库 | [SKILL.md](../skills/entertainment/SKILL.md) |
+| **Todo** | `todo_add` / `todo_list` / `todo_complete` / `todo_uncomplete` / `todo_delete` / `todo_update` / `todo_query` / `todo_list_projects` | Todoist API | [TOOL.md](../tools/todo/TOOL.md) |
+| **Map** | `nearby_search` / `geocode_address` / `get_transit_route` / `get_cycling_route` / `fuzzy_address_search` | 高德地图 API | [TOOL.md](../tools/map/TOOL.md) |
+| **Network** | `get_current_weather` / `smart_search` / `web_scraper` / `holiday_calendar` | UAPI + HTTP | [TOOL.md](../tools/network/TOOL.md) |
+| **Files** | `file_operations` / `pdf_reader` / `doc_reader` | 本地文件系统 | [TOOL.md](../tools/files/TOOL.md) |
+| **Development** | `syntax_checker` / `code_quality` / `unit_test` / `debugger` | 本地执行 | [TOOL.md](../tools/development/TOOL.md) |
+| **Task** | `task_tracker` | 无（内存状态） | [TOOL.md](../tools/task/TOOL.md) |
+| **Interaction** | `ask_user` | 无 | [TOOL.md](../tools/interaction/TOOL.md) |
+| **Entertainment** | `answer_book` / `tarot` | UAPI + 内置塔罗牌库 | [TOOL.md](../tools/entertainment/TOOL.md) |
 
 ---
 

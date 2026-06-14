@@ -24,7 +24,7 @@ from api.routes import news as news_router
 from api.session_manager import SessionManager, SessionState
 from agent.graph import build_agent
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
-from skills.mcp import init_mcp_tools, close_mcp
+from tools.mcp import init_mcp_tools, close_mcp
 from version import __version__
 
 WEB_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"

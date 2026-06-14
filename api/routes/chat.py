@@ -16,7 +16,7 @@ from api.const_session_store import save_const_session, serialize_messages
 from api.context_usage import estimate_context_usage
 from api.session_manager import SessionState
 from config.settings import get_settings
-from skills.base import format_error
+from tools.base import format_error
 
 router = APIRouter()
 
