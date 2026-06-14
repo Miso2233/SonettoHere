@@ -104,12 +104,12 @@ async def lifespan(app: FastAPI):
     app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
     app.state.ltm.start_listening(app.state.llm)
 
-    # 加载 const 固定会话（从 YAML 重建内存会话）
-    await _load_const_sessions(app)
-
     # 加载 MCP 工具（Word 文档编辑能力）
     app.state.mcp_tools = await init_mcp_tools()
     app.state.tools = app.state.native_tools + app.state.mcp_tools
+
+    # 加载 const 固定会话（需要 tools 已就绪）
+    await _load_const_sessions(app)
 
     yield
 
