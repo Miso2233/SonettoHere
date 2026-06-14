@@ -12,7 +12,7 @@
       </span>
 
       <span class="bar-sep">·</span>
-      <span class="bar-in-progress-label">进行中</span>
+      <span class="bar-in-progress-label">{{ statusLabel }}</span>
 
       <span v-if="activeForm" class="bar-active-form">{{ activeForm }}</span>
 
@@ -57,6 +57,27 @@ const activeForm = computed(() => {
   if (!Array.isArray(todos)) return ''
   const current = todos.find(t => t.status === 'in_progress')
   return current?.activeForm || ''
+})
+
+const statusLabel = computed(() => {
+  if (!props.data) return ''
+  const todos = props.data.todos
+  if (!Array.isArray(todos) || todos.length === 0) return ''
+
+  const hasInProgress = todos.some(t => t.status === 'in_progress')
+  const hasCompleted = todos.some(t => t.status === 'completed')
+  const hasPending = todos.some(t => t.status === 'pending')
+
+  if (!hasInProgress) {
+    // 没有进行中的任务
+    if (!hasCompleted && hasPending) return '就绪'       // 全 pending
+    if (hasCompleted && !hasPending) return '已完成'      // 全 completed
+    return '待命'  // 混合 pending + completed
+  } else {
+    // 有进行中的任务
+    if (!hasCompleted) return '出发'   // 全 pending + in_progress，无 completed
+    return '工作中'  // 三种状态混合
+  }
 })
 </script>
 

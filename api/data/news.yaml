@@ -1,4 +1,12 @@
 news:
+  - id: "task-status-patterns"
+    title: "任务追踪状态语义升级"
+    description: "任务追踪新增动态状态标签，根据任务清单组合自动切换（出发/就绪/待命/工作中）。顶栏进度条随状态语义变化，LLM 可通过调整任务列表精确表达当前阶段。同步更新了工具文档教会 LLM 状态模式的使用时机。"
+    type: "feat"
+    date: "2026-06-14"
+    tags: ["任务追踪", "UI", "语义"]
+    version: "PREVIEW"
+    pr_number: 105
   - id: "skill-to-tool-rename"
     en_title: "Skill → Tool Rename & Task Tracker"
     title: "工具系统重命名与会话任务跟踪"
