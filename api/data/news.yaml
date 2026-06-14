@@ -1,4 +1,12 @@
 news:
+  - id: "const-session"
+    title: "固定会话功能上线"
+    description: "新增会话固定功能。右键会话即可将重要对话持久化保存为固定会话，重启后自动恢复。内置 AI 标题生成，一键为对话生成凝练标题。固定会话在侧边栏独立分区展示，与临时会话清晰区分。"
+    type: "feat"
+    date: "2026-06-14"
+    tags: ["会话", "持久化", "固定"]
+    version: "PREVIEW"
+    pr_number: 102
   - id: "llm-html-sandbox"
     en_title: "LLM HTML Sandbox"
     title: "LLM HTML 沙箱渲染支持"

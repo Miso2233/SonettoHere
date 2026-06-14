@@ -84,9 +84,27 @@ async function deleteSession(id: string) {
   }
 }
 
+export async function constifySession(id: string, name: string) {
+  console.log(`[useSession] constifySession("${id}", "${name}")`)
+  await api.constifySession(id, name)
+  await refreshSessions()
+}
+
+export async function unconstifySession(id: string) {
+  console.log(`[useSession] unconstifySession("${id}")`)
+  await api.unconstifySession(id)
+  await refreshSessions()
+}
+
+export async function generateSessionTitle(id: string): Promise<string> {
+  console.log(`[useSession] generateSessionTitle("${id}")`)
+  const res = await api.generateSessionTitle(id)
+  return res.title
+}
+
 export function useSession() {
   initIfNeeded()
-  return { sessionId, sessions, createSession, switchSession, deleteSession, refreshSessions }
+  return { sessionId, sessions, createSession, switchSession, deleteSession, refreshSessions, constifySession, unconstifySession }
 }
 
 /** 清理后端已不存在的会话的 localStorage 孤儿缓存 */

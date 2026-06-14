@@ -7,6 +7,7 @@ import { computed } from 'vue'
 import chatRaw from '@/assets/icons/sidebar/chat.svg?raw'
 import memoryRaw from '@/assets/icons/sidebar/memory.svg?raw'
 import modelRaw from '@/assets/icons/sidebar/model.svg?raw'
+import pinRaw from '@/assets/icons/sidebar/pin.svg?raw'
 import citeSpeechRaw from '@/assets/icons/context-menu/cite-speech.svg?raw'
 import copyRaw from '@/assets/icons/context-menu/copy.svg?raw'
 import undoArrowRaw from '@/assets/icons/context-menu/undo-arrow.svg?raw'
@@ -31,6 +32,7 @@ const svgContents: Record<string, string> = {
   chat: chatRaw,
   memory: memoryRaw,
   model: modelRaw,
+  pin: pinRaw,
   'cite-speech': citeSpeechRaw,
   copy: copyRaw,
   'undo-arrow': undoArrowRaw,

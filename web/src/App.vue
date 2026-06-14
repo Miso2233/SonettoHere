@@ -27,6 +27,8 @@
         @create="createSession"
         @switch="handleSwitchSession"
         @delete="deleteSession"
+        @constify="handleConstify"
+        @unconstify="handleUnconstify"
       />
       <HealthPanel :health="health!" v-if="health" />
     </aside>
@@ -42,7 +44,7 @@ import Icon from '@/components/Icon.vue';
 import SessionSidebar from '@/components/SessionSidebar.vue';
 import { allSessionStatuses } from '@/composables/useChat';
 import { health, startPolling, useHealth } from '@/composables/useHealth';
-import { useSession } from '@/composables/useSession';
+import { constifySession, unconstifySession, useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
@@ -60,6 +62,18 @@ const router = useRouter()
 function handleSwitchSession(id: string) {
   switchSession(id)
   router.push('/')
+}
+
+function handleConstify(id: string, name: string) {
+  if (name && name.trim()) {
+    constifySession(id, name.trim())
+  }
+}
+
+function handleUnconstify(id: string) {
+  if (window.confirm('确定取消固定此会话？')) {
+    unconstifySession(id)
+  }
 }
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =

@@ -15,6 +15,7 @@ import type {
   ProviderConfig,
   TestConnectionResponse,
   DiscoverModelsResponse,
+  ConstifyResponse,
 } from '@/types'
 
 const BASE = '/api'
@@ -126,4 +127,18 @@ export const api = {
 
   listTools: () =>
     request<ListToolsResponse>('/tools'),
+
+  // ── Const 固定会话 ──
+
+  constifySession: (id: string, name: string) =>
+    request<ConstifyResponse>(`/sessions/${id}/const`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  unconstifySession: (id: string) =>
+    request<{ status: string }>(`/sessions/${id}/const`, { method: 'DELETE' }),
+
+  generateSessionTitle: (id: string) =>
+    request<{ title: string }>(`/sessions/${id}/generate-title`, { method: 'POST' }),
 }
