@@ -3,7 +3,6 @@ import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, Tur
 import { refreshSessions, switchSession } from '@/composables/useSession'
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
-
 /** 匹配旧格式尾缀（用于 localStorage 迁移） */
 const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
 
@@ -103,6 +102,7 @@ interface SessionChannel {
   currentTurn: ChatTurn | null
   error: string | null
   contextUsage: ContextUsage | null
+  taskTrackerData: Record<string, unknown> | null
   reconnectTimer: ReturnType<typeof setTimeout> | null
   initialized: boolean
   _awaitingToolName: string | null
@@ -134,6 +134,7 @@ function getOrCreateChannel(sid: string): SessionChannel {
       currentTurn: null,
       error: null,
       contextUsage: null,
+      taskTrackerData: null,
       reconnectTimer: null,
       initialized: false,
       _awaitingToolName: null,
@@ -289,6 +290,9 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
         tc.status = 'done'
         if (event.payload.tool_data) {
           tc.toolData = event.payload.tool_data
+          if (event.payload.tool_name === 'task_tracker' && event.payload.tool_data) {
+            ch.taskTrackerData = event.payload.tool_data as Record<string, unknown>
+          }
         }
         console.log(`[useChat] tool_end: "${event.payload.tool_name}"`, {
           output_len: (event.payload.output || '').length,
@@ -420,6 +424,7 @@ export function useChat(sessionId: Ref<string>) {
   const currentTurn = computed(() => activeChannel.value.currentTurn)
   const error = computed(() => activeChannel.value.error)
   const contextUsage = computed(() => activeChannel.value.contextUsage)
+  const taskTrackerData = computed(() => activeChannel.value.taskTrackerData)
 
   const privateMode = computed(() => activeChannel.value.privateMode)
   const autoApprove = computed(() => activeChannel.value.autoApprove)
@@ -522,7 +527,7 @@ export function useChat(sessionId: Ref<string>) {
   }
 
   return {
-    connected, isStreaming, turns, currentTurn, error, contextUsage,
+    connected, isStreaming, turns, currentTurn, error, contextUsage, taskTrackerData,
     send, cancel, sendUserResponse, removeTurns,
     privateMode, setPrivateMode,
     autoApprove, setAutoApprove,
