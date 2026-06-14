@@ -47,6 +47,7 @@
         </div>
       </span>
       <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
+      <TaskTrackerBar :data="taskTrackerData" />
     </header>
 
     <ChatWindow
@@ -79,6 +80,7 @@ import ChatInput from '@/components/ChatInput.vue'
 import ChatWindow from '@/components/ChatWindow.vue'
 import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
+import TaskTrackerBar from '@/components/TaskTrackerBar.vue'
 import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
 import { useSession } from '@/composables/useSession'
@@ -86,7 +88,7 @@ import type { ParsedRef } from '@/utils/references'
 import { computed, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, contextUsage, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, autoApprove, setAutoApprove } =
+const { connected, isStreaming, turns, currentTurn, error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, autoApprove, setAutoApprove } =
   useChat(sessionId)
 
 const selectedModelName = ref('')

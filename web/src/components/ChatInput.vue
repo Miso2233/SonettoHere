@@ -93,7 +93,7 @@
         </div>
       </div>
     </div>
-    <SkillAutocomplete
+    <AutocompletePanel
       :items="acFiltered"
       :visible="acMode !== null"
       :position="acPosition"
@@ -110,7 +110,7 @@
 <script setup lang="ts">
 import { api } from '@/api'
 import Icon from '@/components/Icon.vue'
-import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
+import AutocompletePanel from '@/components/AutocompletePanel.vue'
 import type { ProviderConfig, SkillInfo, ToolInfo } from '@/types'
 import type { ParsedRef, ToolRef } from '@/utils/references'
 import { REF_CHIP_CONFIG } from '@/utils/references'

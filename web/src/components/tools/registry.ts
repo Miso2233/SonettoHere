@@ -52,7 +52,7 @@ const registry: Record<string, Component> = {
   'get_cycling_route': MapBubble,
   'get_current_weather': WeatherBubble,
   'holiday_calendar': HolidayBubble,
-  'time_skill': TimeBubble,
+  'time_tool': TimeBubble,
   'syntax_checker': SyntaxBubble,
   'bilibili_set_cookie': CookieBubble,
   'analyze_image': ImageBubble,

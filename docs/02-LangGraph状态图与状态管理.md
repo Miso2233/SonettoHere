@@ -115,7 +115,7 @@ def build_agent(
 | 参数 | 类型 | 说明 |
 |------|------|------|
 | `model` | `BaseChatModel` | 绑定了 tools 的 LLM 实例。本项目使用 `ChatOpenAI(model="deepseek-v4-flash")` |
-| `tools` | `list[BaseTool]` | 工具列表。本项目为 `get_all_skills()` 返回的 30 个 Skill |
+| `tools` | `list[BaseTool]` | 工具列表。本项目为 `get_all_tools()` 返回的 30 个 Skill |
 | `state_schema` | `AgentState` | 自定义状态类型（含 `messages` + `remaining_steps`） |
 | `prompt` | `str` | 系统提示词字符串，被包装为 `SystemMessage` 追加到消息列表头部 |
 | `checkpointer` | `MemorySaver` | 内存级状态持久化器，下文详解 |

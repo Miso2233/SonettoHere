@@ -161,7 +161,7 @@ function getBubbleComponentName(name: string): string {
     'get_cycling_route': 'MapBubble.vue',
     'get_current_weather': 'WeatherBubble.vue',
     'holiday_calendar': 'HolidayBubble.vue',
-    'time_skill': 'TimeBubble.vue',
+    'time_tool': 'TimeBubble.vue',
     'syntax_checker': 'SyntaxBubble.vue',
     'bilibili_set_cookie': 'CookieBubble.vue',
     'analyze_image': 'ImageBubble.vue',
@@ -795,7 +795,7 @@ const mockTemplates: Record<string, MockTemplate> = {
       answer: '答案是肯定的',
     },
   },
-  time_skill: {
+  time_tool: {
     input: {},
     doneOutput: JSON.stringify({
       success: true,

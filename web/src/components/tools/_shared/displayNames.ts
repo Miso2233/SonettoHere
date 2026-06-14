@@ -37,7 +37,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   todo_query: '查询待办',
   todo_list_projects: '项目列表',
   time: '时间查询',
-  time_skill: '时间查询',
+  time_tool: '时间查询',
   python: 'Python 执行',
   run_python: 'Python 执行',
   nearby_search: '周边搜索',

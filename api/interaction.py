@@ -9,7 +9,7 @@ import asyncio
 import contextvars
 import uuid
 
-from skills.base import format_error
+from tools.base import format_error
 
 # 当前连接对应的 WebSocket 实例（在 chat.py 中设置）
 current_ws: contextvars.ContextVar = contextvars.ContextVar("current_ws")

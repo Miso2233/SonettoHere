@@ -33,7 +33,7 @@ const items = computed<HealthItem[]>(() => {
   return [
     makeItem('LLM', h.llm),
     makeItem('MEMORY', h.memory),
-    makeItem('SKILLS', h.native_tools),
+    makeItem('TOOLS', h.native_tools),
     makeItem('MCP', h.mcp_tools),
   ]
 })

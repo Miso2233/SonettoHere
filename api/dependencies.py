@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 
 from agent.prompts import build_system_prompt
 from config.settings import get_settings
-from skills import get_all_skills
+from tools import get_all_tools
 
 _system_prompt: str | None = None
 _tools: list | None = None
@@ -46,5 +46,5 @@ def get_system_prompt() -> str:
 def get_tools() -> list:
     global _tools
     if _tools is None:
-        _tools = get_all_skills()
+        _tools = get_all_tools()
     return _tools

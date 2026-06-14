@@ -136,22 +136,21 @@ def _extract_todo_generic(
 def _extract_task_tracker(
     _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """返回 tool_type, status, total_steps, current_step, current_task, tasks, message。"""
+    """返回 tool_type, total, pending, in_progress, completed, current_task, todos。"""
     data = _get_data(parsed)
     if data is None:
         return None
     result: dict[str, Any] = {
         "tool_type": "task_tracker",
-        "status": data.get("status"),
-        "total_steps": data.get("total_steps"),
-        "current_step": data.get("current_step"),
+        "total": data.get("total"),
+        "pending": data.get("pending"),
+        "in_progress": data.get("in_progress"),
+        "completed": data.get("completed"),
         "current_task": data.get("current_task"),
     }
-    tasks = data.get("tasks")
-    if isinstance(tasks, list):
-        result["tasks"] = tasks
-    if "message" in data:
-        result["message"] = data["message"]
+    todos = data.get("todos")
+    if isinstance(todos, list):
+        result["todos"] = todos
     return result
 
 
@@ -588,7 +587,7 @@ def _extract_weather(
 
 # ── 时间查询 ───────────────────────────────────────────────────────────
 
-@register("time_skill")
+@register("time_tool")
 def _extract_time(
     _tool_name: str, parsed: dict[str, Any], _tool_input: str | None = None,
 ) -> dict[str, Any] | None:

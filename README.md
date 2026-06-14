@@ -83,9 +83,9 @@ cd web && npm install && npm run dev
 
 ## 能力概览
 
-内置 30+ 个 Built-in Skill，涵盖日常工具链：
+内置 30+ 个 Built-in Tool，涵盖日常工具链：
 
-| 领域 | Skills | 需要配置 |
+| 领域 | Tools | 需要配置 |
 |------|--------|----------|
 | **Todo** | 添加/列出/完成/取消/删除/更新/查询任务、列出项目 | `TODOIST_API_TOKEN` |
 | **地图** | 周边搜索、地址编码、公交/骑行路线、模糊地址 | `AMAP_API_KEY` |
@@ -98,7 +98,7 @@ cd web && npm install && npm run dev
 | **娱乐** | 答案之书、塔罗牌 | `UAPIS_API_KEY` |
 | **B站** | 视频下载 | — |
 
-> 所有 Key 仅在用到对应 Skill 时必需，不影响基础对话。
+> 所有 Key 仅在用到对应 Tool 时必需，不影响基础对话。
 
 ---
 
@@ -138,8 +138,8 @@ SonettoHere/
 │   ├── narrative.py          # 长期记忆异步引擎
 │   └── user_init.py
 │
-├── skills/                   # 30+ Built-in Skill
-│   ├── base.py               # SkillBase 基类
+├── tools/                     # 30+ Built-in Tool
+│   ├── base.py                 # ToolBase 基类
 │   ├── __init__.py
 │   └── {todo,map,network,...}/
 │
@@ -159,7 +159,7 @@ SonettoHere/
 ## 架构
 
 ```
-用户输入 → [Agent: LLM + bind_tools(skills)] → [Skills: 执行] → 循环
+用户输入 → [Agent: LLM + bind_tools] → [Tools: 执行] → 循环
               ↑                                    ↓
               │                    [final answer / 返回文档]
               └── LLM 读完文档后继续循环，下一步带真实参数调用
