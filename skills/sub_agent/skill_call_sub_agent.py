@@ -1,6 +1,7 @@
 """Skill: call_sub_agent — 创建子 Agent 会话执行单轮任务并返回结果。"""
 
 import asyncio
+import contextvars
 import json
 import sys
 import traceback
@@ -16,8 +17,10 @@ class CallSubAgentInput(BaseModel):
     task: str = Field(default="", description="需要子 Agent 处理的任务描述（完整用户提示词）")
     name: str = Field(default="", description="可选，子会话的显示名称（用于侧边栏标识）")
 
-# 模块级深度追踪（避免 Pydantic v2 将 _ 前缀类属性包装为 ModelPrivateAttr）
-_SUB_CALL_DEPTH: dict[str, int] = {}
+# 深度追踪 — 使用 ContextVar 实现每个 asyncio Task 独立的计数。
+# 并发调用（同一层级的多个子 Agent）互不干扰；
+# 链式递归（子 Agent 再调子 Agent）才会递增深度。
+_sub_call_depth: contextvars.ContextVar[int] = contextvars.ContextVar("_sub_call_depth", default=0)
 _MAX_SUB_CALL_DEPTH = 2
 
 
@@ -40,15 +43,15 @@ class CallSubAgentSkill(SkillBase):
         if not task.strip():
             return format_error("task 不能为空")
 
-        # ── 深度限制（模块级 dict，绕开 Pydantic ModelPrivateAttr）─
-        depth = _SUB_CALL_DEPTH.get("counter", 0)
+        # ── 深度限制（ContextVar，每个 asyncio Task 独立计数）─
+        depth = _sub_call_depth.get()
         if depth >= _MAX_SUB_CALL_DEPTH:
             return format_error(f"子 Agent 嵌套深度已达上限 ({_MAX_SUB_CALL_DEPTH} 层)，拒绝递归调用")
-        _SUB_CALL_DEPTH["counter"] = depth + 1
+        _sub_call_depth.set(depth + 1)
         try:
             return await self._do_run(task, name)
         finally:
-            _SUB_CALL_DEPTH["counter"] -= 1
+            _sub_call_depth.set(depth)  # 恢复而非递减，避免异常场景下计数错乱
 
     async def _do_run(self, task: str, name: str = "") -> str:
         print("[call_sub_agent] _do_run entered", file=sys.stderr)
