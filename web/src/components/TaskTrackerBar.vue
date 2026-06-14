@@ -1,8 +1,7 @@
 <template>
   <div class="tracker-bar" :class="{ idle: !data }">
     <template v-if="!data">
-      <span class="bar-label">任务</span>
-      <span class="bar-idle">空闲</span>
+      <span class="bar-label">无激活任务</span>
     </template>
 
     <template v-else>
