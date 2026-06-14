@@ -181,11 +181,19 @@ export interface SessionInfo {
   has_active_agent?: boolean
   is_subagent?: boolean
   auto_approve?: boolean
+  is_const?: boolean
+  const_name?: string
 }
 
 export interface CreateSessionResponse {
   session_id: string
   created_at: number
+}
+
+export interface ConstifyResponse {
+  session_id: string
+  is_const: boolean
+  const_name: string
 }
 
 export interface ListSessionsResponse {

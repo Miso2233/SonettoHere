@@ -26,6 +26,10 @@ class SessionState:
     _sub_agent_task: str | None = field(default=None, repr=False)
     _pending_result: asyncio.Future | None = field(default=None, repr=False)
 
+    # ── Const 固定会话字段 ──────────────────────────────────
+    is_const: bool = False
+    const_name: str = ""
+
 
 class SessionManager:
     def __init__(self, ttl_seconds: int = 1800):
@@ -89,6 +93,8 @@ class SessionManager:
                 "last_active": s.last_active,
                 "has_active_agent": has_active,
                 "is_subagent": s.is_subagent,
+                "is_const": s.is_const,
+                "const_name": s.const_name,
             })
         result.sort(key=lambda x: x["last_active"], reverse=True)
         return result

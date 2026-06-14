@@ -5,47 +5,102 @@
       <button class="btn-new" @click="$emit('create')" title="新会话">+</button>
     </div>
     <div class="session-list">
-      <div
-        v-for="(s, index) in sessions"
-        :key="s.session_id"
-        class="session-item"
-        :class="{ active: s.session_id === activeId }"
-        @click="$emit('switch', s.session_id)"
-        @mouseenter="onSessionMouseEnter($event, s)"
-        @mouseleave="onSessionMouseLeave"
-      >
-        <div class="session-item-main">
-          <span class="session-id">
-            Session #{{ sessions.length - index }}
-            <span v-if="s.is_subagent" class="sub-badge" title="子 Agent 会话（只读）">sub</span>
-          </span>
-          <span class="session-count">{{ formatRelativeTime(s.last_active ?? s.created_at) }} · {{ s.message_count }} 条消息</span>
-        </div>
-        <div class="session-item-right">
-          <span
-            v-if="(sessionStatuses ?? {})[s.session_id]?.isAwaitingUser"
-            class="status-dot awaiting-user"
-            title="等待用户输入"
-          />
-          <span
-            v-else-if="(sessionStatuses ?? {})[s.session_id]?.isStreaming"
-            class="status-dot streaming"
-            title="Agent 运行中"
-          />
-          <span
-            v-else-if="(sessionStatuses ?? {})[s.session_id]?.connected"
-            class="status-dot connected"
-            title="已连接"
-          />
-          <button
-            class="btn-delete"
-            @click.stop="$emit('delete', s.session_id)"
-            title="删除会话"
-          >
-            &times;
-          </button>
+
+      <!-- ── 已保存（固定会话）── -->
+      <div v-if="constSessions.length > 0" class="const-section">
+        <div class="section-label">已保存</div>
+        <div
+          v-for="(s, ci) in constSessions"
+          :key="s.session_id"
+          class="session-item is-const"
+          :class="{ active: s.session_id === activeId }"
+          @click="$emit('switch', s.session_id)"
+          @contextmenu.prevent="onSessionContextMenu($event, s)"
+          @mouseenter="onSessionMouseEnter($event, s)"
+          @mouseleave="onSessionMouseLeave"
+        >
+          <div class="session-item-main">
+            <span class="session-id">
+              <Icon name="pin" :size="12" style="margin-right: 3px; flex-shrink: 0;" />
+              <span class="const-name-text">{{ s.const_name || '未命名' }}</span>
+              <span v-if="s.is_subagent" class="sub-badge" title="子 Agent 会话（只读）">sub</span>
+            </span>
+            <span class="session-count">{{ formatRelativeTime(s.last_active ?? s.created_at) }} · {{ s.message_count }} 条消息</span>
+          </div>
+          <div class="session-item-right">
+            <span
+              v-if="(sessionStatuses ?? {})[s.session_id]?.isAwaitingUser"
+              class="status-dot awaiting-user"
+              title="等待用户输入"
+            />
+            <span
+              v-else-if="(sessionStatuses ?? {})[s.session_id]?.isStreaming"
+              class="status-dot streaming"
+              title="Agent 运行中"
+            />
+            <span
+              v-else-if="(sessionStatuses ?? {})[s.session_id]?.connected"
+              class="status-dot connected"
+              title="已连接"
+            />
+            <button
+              class="btn-delete"
+              @click.stop="$emit('delete', s.session_id)"
+              title="删除会话"
+            >
+              &times;
+            </button>
+          </div>
         </div>
       </div>
+
+      <!-- ── 临时会话 ── -->
+      <div class="temp-section">
+        <div v-if="constSessions.length > 0" class="section-label">临时会话</div>
+        <div
+          v-for="(s, index) in tempSessions"
+          :key="s.session_id"
+          class="session-item"
+          :class="{ active: s.session_id === activeId }"
+          @click="$emit('switch', s.session_id)"
+          @contextmenu.prevent="onSessionContextMenu($event, s)"
+          @mouseenter="onSessionMouseEnter($event, s)"
+          @mouseleave="onSessionMouseLeave"
+        >
+          <div class="session-item-main">
+            <span class="session-id">
+              Session #{{ getSessionDisplayIndex(s) }}
+              <span v-if="s.is_subagent" class="sub-badge" title="子 Agent 会话（只读）">sub</span>
+            </span>
+            <span class="session-count">{{ formatRelativeTime(s.last_active ?? s.created_at) }} · {{ s.message_count }} 条消息</span>
+          </div>
+          <div class="session-item-right">
+            <span
+              v-if="(sessionStatuses ?? {})[s.session_id]?.isAwaitingUser"
+              class="status-dot awaiting-user"
+              title="等待用户输入"
+            />
+            <span
+              v-else-if="(sessionStatuses ?? {})[s.session_id]?.isStreaming"
+              class="status-dot streaming"
+              title="Agent 运行中"
+            />
+            <span
+              v-else-if="(sessionStatuses ?? {})[s.session_id]?.connected"
+              class="status-dot connected"
+              title="已连接"
+            />
+            <button
+              class="btn-delete"
+              @click.stop="$emit('delete', s.session_id)"
+              title="删除会话"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="sessions.length === 0" class="no-sessions">
         暂无会话
       </div>
@@ -77,11 +132,22 @@
         </div>
       </div>
     </Transition>
+
+    <!-- ── 右键菜单 ── -->
+    <ContextMenu
+      :position="ctxMenuPos"
+      :items="ctxMenuItems"
+      :visible="ctxMenuVisible"
+      @select="handleContextMenuSelect"
+      @close="closeContextMenu"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import type { SessionInfo } from '@/types';
+import ContextMenu from '@/components/ContextMenu.vue';
+import Icon from '@/components/Icon.vue';
 import { computed, nextTick, ref } from 'vue';
 
 const props = defineProps<{
@@ -91,11 +157,29 @@ const props = defineProps<{
   collapsed?: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   create: []
   switch: [id: string]
   delete: [id: string]
+  constify: [id: string]
+  unconstify: [id: string]
 }>()
+
+// ── 分区计算 ──────────────────────────────────────────────────
+
+function getSessionDisplayIndex(s: SessionInfo): number {
+  return props.sessions.length - props.sessions.findIndex(x => x.session_id === s.session_id)
+}
+
+const constSessions = computed(() =>
+  props.sessions.filter(s => s.is_const)
+)
+
+const tempSessions = computed(() =>
+  props.sessions.filter(s => !s.is_const)
+)
+
+// ── Hover card ────────────────────────────────────────────────
 
 const hoveredSession = ref<SessionInfo | null>(null)
 const hoverCardRef = ref<HTMLElement | null>(null)
@@ -172,6 +256,55 @@ const cardStyle = computed(() => {
     pointerEvents: 'none' as const,
   }
 })
+
+// ── 右键菜单 ──────────────────────────────────────────────────
+
+const ctxMenuVisible = ref(false)
+const ctxMenuPos = ref({ x: 0, y: 0 })
+const ctxMenuSession = ref<SessionInfo | null>(null)
+
+const ctxMenuItems = computed(() => {
+  const s = ctxMenuSession.value
+  if (!s) return []
+  if (s.is_const) {
+    return [
+      { label: '固定会话…', action: 'constify', icon: 'pin' },
+      { label: '取消固定', action: 'unconstify' },
+    ]
+  }
+  return [
+    { label: '固定会话…', action: 'constify', icon: 'pin' },
+  ]
+})
+
+function onSessionContextMenu(event: MouseEvent, session: SessionInfo) {
+  // 关闭 hover card
+  if (hoverLeaveTimer !== null) {
+    clearTimeout(hoverLeaveTimer)
+    hoverLeaveTimer = null
+  }
+  hoveredSession.value = null
+
+  ctxMenuSession.value = session
+  ctxMenuPos.value = { x: event.clientX, y: event.clientY }
+  ctxMenuVisible.value = true
+}
+
+function handleContextMenuSelect(action: string) {
+  const s = ctxMenuSession.value
+  if (!s) return
+  if (action === 'constify') {
+    emit('constify', s.session_id)
+  } else if (action === 'unconstify') {
+    emit('unconstify', s.session_id)
+  }
+  closeContextMenu()
+}
+
+function closeContextMenu() {
+  ctxMenuVisible.value = false
+  ctxMenuSession.value = null
+}
 </script>
 
 <style scoped>
@@ -222,6 +355,18 @@ const cardStyle = computed(() => {
   max-height: 400px;
   overflow-y: auto;
 }
+
+/* ── Section label ── */
+.section-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-tertiary, #9ca3af);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 4px 12px 2px;
+}
+
+/* ── Session items ── */
 .session-item {
   display: flex;
   align-items: center;
@@ -242,6 +387,12 @@ const cardStyle = computed(() => {
   background: var(--bg-card);
   box-shadow: var(--shadow);
 }
+
+/* Const 会话外观 */
+.session-item.is-const {
+  border-left: 2px solid var(--accent);
+}
+
 .session-item-main {
   display: flex;
   flex-direction: column;
@@ -255,6 +406,14 @@ const cardStyle = computed(() => {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.const-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sub-badge {
   display: inline-block;
@@ -419,5 +578,17 @@ const cardStyle = computed(() => {
   overflow: hidden;
   padding: 0;
   margin: 0;
+}
+/* collapsed 时隐藏分区 label */
+.session-sidebar.collapsed .section-label {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+/* collapsed 时隐藏 const 左侧边框 */
+.session-sidebar.collapsed .session-item.is-const {
+  border-left: none;
 }
 </style>
