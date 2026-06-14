@@ -96,6 +96,12 @@ export async function unconstifySession(id: string) {
   await refreshSessions()
 }
 
+export async function generateSessionTitle(id: string): Promise<string> {
+  console.log(`[useSession] generateSessionTitle("${id}")`)
+  const res = await api.generateSessionTitle(id)
+  return res.title
+}
+
 export function useSession() {
   initIfNeeded()
   return { sessionId, sessions, createSession, switchSession, deleteSession, refreshSessions, constifySession, unconstifySession }

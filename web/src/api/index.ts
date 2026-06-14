@@ -138,4 +138,7 @@ export const api = {
 
   unconstifySession: (id: string) =>
     request<{ status: string }>(`/sessions/${id}/const`, { method: 'DELETE' }),
+
+  generateSessionTitle: (id: string) =>
+    request<{ title: string }>(`/sessions/${id}/generate-title`, { method: 'POST' }),
 }

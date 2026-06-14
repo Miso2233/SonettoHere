@@ -161,6 +161,64 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
     }
 
 
+@router.post("/sessions/{session_id}/generate-title")
+async def generate_session_title(session_id: str, request: Request):
+    """根据会话内容使用 LLM 生成简洁标题。"""
+    sm = request.app.state.session_manager
+    session = sm.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # 从 checkpointer 提取消息
+    try:
+        cpt = await session.checkpointer.aget_tuple(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        messages = cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
+    except Exception:
+        messages = []
+
+    if not messages:
+        raise HTTPException(status_code=400, detail="没有消息可供生成标题")
+
+    # 构建对话文本（仅 human/ai，截断长内容）
+    conversation_lines = []
+    for m in messages:
+        role = "user" if m.type == "human" else "assistant"
+        content = (m.content[:600] if hasattr(m, "content") else str(m))[:600]
+        conversation_lines.append(f"[{role}]\n{content}")
+    conversation_text = "\n\n".join(conversation_lines)
+
+    system_prompt = """你是一个对话标题生成器。根据用户和助理的对话内容，生成一个简短的标题。
+
+## 规则（必须严格遵守）
+
+1. **忠实概括**：标题必须基于对话的实际内容，不能捏造或偏离用户真实提出的问题或主题。这是最根本的原则。
+2. **核心主题**：准确抓住整个对话中最主要、最核心的主题或意图。如果用户问了多个问题，优先选择覆盖最广或最重要的那个。
+3. **简洁凝练**：标题通常很短，一般为5-10个字，力求用最少的词概括最多信息。剔除冗余词语，保留关键词。
+4. **区分度**：生成的标题应能明显区别于用户历史对话中的其他标题，便于快速定位和识别不同对话。
+5. **通用可读**：不使用具体的"您"、"我"等指代词，也不包含"对话关于…"这样的描述性前缀。标题本身是名词性短语，直接陈述主题（如"Python爬虫入门"）。
+6. **中性客观**：不添加情感色彩或主观评价（如不写成"令人困惑的数学问题"），也不使用指令式语气（如"请总结这个对话"）。
+
+## 输出格式
+
+只输出标题本身，不要有任何额外文字、引号或标点符号。"""
+
+    prompt = f"{system_prompt}\n\n对话内容：\n{conversation_text}\n\n标题："
+
+    try:
+        llm = request.app.state.llm
+        response = await llm.ainvoke(prompt)
+        title = response.content.strip().strip('"').strip("'") if hasattr(response, "content") else str(response).strip()
+        title = title[:50]
+        if not title:
+            title = "未命名会话"
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"标题生成失败: {e}")
+
+    return {"title": title}
+
+
 @router.delete("/sessions/{session_id}/const")
 async def unconstify_session(session_id: str, request: Request):
     """取消固定，删除磁盘文件。"""

@@ -153,16 +153,27 @@
           @click.stop
         >
           <div class="constify-card-title">固定会话</div>
-          <input
-            ref="constifyInputRef"
-            v-model="constifyName"
-            class="constify-input"
-            type="text"
-            placeholder="输入会话名称..."
-            maxlength="50"
-            @keydown.enter="confirmConstify"
-            @keydown.esc="cancelConstify"
-          />
+          <div class="constify-input-row">
+            <input
+              ref="constifyInputRef"
+              v-model="constifyName"
+              class="constify-input"
+              type="text"
+              placeholder="输入会话名称..."
+              maxlength="50"
+              @keydown.enter="confirmConstify"
+              @keydown.esc="cancelConstify"
+            />
+            <button
+              class="constify-gen-btn"
+              :class="{ loading: generating }"
+              title="AI 生成标题"
+              :disabled="generating"
+              @click="generateTitle"
+            >
+              <Icon name="sparkles" :size="16" />
+            </button>
+          </div>
           <div class="constify-actions">
             <button class="constify-btn cancel" @click="cancelConstify">取消</button>
             <button
@@ -181,6 +192,7 @@
 import type { SessionInfo } from '@/types';
 import ContextMenu from '@/components/ContextMenu.vue';
 import Icon from '@/components/Icon.vue';
+import { generateSessionTitle } from '@/composables/useSession';
 import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps<{
@@ -318,6 +330,7 @@ const constifyCardRef = ref<HTMLElement | null>(null)
 const constifyInputRef = ref<HTMLInputElement | null>(null)
 const constifyCardTop = ref(0)
 const constifyCardLeft = ref(0)
+const generating = ref(false)
 
 /** 鼠标右键触发时的目标元素 rect，用于定位卡片 */
 let constifyAnchorRect: DOMRect | null = null
@@ -368,6 +381,24 @@ function showConstifyCard(session: SessionInfo) {
     constifyInputRef.value?.focus()
     constifyInputRef.value?.select()
   })
+}
+
+async function generateTitle() {
+  const session = constifyTarget.value
+  if (!session || generating.value) return
+  generating.value = true
+  try {
+    const title = await generateSessionTitle(session.session_id)
+    constifyName.value = title
+    nextTick(() => {
+      constifyInputRef.value?.focus()
+      constifyInputRef.value?.select()
+    })
+  } catch (e) {
+    console.error('[constify] 标题生成失败:', e)
+  } finally {
+    generating.value = false
+  }
 }
 
 function confirmConstify() {
@@ -739,8 +770,14 @@ function closeContextMenu() {
   color: var(--text-primary);
 }
 
+.constify-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+
 .constify-input {
-  width: 100%;
+  flex: 1;
   padding: 8px 12px;
   font-size: 13px;
   font-family: inherit;
@@ -758,6 +795,40 @@ function closeContextMenu() {
 
 .constify-input::placeholder {
   color: var(--text-tertiary);
+}
+
+.constify-gen-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.constify-gen-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.constify-gen-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.constify-gen-btn.loading {
+  animation: gen-btn-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes gen-btn-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .constify-actions {
