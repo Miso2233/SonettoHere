@@ -202,21 +202,41 @@ function cancelLink() {
 
 // ── 粘贴URL自动识别 ──
 
+/** 判断文本是否看起来像域名/IP，适合补 https:// */
+function looksLikeHost(text: string): boolean {
+  // 允许 localhost、带点的域名、IPv4、IPv6
+  return /^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+(:[0-9]+)?(\/|$)/.test(text)
+      || /^localhost(:[0-9]+)?(\/|$)/i.test(text)
+}
+
 function onPaste(e: ClipboardEvent) {
   const text = e.clipboardData?.getData('text/plain')?.trim()
   if (!text) return
 
-  // 标准化 URL：无协议时补 https://
-  const normalized = /^https?:\/\//i.test(text) ? text : 'https://' + text
-  if (!/^https?:\/\/[^\s/$.?#].[^\s]*$/i.test(normalized)) return
+  // 已有协议头 → 直接校验完整 URL
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const url = new URL(text)
+      if (['http:', 'https:'].includes(url.protocol) && url.hostname.includes('.')) {
+        e.preventDefault()
+        const domain = url.hostname.replace(/^www\./, '')
+        refs.value.push({ type: 'web_link', url: text, label: domain, domain } as ParsedRef)
+      }
+    } catch { /* 走默认粘贴 */ }
+    return
+  }
 
-  // 是 URL，阻止粘贴文本，改为添加链接引用
-  e.preventDefault()
-  try {
-    const domain = new URL(normalized).hostname.replace(/^www\./, '')
-    refs.value.push({ type: 'web_link', url: normalized, label: domain, domain } as ParsedRef)
-  } catch {
-    // URL 解析失败，走默认粘贴
+  // 无协议头 → 仅当看起来像域名时才补 https:// 并二次校验
+  if (looksLikeHost(text)) {
+    const normalized = 'https://' + text
+    try {
+      const url = new URL(normalized)
+      if (['http:', 'https:'].includes(url.protocol)) {
+        e.preventDefault()
+        const domain = url.hostname.replace(/^www\./, '')
+        refs.value.push({ type: 'web_link', url: normalized, label: domain, domain } as ParsedRef)
+      }
+    } catch { /* 走默认粘贴 */ }
   }
 }
 
