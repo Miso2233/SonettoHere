@@ -7,7 +7,7 @@
 
     <template v-else>
       <span class="bar-progress-text">
-        <span class="bar-num-done">{{ data.completed }}</span>
+        <span class="bar-num-done">{{ currentStep }}</span>
         /<span class="bar-num-total">{{ data.total }}</span>
       </span>
 
@@ -35,10 +35,16 @@ interface TaskTrackerTodo {
 interface TaskTrackerData {
   total: number
   completed: number
+  in_progress?: number
   todos: TaskTrackerTodo[]
 }
 
 const props = defineProps<{ data: TaskTrackerData | null }>()
+
+const currentStep = computed(() => {
+  if (!props.data) return 0
+  return props.data.completed + ((props.data.in_progress ?? 0) > 0 ? 1 : 0)
+})
 
 const progressPercent = computed(() => {
   if (!props.data || props.data.total <= 0) return 0
