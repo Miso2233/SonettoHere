@@ -1,9 +1,9 @@
 <template>
   <div class="chat-input-wrapper">
-    <div v-if="refs.length" class="file-refs-bar">
+    <TransitionGroup name="ref-tag" tag="div" class="file-refs-bar" @before-leave="freezeLeavePos">
       <span
         v-for="(r, idx) in refs"
-        :key="idx"
+        :key="r.type + r.label + idx"
         class="file-tag"
         :title="getRefTooltip(r)"
       >
@@ -12,7 +12,7 @@
         <span class="file-tag-source">{{ r.type }}</span>
         <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
       </span>
-    </div>
+    </TransitionGroup>
     <div v-if="showLinkInput" class="link-input-bar">
       <input
         ref="linkInputRef"
@@ -144,6 +144,16 @@ function addRef(r: ParsedRef) {
 
 function removeRef(idx: number) {
   refs.value.splice(idx, 1)
+}
+
+/** TransitionGroup before-leave：冻结退场元素的位置，使其脱离 flex 流而不跳跃 */
+function freezeLeavePos(el: Element) {
+  const htmlEl = el as HTMLElement
+  const parent = htmlEl.offsetParent as HTMLElement
+  if (parent) {
+    htmlEl.style.left = htmlEl.offsetLeft + 'px'
+    htmlEl.style.top = htmlEl.offsetTop + 'px'
+  }
 }
 
 /** 从 REF_CHIP_CONFIG 获取图标名 */
@@ -581,6 +591,10 @@ function autoResize() {
   flex-wrap: wrap;
   gap: 6px;
   padding: 0 0 8px 0;
+  position: relative;
+}
+.file-refs-bar:empty {
+  display: none;
 }
 .file-tag {
   display: inline-flex;
@@ -621,6 +635,26 @@ function autoResize() {
   padding: 0 5px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+
+/* TransitionGroup 动画：从下往上缓出弹出，退场缩小淡出 */
+.ref-tag-enter-active {
+  transition: all 0.25s ease-out;
+}
+.ref-tag-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.ref-tag-leave-active {
+  transition: all 0.2s ease-in;
+  position: absolute !important;
+}
+.ref-tag-leave-to {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.ref-tag-move {
+  transition: transform 0.25s ease-out;
 }
 
 /* 链接输入条 */
