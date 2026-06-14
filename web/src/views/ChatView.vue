@@ -47,7 +47,7 @@
         </div>
       </span>
       <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
-      <TaskTrackerBar :data="taskTrackerData" />
+      <TaskTrackerBar :data="taskTrackerData as any" />
     </header>
 
     <ChatWindow
