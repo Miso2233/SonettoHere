@@ -64,8 +64,7 @@ function handleSwitchSession(id: string) {
   router.push('/')
 }
 
-function handleConstify(id: string) {
-  const name = window.prompt('请输入会话名称：', '')
+function handleConstify(id: string, name: string) {
   if (name && name.trim()) {
     constifySession(id, name.trim())
   }

@@ -141,6 +141,39 @@
       @select="handleContextMenuSelect"
       @close="closeContextMenu"
     />
+
+    <!-- ── 固定会话卡片 ── -->
+    <Teleport to="body">
+      <Transition name="constify-pop">
+        <div
+          v-if="constifyTarget"
+          ref="constifyCardRef"
+          class="constify-card"
+          :style="constifyCardStyle"
+          @click.stop
+        >
+          <div class="constify-card-title">固定会话</div>
+          <input
+            ref="constifyInputRef"
+            v-model="constifyName"
+            class="constify-input"
+            type="text"
+            placeholder="输入会话名称..."
+            maxlength="50"
+            @keydown.enter="confirmConstify"
+            @keydown.esc="cancelConstify"
+          />
+          <div class="constify-actions">
+            <button class="constify-btn cancel" @click="cancelConstify">取消</button>
+            <button
+              class="constify-btn confirm"
+              :disabled="!constifyName.trim()"
+              @click="confirmConstify"
+            >确定</button>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -148,7 +181,7 @@
 import type { SessionInfo } from '@/types';
 import ContextMenu from '@/components/ContextMenu.vue';
 import Icon from '@/components/Icon.vue';
-import { computed, nextTick, ref } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps<{
   sessions: SessionInfo[]
@@ -161,7 +194,7 @@ const emit = defineEmits<{
   create: []
   switch: [id: string]
   delete: [id: string]
-  constify: [id: string]
+  constify: [id: string, name: string]
   unconstify: [id: string]
 }>()
 
@@ -277,6 +310,94 @@ const ctxMenuItems = computed(() => {
   ]
 })
 
+// ── 固定会话卡片 ──────────────────────────────────────────────
+
+const constifyTarget = ref<SessionInfo | null>(null)
+const constifyName = ref('')
+const constifyCardRef = ref<HTMLElement | null>(null)
+const constifyInputRef = ref<HTMLInputElement | null>(null)
+const constifyCardTop = ref(0)
+const constifyCardLeft = ref(0)
+
+/** 鼠标右键触发时的目标元素 rect，用于定位卡片 */
+let constifyAnchorRect: DOMRect | null = null
+
+const constifyCardStyle = computed(() => {
+  if (!constifyTarget.value) return { display: 'none' }
+  return {
+    position: 'fixed' as const,
+    top: `${constifyCardTop.value}px`,
+    left: `${constifyCardLeft.value}px`,
+    zIndex: 1001,
+  }
+})
+
+function adjustConstifyCardPosition() {
+  const cardEl = constifyCardRef.value
+  if (!cardEl || !constifyTarget.value) return
+  const cardWidth = cardEl.offsetWidth
+  const cardHeight = cardEl.offsetHeight
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const margin = 8
+
+  if (constifyCardLeft.value + cardWidth > vw - margin) {
+    const leftPos = (constifyAnchorRect?.left ?? constifyCardLeft.value) - cardWidth - margin
+    constifyCardLeft.value = leftPos >= margin ? leftPos : Math.max(margin, vw - cardWidth - margin)
+  }
+  if (constifyCardTop.value + cardHeight > vh - margin) {
+    constifyCardTop.value = Math.max(margin, vh - cardHeight - margin)
+  }
+  // Ensure card stays on the right side of the anchor when there's room
+  if (constifyAnchorRect && constifyCardLeft.value < constifyAnchorRect.right) {
+    constifyCardLeft.value = constifyAnchorRect.right + margin
+  }
+}
+
+function showConstifyCard(session: SessionInfo) {
+  const rect = constifyAnchorRect
+  if (rect) {
+    constifyCardTop.value = rect.top
+    constifyCardLeft.value = rect.right + 8
+  }
+  constifyTarget.value = session
+  constifyName.value = session.const_name || ''
+  closeContextMenu()
+  nextTick(() => {
+    adjustConstifyCardPosition()
+    constifyInputRef.value?.focus()
+    constifyInputRef.value?.select()
+  })
+}
+
+function confirmConstify() {
+  if (!constifyTarget.value || !constifyName.value.trim()) return
+  emit('constify', constifyTarget.value.session_id, constifyName.value.trim())
+  constifyTarget.value = null
+  constifyName.value = ''
+}
+
+function cancelConstify() {
+  constifyTarget.value = null
+  constifyName.value = ''
+}
+
+// ── 悬浮详情卡片 ──────────────────────────────────────────────
+
+/** 注册一个全局点击监听，在 constify 卡片打开时点击外部关闭 */
+watch(constifyTarget, (val) => {
+  if (val) {
+    const handler = (e: MouseEvent) => {
+      const card = constifyCardRef.value
+      if (card && !card.contains(e.target as Node)) {
+        cancelConstify()
+      }
+    }
+    // delay registration so the current click doesn't immediately close
+    nextTick(() => document.addEventListener('click', handler, { once: true }))
+  }
+})
+
 function onSessionContextMenu(event: MouseEvent, session: SessionInfo) {
   // 关闭 hover card
   if (hoverLeaveTimer !== null) {
@@ -284,6 +405,9 @@ function onSessionContextMenu(event: MouseEvent, session: SessionInfo) {
     hoverLeaveTimer = null
   }
   hoveredSession.value = null
+
+  // 保存锚点元素 rect，供 constify 卡片定位
+  constifyAnchorRect = (event.currentTarget as HTMLElement).getBoundingClientRect()
 
   ctxMenuSession.value = session
   ctxMenuPos.value = { x: event.clientX, y: event.clientY }
@@ -294,7 +418,8 @@ function handleContextMenuSelect(action: string) {
   const s = ctxMenuSession.value
   if (!s) return
   if (action === 'constify') {
-    emit('constify', s.session_id)
+    showConstifyCard(s)
+    return  // 不关闭菜单，showConstifyCard 内部会关闭
   } else if (action === 'unconstify') {
     emit('unconstify', s.session_id)
   }
@@ -590,5 +715,104 @@ function closeContextMenu() {
 /* collapsed 时隐藏 const 左侧边框 */
 .session-sidebar.collapsed .session-item.is-const {
   border-left: none;
+}
+
+/* ── 固定会话卡片 ── */
+.constify-card {
+  min-width: 240px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--bg-card) 75%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+.constify-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.constify-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.constify-input:focus {
+  border-color: var(--accent);
+}
+
+.constify-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.constify-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.constify-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-family: inherit;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.constify-btn.cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.constify-btn.cancel:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text-primary);
+}
+
+.constify-btn.confirm {
+  background: var(--accent);
+  color: #fff;
+}
+
+.constify-btn.confirm:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.constify-btn.confirm:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* 卡片弹出动画 */
+.constify-pop-enter-active {
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+.constify-pop-leave-active {
+  transition: opacity 0.1s ease-in, transform 0.1s ease-in;
+}
+.constify-pop-enter-from {
+  opacity: 0;
+  transform: translateX(-6px) scale(0.96);
+}
+.constify-pop-leave-to {
+  opacity: 0;
+  transform: translateX(-4px) scale(0.96);
 }
 </style>
