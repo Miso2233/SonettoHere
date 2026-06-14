@@ -1,15 +1,34 @@
-import { Marked } from 'marked'
-import markedKatex from 'marked-katex-extension'
+import MarkdownIt from 'markdown-it'
+import texmath from 'markdown-it-texmath'
+import taskLists from 'markdown-it-task-lists'
+import katex from 'katex'
 
-const marked = new Marked({
-  breaks: true,
-  gfm: true,
+const md = new MarkdownIt({
+  html: true,    // 透传原始 HTML（LLM 直接输出交互式 HTML 的关键功能）
+  breaks: true,  // \n → <br>，适配聊天场景的换行
+  linkify: true, // 自动识别 URL 为可点击链接
 })
-marked.use(markedKatex())
+
+// GFM 任务列表：- [x] 已完成 / - [ ] 未完成
+md.use(taskLists, { enabled: true })
+
+// 数学公式支持：$...$ / $$...$$ / \(...\) / \[...\]
+md.use(texmath, {
+  engine: katex,
+  delimiters: [
+    'dollars',     // $...$ 和 $$...$$
+    'parentheses', // \(...\)
+    'brackets',    // \[...\]
+  ],
+  allow_escape: true,    // \$ 转义为字面 $ 符号
+  katexOptions: {
+    throwOnError: false, // 公式渲染失败时降级显示原文，不抛异常
+  },
+})
 
 export function renderMarkdown(content: string): string {
   if (!content) return ''
-  return marked.parse(content) as string
+  return md.render(content)
 }
 
 /**
