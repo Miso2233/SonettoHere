@@ -213,7 +213,7 @@ const emit = defineEmits<{
 // ── 分区计算 ──────────────────────────────────────────────────
 
 function getSessionDisplayIndex(s: SessionInfo): number {
-  return props.sessions.length - props.sessions.findIndex(x => x.session_id === s.session_id)
+  return tempSessions.value.length - tempSessions.value.findIndex(x => x.session_id === s.session_id)
 }
 
 const constSessions = computed(() =>
