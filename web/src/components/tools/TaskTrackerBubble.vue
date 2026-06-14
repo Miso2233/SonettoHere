@@ -10,59 +10,52 @@
       {{ toolCall.output || '操作失败' }}
     </div>
 
-    <!-- 完成 — 有结构化数据时展示富卡片 -->
+    <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
-      <div v-if="toolCall.toolData" class="tracker-result">
+      <div v-if="toolCall.toolData?.todos" class="tracker-result">
 
-        <!-- 已完成全部任务 -->
-        <template v-if="toolCall.toolData.status === 'completed'">
-          <div class="completed-banner">
-            <span class="completed-icon">✓</span>
-            <span class="completed-text">{{ toolCall.toolData.message || '所有任务已完成' }}</span>
+        <!-- 进度条 -->
+        <div class="progress-track">
+          <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+        </div>
+
+        <!-- 汇总 -->
+        <div class="summary-line">
+          <span v-if="(toolCall.toolData.completed as number) > 0" class="stat done">
+            <span class="num">{{ toolCall.toolData.completed }}</span> 已完成
+          </span>
+          <span v-if="(toolCall.toolData.in_progress as number) > 0" class="stat current">
+            <span class="num">{{ toolCall.toolData.in_progress }}</span> 进行中
+            <span v-if="currentActiveForm" class="stat-active">{{ currentActiveForm }}</span>
+          </span>
+          <span v-if="(toolCall.toolData.pending as number) > 0" class="stat pending">
+            <span class="num">{{ toolCall.toolData.pending }}</span> 待办
+          </span>
+          <span class="stat total">
+            共 <span class="num">{{ toolCall.toolData.total }}</span> 项
+          </span>
+        </div>
+
+        <!-- 待办清单 -->
+        <div class="todo-items">
+          <div
+            v-for="(todo, i) in (toolCall.toolData.todos as any[])"
+            :key="i"
+            class="todo-row"
+            :class="'todo-' + todo.status"
+          >
+            <span class="todo-icon" :class="'icon-' + todo.status">
+              <template v-if="todo.status === 'completed'">✓</template>
+              <template v-else-if="todo.status === 'in_progress'">→</template>
+              <template v-else>○</template>
+            </span>
+
+            <span class="todo-content">{{ todo.content }}</span>
           </div>
-          <div class="completed-sub">共完成 {{ toolCall.toolData.total_steps ?? 0 }} 个步骤</div>
-        </template>
-
-        <!-- 进行中/初始化 -->
-        <template v-else>
-          <!-- 进度条 -->
-          <div class="progress-section">
-            <div class="progress-header">
-              <span class="progress-label">
-                步骤 {{ toolCall.toolData.current_step ?? 1 }} / {{ toolCall.toolData.total_steps ?? 0 }}
-              </span>
-            </div>
-            <div class="progress-bar">
-              <div
-                class="progress-fill"
-                :style="{ width: progressPercent + '%' }"
-              ></div>
-            </div>
-          </div>
-
-          <!-- 任务清单 -->
-          <div class="task-items" v-if="(toolCall.toolData.tasks as any[])?.length">
-            <div
-              v-for="(task, i) in (toolCall.toolData.tasks as any[])"
-              :key="i"
-              class="task-row"
-              :class="rowClass(i)"
-            >
-              <span class="step-indicator" :class="rowClass(i)">{{ stepIcon(i) }}</span>
-              <span class="step-text">{{ task }}</span>
-            </div>
-          </div>
-
-          <!-- 无任务列表时显示当前任务 -->
-          <div v-else-if="toolCall.toolData.current_task" class="current-task-only">
-            <span class="step-indicator current">→</span>
-            <span class="step-text">{{ toolCall.toolData.current_task }}</span>
-          </div>
-        </template>
-
+        </div>
       </div>
 
-      <!-- 无 toolData 时降级显示原始输出 -->
+      <!-- 无 todo 数据时降级输出 -->
       <div v-else class="raw-output">{{ toolCall.output }}</div>
     </template>
   </BubbleChrome>
@@ -76,26 +69,21 @@ import BubbleChrome from './_shared/BubbleChrome.vue'
 const props = defineProps<{ toolCall: ToolCall }>()
 defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
-const progressPercent = computed(() => {
-  const cur = (props.toolCall.toolData?.current_step as number) ?? 0
-  const total = (props.toolCall.toolData?.total_steps as number) ?? 1
-  if (total <= 0) return 0
-  return Math.min(100, Math.round((cur / total) * 100))
+const currentActiveForm = computed(() => {
+  const todos = props.toolCall.toolData?.todos as any[] | undefined
+  if (!todos) return ''
+  const current = todos.find((t: any) => t.status === 'in_progress')
+  return current?.activeForm || ''
 })
 
-function rowClass(i: number): string {
-  const cur = (props.toolCall.toolData?.current_step as number) ?? 1
-  if (i < cur - 1) return 'done'
-  if (i === cur - 1) return 'current'
-  return 'pending'
-}
-
-function stepIcon(i: number): string {
-  const cur = (props.toolCall.toolData?.current_step as number) ?? 1
-  if (i < cur - 1) return '✓'
-  if (i === cur - 1) return '→'
-  return '○'
-}
+const progressPercent = computed(() => {
+  const data = props.toolCall.toolData
+  if (!data) return 0
+  const total = (data.total as number) ?? 0
+  const done = (data.completed as number) ?? 0
+  if (total <= 0) return 0
+  return Math.min(100, Math.round((done / total) * 100))
+})
 </script>
 
 <style scoped>
@@ -105,149 +93,146 @@ function stepIcon(i: number): string {
   gap: 10px;
 }
 
-/* ── 进度条 ── */
-.progress-section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.progress-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.progress-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.progress-bar {
-  height: 6px;
-  background: var(--bg-primary);
-  border-radius: 3px;
+/* ── 黑白进度条 ── */
+.progress-track {
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--accent);
-  border-radius: 3px;
+  background: #000;
+  border-radius: 2px;
   transition: width 0.3s ease;
 }
 
-/* ── 任务清单 ── */
-.task-items {
+/* ── 汇总行 ── */
+.summary-line {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--bg-primary);
-  border-radius: 6px;
-  padding: 8px;
-  max-height: 240px;
-  overflow-y: auto;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  padding: 4px 0;
 }
 
-.task-row {
+.stat {
+  color: #999;
+}
+
+.stat .num {
+  font-variant-numeric: tabular-nums;
+}
+
+.stat.done .num {
+  font-weight: 700;
+  color: #000;
+}
+
+.stat.current {
+  font-weight: 600;
+  color: #000;
+}
+
+.stat.current .num {
+  color: #000;
+}
+
+.stat.total {
+  margin-left: auto;
+  color: #ccc;
+}
+
+.stat-active {
+  margin-left: 4px;
+  font-weight: 400;
+  color: #666;
+  font-size: 11px;
+}
+
+.stat-active::before {
+  content: '· ';
+}
+
+/* ── 待办清单 ── */
+.todo-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0;
+}
+
+.todo-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 4px;
+  padding: 6px 4px;
   font-size: 13px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.step-indicator {
-  width: 16px;
+.todo-row:last-child {
+  border-bottom: none;
+}
+
+/* ── 状态图标 ── */
+.todo-icon {
+  width: 18px;
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   flex-shrink: 0;
 }
 
-.step-indicator.done {
-  color: #5a9e5a;
+.icon-completed {
+  color: #999;
+  font-weight: 400;
 }
 
-.step-indicator.current {
-  color: var(--accent);
+.icon-in_progress {
+  color: #000;
   font-weight: 700;
 }
 
-.step-indicator.pending {
-  color: var(--border);
+.icon-pending {
+  color: #ccc;
 }
 
-.step-text {
-  color: var(--text-primary);
-}
-
-.task-row.done .step-text {
-  color: var(--text-secondary);
+/* ── 任务内容 ── */
+.todo-completed .todo-content {
+  color: #bbb;
   text-decoration: line-through;
 }
 
-.task-row.current .step-text {
+.todo-in_progress .todo-content {
   font-weight: 600;
-  color: var(--text-primary);
+  color: #000;
 }
 
-.task-row.pending .step-text {
-  color: var(--text-secondary);
-}
-
-/* ── 当前任务（无清单时） ── */
-.current-task-only {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  font-size: 14px;
-}
-
-/* ── 完成状态 ── */
-.completed-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-}
-
-.completed-icon {
-  width: 24px;
-  height: 24px;
-  background: #d4e5d4;
-  color: #2d5a2d;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.completed-text {
-  font-size: 14px;
-  font-weight: 600;
-  color: #2d5a2d;
-}
-
-.completed-sub {
-  font-size: 12px;
-  color: var(--text-secondary);
+.todo-pending .todo-content {
+  color: #999;
 }
 
 /* ── 降级输出 ── */
 .raw-output {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: var(--text-primary);
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
   padding: 8px 12px;
-  background: var(--bg-primary);
-  border-radius: 6px;
+  background: #f8f8f8;
+  border-radius: 4px;
+}
+
+.bubble-running {
+  color: #666;
+  font-size: 13px;
+}
+
+.bubble-error {
+  color: #c00;
+  font-size: 13px;
 }
 </style>

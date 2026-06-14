@@ -1,65 +1,58 @@
-"""Tool: task_tracker — 会话内任务清单追踪。"""
+"""Tool: task_tracker — 无状态任务清单追踪。
+
+LLM 每次调用传入全量 todos 列表，工具仅做统计和摘要返回。
+不再维护内部状态机。"""
 
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
 
 
+class TodoItem(BaseModel):
+    content: str = Field(description="任务描述")
+    status: str = Field(description="状态: pending | in_progress | completed")
+    activeForm: str | None = Field(default=None, description="进行中的动名词描述")
+
+
 class TaskTrackerInput(BaseModel):
     get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
-    tasks: list[str] | None = Field(default=None, description="任务清单列表，建立新任务")
-    next_step: bool = Field(default=False, description="设为 true 推进到下一步")
+    todos: list[TodoItem] | None = Field(default=None, description="全量任务清单，每次传入完整列表")
 
 
 class TaskTrackerTool(ToolBase):
     name: str = "task_tracker"
     description: str = (
-        "会话内任务清单追踪。传 tasks 列表建立任务并返回第一步，传 next_step=true 推进。"
+        "无状态任务清单追踪。每次传入完整的 todos 列表，工具返回统计摘要。"
         "★ 首次使用先 get_doc=true。"
     )
     args_schema: type[BaseModel] = TaskTrackerInput
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self._tasks: list[str] = []
-        self._current_step: int = -1
-
     def _run(
         self,
         get_doc: bool = False,
-        tasks: list[str] | None = None,
-        next_step: bool = False,
+        todos: list[TodoItem] | None = None,
     ) -> str:
         if get_doc:
             return self._load_doc()
 
-        if tasks is not None:
-            self._tasks = tasks
-            self._current_step = 0
-            if self._tasks:
-                return format_success({
-                    "status": "initialized",
-                    "total_steps": len(self._tasks),
-                    "tasks": self._tasks,
-                    "current_step": 1,
-                    "current_task": self._tasks[0],
-                })
-            return format_error("任务清单为空")
+        if not todos:
+            return format_error("请传入 todos 参数（全量任务清单）")
 
-        if next_step:
-            if not self._tasks:
-                return format_error("未建立任务清单，请先传入 tasks 参数")
-            self._current_step += 1
-            if self._current_step >= len(self._tasks):
-                completed = len(self._tasks)
-                self._tasks = []
-                self._current_step = -1
-                return format_success({"status": "completed", "total_steps": completed, "message": "所有任务已完成"})
-            return format_success({
-                "status": "in_progress",
-                "total_steps": len(self._tasks),
-                "current_step": self._current_step + 1,
-                "current_task": self._tasks[self._current_step],
-            })
+        total = len(todos)
+        pending = sum(1 for t in todos if t.status == "pending")
+        in_progress_count = sum(1 for t in todos if t.status == "in_progress")
+        completed = sum(1 for t in todos if t.status == "completed")
 
-        return format_error("请提供 tasks 参数建立任务，或设置 next_step=true 执行下一步")
+        current_task = next(
+            (t.content for t in todos if t.status == "in_progress"),
+            None,
+        )
+
+        return format_success({
+            "total": total,
+            "pending": pending,
+            "in_progress": in_progress_count,
+            "completed": completed,
+            "current_task": current_task,
+            "todos": [t.model_dump() for t in todos],
+        })
