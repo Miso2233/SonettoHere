@@ -1,4 +1,13 @@
 news:
+  - id: "skill-to-tool-rename"
+    en_title: "Skill → Tool Rename & Task Tracker"
+    title: "工具系统重命名与会话任务跟踪"
+    description: "工具系统从 skill 全面重命名为 tool，统一命名规范。新增会话级任务追踪顶栏进度条，每会话独立展示任务进度，切换会话时自动同步。"
+    type: "refactor"
+    date: "2026-06-14"
+    tags: ["重构", "工具系统", "任务追踪", "UI"]
+    version: "PREVIEW"
+    pr_number: 104
   - id: "const-session"
     title: "固定会话功能上线"
     description: "新增会话固定功能。右键会话即可将重要对话持久化保存为固定会话，重启后自动恢复。内置 AI 标题生成，一键为对话生成凝练标题。固定会话在侧边栏独立分区展示，与临时会话清晰区分。"
