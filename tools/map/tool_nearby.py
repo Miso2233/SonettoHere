@@ -21,7 +21,7 @@ class NearbySearchTool(ToolBase):
     name: str = "nearby_search"
     description: str = (
         "在指定坐标附近搜索兴趣点（POI）。支持关键字/类型筛选和半径设置。"
-        "★ 首次使用或不确定参数时先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = NearbySearchInput
 

@@ -44,7 +44,7 @@ class FileEditTool(ToolBase):
     description: str = (
         "文件精确编辑：读取文件、精确字符串替换、多笔编辑、文本搜索。"
         "基于 Claude Code Edit 工具模式，支持 old_string 精确匹配替换。"
-        "★ 首次使用先 get_doc=true 阅读完整说明。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = FileEditInput
 

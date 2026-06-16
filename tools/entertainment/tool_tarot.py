@@ -79,7 +79,7 @@ class TarotTool(ToolBase):
     name: str = "tarot"
     description: str = (
         "韦特塔罗牌占卜（RWS）。支持单牌/三牌/凯尔特十字三种牌阵。仅供娱乐参考。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = TarotInput
 

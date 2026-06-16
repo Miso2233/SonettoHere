@@ -20,7 +20,7 @@ class TransitRouteTool(ToolBase):
     name: str = "get_transit_route"
     description: str = (
         "查询公交/地铁公共交通路线规划。返回多方案，含费用、耗时、步行距离、换乘详情。"
-        "★ 首次使用或不确定参数时先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = TransitRouteInput
 

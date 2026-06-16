@@ -20,7 +20,7 @@ class CreateMemoryTool(ToolBase):
     name: str = "create_memory"
     description: str = (
         "添加一条新的长期记忆条目到指定分区。返回该条目的唯一 ID。"
-        "★ 首次使用先 get_doc=true 阅读完整说明。"
+        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = CreateMemoryInput
 

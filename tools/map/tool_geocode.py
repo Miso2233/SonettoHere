@@ -15,7 +15,7 @@ class GeocodeTool(ToolBase):
     description: str = (
         "将详细地址转换为经纬度坐标（GCJ-02 火星坐标系）。"
         "返回坐标可直接用于 nearby_search / get_transit_route / get_cycling_route。"
-        "★ 首次使用或不确定参数时先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = GeocodeInput
 

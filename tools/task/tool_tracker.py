@@ -23,7 +23,7 @@ class TaskTrackerTool(ToolBase):
     name: str = "task_tracker"
     description: str = (
         "无状态任务清单追踪。每次传入完整的 todos 列表，工具返回统计摘要。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 使用前必须 get_doc]"
     )
     args_schema: type[BaseModel] = TaskTrackerInput
 

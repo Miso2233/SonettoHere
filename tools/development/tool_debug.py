@@ -17,7 +17,7 @@ class DebuggerTool(ToolBase):
     name: str = "debugger"
     description: str = (
         "在隔离环境中执行 Python 代码并检查变量值、捕获异常和堆栈跟踪。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = DebuggerInput
 

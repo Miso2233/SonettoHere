@@ -13,7 +13,7 @@ class TodoDeleteInput(BaseModel):
 
 class TodoDeleteTool(ToolBase):
     name: str = "todo_delete"
-    description: str = "从 Todoist 删除指定任务。需要提供 task_id。"
+    description: str = "从 Todoist 删除指定任务。需要提供 task_id。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     args_schema: type[BaseModel] = TodoDeleteInput
 
     _helper: TodoAPIHelper | None = None

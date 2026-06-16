@@ -29,7 +29,7 @@ class BilibiliDownloadTool(ToolBase):
         "下载 B 站 (Bilibili) 视频。支持 /video/BV* 和 /video/av* 格式。"
         "需要先用 bilibili_set_cookie 设置有效的 Cookie（约 30 天过期）。"
         "画质默认选最高可用，未登录时自动降级到 360P。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 使用前必须 get_doc]"
     )
     args_schema: type[BaseModel] = BilibiliDownloadInput
 

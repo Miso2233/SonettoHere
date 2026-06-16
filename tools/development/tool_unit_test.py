@@ -19,7 +19,7 @@ class UnitTestTool(ToolBase):
     name: str = "unit_test_runner"
     description: str = (
         "执行 Python 单元测试文件，返回通过/失败/错误统计和详细报告。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = UnitTestInput
 

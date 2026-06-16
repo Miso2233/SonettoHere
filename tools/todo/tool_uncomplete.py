@@ -13,7 +13,7 @@ class TodoUncompleteInput(BaseModel):
 
 class TodoUncompleteTool(ToolBase):
     name: str = "todo_uncomplete"
-    description: str = "将 Todoist 中已完成的任务重新打开。需要提供 task_id。"
+    description: str = "将 Todoist 中已完成的任务重新打开。需要提供 task_id。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     args_schema: type[BaseModel] = TodoUncompleteInput
 
     _helper: TodoAPIHelper | None = None

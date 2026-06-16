@@ -28,7 +28,7 @@ class TodoUpdateTool(ToolBase):
     name: str = "todo_update"
     description: str = (
         "更新 Todoist 中现有任务的内容、截止日期、优先级或所属项目。"
-        "★ 首次使用或不确定参数规则时，先调用 get_doc=true 阅读完整说明。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = TodoUpdateInput
 

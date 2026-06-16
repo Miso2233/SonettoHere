@@ -24,7 +24,7 @@ class MergeMemoriesTool(ToolBase):
     description: str = (
         "将两条相似记忆合并为一条，id1 保留、id2 被删除，同时保留两者的修改历史。"
         "当两条记忆描述同一事物（如分散的身份信息、同一首歌在不同分区的重复条目）时使用，避免碎片化。"
-        "★ 首次使用先 get_doc=true 阅读完整说明。"
+        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = MergeMemoriesInput
 

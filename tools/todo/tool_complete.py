@@ -13,7 +13,7 @@ class TodoCompleteInput(BaseModel):
 
 class TodoCompleteTool(ToolBase):
     name: str = "todo_complete"
-    description: str = "将 Todoist 中指定任务标记为已完成。需要提供 task_id。"
+    description: str = "将 Todoist 中指定任务标记为已完成。需要提供 task_id。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     args_schema: type[BaseModel] = TodoCompleteInput
 
     _helper: TodoAPIHelper | None = None

@@ -30,7 +30,7 @@ class CallSubAgentTool(ToolBase):
         "创建一个子 Agent 会话执行单轮任务并将结果返回。"
         "用于需要独立的推理和工具调用的子任务，例如分析代码文件、执行多步骤搜索等。"
         "子 Agent 拥有独立的上下文窗口，不会污染主对话。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 使用前必须 get_doc]"
     )
     args_schema: type[BaseModel] = CallSubAgentInput
 

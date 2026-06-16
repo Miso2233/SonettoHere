@@ -13,7 +13,7 @@ class TimeInput(BaseModel):
 
 class TimeTool(ToolBase):
     name: str = "time_tool"
-    description: str = "获取当前日期和时间。直接调用即可，无需先读文档。"
+    description: str = "获取当前日期和时间。直接调用即可，无需先读文档。[调用积极性: 不推荐调用] [get_doc: 无 get_doc 选项]"
     args_schema: type[BaseModel] = TimeInput
 
     def _run(self) -> str:

@@ -25,7 +25,7 @@ class DocReaderTool(ToolBase):
     name: str = "doc_reader"
     description: str = (
         "读取 Word 文档（.docx）：元数据、文本提取、段落、表格、关键词搜索。"
-        "仅支持 .docx，不支持旧 .doc 格式。★ 首次使用先 get_doc=true。"
+        "仅支持 .docx，不支持旧 .doc 格式。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = DocReaderInput
 

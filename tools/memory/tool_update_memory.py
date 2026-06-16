@@ -21,7 +21,7 @@ class UpdateMemoryTool(ToolBase):
     name: str = "update_memory"
     description: str = (
         "根据 ID 更新一条已有长期记忆的内容。"
-        "★ 首次使用先 get_doc=true 阅读完整说明。"
+        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = UpdateMemoryInput
 

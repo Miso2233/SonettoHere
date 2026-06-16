@@ -12,7 +12,7 @@ class TodoListProjectsInput(BaseModel):
 
 class TodoListProjectsTool(ToolBase):
     name: str = "todo_list_projects"
-    description: str = "列出 Todoist 中所有项目及其 ID。添加任务前建议先调用以确认项目名。"
+    description: str = "列出 Todoist 中所有项目及其 ID。添加任务前建议先调用以确认项目名。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     args_schema: type[BaseModel] = TodoListProjectsInput
 
     _helper: TodoAPIHelper | None = None

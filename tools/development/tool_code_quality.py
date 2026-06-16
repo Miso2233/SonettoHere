@@ -18,7 +18,7 @@ class CodeQualityTool(ToolBase):
     name: str = "code_quality_analyzer"
     description: str = (
         "分析 Python 代码质量：复杂度（函数/行数）、可维护性（注释率/命名规范）、重复代码检测。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = CodeQualityInput
 

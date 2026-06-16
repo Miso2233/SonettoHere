@@ -21,7 +21,7 @@ class WeatherTool(ToolBase):
     name: str = "get_current_weather"
     description: str = (
         "获取指定城市的天气信息。支持实时天气、多天预报、逐小时预报、分钟级降水、生活指数。"
-        "city 和 adcode 二选一即可。★ 首次使用先 get_doc=true。"
+        "city 和 adcode 二选一即可。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = WeatherInput
 

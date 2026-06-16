@@ -5,7 +5,7 @@ import asyncio
 from pydantic import BaseModel, Field
 
 from api import interaction
-from tools.base import ToolBase, format_success, format_error
+from tools.base import ToolBase, format_error, format_success
 
 
 class AskUserSingleChoiceInput(BaseModel):
@@ -18,7 +18,7 @@ class AskUserSingleChoiceTool(ToolBase):
     name: str = "ask_user_single_choice"
     description: str = (
         "向用户提供多个选项，用户从中选择一项。用于需要用户做选择的场景。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = AskUserSingleChoiceInput
 

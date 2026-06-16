@@ -30,7 +30,7 @@ class FileOperationsTool(ToolBase):
     name: str = "file_operations"
     description: str = (
         "文件系统操作：读取/写入/删除/重命名文件、创建/列出目录、搜索文件。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = FileOpsInput
 

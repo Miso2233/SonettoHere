@@ -51,7 +51,7 @@ class ListMemoriesTool(ToolBase):
     description: str = (
         "查看所有长期记忆条目的概览列表（每条描述已截断以节省上下文）。"
         "如需读取某条记忆的完整内容，再调用 read_memories 传入其 ID。"
-        "★ 首次使用先 get_doc=true 阅读完整说明。"
+        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = ListMemoriesInput
 

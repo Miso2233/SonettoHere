@@ -20,7 +20,7 @@ class BilibiliSetCookieTool(ToolBase):
         "设置/更新 B 站 Cookie 用于视频下载。"
         "Cookie 可从浏览器开发者工具 > Application > Cookies 中复制完整字符串。"
         "Cookie 约 30 天过期，过期后需重新设置。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 使用前必须 get_doc]"
     )
     args_schema: type[BaseModel] = SetCookieInput
 

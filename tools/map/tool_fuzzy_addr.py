@@ -20,7 +20,7 @@ class FuzzyAddressTool(ToolBase):
     name: str = "fuzzy_address_search"
     description: str = (
         "通过关键字模糊搜索地点/POI。返回名称、地址、坐标等信息。"
-        "建议指定 city 提高准确率。★ 首次使用或不确定参数时先 get_doc=true。"
+        "建议指定 city 提高准确率。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = FuzzyAddressInput
 

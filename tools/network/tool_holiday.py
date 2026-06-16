@@ -23,7 +23,7 @@ class HolidayCalendarTool(ToolBase):
     name: str = "holiday_calendar"
     description: str = (
         "查询指定日期/月份/年份的万年历与节假日信息。"
-        "支持农历、节气、法定节假日。★ 首次使用先 get_doc=true。"
+        "支持农历、节气、法定节假日。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = HolidayCalendarInput
 

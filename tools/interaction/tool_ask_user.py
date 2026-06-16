@@ -14,7 +14,7 @@ class AskUserTool(ToolBase):
     name: str = "ask_user_for_info"
     description: str = (
         "向用户询问信息并等待回复。用于需要确认或补充信息的场景。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = AskUserInput
 

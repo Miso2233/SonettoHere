@@ -48,6 +48,7 @@ class TavilySearchTool(ToolBase):
         "支持多级搜索深度（ultra-fast/fast/basic/advanced）、时间范围筛选、"
         "域名白名单/黑名单、AI 摘要回答、全文内容提取。"
         "Agent 应先用此工具搜索发现相关链接，再用 tavily_extract 深入阅读内容。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 无 get_doc 选项]"
     )
     args_schema: type[BaseModel] = TavilySearchInput
 

@@ -15,7 +15,7 @@ class TodoListInput(BaseModel):
 
 class TodoListTool(ToolBase):
     name: str = "todo_list"
-    description: str = "列出 Todoist 中所有未完成任务，按 ID 排序。直接调用即可。"
+    description: str = "列出 Todoist 中所有未完成任务，按 ID 排序。直接调用即可。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     args_schema: type[BaseModel] = TodoListInput
 
     _helper: TodoAPIHelper | None = None

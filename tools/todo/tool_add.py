@@ -34,7 +34,7 @@ class TodoAddTool(ToolBase):
     name: str = "todo_add"
     description: str = (
         "向 Todoist 添加新任务。"
-        "★ 首次使用或不确定参数规则时，先调用 get_doc=true 阅读完整说明。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = TodoAddInput
 

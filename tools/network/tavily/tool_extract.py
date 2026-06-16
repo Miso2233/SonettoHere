@@ -39,6 +39,7 @@ class TavilyExtractTool(ToolBase):
         "支持一次最多 20 个 URL，支持定向提取（query 参数筛选相关片段）。"
         "JS 渲染页面请使用 advanced 深度。"
         "Agent 应先用 tavily_search 发现相关链接，再用此工具深入阅读内容。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 无 get_doc 选项]"
     )
     args_schema: type[BaseModel] = TavilyExtractInput
 

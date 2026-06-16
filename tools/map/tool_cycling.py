@@ -18,7 +18,7 @@ class CyclingRouteTool(ToolBase):
     name: str = "get_cycling_route"
     description: str = (
         "查询骑行路线规划。返回距离、耗时、逐段导航指令和道路名称。"
-        "★ 首次使用或不确定参数时先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = CyclingRouteInput
 

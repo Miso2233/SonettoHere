@@ -13,7 +13,7 @@ class TodoQueryInput(BaseModel):
 
 class TodoQueryTool(ToolBase):
     name: str = "todo_query"
-    description: str = "根据 task_id 查询 Todoist 中单个任务的详细信息。查不到时用 todo_list 列出全部任务。"
+    description: str = "根据 task_id 查询 Todoist 中单个任务的详细信息。查不到时用 todo_list 列出全部任务。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     args_schema: type[BaseModel] = TodoQueryInput
 
     _helper: TodoAPIHelper | None = None

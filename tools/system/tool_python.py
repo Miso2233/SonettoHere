@@ -38,7 +38,7 @@ class RunPythonTool(ToolBase):
     name: str = "run_python"
     description: str = (
         "在隔离环境中执行 Python 代码，返回 stdout 输出。"
-        "用于计算、数据处理、文本转换。★ 首次使用先 get_doc=true 了解安全限制。"
+        "用于计算、数据处理、文本转换。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = RunPythonInput
 

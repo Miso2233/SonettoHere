@@ -4,7 +4,6 @@ import ast
 import os
 import subprocess
 import tempfile
-from pathlib import Path
 
 from pydantic import BaseModel, Field
 
@@ -22,7 +21,7 @@ class SyntaxCheckerTool(ToolBase):
     name: str = "syntax_checker"
     description: str = (
         "检查代码语法错误。支持 Python（ast.parse）和 JavaScript/TypeScript（node --check）。"
-        "★ 首次使用先 get_doc=true。"
+        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = SyntaxCheckerInput
 
