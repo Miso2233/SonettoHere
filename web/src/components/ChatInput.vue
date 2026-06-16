@@ -60,15 +60,12 @@
         <div class="input-right-group">
           <div class="dropdown">
             <button class="dropdown-trigger" :class="{ empty: providers.length === 0 }" @click.stop="toggleDropdown('provider')">
-              {{ providers.length === 0 ? '未配置模型' : (selectedProviderId ? (providers.find(p => p.id === selectedProviderId)?.label || selectedProviderId) : '默认模型') }}
+              {{ providers.length === 0 ? '未配置模型' : (providers.find(p => p.id === selectedProviderId)?.label || '选择提供商') }}
               <span class="dropdown-arrow">▾</span>
             </button>
             <div v-if="openDropdown === 'provider'" class="dropdown-menu">
               <button v-if="providers.length === 0" class="dropdown-option disabled">暂无可用的提供商，请先在模型设置中添加</button>
-              <template v-else>
-                <button class="dropdown-option" :class="{ selected: !selectedProviderId }" @click="selectProvider('')">默认模型</button>
-                <button v-for="p in providers" :key="p.id" class="dropdown-option" :class="{ selected: selectedProviderId === p.id }" @click="selectProvider(p.id)">{{ p.label }}</button>
-              </template>
+              <button v-for="p in providers" :key="p.id" class="dropdown-option" :class="{ selected: selectedProviderId === p.id }" @click="selectProvider(p.id)">{{ p.label }}</button>
             </div>
           </div>
           <div v-if="currentModels.length" class="dropdown">
@@ -471,6 +468,10 @@ async function loadProviders() {
   try {
     const res = await api.listProviders()
     providers.value = res.providers.filter(p => p.enabled)
+    // 默认选中第一个已启用的提供商
+    if (providers.value.length > 0 && !selectedProviderId.value) {
+      selectProvider(providers.value[0].id)
+    }
   } catch {
     // 静默失败
   }
