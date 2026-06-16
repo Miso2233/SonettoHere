@@ -28,7 +28,9 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-**最少只需填写** `DEEPSEEK_API_KEY` 即可开始对话。
+> **LLM 模型配置**：启动后通过 Web UI 的"模型"页面（`/providers`）添加 API 提供商。
+> 支持任何 OpenAI 兼容 API（DeepSeek、OpenRouter、Qwen 等）。
+> 所有提供商配置存储在 `providers.yaml` 中，可通过前端面板管理。
 
 ### 3. 启动
 

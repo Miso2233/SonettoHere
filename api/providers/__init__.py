@@ -18,6 +18,7 @@ class ProviderConfig:
     base_url: str
     models: list[str] = field(default_factory=list)
     enabled: bool = True
+    context_window: int = 256_000
 
     def to_dict(self) -> dict:
         return asdict(self)

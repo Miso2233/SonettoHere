@@ -37,6 +37,10 @@ async def _load_const_sessions(app: FastAPI):
     if not const_list:
         return
 
+    if app.state.llm is None:
+        print(f"[const] Skipping {len(const_list)} const session(s) — no LLM available")
+        return
+
     from langgraph.checkpoint.memory import MemorySaver
 
     loaded = 0
@@ -96,13 +100,21 @@ async def lifespan(app: FastAPI):
     app.state.provider_manager = provider_manager
     print(f"[provider] loaded {provider_manager.count} provider(s)")
 
-    # 2. 其他共享资源（LLM 从 ProviderManager 优先退化到 .env）
-    app.state.llm = get_llm(provider_manager)
+    # 2. 其他共享资源（LLM 统一从 ProviderManager 获取）
+    try:
+        app.state.llm = get_llm(provider_manager)
+    except RuntimeError as e:
+        print(f"[llm] {e}")
+        print("[llm] No LLM configured — chat will be read-only until a provider is added")
+        app.state.llm = None
     app.state.system_prompt = get_system_prompt()
     app.state.native_tools = get_tools()
     app.state.session_manager = SessionManager()
     app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
-    app.state.ltm.start_listening(app.state.llm)
+    if app.state.llm is not None:
+        app.state.ltm.start_listening(app.state.llm)
+    else:
+        print("[ltm] Skipped (no LLM available)")
 
     # 加载 MCP 工具（Word 文档编辑能力）
     app.state.mcp_tools = await init_mcp_tools()

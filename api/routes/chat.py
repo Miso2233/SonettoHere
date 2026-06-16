@@ -15,10 +15,18 @@ from api.callbacks.websocket_callback import WebSocketCallback
 from api.const_session_store import save_const_session, serialize_messages
 from api.context_usage import estimate_context_usage
 from api.session_manager import SessionState
-from config.settings import get_settings
 from tools.base import format_error
 
 router = APIRouter()
+
+
+def _get_provider_context(app_state) -> tuple[int, str]:
+    """从 ProviderManager 获取默认 context_window 和 model_name。"""
+    mgr = getattr(app_state, "provider_manager", None)
+    if mgr is not None and mgr.count > 0:
+        for provider in mgr.iter_enabled():
+            return provider.config.context_window, provider.default_model
+    return 256_000, ""
 
 
 def _get_final_answer(event) -> str:
@@ -35,7 +43,7 @@ def _get_final_answer(event) -> str:
     return final_answer
 
 
-async def _stream_turn(graph, inputs, config, ws, session, system_prompt, model_name: str | None = None) -> str:
+async def _stream_turn(graph, inputs, config, ws, session, system_prompt, model_name: str | None = None, max_tokens: int = 256_000) -> str:
     """流式执行 Agent 图，返回最终回答。"""
     final_answer = ""
     async for event in graph.astream_events(inputs, config=config, version="v2"):
@@ -43,7 +51,7 @@ async def _stream_turn(graph, inputs, config, ws, session, system_prompt, model_
             final_answer = _get_final_answer(event)
         # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
         if event.get("event") == "on_chain_end" and event.get("name") == "tools":
-            usage = await _calculate_context_usage(session, system_prompt, model_name=model_name)
+            usage = await _calculate_context_usage(session, system_prompt, max_tokens=max_tokens, model_name=model_name or "")
             await ws.send_json({"type": "context_usage", "payload": usage})
 
     # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
@@ -62,12 +70,17 @@ async def _stream_turn(graph, inputs, config, ws, session, system_prompt, model_
     return final_answer
 
 
-async def _calculate_context_usage(session, system_prompt, model_name: str | None = None) -> dict:
+async def _calculate_context_usage(
+    session,
+    system_prompt,
+    *,
+    max_tokens: int = 256_000,
+    model_name: str = "",
+) -> dict:
     """
     从 checkpointer 拉取消息列表，估算上下文用量。
     返回字典，包括现用量、最大用量、占比、模型名称。
     """
-    settings = get_settings()
     try:
         cpt = await session.checkpointer.aget_tuple(
             {"configurable": {"thread_id": session.session_id}}
@@ -83,8 +96,8 @@ async def _calculate_context_usage(session, system_prompt, model_name: str | Non
     return estimate_context_usage(
         messages=counting_messages,
         system_prompt=system_prompt,
-        max_tokens=settings.model_context_window,
-        model_name=model_name or settings.model_name,
+        max_tokens=max_tokens,
+        model_name=model_name,
     )
 
 
@@ -198,18 +211,30 @@ async def _run_agent_turn(
     session.auto_approve = auto_approve
     ws_callback = WebSocketCallback(ws) # WebUI 回调函数系统
 
+    # 获取默认上下文窗口大小
+    default_max_tokens, _ = _get_provider_context(app_state)
+
     # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
+    current_max_tokens = default_max_tokens
     if provider_id and model_name and hasattr(app_state, 'provider_manager'):
         try:
             provider = app_state.provider_manager.get(provider_id)
             llm = provider.create_llm(model_name, temperature=0.7, streaming=True)
             current_model_name = model_name
+            current_max_tokens = provider.config.context_window
         except KeyError:
             llm = app_state.llm
             current_model_name = None
     else:
         llm = app_state.llm
         current_model_name = None
+
+    if llm is None:
+        await ws.send_json({
+            "type": "error",
+            "payload": {"code": "NO_LLM", "message": "No LLM provider configured. Add one in Model Settings first."},
+        })
+        return
 
     system_prompt = build_system_prompt()
     agent_sonetto = build_agent(
@@ -231,10 +256,10 @@ async def _run_agent_turn(
     _run_error: str | None = None
     try:
         # turn 开始时推送当前上下文用量（含刚加入的 user message）
-        initial_turn_usage = await _calculate_context_usage(session, system_prompt, model_name=current_model_name)
+        initial_turn_usage = await _calculate_context_usage(session, system_prompt, max_tokens=current_max_tokens, model_name=current_model_name or "")
         await ws.send_json({"type": "context_usage", "payload": initial_turn_usage})
 
-        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt, model_name=current_model_name)
+        final_answer = await _stream_turn(agent_sonetto, inputs, config, ws, session, system_prompt, model_name=current_model_name, max_tokens=current_max_tokens)
         await ws.send_json({                                                # [向前端通信] 1. 向客户端推送最终答案
             "type": "answer",
             "payload": {"content": final_answer}
@@ -263,7 +288,7 @@ async def _run_agent_turn(
         })
     finally:
         session._active_task = None
-        context_usage = await _calculate_context_usage(session, system_prompt, model_name=current_model_name)
+        context_usage = await _calculate_context_usage(session, system_prompt, max_tokens=current_max_tokens, model_name=current_model_name or "")
         await ws.send_json({                                                # [向前端通信] 3. 推送 turn 结束 + 上下文用量
             "type": "done",
             "payload": {
@@ -340,7 +365,8 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     session = app_state.session_manager.get_or_create(session_id)
 
     # ── 推送初始上下文用量 ─────────────────────────────────
-    initial_usage = await _calculate_context_usage(session, app_state.system_prompt)
+    default_max_tokens, default_model = _get_provider_context(app_state)
+    initial_usage = await _calculate_context_usage(session, app_state.system_prompt, max_tokens=default_max_tokens, model_name=default_model)
     await ws.send_json({"type": "context_usage", "payload": initial_usage})
 
     # ── 断线重连时恢复 sub-agent ──────────────────────────

@@ -18,6 +18,7 @@ class ProviderCreateBody(BaseModel):
     base_url: str
     models: list[str] = []
     enabled: bool = True
+    context_window: int = 256_000
 
 
 class ProviderUpdateBody(BaseModel):
@@ -26,6 +27,7 @@ class ProviderUpdateBody(BaseModel):
     base_url: str | None = None
     models: list[str] | None = None
     enabled: bool | None = None
+    context_window: int | None = None
 
 
 class TestConnectionBody(BaseModel):
@@ -73,6 +75,7 @@ def create_provider(body: ProviderCreateBody, request: Request):
         base_url=body.base_url,
         models=body.models,
         enabled=body.enabled,
+        context_window=body.context_window,
     )
     mgr.save_config(config)
     return config.to_dict()

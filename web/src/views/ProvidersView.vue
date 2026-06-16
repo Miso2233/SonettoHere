@@ -41,6 +41,11 @@
             </div>
           </div>
 
+          <!-- 上下文窗口 -->
+          <div class="card-context-window">
+            上下文窗口: {{ (p.context_window ?? 256000).toLocaleString() }} tokens
+          </div>
+
           <!-- 测试结果 -->
           <Transition name="fade">
             <div v-if="testResult?.[p.id]" class="test-result" :class="testResult[p.id].status">
@@ -84,6 +89,11 @@
       <div class="form-section">
         <label class="form-label">Base URL</label>
         <input v-model="form.base_url" class="input mono" placeholder="https://api.deepseek.com" />
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">Context Window (tokens)</label>
+        <input v-model.number="form.context_window" class="input mono" type="number" placeholder="256000" />
       </div>
 
       <!-- 测试 & 拉取模型 -->
@@ -143,7 +153,7 @@ const providers = ref<ProviderConfig[]>([])
 const loading = ref(false)
 
 // ── 表单 ──
-const form = ref({ id: '', provider_type: 'deepseek', label: '', api_key: '', base_url: '' })
+const form = ref({ id: '', provider_type: 'deepseek', label: '', api_key: '', base_url: '', context_window: 256000 })
 const isEditing = computed(() => mode.value === 'edit')
 const editingId = ref('')
 
@@ -245,7 +255,7 @@ async function loadProviders() {
 
 function startAdd() {
   mode.value = 'add'
-  form.value = { id: '', provider_type: 'deepseek', label: '', api_key: '', base_url: presetBaseUrl('deepseek') }
+  form.value = { id: '', provider_type: 'deepseek', label: '', api_key: '', base_url: presetBaseUrl('deepseek'), context_window: 256000 }
   discoveredModels.value = []
   selectedModels.value = []
   formError.value = ''
@@ -261,6 +271,7 @@ function startEdit(p: ProviderConfig) {
     label: p.label,
     api_key: '',
     base_url: p.base_url,
+    context_window: p.context_window ?? 256000,
   }
   discoveredModels.value = [...p.models]
   selectedModels.value = [...p.models]
@@ -285,10 +296,11 @@ async function handleSave() {
       base_url: form.value.base_url,
       models: selectedModels.value,
       enabled: true,
+      context_window: form.value.context_window,
     }
     if (isEditing.value) {
       // PUT — only send changed fields
-      const updateBody: any = { label: body.label, base_url: body.base_url, models: body.models }
+      const updateBody: any = { label: body.label, base_url: body.base_url, models: body.models, context_window: body.context_window }
       if (form.value.api_key) updateBody.api_key = form.value.api_key
       await api.updateProvider(editingId.value, updateBody)
     } else {
@@ -496,6 +508,11 @@ onMounted(loadProviders)
 .model-tag.empty {
   color: #d1d5db;
   font-family: inherit;
+}
+
+.card-context-window {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 /* ── 测试结果 ── */

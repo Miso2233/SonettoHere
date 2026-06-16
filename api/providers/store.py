@@ -58,21 +58,26 @@ class ProviderConfigStore:
         return not self.path.exists() or not self.load_all()
 
     def migrate_from_env(self) -> ProviderConfig | None:
-        """首次启动时从 .env 读取 DeepSeek 配置写入 YAML。"""
-        from config.settings import get_settings
+        """首次启动时从 .env 读取 DeepSeek 配置写入 YAML（向后兼容）。"""
+        import os
 
-        settings = get_settings()
-        if not settings.deepseek_api_key:
+        api_key = os.getenv("DEEPSEEK_API_KEY", "")
+        if not api_key:
             return None
+
+        base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1")
+        model_name = os.getenv("MODEL_NAME", "deepseek-v4-flash")
+        context_window_str = os.getenv("MODEL_CONTEXT_WINDOW", "256000")
 
         config = ProviderConfig(
             id="deepseek-main",
             provider_type="openai",
             label="DeepSeek",
-            api_key=settings.deepseek_api_key,
-            base_url=settings.deepseek_base_url,
-            models=[settings.model_name],
+            api_key=api_key,
+            base_url=base_url,
+            models=[model_name],
             enabled=True,
+            context_window=int(context_window_str),
         )
         self.save(config)
         return config

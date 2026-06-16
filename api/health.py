@@ -5,11 +5,9 @@ import time
 from pathlib import Path
 from typing import Literal
 
-import httpx
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from config.settings import get_settings
 from memory.memory_manager import MemoryManager
 from memory.narrative import MEMORY_PATH
 
@@ -34,64 +32,35 @@ class HealthResponse(BaseModel):
     timestamp: float
 
 
-# ── LLM 健康缓存（30 秒 TTL，避免高频 API 调用）──────────────
-
-_llm_health_cache: tuple[float, ComponentHealth] | None = None
-_LLM_CACHE_TTL = 30.0
-
-
-_httpx_client: httpx.AsyncClient | None = None
-
-
-def _get_httpx_client() -> httpx.AsyncClient:
-    global _httpx_client
-    if _httpx_client is None:
-        _httpx_client = httpx.AsyncClient(timeout=5.0)
-    return _httpx_client
+# ── LLM 健康检查（通过 ProviderManager）──────────────
 
 
 async def check_llm(app: FastAPI) -> ComponentHealth:
-    global _llm_health_cache
-
-    now = time.monotonic()
-    if _llm_health_cache is not None and now - _llm_health_cache[0] < _LLM_CACHE_TTL:
-        return _llm_health_cache[1]
-
-    start = now
-    try:
-        settings = get_settings()
-        client = _get_httpx_client()
-        resp = await client.post(
-            f"{settings.deepseek_base_url}/chat/completions",
-            headers={"Authorization": f"Bearer {settings.deepseek_api_key}"},
-            json={
-                "model": settings.model_name,
-                "messages": [{"role": "user", "content": "ok"}],
-                "max_tokens": 1,
-            },
+    """使用 ProviderManager 中第一个 enabled provider 检查 LLM 连通性。"""
+    mgr = getattr(app.state, "provider_manager", None)
+    if mgr is None or mgr.count == 0:
+        return ComponentHealth(
+            status="error",
+            detail="No LLM providers configured. Add one via the providers panel.",
         )
-        elapsed = (time.monotonic() - start) * 1000
 
-        if resp.is_success:
-            result = ComponentHealth(status="ok", latency_ms=round(elapsed, 1))
-        else:
-            result = ComponentHealth(
-                status="error",
+    start = time.monotonic()
+    for provider in mgr.iter_enabled():
+        result = await provider.check_health()
+        if result.status == "ok":
+            elapsed = (time.monotonic() - start) * 1000
+            return ComponentHealth(
+                status="ok",
                 latency_ms=round(elapsed, 1),
-                detail=f"API {resp.status_code}: {resp.text[:200]}",
+                detail=f"Provider: {provider.provider_name}",
             )
-    except asyncio.TimeoutError:
-        elapsed = (time.monotonic() - start) * 1000
-        result = ComponentHealth(status="error", latency_ms=round(elapsed, 1), detail="请求超时（5s）")
-    except httpx.RequestError as e:
-        elapsed = (time.monotonic() - start) * 1000
-        result = ComponentHealth(status="error", latency_ms=round(elapsed, 1), detail=f"网络错误: {e}")
-    except Exception as e:
-        elapsed = (time.monotonic() - start) * 1000
-        result = ComponentHealth(status="error", latency_ms=round(elapsed, 1), detail=str(e))
 
-    _llm_health_cache = (time.monotonic(), result)
-    return result
+    elapsed = (time.monotonic() - start) * 1000
+    return ComponentHealth(
+        status="error",
+        latency_ms=round(elapsed, 1),
+        detail="All providers unreachable",
+    )
 
 
 async def check_memory(app: FastAPI) -> ComponentHealth:

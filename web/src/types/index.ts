@@ -289,6 +289,7 @@ export interface ProviderConfig {
   base_url: string
   models: string[]
   enabled: boolean
+  context_window?: number
 }
 
 export interface ListProvidersResponse {

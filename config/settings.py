@@ -1,4 +1,9 @@
-"""Pydantic BaseSettings，从 .env 文件加载配置。"""
+"""Pydantic BaseSettings，从 .env 文件加载配置。
+
+LLM 提供商配置（API key、base_url、model、context_window）
+已移至 providers.yaml，通过 Web UI /providers 管理。
+此文件仅保留工具类凭据和第三方服务 API key。
+"""
 
 from pydantic_settings import BaseSettings
 
@@ -6,12 +11,8 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """全局配置，所有 API Key 从环境变量/.env 加载。"""
 
-    # ZhiPu AI (GLM-5V-Turbo 图片理解)
+    # ZhiPu AI (GLM-5V-Turbo 图片理解工具)
     zhipuai_api_key: str = ""
-
-    # DeepSeek
-    deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com/v1"
 
     # Todoist
     todoist_api_token: str = ""
@@ -24,12 +25,6 @@ class Settings(BaseSettings):
 
     # Tavily（网络搜索/提取）
     tavily_api_key: str = ""
-
-    # 模型上下文窗口大小（DeepSeek V4 Flash = 1M tokens）
-    model_context_window: int = 256_000 # 避免上下文丢失现象
-
-    # 模型名称
-    model_name: str = "deepseek-v4-flash"
 
     model_config = {
         "env_file": ".env",

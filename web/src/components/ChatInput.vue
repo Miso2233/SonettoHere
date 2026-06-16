@@ -59,13 +59,16 @@
         </div>
         <div class="input-right-group">
           <div class="dropdown">
-            <button class="dropdown-trigger" @click.stop="toggleDropdown('provider')">
-              {{ selectedProviderId ? (providers.find(p => p.id === selectedProviderId)?.label || selectedProviderId) : '默认模型' }}
+            <button class="dropdown-trigger" :class="{ empty: providers.length === 0 }" @click.stop="toggleDropdown('provider')">
+              {{ providers.length === 0 ? '未配置模型' : (selectedProviderId ? (providers.find(p => p.id === selectedProviderId)?.label || selectedProviderId) : '默认模型') }}
               <span class="dropdown-arrow">▾</span>
             </button>
             <div v-if="openDropdown === 'provider'" class="dropdown-menu">
-              <button class="dropdown-option" :class="{ selected: !selectedProviderId }" @click="selectProvider('')">默认模型</button>
-              <button v-for="p in providers" :key="p.id" class="dropdown-option" :class="{ selected: selectedProviderId === p.id }" @click="selectProvider(p.id)">{{ p.label }}</button>
+              <button v-if="providers.length === 0" class="dropdown-option disabled">暂无可用的提供商，请先在模型设置中添加</button>
+              <template v-else>
+                <button class="dropdown-option" :class="{ selected: !selectedProviderId }" @click="selectProvider('')">默认模型</button>
+                <button v-for="p in providers" :key="p.id" class="dropdown-option" :class="{ selected: selectedProviderId === p.id }" @click="selectProvider(p.id)">{{ p.label }}</button>
+              </template>
             </div>
           </div>
           <div v-if="currentModels.length" class="dropdown">
@@ -81,7 +84,8 @@
             <button
               v-if="!isStreaming"
               class="btn-send"
-              :disabled="!text.trim() || disabled"
+              :disabled="!text.trim() || disabled || noProvider"
+              :title="noProvider ? '请先在模型设置中添加 LLM 提供商' : ''"
               @click="handleSend"
             >
               <Icon name="send" :size="16" />
@@ -436,6 +440,7 @@ const selectedProviderId = ref('')
 const selectedModelName = ref('')
 const currentModels = ref<string[]>([])
 const openDropdown = ref<'provider' | 'model' | null>(null)
+const noProvider = computed(() => providers.value.length === 0)
 
 function toggleDropdown(name: 'provider' | 'model') {
   openDropdown.value = openDropdown.value === name ? null : name
@@ -561,6 +566,18 @@ function autoResize() {
 .dropdown-trigger:hover {
   background: var(--bg-secondary);
   color: var(--text-primary);
+}
+.dropdown-trigger.empty {
+  color: var(--status-error);
+  opacity: 0.7;
+}
+.dropdown-option.disabled {
+  color: var(--text-secondary);
+  font-style: italic;
+  cursor: default;
+  font-size: 11px;
+  white-space: normal;
+  line-height: 1.4;
 }
 .dropdown-arrow {
   font-size: 9px;
