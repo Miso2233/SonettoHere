@@ -6,6 +6,13 @@
 
 ## Quick Start
 
+### 0. 克隆仓库
+
+```bash
+git clone https://github.com/Miso2233/SonettoHere.git
+cd SonettoHere
+```
+
 ### 1. 安装
 
 ```bash

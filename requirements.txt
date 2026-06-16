@@ -21,3 +21,4 @@ moviepy>=1.0.3
 zai-sdk
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0
+office-word-mcp-server>=1.1.0

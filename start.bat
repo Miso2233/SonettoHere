@@ -23,7 +23,7 @@ if not exist ".venv\Scripts\python.exe" (
 
 if not exist "web\node_modules" (
     echo [ERR] Frontend dependencies not found. Run:
-    echo        cd web ^&^& npm install
+    echo        cd web && npm install
     pause
     exit /b 1
 )
