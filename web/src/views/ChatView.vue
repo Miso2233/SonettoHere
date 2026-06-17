@@ -42,7 +42,7 @@
           @click="setAutoApprove(!autoApprove)"
         >
           <span class="auto-approve-indicator"></span>
-          {{ autoApprove ? 'ATE' : 'ABE' }}
+          {{ autoApprove ? '自动' : '检查' }}
         </button>
         <div class="hover-card card-auto-approve">
           <div class="card-row">
