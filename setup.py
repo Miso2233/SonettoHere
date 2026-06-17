@@ -149,6 +149,7 @@ def setup_provider():
     """引导用户添加 LLM 提供商，测试连接后保存至 providers.yaml。"""
     import json
     import re
+    import urllib.error
     import urllib.request
     from urllib.parse import urlparse
 
@@ -181,7 +182,12 @@ def setup_provider():
             with urllib.request.urlopen(req, timeout=15) as resp:
                 data = json.loads(resp.read().decode())
         except Exception as e:
-            print(f"  [✗] 连接失败: {e}")
+            hint = ""
+            if isinstance(e, urllib.error.HTTPError) and e.code == 401:
+                hint = "——可能是 API Key 错误"
+            elif isinstance(e, urllib.error.HTTPError) and e.code == 404:
+                hint = "——可能是 Base URL 错误"
+            print(f"  [✗] 连接失败: {e}{hint}")
             print()
             choice = input("  按 Enter 重试，或输入 q 跳过: ").strip().lower()
             if choice == "q":
