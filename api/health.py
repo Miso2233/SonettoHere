@@ -111,7 +111,7 @@ async def check_mcp_tools(app: FastAPI) -> ComponentHealth:
         tools = app.state.mcp_tools
         if not tools:
             elapsed = (time.monotonic() - start) * 1000
-            return ComponentHealth(status="error", latency_ms=round(elapsed, 1), detail="MCP 工具未加载")
+            return ComponentHealth(status="ok", latency_ms=round(elapsed, 1), detail="0 个工具（未配置 MCP 服务器）")
         elapsed = (time.monotonic() - start) * 1000
         return ComponentHealth(
             status="ok",
