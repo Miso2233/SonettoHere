@@ -27,6 +27,8 @@ cd SonettoHere
 python setup.py
 ```
 
+或双击 `setup.bat`（推荐 Windows 用户）。
+
 脚本会引导你完成全部 6 步：
 
 | 步骤 | 内容 | 操作 |
