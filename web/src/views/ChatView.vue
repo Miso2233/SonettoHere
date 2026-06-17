@@ -178,13 +178,13 @@ async function handleUndo() {
   justify-content: center;
   gap: 6px;
   min-width: 62px;
+  height: 26px;
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 1;
   cursor: pointer;
   transition: all 0.15s;
   user-select: none;
