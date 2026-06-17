@@ -4,53 +4,65 @@
 
 基于 LangChain + LangGraph 的 ReAct AI Agent，支持 **多 LLM 提供商**、**SubAgent**、**Anthropic Skill 体系**。
 
-## Quick Start
+## 快速开始
 
-### 0. 克隆仓库
+### 前置要求
+
+- **Python 3.10+**
+- **Node.js 18+** — [下载](https://nodejs.org/)
+- **API Key** — 推荐使用 DeepSeek（见下方说明）
+
+### 1. 克隆
 
 ```bash
 git clone https://github.com/Miso2233/SonettoHere.git
 cd SonettoHere
 ```
 
-### 1. 安装
+### 2. 一键初始化
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate       # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+python setup.py
 ```
 
-### 2. 配置
+脚本会引导你完成全部 6 步：
+
+| 步骤 | 内容 | 操作 |
+|------|------|------|
+| 1/6 | 检查 Node.js | 全自动 |
+| 2/6 | 创建虚拟环境，安装 Python 依赖 | 全自动 |
+| 3/6 | 安装前端 npm 包 | 全自动 |
+| 4/6 | 生成 `.env` 配置文件 | 全自动 |
+| **5/6** | **配置 LLM 提供商** | **手动输入** |
+| **6/6** | **输入你的称呼，配置 AI 个性** | **手动输入** |
+
+### 3. 配置 LLM 提供商
+
+第 5 步会引导你输入 **Base URL** 和 **API Key**，脚本会自动测试连接并获取可用模型列表。
+
+推荐使用 **DeepSeek**（性价比高，兼容 OpenAI API）：
+
+1. 前往 [platform.deepseek.com](https://platform.deepseek.com/) 注册并申请 API Key
+2. 在 setup.py 第 5 步中输入：
+
+```
+Base URL: https://api.deepseek.com/v1
+API Key: sk-你的密钥
+```
+
+> 也支持任何 OpenAI 兼容 API（OpenRouter、Qwen、智谱等），只需填入对应的 Base URL 和 Key。
+
+### 4. 启动
 
 ```bash
-# 首次启动会自动创建 .env，或手动复制：
-cp .env.example .env
+start.bat
 ```
 
-> **LLM 模型配置**：启动后通过 Web UI 的"模型"页面（`/providers`）添加 API 提供商。
-> 支持任何 OpenAI 兼容 API（DeepSeek、OpenRouter、Qwen 等）。
-> 所有提供商配置存储在 `providers.yaml` 中，可通过前端面板管理。
+或双击 `start.bat`，脚本会自动启动后端 + 前端并打开浏览器。
 
-### 3. 启动
+浏览器访问 `http://localhost:5173`，即可开始与 Sonetto 对话。
 
-**推荐（Windows）：** 双击 `start.bat` 一键启动后端 + 前端，自动打开浏览器。
-
-**手动启动：**
-
-```bash
-# 终端 1 — 后端
-python main.py
-
-# 终端 2 — 前端（开发模式）
-cd web && npm install && npm run dev
-```
-
-浏览器访问 `http://localhost:5173`。
-
-启动前建议编辑 `config/personas/` 下的文件以获得更贴合你的对话体验：
-- `USER.md` — 你的自述信息
-- `SOUL.md` — AI 性格设定
+> **提示**：编辑 `config/personas/USER.md` 和 `config/personas/SOUL.md` 可以让 AI 更了解你。
 
 ---
 
