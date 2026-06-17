@@ -26,19 +26,22 @@ def welcome(total: int):
     print()
     print(f"一共 {total} 步，分别是：")
     print()
-    print("  [1/4]  检查 Node.js 是否安装")
+    print("  [1/5]  检查 Node.js 是否安装")
     print("         确保你的电脑有 JavaScript 运行环境，这是Sonetto前端界面的基础")
     print()
-    print("  [2/4]  创建 Python 虚拟环境，安装后端依赖")
+    print("  [2/5]  创建 Python 虚拟环境，安装后端依赖")
     print("         会在当前目录创建 .venv 文件夹")
     print("         （内含 Python 解释器和所有需要的库）")
     print()
-    print("  [3/4]  安装前端依赖")
+    print("  [3/5]  安装前端依赖")
     print("         下载 Vue 页面所需的 npm 包")
     print("         会在 web/node_modules/ 存放数百个小文件")
     print()
-    print("  [4/4]  生成 .env 配置文件")
+    print("  [4/5]  生成 .env 配置文件")
     print("         从 .env.example 复制一份，用来保存一些工具需要的 API 密钥")
+    print()
+    print("  [5/5]  设定你的称呼，配置 AI 个性")
+    print("         告诉 Sonetto 如何称呼你，自动完成个性文件设置")
     print()
     print("对电脑的影响：")
     print("  • 不修改系统文件，不写注册表，不装全局工具")
@@ -139,6 +142,44 @@ def setup_env():
     return True
 
 
+def setup_persona():
+    """询问用户称呼，从模板创建个性文件并替换占位符。"""
+    PERSONAS = "config/personas"
+    TEMPLATES = {
+        "USER.md": "USER.example.md",
+        "SOUL.md": "SOUL.example.md",
+    }
+
+    print()
+    name = input("  你希望 Sonetto 怎么称呼你？（直接按 Enter 则默认为“朋友”）: ").strip()
+    if not name:
+        name = "朋友"
+    ok(f"好的，Sonetto 之后会称呼你为「{name}」")
+
+    for target, src in TEMPLATES.items():
+        target_path = os.path.join(PROJECT_ROOT, PERSONAS, target)
+        src_path = os.path.join(PROJECT_ROOT, PERSONAS, src)
+
+        if not os.path.exists(src_path):
+            print(f"  [!] 模板文件 {src} 不存在，跳过")
+            continue
+
+        # 从模板复制/覆盖
+        with open(src_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 替换 {{USER_NAME}} 占位符
+        content = content.replace("{{USER_NAME}}", name)
+
+        with open(target_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        ok(f"{target} 已就绪")
+
+    print("  提示：以后可以随时编辑 config/personas/ 下的文件来调整设定")
+    return True
+
+
 def summary():
     env_path = os.path.join(PROJECT_ROOT, ".env")
     env_ok = os.path.exists(env_path)
@@ -151,6 +192,7 @@ def summary():
     print("  [✓] 前端依赖已安装")
     print(f"  [{'✓' if env_ok else '−'}] .env "
           f"{'已就绪' if env_ok else '— 请从 .env.example 创建'}")
+    print("  [✓] AI 个性文件已配置")
     print()
     print("  接下来：")
     print()
@@ -171,7 +213,7 @@ def summary():
 
 def main():
     header()
-    total = 4
+    total = 5
 
     welcome(total)
     try:
@@ -195,6 +237,9 @@ def main():
 
     step(4, total, "环境配置")
     setup_env()
+
+    step(5, total, "AI 个性配置")
+    setup_persona()
 
     summary()
 
