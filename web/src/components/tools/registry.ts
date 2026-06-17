@@ -22,7 +22,6 @@ import DebuggerBubble from './DebuggerBubble.vue'
 import TavilySearchBubble from './TavilySearchBubble.vue'
 import TavilyExtractBubble from './TavilyExtractBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
-import WordBubble from './WordBubble.vue'
 import MemoryBubble from './MemoryBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
@@ -79,8 +78,6 @@ const registry: Record<string, Component> = {
 
 export function getBubbleComponent(name: string): Component | null {
   if (registry[name]) return registry[name]
-  // word_* 系列工具统一路由到 WordBubble
-  if (name.startsWith('word_')) return WordBubble
   return null
 }
 
