@@ -171,12 +171,13 @@ async function handleUndo() {
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
 }
-.private-toggle {
+.private-toggle,
+.auto-approve-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-width: 64px;
+  min-width: 62px;
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -230,22 +231,6 @@ async function handleUndo() {
   visibility: visible;
   opacity: 1;
   transform: translateY(0);
-}
-.auto-approve-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 64px;
-  padding: 4px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-  user-select: none;
 }
 .auto-approve-toggle:hover {
   border-color: var(--text-secondary);
