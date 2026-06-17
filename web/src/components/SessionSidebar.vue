@@ -1,7 +1,7 @@
 <template>
   <div class="session-sidebar" :class="{ collapsed }">
     <div class="sidebar-section-header">
-      <span>会话列表</span>
+      <span>会话 Sessions</span>
       <button class="btn-new" @click="$emit('create')" title="新会话">+</button>
     </div>
     <div class="session-list">
@@ -189,10 +189,10 @@
 </template>
 
 <script setup lang="ts">
-import type { SessionInfo } from '@/types';
 import ContextMenu from '@/components/ContextMenu.vue';
 import Icon from '@/components/Icon.vue';
 import { generateSessionTitle } from '@/composables/useSession';
+import type { SessionInfo } from '@/types';
 import { computed, nextTick, ref, watch } from 'vue';
 
 const props = defineProps<{
