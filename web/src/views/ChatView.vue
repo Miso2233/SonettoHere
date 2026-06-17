@@ -184,6 +184,7 @@ async function handleUndo() {
   background: transparent;
   color: var(--text-secondary);
   font-size: 12px;
+  line-height: 1;
   cursor: pointer;
   transition: all 0.15s;
   user-select: none;
