@@ -23,7 +23,7 @@
           v-for="node in versionNodes"
           :key="node.version"
           class="tl-node"
-          :style="{ top: node.top + '%' }"
+          :style="{ top: node.top + 'px' }"
         >
           <div class="tl-dot"></div>
           <span class="tl-label">{{ node.version }}</span>
@@ -37,12 +37,13 @@
 import { api } from '@/api'
 import type { NewsEntry } from '@/types'
 import NewsCard from '@/components/NewsCard.vue'
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
 const news = ref<NewsEntry[]>([])
 const loading = ref(false)
 const cardGridRef = ref<HTMLElement | null>(null)
 const tlBounds = ref<{ top: string; height: string }>()
+const versionNodes = ref<{ version: string; top: number }[]>([])
 
 let observer: ResizeObserver | null = null
 
@@ -65,6 +66,23 @@ function updateTimelineBounds() {
     top: top + 'px',
     height: (bottom - top) + 'px',
   }
+
+  // 根据卡片实际 DOM 位置计算版本圆点的 top 值，而非按索引均分
+  const tlTop = bodyRect.top + top
+  const seen = new Set<string>()
+  const nodes: { version: string; top: number }[] = []
+  news.value.forEach((entry, idx) => {
+    if (seen.has(entry.version)) return
+    seen.add(entry.version)
+    const card = cards[idx]
+    if (!card) return
+    const cardRect = card.getBoundingClientRect()
+    nodes.push({
+      version: entry.version,
+      top: cardRect.top + cardRect.height / 2 - tlTop,
+    })
+  })
+  versionNodes.value = nodes
 }
 
 async function loadNews() {
@@ -90,25 +108,6 @@ onUnmounted(() => {
   observer?.disconnect()
 })
 
-const versionNodes = computed(() => {
-  const entries = news.value
-  if (entries.length === 0) return []
-
-  const seen = new Set<string>()
-  const nodes: { version: string; top: number }[] = []
-
-  entries.forEach((entry, idx) => {
-    if (!seen.has(entry.version)) {
-      seen.add(entry.version)
-      nodes.push({
-        version: entry.version,
-        top: entries.length > 1 ? (idx / (entries.length - 1)) * 100 : 50,
-      })
-    }
-  })
-
-  return nodes
-})
 </script>
 
 <style scoped>
