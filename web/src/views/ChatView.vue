@@ -174,7 +174,9 @@ async function handleUndo() {
 .private-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-width: 64px;
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -232,7 +234,9 @@ async function handleUndo() {
 .auto-approve-toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-width: 64px;
   padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
