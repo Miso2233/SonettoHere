@@ -12,12 +12,14 @@
 - **Node.js 18+** — [下载](https://nodejs.org/)
 - **API Key** — 推荐使用 DeepSeek（见下方说明）
 
-### 1. 克隆
+### 1. 获取代码
 
 ```bash
 git clone https://github.com/Miso2233/SonettoHere.git
 cd SonettoHere
 ```
+
+或直接下载 [ZIP 源码](https://github.com/Miso2233/SonettoHere/archive/refs/heads/main.zip) 并解压。
 
 ### 2. 一键初始化
 
