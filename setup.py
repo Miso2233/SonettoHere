@@ -247,13 +247,6 @@ def setup_provider():
         f.write(content)
 
     ok(f"提供商「{label}」已保存至 providers.yaml")
-
-    # 询问是否再添加一个
-    print()
-    another = input("  是否再添加一个提供商？（y/N）: ").strip().lower()
-    if another == "y":
-        return setup_provider()
-
     return True
 
 
