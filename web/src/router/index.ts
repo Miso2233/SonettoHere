@@ -32,6 +32,11 @@ const router = createRouter({
       name: 'path-whitelist',
       component: () => import('@/views/PathWhitelistView.vue'),
     },
+    {
+      path: '/sonetto-blocker',
+      name: 'sonetto-blocker',
+      component: () => import('@/views/SonettoBlockerView.vue'),
+    },
   ],
 })
 

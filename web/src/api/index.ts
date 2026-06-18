@@ -18,6 +18,8 @@ import type {
   ConstifyResponse,
   WhitelistEntry,
   ListWhitelistResponse,
+  BlockerEntry,
+  ListBlockerResponse,
 } from '@/types'
 
 const BASE = '/api'
@@ -174,4 +176,23 @@ export const api = {
 
   deleteWhitelistEntry: (index: number) =>
     request<{ status: string }>(`/path-whitelist/${index}`, { method: 'DELETE' }),
+
+  // ── 文件选择器 ──
+
+  selectFolder: () =>
+    request<{ path: string | null }>('/select-file?type=folder'),
+
+  // ── SonettoBlocker 拒止锚 ──
+
+  listBlockers: () =>
+    request<ListBlockerResponse>('/sonetto-blocker'),
+
+  addBlocker: (entry: { path: string; description: string }) =>
+    request<BlockerEntry>('/sonetto-blocker', {
+      method: 'POST',
+      body: JSON.stringify(entry),
+    }),
+
+  deleteBlocker: (index: number) =>
+    request<{ status: string }>(`/sonetto-blocker/${index}`, { method: 'DELETE' }),
 }
