@@ -31,11 +31,15 @@
       <div class="form-card">
         <div class="form-section">
           <label class="form-label">路径</label>
-          <input
-            v-model="formPath"
-            class="input mono"
-            placeholder="C:\path\to\directory"
-          />
+          <div class="path-row">
+            <input
+              v-model="formPath"
+              class="input mono"
+              placeholder="C:\path\to\directory"
+              readonly
+            />
+            <button class="btn" @click="pickDir">选择目录</button>
+          </div>
         </div>
         <div class="form-section">
           <label class="form-label">描述（可选）</label>
@@ -80,6 +84,18 @@ async function loadEntries() {
     console.error('加载白名单失败', e)
   } finally {
     loading.value = false
+  }
+}
+
+async function pickDir() {
+  try {
+    const res = await api.selectFolder()
+    if (res.path) {
+      formPath.value = res.path
+      formError.value = ''
+    }
+  } catch {
+    formError.value = '选择目录失败'
   }
 }
 
@@ -216,6 +232,13 @@ onMounted(loadEntries)
   font-weight: 600;
   color: var(--text-primary);
 }
+.path-row {
+  display: flex;
+  gap: 8px;
+}
+.path-row .input {
+  flex: 1;
+}
 .input {
   padding: 8px 12px;
   border: 1px solid var(--border);
@@ -256,6 +279,7 @@ onMounted(loadEntries)
   color: var(--text-primary);
   cursor: pointer;
   font-size: 13px;
+  white-space: nowrap;
   transition: opacity 0.15s;
 }
 .btn:hover { opacity: 0.8; }
