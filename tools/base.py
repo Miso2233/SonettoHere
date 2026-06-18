@@ -140,16 +140,24 @@ _WHITELIST_PATH = (
 
 # 项目根目录：由 base.py 所在位置 (tools/base.py) 向上推一级
 _PROJECT_ROOT = os.path.normpath(os.path.abspath(Path(__file__).resolve().parent.parent))
+# 默认白名单路径：仅暴露 anthropic_skills 目录
+_DEFAULT_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "anthropic_skills")
+
+# ── 路径白名单 ──────────────────────────────────────────────
+
+_WHITELIST_PATH = (
+    Path(__file__).resolve().parent.parent / "api" / "data" / "path_whitelist.yaml"
+)
 
 
 def _ensure_whitelist() -> None:
-    """确保白名单文件存在且包含当前项目根目录。
+    """确保白名单文件存在且包含当前工程的 anthropic_skills 目录。
 
     在模块导入时（即应用启动时）调用一次：
-    - 文件不存在 → 自动创建，写入当前项目根目录
-    - 项目被移动（文件里没有当前项目根目录） → 更新文件，
-      保留用户添加的额外条目，仅替换/添加项目根目录条目
-    - 文件已存在且项目根目录匹配 → 不做任何操作
+    - 文件不存在 → 自动创建，写入 anthropic_skills 路径
+    - 工程被移动（自动条目路径不匹配当前路径） → 更新文件，
+      保留用户添加的额外条目，仅替换/添加自动生成条目
+    - 文件已存在且自动条目匹配 → 不做任何操作
     """
     if not _WHITELIST_PATH.parent.exists():
         _WHITELIST_PATH.parent.mkdir(parents=True)
@@ -158,7 +166,7 @@ def _ensure_whitelist() -> None:
         _write_whitelist([_default_entry()])
         return
 
-    # 文件已存在，检查项目根目录是否已在白名单中
+    # 文件已存在，检查默认路径是否已在白名单中
     try:
         with open(_WHITELIST_PATH, encoding="utf-8") as f:
             raw = yaml.safe_load(f) or {}
@@ -167,7 +175,7 @@ def _ensure_whitelist() -> None:
             _write_whitelist([_default_entry()])
             return
 
-        current_root_norm = _PROJECT_ROOT
+        current_default = _DEFAULT_WHITELIST_PATH
         has_current = False
         auto_entry_idx = -1
 
@@ -175,18 +183,18 @@ def _ensure_whitelist() -> None:
             if not isinstance(entry, dict) or "path" not in entry:
                 continue
             entry_path = os.path.normpath(os.path.abspath(entry["path"]))
-            if entry_path == current_root_norm:
+            if entry_path == current_default:
                 has_current = True
                 break
-            if entry.get("description") == "项目根目录（自动生成）":
+            if entry.get("description") == "技能目录（自动生成）":
                 auto_entry_idx = i
 
         if has_current:
             return  # 没有变化
 
-        # 项目移动了：更新旧的自动条目，或在开头插入新条目
+        # 工程移动了：更新旧的自动条目，或在开头插入新条目
         if auto_entry_idx >= 0:
-            entries[auto_entry_idx]["path"] = str(_PROJECT_ROOT)
+            entries[auto_entry_idx]["path"] = str(_DEFAULT_WHITELIST_PATH)
         else:
             entries.insert(0, _default_entry())
 
@@ -200,8 +208,8 @@ def _ensure_whitelist() -> None:
 
 def _default_entry() -> dict:
     return {
-        "path": str(_PROJECT_ROOT),
-        "description": "项目根目录（自动生成）",
+        "path": str(_DEFAULT_WHITELIST_PATH),
+        "description": "技能目录（自动生成）",
     }
 
 

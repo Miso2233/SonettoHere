@@ -49,8 +49,8 @@ SonettoHere 的 Python 执行工具（`run_python`、`debugger`）通过 `exec()
 │   │   - 文件已就绪 → 不做操作                      │   │
 │   └────────────────────────────────────────────────┘   │
 │   whitelist:                                           │
-│     - path: "{project_root}"                           │
-│       description: 项目根目录（自动生成）               │
+│     - path: "{project_root}/anthropic_skills"           │
+│       description: 技能目录（自动生成）                 │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -66,8 +66,8 @@ SonettoHere 的 Python 执行工具（`run_python`、`debugger`）通过 `exec()
 # 路径白名单（自动生成，首次 import 时创建）
 # 编辑此文件以添加更多允许的路径前缀。
 whitelist:
-- description: 项目根目录（自动生成）
-  path: C:\Users\xxx\PycharmProjects\SonettoHere
+- description: 技能目录（自动生成）
+  path: C:\Users\xxx\PycharmProjects\SonettoHere\anthropic_skills
 ```
 
 - 每个条目包含 `path`（允许的路径前缀，支持正斜杠/反斜杠）和可选的 `description`
@@ -80,9 +80,11 @@ whitelist:
 
 | 场景 | 行为 |
 |------|------|
-| 文件不存在（首次启动 / git clone 后） | 自动创建，写入当前工程根目录 |
-| 工程被移动（文件有旧路径） | 替换项目根目录条目，用户添加的额外条目保留 |
-| 文件已存在且工程目录匹配 | 不做任何操作 |
+| 文件不存在（首次启动 / git clone 后） | 自动创建，写入 `_PROJECT_ROOT/anthropic_skills` |
+| 工程被移动（自动条目路径不匹配） | 替换自动条目路径，用户添加的额外条目保留 |
+| 文件已存在且自动条目匹配 | 不做任何操作 |
+
+> **为什么是 `anthropic_skills`？** 该目录存放用户自定义的技能文件，是工具执行时最常需要读写的位置。项目根目录下其余代码库（`tools/`、`api/` 等）不被默认暴露，遵循最小权限原则。
 
 ### 2. 核心函数
 
@@ -201,13 +203,14 @@ whitelist:
     description: 网络共享目录
 ```
 
-> 项目根目录由启动时自动生成，无需手动添加。用户只需添加额外需要访问的目录。
+> 自动生成的技能目录无需手动添加。用户只需添加额外需要访问的目录。
 > 路径格式支持 Windows (`D:/xxx`) 和 POSIX (`/tmp`) 风格，`os.path.abspath()` 会做平台相关解析。
 
 ### 安全建议
 
-- 只添加必要的目录，遵循最小权限原则
-- 对于临时文件读写，优先指向项目目录内的临时目录
+- 遵循最小权限原则——只添加必要的目录
+- 默认仅开放 `anthropic_skills`，不要随意放回整个项目根目录
+- 对于临时文件读写，应在项目目录内创建专门的子目录并单独添加
 - 生产环境不应包含 `/tmp` 等全局可写目录
 
 ## 测试
