@@ -94,6 +94,23 @@ class WebSocketCallback(BaseCallbackHandler):
 
         out_str = _extract_content(output)
 
+        # ── 检测 format_error 响应 → 路由到 tool_error ────────────
+        try:
+            parsed = json.loads(out_str)
+            if isinstance(parsed, dict) and parsed.get("success") is False:
+                error_msg = parsed.get("error", "操作执行失败")
+                await self._ws.send_json({
+                    "type": "tool_error",
+                    "payload": {
+                        "tool_name": tool_name,
+                        "error": error_msg,
+                    },
+                })
+                return
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # ──────────────────────────────────────────────────────────
+
         # 提取工具专属结构化数据
         tool_data = self._extract_tool_data(tool_name, output, tool_input)
 

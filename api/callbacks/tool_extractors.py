@@ -52,7 +52,9 @@ def _dispatch(tool_name: str, parsed: dict[str, Any],
 # ── Helper ─────────────────────────────────────────────────────────────
 
 def _get_data(parsed: dict[str, Any]) -> dict[str, Any] | None:
-    """提取 parsed['data'] 并校验为 dict。"""
+    """提取 parsed['data'] 并校验为 dict。success=false 时视为错误返回 None。"""
+    if parsed.get("success") is False:
+        return None
     data = parsed.get("data", {})
     return data if isinstance(data, dict) else None
 
