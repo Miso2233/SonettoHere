@@ -5,10 +5,12 @@
       <span>{{ runningLabel }}</span>
     </div>
 
-    <!-- 错误 -->
-    <div v-else-if="toolCall.status === 'error'" class="bubble-error">
-      {{ toolCall.output || '读取失败' }}
-    </div>
+    <!-- 错误（含 SonettoBlocker 特殊渲染） -->
+    <SonettoBlockerError
+      v-else-if="toolCall.status === 'error'"
+      :output="toolCall.output"
+      fallback="读取失败"
+    />
 
     <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
@@ -115,6 +117,7 @@
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
+import SonettoBlockerError from './_shared/SonettoBlockerError.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
