@@ -7,7 +7,10 @@ import sys
 from pydantic import BaseModel, Field
 
 from api import interaction
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, get_safe_builtins
+
+# 模块级常量：安全 builtins 只构造一次
+_SAFE_BUILTINS = get_safe_builtins()
 
 
 def _exec_code(code: str) -> str:
@@ -15,7 +18,7 @@ def _exec_code(code: str) -> str:
     old_stdout = sys.stdout
     sys.stdout = io.StringIO()
     try:
-        exec(code, {"__builtins__": __builtins__})
+        exec(code, {"__builtins__": _SAFE_BUILTINS})
         return sys.stdout.getvalue() or "（代码执行完毕，无输出）"
     except Exception as e:
         raise RuntimeError(f"代码执行错误: {e}") from e

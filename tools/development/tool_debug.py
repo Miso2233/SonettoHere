@@ -4,7 +4,7 @@ import traceback
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, get_safe_builtins
 
 
 class DebuggerInput(BaseModel):
@@ -37,7 +37,7 @@ class DebuggerTool(ToolBase):
 
         env: dict = {}
         try:
-            exec(code, {"__builtins__": __builtins__}, env)
+            exec(code, {"__builtins__": get_safe_builtins()}, env)
             return format_success({
                 "status": "success",
                 "variables": {v: repr(env.get(v, "未定义")) for v in variables},

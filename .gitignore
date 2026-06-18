@@ -53,5 +53,8 @@ config/personas/memory.yaml
 # Provider credentials (明文 API key)
 providers.yaml
 
+# 路径白名单（自动生成，每用户本地配置）
+api/data/path_whitelist.yaml
+
 # Anthropic Skills（忽略 skill 子目录，保留目录本身用于 .gitkeep）
 anthropic_skills/*/

@@ -5,7 +5,7 @@ import unittest
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, check_path_whitelisted, format_error, format_success
 
 
 class UnitTestInput(BaseModel):
@@ -34,6 +34,10 @@ class UnitTestTool(ToolBase):
             return self._load_doc()
         if not test_file:
             return format_error("test_file 不能为空")
+
+        blocked = check_path_whitelisted(test_file)
+        if blocked:
+            return format_error(blocked)
 
         try:
             spec = importlib.util.spec_from_file_location("test_module", test_file)

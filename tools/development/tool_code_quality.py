@@ -4,7 +4,7 @@ import ast
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, check_path_whitelisted, format_error, format_success
 
 
 class CodeQualityInput(BaseModel):
@@ -33,6 +33,9 @@ class CodeQualityTool(ToolBase):
             return self._load_doc()
 
         if file_path:
+            blocked = check_path_whitelisted(file_path)
+            if blocked:
+                return format_error(blocked)
             try:
                 with open(file_path, "r", encoding="utf-8") as f:
                     code = f.read()
