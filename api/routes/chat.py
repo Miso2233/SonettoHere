@@ -12,7 +12,7 @@ from agent.graph import build_agent
 from agent.prompts import build_system_prompt
 from api import interaction
 from api.callbacks.websocket_callback import WebSocketCallback
-from api.const_session_store import save_const_session, serialize_messages
+from api.const_session_store import save_const_session, save_session, serialize_messages
 from api.context_usage import estimate_context_usage
 from api.session_manager import SessionState
 from tools.base import format_error
@@ -305,8 +305,8 @@ async def _run_agent_turn(
             {"role": "assistant", "content": final_answer},
         ])
 
-    # 4. [Const 会话] 自动持久化到磁盘 YAML
-    if final_answer and session.is_const:
+    # 4. [自动持久化] 所有会话保存到磁盘 YAML
+    if final_answer and not session.is_subagent:
         try:
             cpt = await session.checkpointer.aget_tuple(
                 {"configurable": {"thread_id": session.session_id}}
@@ -316,11 +316,13 @@ async def _run_agent_turn(
                 "created_at": session.created_at,
                 "last_active": session.last_active,
                 "message_count": session.message_count,
+                "is_const": session.is_const,
+                "const_name": session.const_name,
             }
             serialized = serialize_messages(raw_messages)
-            save_const_session(session.session_id, session.const_name, metadata, serialized)
+            save_session(session.session_id, metadata, serialized)
         except Exception as e:
-            print(f"[const] 自动保存会话 {session.session_id[:8]} 失败: {e}", file=sys.stderr)
+            print(f"[save] 自动保存会话 {session.session_id[:8]} 失败: {e}", file=sys.stderr)
 
     # 5. [Sub-agent] 如果有待处理的 pending_result，resolve 它
     if session._pending_result is not None and not session._pending_result.done():

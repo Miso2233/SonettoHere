@@ -113,9 +113,10 @@ async def delete_session(session_id: str, request: Request):
     sm = request.app.state.session_manager
     session = sm.get(session_id)
 
-    # 若为 const 会话，先清理磁盘文件
+    # 清理磁盘文件
+    from api.const_session_store import delete_const_session, delete_session_file
+    delete_session_file(session_id)
     if session is not None and session.is_const:
-        from api.const_session_store import delete_const_session
         delete_const_session(session_id)
 
     if not sm.delete(session_id):

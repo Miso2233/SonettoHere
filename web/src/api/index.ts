@@ -18,6 +18,8 @@ import type {
   ConstifyResponse,
   WhitelistEntry,
   ListWhitelistResponse,
+  CodePermissionEntry,
+  ListCodePermissionsResponse,
   BlockerEntry,
   ListBlockerResponse,
 } from '@/types'
@@ -202,4 +204,18 @@ export const api = {
 
   deleteBlocker: (index: number) =>
     request<{ status: string }>(`/sonetto-blocker/${index}`, { method: 'DELETE' }),
+
+  // ── 代码执行权限 ──
+
+  listCodePermissions: () =>
+    request<ListCodePermissionsResponse>('/code-permissions'),
+
+  addCodePermission: (body: { code: string; action: string; description?: string }) =>
+    request<CodePermissionEntry>('/code-permissions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  deleteCodePermission: (index: number) =>
+    request<{ status: string }>(`/code-permissions/${index}`, { method: 'DELETE' }),
 }

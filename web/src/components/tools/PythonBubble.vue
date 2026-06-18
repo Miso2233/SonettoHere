@@ -33,16 +33,32 @@
       <!-- 确认按钮 -->
       <div class="py-confirm-actions">
         <button
-          class="btn-action btn-reject"
-          @click="submitRejection"
+          class="btn-action btn-reject-session"
+          @click="submitRejectSession"
+          title="仅本次对话拒绝此代码"
         >
-          拒绝执行
+          本次拒绝
         </button>
         <button
-          class="btn-action btn-approve"
-          @click="submitApproval"
+          class="btn-action btn-reject-permanent"
+          @click="submitRejectPermanent"
+          title="永久拒绝此代码"
         >
-          允许执行
+          永久拒绝
+        </button>
+        <button
+          class="btn-action btn-approve-session"
+          @click="submitApproveSession"
+          title="仅本次对话允许此代码"
+        >
+          本次允许
+        </button>
+        <button
+          class="btn-action btn-approve-permanent"
+          @click="submitApprovePermanent"
+          title="永久允许此代码（可在设置中管理）"
+        >
+          永久允许
         </button>
       </div>
     </template>
@@ -129,24 +145,48 @@ const stdoutLineCount = computed(() => {
   return stdout.value.split('\n').length
 })
 
-function submitApproval() {
+function submitApproveSession() {
   submitted.value = true
   emit('action', {
     action: 'user_response',
     data: {
       interactionId: props.toolCall.interaction?.interactionId,
-      response: { action: 'approve', reason: '' },
+      response: { action: 'approve_session', reason: '' },
     },
   })
 }
 
-function submitRejection() {
+function submitApprovePermanent() {
+  if (!window.confirm('永久允许此代码？之后执行相同代码时将自动跳过确认。可在设置中管理。')) return
   submitted.value = true
   emit('action', {
     action: 'user_response',
     data: {
       interactionId: props.toolCall.interaction?.interactionId,
-      response: { action: 'reject', reason: rejectionReason.value.trim() },
+      response: { action: 'approve_permanent', reason: '' },
+    },
+  })
+}
+
+function submitRejectSession() {
+  submitted.value = true
+  emit('action', {
+    action: 'user_response',
+    data: {
+      interactionId: props.toolCall.interaction?.interactionId,
+      response: { action: 'reject_session', reason: rejectionReason.value.trim() },
+    },
+  })
+}
+
+function submitRejectPermanent() {
+  if (!window.confirm('永久拒绝此代码？之后执行相同代码时将自动跳过。可在设置中管理。')) return
+  submitted.value = true
+  emit('action', {
+    action: 'user_response',
+    data: {
+      interactionId: props.toolCall.interaction?.interactionId,
+      response: { action: 'reject_permanent', reason: rejectionReason.value.trim() },
     },
   })
 }
@@ -351,15 +391,16 @@ function copyCode() {
 
 .py-confirm-actions {
   display: flex;
-  gap: 10px;
+  gap: 6px;
+  flex-wrap: wrap;
   justify-content: flex-end;
   margin-top: 8px;
 }
 
 .btn-action {
-  padding: 8px 20px;
+  padding: 6px 12px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   font-family: inherit;
@@ -367,23 +408,43 @@ function copyCode() {
   border: 1px solid transparent;
 }
 
-.btn-reject {
+.btn-reject-session {
   background: var(--bg-secondary);
   border-color: var(--border);
   color: var(--text-primary);
 }
 
-.btn-reject:hover {
+.btn-reject-session:hover {
   border-color: var(--text-secondary);
   background: color-mix(in srgb, var(--border) 20%, transparent);
 }
 
-.btn-approve {
+.btn-reject-permanent {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.btn-reject-permanent:hover {
+  background: #fde68a;
+}
+
+.btn-approve-session {
   background: var(--accent);
   color: #fff;
 }
 
-.btn-approve:hover {
+.btn-approve-session:hover {
   background: color-mix(in srgb, var(--accent) 90%, #fff);
+}
+
+.btn-approve-permanent {
+  background: #22c55e;
+  color: #fff;
+  border-color: #16a34a;
+}
+
+.btn-approve-permanent:hover {
+  background: #16a34a;
 }
 </style>

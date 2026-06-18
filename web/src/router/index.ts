@@ -37,6 +37,11 @@ const router = createRouter({
       name: 'sonetto-blocker',
       component: () => import('@/views/SonettoBlockerView.vue'),
     },
+    {
+      path: '/code-permissions',
+      name: 'code-permissions',
+      component: () => import('@/views/CodePermissionView.vue'),
+    },
   ],
 })
 

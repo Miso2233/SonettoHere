@@ -30,6 +30,10 @@ class SessionState:
     is_const: bool = False
     const_name: str = ""
 
+    # ── 代码执行权限（会话级） ──────────────────────────────
+    approved_code_hashes: set[str] = field(default_factory=set)
+    denied_code_hashes: set[str] = field(default_factory=set)
+
 
 class SessionManager:
     def __init__(self, ttl_seconds: int = 1800):

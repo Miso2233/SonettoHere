@@ -1,4 +1,4 @@
-"""Const 固定会话 — YAML 持久化存储。
+"""会话 — YAML 持久化存储。
 
 提供将会话状态（元数据 + 对话消息）序列化为 YAML 文件并重新加载的能力。
 """
@@ -8,8 +8,10 @@ from pathlib import Path
 
 import yaml
 
-# api/const_session_store.py → api/data/const-sessions/
+# api/const_session_store.py → api/data/const-sessions/（固定会话）
 _CONST_DIR = Path(__file__).resolve().parent / "data" / "const-sessions"
+# api/data/sessions/（所有会话的自动持久化）
+_SESSION_DIR = Path(__file__).resolve().parent / "data" / "sessions"
 
 
 def _ensure_dir() -> Path:
@@ -121,6 +123,48 @@ def load_all_const_sessions() -> list[dict]:
 def delete_const_session(session_id: str) -> bool:
     """删除 const 会话文件。"""
     filepath = _CONST_DIR / f"{session_id}.yaml"
+    if filepath.exists():
+        filepath.unlink()
+        return True
+    return False
+
+
+# ── 通用会话持久化（所有会话自动保存/加载） ──────────────────
+
+
+def save_session(session_id: str, metadata: dict, messages: list[dict]) -> str:
+    """将会话持久化为 YAML 文件（通用版本，不限 const）。"""
+    _SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    data = {
+        "session_id": session_id,
+        "saved_at": time.time(),
+        "metadata": metadata,
+        "messages": messages,
+    }
+    filepath = _SESSION_DIR / f"{session_id}.yaml"
+    with open(filepath, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
+    return str(filepath)
+
+
+def load_all_sessions() -> list[dict]:
+    """扫描 sessions/ 目录，加载所有自动持久化的会话。"""
+    _SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    sessions = []
+    for fpath in sorted(_SESSION_DIR.glob("*.yaml")):
+        try:
+            with open(fpath, encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+            if data and data.get("session_id"):
+                sessions.append(data)
+        except Exception:
+            continue
+    return sessions
+
+
+def delete_session_file(session_id: str) -> bool:
+    """删除指定会话的持久化文件（通用版本）。"""
+    filepath = _SESSION_DIR / f"{session_id}.yaml"
     if filepath.exists():
         filepath.unlink()
         return True

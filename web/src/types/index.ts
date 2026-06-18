@@ -359,6 +359,19 @@ export interface ListWhitelistResponse {
   entries: WhitelistEntry[]
 }
 
+// === 代码执行权限 ===
+
+export interface CodePermissionEntry {
+  hash: string
+  code_preview: string
+  action: string
+  description: string
+}
+
+export interface ListCodePermissionsResponse {
+  permissions: CodePermissionEntry[]
+}
+
 // === SonettoBlocker 拒止锚 ===
 
 export interface BlockerEntry {
