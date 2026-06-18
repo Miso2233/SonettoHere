@@ -5,11 +5,13 @@
         v-for="(r, idx) in refs"
         :key="r.type + r.label + idx"
         class="file-tag"
+        :class="{ blocked: 'blocked' in r && r.blocked }"
         :title="getRefTooltip(r)"
       >
         <span class="file-tag-icon"><Icon :name="getRefIcon(r)" :size="14" /></span>
         <span class="file-tag-name">{{ r.label }}</span>
         <span class="file-tag-source">{{ r.type }}</span>
+        <span v-if="'blocked' in r && r.blocked" class="file-tag-blocked">blocked</span>
         <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
       </span>
     </TransitionGroup>
@@ -162,9 +164,13 @@ function getRefIcon(r: ParsedRef): string {
   return REF_CHIP_CONFIG[r.type]?.icon ?? 'file'
 }
 
-/** 从 REF_CHIP_CONFIG 获取 tooltip */
+/** 从 REF_CHIP_CONFIG 获取 tooltip，受阻时附加原因 */
 function getRefTooltip(r: ParsedRef): string {
-  return REF_CHIP_CONFIG[r.type]?.tooltip(r) ?? r.label
+  const base = REF_CHIP_CONFIG[r.type]?.tooltip(r) ?? r.label
+  if ('blocked' in r && r.blocked) {
+    return `${base}\n⛔ ${r.blockedReason || '路径被阻挡，无法访问'}`
+  }
+  return base
 }
 
 defineExpose({ addRef })
@@ -509,7 +515,23 @@ async function _pick(type: string) {
     const data = await res.json()
     if (data.path) {
       const refType = type === 'folder' ? 'folder' : 'file'
+      const idx = refs.value.length
       refs.value.push({ type: refType, path: data.path, label: getFileName(data.path) } as ParsedRef)
+      console.log('[ChatInput] _pick: pushed ref idx=%d type=%s path=%s', idx, refType, data.path)
+
+      // 异步检查路径是否被拒止锚或白名单阻挡
+      api.checkPathBlocked(data.path).then(result => {
+        console.log('[ChatInput] checkPathBlocked result for', data.path, result)
+        if (result.blocked) {
+          // 通过 refs.value[idx] 操作以触发响应式更新
+          const entry = refs.value[idx] as any
+          entry.blocked = true
+          entry.blockedReason = result.reason
+          console.log('[ChatInput] marked ref %d as blocked, reason: %s', idx, result.reason)
+        }
+      }).catch(err => {
+        console.warn('[ChatInput] checkPathBlocked failed:', err)
+      })
     }
   } catch {
     // 静默失败
@@ -673,6 +695,22 @@ function autoResize() {
   padding: 0 5px;
   border-radius: 3px;
   flex-shrink: 0;
+}
+.file-tag-blocked {
+  font-size: 9px;
+  color: var(--status-error);
+  background: #fee2e2;
+  padding: 0 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.file-tag.blocked {
+  border-color: var(--status-error);
+  background: #fef2f2;
+}
+.file-tag.blocked .file-tag-name {
+  color: var(--status-error);
 }
 
 /* TransitionGroup 动画：从下往上缓出弹出，退场缩小淡出 */

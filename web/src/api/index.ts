@@ -182,6 +182,13 @@ export const api = {
   selectFolder: () =>
     request<{ path: string | null }>('/select-file?type=folder'),
 
+  // ── 路径安全检查 ──
+
+  checkPathBlocked: (path: string) =>
+    request<{ blocked: boolean; reason: string | null; blocker_path: string | null }>(
+      `/check-path-blocked?path=${encodeURIComponent(path)}`
+    ),
+
   // ── SonettoBlocker 拒止锚 ──
 
   listBlockers: () =>

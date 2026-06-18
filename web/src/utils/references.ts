@@ -3,6 +3,8 @@ export interface FileRef {
   type: 'file'
   label: string
   path: string
+  blocked?: boolean
+  blockedReason?: string
 }
 
 /** 文件夹引用 */
@@ -10,6 +12,8 @@ export interface FolderRef {
   type: 'folder'
   label: string
   path: string
+  blocked?: boolean
+  blockedReason?: string
 }
 
 /** 文本引用（右键引用已有消息内容） */
