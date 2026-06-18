@@ -24,6 +24,7 @@ from api.routes import persona as persona_router
 from api.routes import sonetto_blocker as sonetto_blocker_router
 from api.routes import skills as skills_router
 from api.routes import news as news_router
+from api.routes import restart as restart_router
 from api.session_manager import SessionManager, SessionState
 from agent.graph import build_agent
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
@@ -174,6 +175,9 @@ def create_app() -> FastAPI:
 
     # 系统更新动态
     app.include_router(news_router.router, prefix="/api")
+
+    # 重启后端
+    app.include_router(restart_router.router, prefix="/api")
 
     # 健康检查
     @app.get("/api/health")

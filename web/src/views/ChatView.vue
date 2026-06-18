@@ -12,53 +12,64 @@
     <!-- 正常聊天界面 -->
     <template v-else>
     <header class="chat-header">
-      <StatusBadge :connected="connected" :health="health" />
-      <span class="private-trigger hover-trigger">
-        <button
-          class="private-toggle"
-          :class="{ active: privateMode }"
-          @click="setPrivateMode(!privateMode)"
-        >
-          <span class="private-indicator"></span>
-          {{ privateMode ? '私密' : '记忆' }}
-        </button>
-        <div class="hover-card card-private">
-          <div class="card-row">
-            <span class="card-label">私密模式</span>
-            <span class="card-value" :class="privateMode ? 'status-on' : 'status-off'">
-              {{ privateMode ? '已开启' : '已关闭' }}
-            </span>
+      <div class="chat-header-left">
+        <StatusBadge :connected="connected" :health="health" />
+        <span class="private-trigger hover-trigger">
+          <button
+            class="private-toggle"
+            :class="{ active: privateMode }"
+            @click="setPrivateMode(!privateMode)"
+          >
+            <span class="private-indicator"></span>
+            {{ privateMode ? '私密' : '记忆' }}
+          </button>
+          <div class="hover-card card-private">
+            <div class="card-row">
+              <span class="card-label">私密模式</span>
+              <span class="card-value" :class="privateMode ? 'status-on' : 'status-off'">
+                {{ privateMode ? '已开启' : '已关闭' }}
+              </span>
+            </div>
+            <div class="card-divider"></div>
+            <div class="private-desc">
+              开启后，当前对话不会被保存到长期记忆和本地存储，关闭后恢复正常保存。
+            </div>
           </div>
-          <div class="card-divider"></div>
-          <div class="private-desc">
-            开启后，当前对话不会被保存到长期记忆和本地存储，关闭后恢复正常保存。
+        </span>
+        <span class="auto-approve-trigger hover-trigger">
+          <button
+            class="auto-approve-toggle"
+            :class="{ active: autoApprove }"
+            @click="setAutoApprove(!autoApprove)"
+          >
+            <span class="auto-approve-indicator"></span>
+            {{ autoApprove ? '自动' : '检查' }}
+          </button>
+          <div class="hover-card card-auto-approve">
+            <div class="card-row">
+              <span class="card-label">自动执行</span>
+              <span class="card-value" :class="autoApprove ? 'status-warn' : 'status-off'">
+                {{ autoApprove ? '已开启' : '已关闭' }}
+              </span>
+            </div>
+            <div class="card-divider"></div>
+            <div class="auto-approve-desc">
+              {{ autoApprove ? 'Python 代码将直接执行，无需用户确认。点击切换为手动审核模式。' : 'Python 代码执行前需要您确认。点击切换为自动执行模式。' }}
+            </div>
           </div>
-        </div>
-      </span>
-      <span class="auto-approve-trigger hover-trigger">
-        <button
-          class="auto-approve-toggle"
-          :class="{ active: autoApprove }"
-          @click="setAutoApprove(!autoApprove)"
-        >
-          <span class="auto-approve-indicator"></span>
-          {{ autoApprove ? '自动' : '检查' }}
-        </button>
-        <div class="hover-card card-auto-approve">
-          <div class="card-row">
-            <span class="card-label">自动执行</span>
-            <span class="card-value" :class="autoApprove ? 'status-warn' : 'status-off'">
-              {{ autoApprove ? '已开启' : '已关闭' }}
-            </span>
-          </div>
-          <div class="card-divider"></div>
-          <div class="auto-approve-desc">
-            {{ autoApprove ? 'Python 代码将直接执行，无需用户确认。点击切换为手动审核模式。' : 'Python 代码执行前需要您确认。点击切换为自动执行模式。' }}
-          </div>
-        </div>
-      </span>
-      <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
-      <TaskTrackerBar :data="taskTrackerData as any" />
+        </span>
+        <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
+        <TaskTrackerBar :data="taskTrackerData as any" />
+      </div>
+      <button
+        class="restart-btn"
+        :class="{ restarting: restarting }"
+        :disabled="restarting"
+        @click="handleRestart"
+        title="重启后端服务"
+      >
+        {{ restarting ? '重启中...' : '重启SonettoHere服务' }}
+      </button>
     </header>
 
     <ChatWindow
@@ -105,6 +116,27 @@ const { connected, isStreaming, turns, currentTurn, error, contextUsage, taskTra
 
 const selectedModelName = ref('')
 const hasProviders = ref(true)
+const restarting = ref(false)
+
+async function handleRestart() {
+  if (restarting.value) return
+  if (!window.confirm('确定要重启SonettoHere服务吗？正在进行的对话可能会中断。')) return
+  restarting.value = true
+  try {
+    await fetch('/api/restart', { method: 'POST' })
+  } catch { /* server will close connection, expected */ }
+  const poll = async () => {
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const res = await fetch('/api/health')
+        if (res.ok) { location.reload(); return }
+      } catch { /* still down */ }
+    }
+    restarting.value = false
+  }
+  poll()
+}
 
 onMounted(async () => {
   try {
@@ -166,10 +198,18 @@ async function handleUndo() {
 .chat-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 20px;
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
+}
+.chat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  flex: 1;
 }
 .private-toggle,
 .auto-approve-toggle {
@@ -364,5 +404,33 @@ async function handleUndo() {
 }
 .btn.primary:hover {
   opacity: 0.85;
+}
+
+.restart-btn {
+  padding: 4px 10px;
+  border: 1px solid #dc2626;
+  border-radius: 6px;
+  background: #dc2626;
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.restart-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #000;
+}
+.restart-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.restart-btn.restarting {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #000;
 }
 </style>
