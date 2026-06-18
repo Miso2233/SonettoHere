@@ -141,4 +141,15 @@ export const api = {
 
   generateSessionTitle: (id: string) =>
     request<{ title: string }>(`/sessions/${id}/generate-title`, { method: 'POST' }),
+
+  // ── Persona 人设 ──
+
+  getPersona: (type: 'soul' | 'user') =>
+    request<{ content: string; type: string }>(`/persona?type=${type}`),
+
+  updatePersona: (type: 'soul' | 'user', content: string) =>
+    request<{ content: string; type: string }>(`/persona?type=${type}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content }),
+    }),
 }

@@ -1,7 +1,6 @@
 """系统提示词组装。"""
 
 import re
-from functools import lru_cache
 from pathlib import Path
 
 from memory.narrative import get_narrative
@@ -11,7 +10,6 @@ PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent / "anthropic_skills"
 
 
-@lru_cache(maxsize=3)
 def _read_persona(filename: str) -> str:
     path = PERSONAS_DIR / filename
     if path.exists():
@@ -70,7 +68,6 @@ def _scan_anthropic_skills() -> str:
     return "\n".join(lines)
 
 
-@lru_cache(maxsize=1)
 def build_system_prompt() -> str:
     """组装完整系统提示词，进程生命周期内只组装一次（LRU 缓存）。"""
     ensure_user_md()

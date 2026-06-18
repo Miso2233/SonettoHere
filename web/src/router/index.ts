@@ -17,6 +17,16 @@ const router = createRouter({
       name: 'providers',
       component: () => import('@/views/ProvidersView.vue'),
     },
+    {
+      path: '/soul',
+      name: 'soul',
+      component: () => import('@/views/SoulView.vue'),
+    },
+    {
+      path: '/user',
+      name: 'user',
+      component: () => import('@/views/UserView.vue'),
+    },
   ],
 })
 

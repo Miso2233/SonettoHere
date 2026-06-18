@@ -24,9 +24,9 @@
       <Transition name="popup">
         <div v-if="showSettingsMenu" ref="settingsPopupRef" class="settings-popup" :style="{ top: popupTop, left: popupLeft }" @click.stop>
           <div class="popup-header">设置</div>
-          <router-link to="/providers" class="popup-item" @click="closeSettingsMenu">
-            <Icon name="model" :size="16" /> 模型 MODELS
-          </router-link>
+          <router-link to="/providers" class="popup-item" @click="closeSettingsMenu">模型 MODELS</router-link>
+          <router-link to="/soul" class="popup-item" @click="closeSettingsMenu">人设 SOUL</router-link>
+          <router-link to="/user" class="popup-item" @click="closeSettingsMenu">用户 USER</router-link>
         </div>
       </Transition>
       <SessionSidebar
