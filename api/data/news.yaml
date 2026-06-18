@@ -1,4 +1,12 @@
 news:
+  - id: "local-file-security"
+    title: "本地文件安全防护"
+    description: "新增 SonettoBlocker 黑名单阻断与路径白名单双层安全机制。Blocker 通过目录标记文件即可阻断访问，白名单自动生成仅开放技能目录。两大工具系列（文件/exec）全部同步覆盖，Blocker 优先拦截。"
+    type: "feat"
+    date: "2026-06-18"
+    tags: ["安全", "文件", "权限"]
+    version: "PREVIEW"
+    pr_number: 124
   - id: "v2.0.0-release"
     title: "发布 v2.0.0 版本"
     description: "v2.0.0 版本标志项目进入新的里程碑。提供商管理全面升级：彻底移除 .env 配置，统一由 providers.yaml + 前端面板管理。Markdown 渲染引擎从 marked 切换到 markdown-it，新增数学公式定界符支持。所有工具 description 添加调用策略标签，协作更规范。"
