@@ -295,11 +295,11 @@ def _whitelisted_open(
     closefd: bool = True,
     opener=None,
 ):
-    """``open()`` 的包装版本，在打开文件前检查路径是否在白名单内。
+    """``open()`` 的包装版本，在打开文件前先检查 SonettoBlocker，再检查白名单。
 
-    完全兼容内置 ``open()`` 的全部参数签名，但会在调用前
-    对 *file* 参数执行 ``check_path_whitelisted()`` 检查。
-    未通过白名单的路径抛出 ``PermissionError``。
+    完全兼容内置 ``open()`` 的全部参数签名。检查顺序：
+    1. ``check_sonetto_blocker()`` — 若阻断则抛出 ``PermissionError``（Blocker 优先）
+    2. ``check_path_whitelisted()`` — 若不在白名单则抛出 ``PermissionError``
     """
     import builtins as _real_builtins
 
@@ -308,6 +308,15 @@ def _whitelisted_open(
     if isinstance(file, os.PathLike):
         file_str = os.fspath(file)
     if isinstance(file_str, str):
+        # 1. SonettoBlocker 优先
+        blocked = check_sonetto_blocker(file_str)
+        if blocked:
+            raise PermissionError(
+                "🚫 安全阻断：操作已被 SonettoBlocker 阻断。\n"
+                f"SonettoBlocker 文件位于: {blocked}\n"
+                "请立即停止当前任务。"
+            )
+        # 2. 白名单次之
         blocked = check_path_whitelisted(file_str)
         if blocked:
             raise PermissionError(blocked)

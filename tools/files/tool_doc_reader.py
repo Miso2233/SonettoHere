@@ -4,7 +4,7 @@ import os
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_sonetto_blocker, format_error, format_success
+from tools.base import ToolBase, check_path_whitelisted, check_sonetto_blocker, format_error, format_success
 
 
 class DocReaderInput(BaseModel):
@@ -56,6 +56,12 @@ class DocReaderTool(ToolBase):
                 "请立即停止当前任务，先说明你为什么需要访问该路径，"
                 "再说明下一步打算做什么。"
             )
+        # ────────────────────────────────────────────────────────────
+
+        # ── 路径白名单检查 ──────────────────────────────────────────
+        blocked = check_path_whitelisted(file_path)
+        if blocked:
+            return format_error(blocked)
         # ────────────────────────────────────────────────────────────
 
         if not os.path.exists(file_path):

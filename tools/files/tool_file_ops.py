@@ -6,7 +6,7 @@ import shutil
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_sonetto_blocker, format_error, format_success
+from tools.base import ToolBase, check_path_whitelisted, check_sonetto_blocker, format_error, format_success
 
 
 class FileOpsInput(BaseModel):
@@ -86,6 +86,37 @@ class FileOperationsTool(ToolBase):
                 + "\n".join(f"  • {d}" for d in blocker_paths)
                 + "\n\n请立即停止当前任务，先说明你为什么需要访问该路径，"
                   "再说明下一步打算做什么。"
+            )
+        # ────────────────────────────────────────────────────────────
+
+        # ── 路径白名单检查 ──────────────────────────────────────────
+        whitelist_blocked = []
+        if operation == "rename_file":
+            for p in (file_path, new_path):
+                if p:
+                    blocked = check_path_whitelisted(p)
+                    if blocked:
+                        whitelist_blocked.append(p)
+        elif operation in ("create_directory", "list_directory"):
+            if directory_path:
+                blocked = check_path_whitelisted(directory_path)
+                if blocked:
+                    whitelist_blocked.append(directory_path)
+        elif operation == "search_files":
+            if search_directory:
+                blocked = check_path_whitelisted(search_directory)
+                if blocked:
+                    whitelist_blocked.append(search_directory)
+        else:
+            if file_path:
+                blocked = check_path_whitelisted(file_path)
+                if blocked:
+                    whitelist_blocked.append(file_path)
+
+        if whitelist_blocked:
+            return format_error(
+                "路径不在白名单中，已拒绝访问：\n"
+                + "\n".join(f"  • {p}" for p in whitelist_blocked)
             )
         # ────────────────────────────────────────────────────────────
 
