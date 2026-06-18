@@ -58,6 +58,15 @@
         </div>
       </span>
       <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
+      <button
+        class="restart-btn"
+        :class="{ restarting: restarting }"
+        :disabled="restarting"
+        @click="handleRestart"
+        title="重启后端服务"
+      >
+        {{ restarting ? '重启中...' : '重启' }}
+      </button>
       <TaskTrackerBar :data="taskTrackerData as any" />
     </header>
 
@@ -105,6 +114,27 @@ const { connected, isStreaming, turns, currentTurn, error, contextUsage, taskTra
 
 const selectedModelName = ref('')
 const hasProviders = ref(true)
+const restarting = ref(false)
+
+async function handleRestart() {
+  if (restarting.value) return
+  restarting.value = true
+  try {
+    await fetch('/api/restart', { method: 'POST' })
+  } catch { /* server will close connection, expected */ }
+  // poll health until back, then reload
+  const poll = async () => {
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const res = await fetch('/api/health')
+        if (res.ok) { location.reload(); return }
+      } catch { /* still down */ }
+    }
+    restarting.value = false
+  }
+  poll()
+}
 
 onMounted(async () => {
   try {
@@ -364,5 +394,30 @@ async function handleUndo() {
 }
 .btn.primary:hover {
   opacity: 0.85;
+}
+
+.restart-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+.restart-btn:hover:not(:disabled) {
+  border-color: var(--status-error);
+  color: var(--status-error);
+}
+.restart-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.restart-btn.restarting {
+  border-color: var(--status-warn);
+  color: var(--status-warn);
 }
 </style>
