@@ -27,6 +27,11 @@ const router = createRouter({
       name: 'user',
       component: () => import('@/views/UserView.vue'),
     },
+    {
+      path: '/path-whitelist',
+      name: 'path-whitelist',
+      component: () => import('@/views/PathWhitelistView.vue'),
+    },
   ],
 })
 

@@ -27,6 +27,7 @@
           <router-link to="/providers" class="popup-item" @click="closeSettingsMenu">模型 MODELS</router-link>
           <router-link to="/soul" class="popup-item" @click="closeSettingsMenu">人设 SOUL</router-link>
           <router-link to="/user" class="popup-item" @click="closeSettingsMenu">用户 USER</router-link>
+          <router-link to="/path-whitelist" class="popup-item" @click="closeSettingsMenu">路径白名单</router-link>
         </div>
       </Transition>
       <SessionSidebar

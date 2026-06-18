@@ -346,3 +346,14 @@ export interface ToolInfo {
 export interface ListToolsResponse {
   tools: ToolInfo[]
 }
+
+// === 路径白名单 ===
+
+export interface WhitelistEntry {
+  path: string
+  description: string
+}
+
+export interface ListWhitelistResponse {
+  entries: WhitelistEntry[]
+}

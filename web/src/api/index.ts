@@ -16,6 +16,8 @@ import type {
   TestConnectionResponse,
   DiscoverModelsResponse,
   ConstifyResponse,
+  WhitelistEntry,
+  ListWhitelistResponse,
 } from '@/types'
 
 const BASE = '/api'
@@ -152,4 +154,24 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ content }),
     }),
+
+  // ── Path Whitelist 路径白名单 ──
+
+  listWhitelist: () =>
+    request<ListWhitelistResponse>('/path-whitelist'),
+
+  addWhitelistEntry: (entry: { path: string; description: string }) =>
+    request<WhitelistEntry>('/path-whitelist', {
+      method: 'POST',
+      body: JSON.stringify(entry),
+    }),
+
+  updateWhitelistEntry: (index: number, entry: { path: string; description: string }) =>
+    request<WhitelistEntry>(`/path-whitelist/${index}`, {
+      method: 'PUT',
+      body: JSON.stringify(entry),
+    }),
+
+  deleteWhitelistEntry: (index: number) =>
+    request<{ status: string }>(`/path-whitelist/${index}`, { method: 'DELETE' }),
 }
