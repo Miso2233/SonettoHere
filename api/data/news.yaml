@@ -6,7 +6,7 @@ news:
     date: "2026-06-18"
     tags: ["安全", "文件", "权限"]
     version: "PREVIEW"
-    pr_number: 124
+    pr_number: 127
   - id: "v2.0.0-release"
     title: "发布 v2.0.0 版本"
     description: "v2.0.0 版本标志项目进入新的里程碑。提供商管理全面升级：彻底移除 .env 配置，统一由 providers.yaml + 前端面板管理。Markdown 渲染引擎从 marked 切换到 markdown-it，新增数学公式定界符支持。所有工具 description 添加调用策略标签，协作更规范。"
