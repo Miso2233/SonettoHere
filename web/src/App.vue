@@ -14,11 +14,21 @@
         <router-link to="/memory" class="nav-item">
           <Icon name="memory" :size="18" /> <span class="nav-label">记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY</span>
         </router-link>
-        <router-link to="/providers" class="nav-item">
-          <Icon name="model" :size="18" /> <span class="nav-label">模型&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MODELS</span>
-        </router-link>
         <router-link to="/playground" class="nav-item pg-nav">动态 NEWS</router-link>
+        <div class="settings-area" ref="settingsTriggerRef">
+          <button class="nav-item settings-btn" :class="{ active: showSettingsMenu }" @click="toggleSettingsMenu">
+            <Icon name="settings" :size="18" /> <span class="nav-label">设置&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SETTINGS</span>
+          </button>
+        </div>
       </nav>
+      <Transition name="popup">
+        <div v-if="showSettingsMenu" ref="settingsPopupRef" class="settings-popup" :style="{ top: popupTop, left: popupLeft }" @click.stop>
+          <div class="popup-header">设置</div>
+          <router-link to="/providers" class="popup-item" @click="closeSettingsMenu">
+            <Icon name="model" :size="16" /> 模型 MODELS
+          </router-link>
+        </div>
+      </Transition>
       <SessionSidebar
         :sessions="sessions"
         :active-id="sessionId"
@@ -46,10 +56,52 @@ import { allSessionStatuses } from '@/composables/useChat';
 import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { constifySession, unconstifySession, useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
-import { onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 
 const { effectiveCollapsed, toggleSidebar } = useSidebar()
+
+const showSettingsMenu = ref(false)
+const settingsTriggerRef = ref<HTMLElement | null>(null)
+const settingsPopupRef = ref<HTMLElement | null>(null)
+const popupTop = ref('0px')
+const popupLeft = ref('228px')
+
+function toggleSettingsMenu() {
+  showSettingsMenu.value = !showSettingsMenu.value
+  nextTick(() => updatePopupPosition())
+}
+
+function closeSettingsMenu() {
+  showSettingsMenu.value = false
+}
+
+function updatePopupPosition() {
+  if (settingsTriggerRef.value) {
+    const rect = settingsTriggerRef.value.getBoundingClientRect()
+    popupTop.value = `${rect.top}px`
+    popupLeft.value = `${rect.right + 8}px`
+  }
+}
+
+function onDocumentClick(e: MouseEvent) {
+  if (!showSettingsMenu.value) return
+  const trigger = settingsTriggerRef.value
+  const popup = settingsPopupRef.value
+  if (trigger && popup &&
+      !trigger.contains(e.target as Node) &&
+      !popup.contains(e.target as Node)) {
+    closeSettingsMenu()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
 
 function onSidebarClick(e: MouseEvent) {
   if (e.target === e.currentTarget) {
@@ -230,6 +282,89 @@ html, body {
 
 .pg-nav:hover {
   opacity: 1;
+}
+
+/* ── Settings trigger ── */
+.settings-area {
+  margin-top: auto;
+}
+
+.settings-btn {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  background: transparent;
+}
+
+.settings-btn.active {
+  background: var(--bg-card);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.settings-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+/* ── Settings popup ── */
+.settings-popup {
+  position: fixed;
+  z-index: 200;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  min-width: 170px;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.popup-header {
+  padding: 8px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.popup-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.popup-item:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.popup-item.router-link-active {
+  color: var(--accent);
+  font-weight: 600;
+  background: var(--bg-secondary);
+}
+
+/* ── Popup transition ── */
+.popup-enter-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.popup-leave-active {
+  transition: opacity 0.08s ease, transform 0.08s ease;
+}
+.popup-enter-from,
+.popup-leave-to {
+  opacity: 0;
+  transform: translateX(-6px);
 }
 
 .main {
