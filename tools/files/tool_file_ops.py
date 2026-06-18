@@ -6,7 +6,7 @@ import shutil
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, check_sonetto_blocker, format_error, format_success
 
 
 class FileOpsInput(BaseModel):
@@ -52,6 +52,42 @@ class FileOperationsTool(ToolBase):
             return self._load_doc()
         if not operation:
             return format_error("operation 不能为空")
+
+        # ── SonettoBlocker 安全检查 ────────────────────────────────
+        blocker_paths = []
+        if operation == "rename_file":
+            # 源和目标路径都检查
+            for p in (file_path, new_path):
+                if p:
+                    blocked = check_sonetto_blocker(p)
+                    if blocked:
+                        blocker_paths.append(blocked)
+        elif operation in ("create_directory", "list_directory"):
+            if directory_path:
+                blocked = check_sonetto_blocker(directory_path)
+                if blocked:
+                    blocker_paths.append(blocked)
+        elif operation == "search_files":
+            if search_directory:
+                blocked = check_sonetto_blocker(search_directory)
+                if blocked:
+                    blocker_paths.append(blocked)
+        else:
+            # read_file / write_file / delete_file
+            if file_path:
+                blocked = check_sonetto_blocker(file_path)
+                if blocked:
+                    blocker_paths.append(blocked)
+
+        if blocker_paths:
+            return format_error(
+                "🚫 安全阻断：操作已被 SonettoBlocker 阻断。\n"
+                f"在以下目录中发现了 SonettoBlocker 文件：\n"
+                + "\n".join(f"  • {d}" for d in blocker_paths)
+                + "\n\n请立即停止当前任务，先说明你为什么需要访问该路径，"
+                  "再说明下一步打算做什么。"
+            )
+        # ────────────────────────────────────────────────────────────
 
         try:
             if operation == "read_file":

@@ -1,6 +1,7 @@
 """工具（Tool）基类和共享 HTTP 客户端。"""
 
 import json
+import os
 from pathlib import Path
 
 import requests
@@ -80,3 +81,50 @@ def format_success(data: dict) -> str:
 def format_error(message: str) -> str:
     """统一错误响应格式。"""
     return json.dumps({"success": False, "error": message}, ensure_ascii=False)
+
+
+def check_sonetto_blocker(target_path: str) -> str | None:
+    """逐级检查路径的每一级目录是否包含 SonettoBlocker 文件（不区分大小写，不匹配后缀名）。
+
+    从盘符根目录开始，依次检查每一层父目录中是否存在名为 "SonettoBlocker"
+    的文件（任何扩展名均匹配）。一旦发现，返回该目录路径；否则返回 None。
+    """
+    if not target_path:
+        return None
+
+    abs_path = os.path.abspath(target_path)
+    p = Path(abs_path)
+
+    # 收集待检查的所有目录层级
+    dirs_to_check: list[str] = []
+
+    if p.is_dir():
+        dirs_to_check.append(str(p))
+    else:
+        # 文件还不存在（如 write_file 写入新文件）则检查父目录
+        parent = p.parent
+        if parent:
+            dirs_to_check.append(str(parent))
+
+    # parents 从父目录向上直到根
+    dirs_to_check.extend(str(parent) for parent in p.parents)
+
+    # 从根向下逐级检查
+    seen: set[str] = set()
+    for dir_path in reversed(dirs_to_check):
+        normalized = os.path.normpath(dir_path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        if not os.path.isdir(normalized):
+            continue
+        try:
+            for entry in os.listdir(normalized):
+                entry_name, _ = os.path.splitext(entry)
+                if entry_name.lower() == "sonettoblocker":
+                    # 返回友好的展示形式
+                    return normalized
+        except (PermissionError, OSError):
+            continue
+
+    return None
