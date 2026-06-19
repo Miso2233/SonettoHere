@@ -579,18 +579,20 @@ const isResizing = ref(false)
 const resizeStartY = ref(0)
 const resizeStartHeight = ref(0)
 const handleRef = ref<HTMLDivElement | null>(null)
-const initialHeight = ref(120)
+const DEFAULT_INPUT_HEIGHT = 117
+const initialHeight = ref(DEFAULT_INPUT_HEIGHT)
 
 const containerStyle = computed(() => {
-  if (customHeight.value === null) return {}
-  return { height: customHeight.value + 'px' }
+  const minHeight = initialHeight.value + 'px'
+  if (customHeight.value === null) return { minHeight }
+  return { height: customHeight.value + 'px', minHeight }
 })
 
 /** 组件挂载后捕获输入框的初始默认高度，作为拖拽下限 */
 onMounted(() => {
   nextTick(() => {
     const el = inputContainerRef.value
-    if (el) initialHeight.value = el.clientHeight
+    if (el) initialHeight.value = Math.max(DEFAULT_INPUT_HEIGHT, el.clientHeight)
   })
 })
 
@@ -893,7 +895,7 @@ function onResizeEnd(e: PointerEvent) {
   padding: 4px 14px 8px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   transition: border-color 0.2s, box-shadow 0.2s;
-  overflow: hidden;
+  overflow: visible;
 }
 .chat-input.is-resizing {
   border-color: var(--accent);
@@ -908,6 +910,7 @@ function onResizeEnd(e: PointerEvent) {
 .btn-add-file-wrapper {
   position: relative;
   flex-shrink: 0;
+  z-index: 210;
 }
 .btn-add-file {
   width: 32px;
