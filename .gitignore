@@ -58,6 +58,7 @@ api/data/path_whitelist.yaml
 
 # SonettoBlocker 拒止锚数据（自动生成，每用户本地配置）
 api/data/sonetto_blocker.yaml
+api/data/SonettoBlocker
 
 # 认证 Token（自动生成，每用户本地配置）
 api/data/auth_token.yaml
