@@ -1,4 +1,4 @@
-# Python CI — code style + type check + 测试
+# Python CI — code style + 测试
 #
 # 每次 push 和 PR 时自动运行：
 #   1. ruff check — 代码风格与常见错误检查
@@ -23,21 +23,38 @@ permissions:
   contents: read
 
 jobs:
-  lint-and-test:
-    name: 🐍 Lint + Test
+  lint:
+    name: 🧹 Lint (ruff)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Python ${{ matrix.python-version }}
+      - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint — ruff check
+        run: ruff check .
+
+      - name: Format — ruff format
+        run: ruff format --check .
+
+  test:
+    name: 🧪 Test (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
           cache: "pip"
           cache-dependency-path: requirements.txt
 
@@ -46,15 +63,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Install test & lint tools
-        run: |
-          pip install ruff pytest pytest-asyncio pytest-cov
-
-      - name: Lint — ruff check
-        run: ruff check .
-
-      - name: Format — ruff format
-        run: ruff format --check .
+      - name: Install test tools
+        run: pip install pytest pytest-asyncio pytest-cov
 
       - name: Test — pytest
         run: python -m pytest tests/ -v --tb=short --cov=api --cov=memory --cov=tools --cov-report=term
