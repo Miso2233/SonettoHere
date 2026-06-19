@@ -5,6 +5,7 @@
       <span class="save-indicator" :class="saveState">
         {{ saveStateText }}
       </span>
+      <span v-if="!saveState && content && content !== savedContent" class="save-hint">点击编辑区域外来保存</span>
     </div>
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else class="editor-wrapper">
@@ -129,6 +130,12 @@ onMounted(loadContent)
 }
 .save-indicator.saved {
   color: var(--status-ok);
+}
+
+.save-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  opacity: 0.8;
 }
 
 .loading {
