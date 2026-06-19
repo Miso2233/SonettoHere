@@ -1,12 +1,9 @@
-"""FastAPI 应用工厂 — 生命周期管理、CORS、路由挂载、静态文件服务。"""
+"""FastAPI 应用工厂 — 生命周期管理、CORS、路由挂载。"""
 
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse
 
 import time
 
@@ -29,8 +26,6 @@ from agent.graph import build_agent
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from tools.mcp import init_mcp_tools, close_mcp
 from version import __version__
-
-WEB_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 async def _load_const_sessions(app: FastAPI):
@@ -179,13 +174,5 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def health():
         return await get_health_report(app)
-
-    # 生产模式：serve 前端静态文件（用 /assets 前缀避免拦截 WebSocket）
-    if WEB_DIR.exists():
-        app.mount("/assets", StaticFiles(directory=str(WEB_DIR / "assets")), name="assets")
-
-        @app.exception_handler(404)
-        async def spa_fallback(request, exc):
-            return FileResponse(WEB_DIR / "index.html")
 
     return app
