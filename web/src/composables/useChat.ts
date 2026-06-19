@@ -3,6 +3,7 @@ import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, Tur
 import { refreshSessions, switchSession } from '@/composables/useSession'
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
+import { getToken } from '@/api'
 /** 匹配旧格式尾缀（用于 localStorage 迁移） */
 const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
 
@@ -165,7 +166,8 @@ function connectSession(sid: string) {
   if (ch.ws?.readyState === WebSocket.OPEN) return
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const url = `${protocol}//${location.host}/ws/chat/${sid}`
+  const token = getToken()
+  const url = `${protocol}//${location.host}/ws/chat/${sid}?token=${encodeURIComponent(token)}`
   ch.ws = new WebSocket(url)
 
   ch.ws.onopen = () => {

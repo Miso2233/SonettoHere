@@ -22,11 +22,26 @@ import type {
   ListBlockerResponse,
 } from '@/types'
 
+declare const __API_TOKEN__: string
+
 const BASE = '/api'
 
+/** 从 Vite 编译期注入的 Token */
+let token: string = typeof __API_TOKEN__ !== 'undefined' ? __API_TOKEN__ : ''
+
+export function getToken(): string {
+  return token
+}
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers['X-Sonetto-Token'] = token
+  }
   const res = await fetch(`${BASE}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   })
   if (!res.ok) {

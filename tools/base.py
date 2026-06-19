@@ -224,8 +224,58 @@ def _write_whitelist(entries: list) -> None:
         yaml.dump(content, f, allow_unicode=True, default_flow_style=False)
 
 
-# 模块加载时自动执行：确保白名单存在（首次 import 时运行一次）
+_BLOCKER_YAML_PATH = (
+    Path(__file__).resolve().parent.parent / "api" / "data" / "sonetto_blocker.yaml"
+)
+
+_BLOCKER_FILENAME = "SonettoBlocker"
+_AUTO_BLOCKER_PATH = os.path.join(_PROJECT_ROOT, "api", "data")
+
+
+def _ensure_blocker() -> None:
+    """确保 api/data/ 目录受 SonettoBlocker 保护。
+
+    在模块导入时自动运行：
+    - 如果 api/data/ 下没有 SonettoBlocker 标记文件 → 创建
+    - 如果 sonetto_blocker.yaml 中没有对应条目 → 添加
+    """
+    marker = Path(_AUTO_BLOCKER_PATH) / _BLOCKER_FILENAME
+    if not marker.exists():
+        try:
+            marker.write_text("", encoding="utf-8")
+        except OSError:
+            return
+
+    if not _BLOCKER_YAML_PATH.exists():
+        return
+
+    try:
+        with open(_BLOCKER_YAML_PATH, encoding="utf-8") as f:
+            raw = yaml.safe_load(f) or {}
+        entries = raw.get("blockers", [])
+        if not isinstance(entries, list):
+            return
+
+        normalized = os.path.normpath(_AUTO_BLOCKER_PATH)
+        has_entry = any(
+            isinstance(e, dict)
+            and os.path.normpath(os.path.abspath(e.get("path", ""))) == normalized
+            for e in entries
+        )
+        if not has_entry:
+            entries.insert(0, {
+                "path": _AUTO_BLOCKER_PATH,
+                "description": "API 数据目录（自动生成）",
+            })
+            with open(_BLOCKER_YAML_PATH, "w", encoding="utf-8") as f:
+                yaml.dump({"blockers": entries}, f, allow_unicode=True, default_flow_style=False)
+    except (yaml.YAMLError, OSError):
+        pass
+
+
+# 模块加载时自动执行：确保白名单存在 + api/data/ 拒止锚存在（首次 import 时运行一次）
 _ensure_whitelist()
+_ensure_blocker()
 
 
 def _load_path_whitelist() -> list[str]:

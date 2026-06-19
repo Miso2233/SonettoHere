@@ -358,6 +358,13 @@ def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | No
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str):
     """WebSocket 聊天端点 — 接收用户消息、驱动 Agent、处理取消和用户交互。"""
+    # 校验 Token
+    token = ws.query_params.get("token", "")
+    expected = ws.app.state.auth_token
+    if not expected or token != expected:
+        await ws.close(code=4001)
+        return
+
     await ws.accept()
 
     # ── 初始化会话 ────────────────────────────────────────
