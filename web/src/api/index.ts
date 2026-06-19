@@ -194,6 +194,9 @@ export const api = {
 
   // ── 文件选择器 ──
 
+  selectFile: (type: 'file' | 'folder') =>
+    request<{ path: string | null }>(`/select-file?type=${type}`),
+
   selectFolder: () =>
     request<{ path: string | null }>('/select-file?type=folder'),
 

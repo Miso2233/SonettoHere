@@ -520,12 +520,11 @@ async function pickFolder() {
   await _pick('folder')
 }
 
-async function _pick(type: string) {
+async function _pick(type: 'file' | 'folder') {
   if (loading.value) return
   loading.value = true
   try {
-    const res = await fetch(`/api/select-file?type=${type}`)
-    const data = await res.json()
+    const data = await api.selectFile(type)
     if (data.path) {
       const refType = type === 'folder' ? 'folder' : 'file'
       const idx = refs.value.length
