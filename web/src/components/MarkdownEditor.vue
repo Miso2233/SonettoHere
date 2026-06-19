@@ -17,13 +17,14 @@
         :autofocus="false"
         :indent-with-tab="true"
         :tab-size="2"
+        @blur="onBlur"
       />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { Codemirror } from 'vue-codemirror'
 import { markdown } from '@codemirror/lang-markdown'
 import { EditorView } from '@codemirror/view'
@@ -37,11 +38,10 @@ const props = defineProps<{
 }>()
 
 const content = ref('')
+const savedContent = ref('')  // 记住上次保存的内容
 const loading = ref(true)
 const saving = ref(false)
 const saveState = ref<'saved' | 'saving' | ''>('')
-
-let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 const extensions = [
   markdown(),
@@ -59,6 +59,7 @@ async function loadContent() {
   try {
     const res = await api.getPersona(props.type)
     content.value = res.content
+    savedContent.value = res.content
   } catch (e: any) {
     console.error(`加载 ${props.type} 失败`, e)
   } finally {
@@ -71,6 +72,7 @@ async function saveContent() {
   saveState.value = 'saving'
   try {
     await api.updatePersona(props.type, content.value)
+    savedContent.value = content.value
     saveState.value = 'saved'
     setTimeout(() => { saveState.value = '' }, 2000)
   } catch (e: any) {
@@ -80,14 +82,11 @@ async function saveContent() {
   }
 }
 
-function debouncedSave() {
-  if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = setTimeout(saveContent, 800)
+function onBlur() {
+  if (content.value !== savedContent.value) {
+    saveContent()
+  }
 }
-
-watch(content, () => {
-  if (!loading.value) debouncedSave()
-})
 
 onMounted(loadContent)
 </script>
