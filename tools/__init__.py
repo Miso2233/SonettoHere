@@ -73,10 +73,6 @@ def get_all_tools() -> list[BaseTool]:
     from tools.entertainment.tool_answer_book import AnswerBookTool
     from tools.entertainment.tool_tarot import TarotTool
 
-    # Bilibili
-    from tools.bilibili.tool_download import BilibiliDownloadTool
-    from tools.bilibili.tool_set_cookie import BilibiliSetCookieTool
-
     # Memory
     from tools.memory.tool_list_memories import ListMemoriesTool
     from tools.memory.tool_read_memories import ReadMemoriesTool
@@ -131,9 +127,6 @@ def get_all_tools() -> list[BaseTool]:
         # Entertainment
         AnswerBookTool(client=client),
         TarotTool(client=client),
-        # Bilibili
-        BilibiliSetCookieTool(client=client),
-        BilibiliDownloadTool(client=client),
         # Memory
         ListMemoriesTool(client=client),
         ReadMemoriesTool(client=client),

@@ -1,5 +1,4 @@
 import type { Component } from 'vue'
-import BilibiliDownloadBubble from './BilibiliDownloadBubble.vue'
 import TodoBubble from './TodoBubble.vue'
 import TaskTrackerBubble from './TaskTrackerBubble.vue'
 import PythonBubble from './PythonBubble.vue'
@@ -12,7 +11,6 @@ import WeatherBubble from './WeatherBubble.vue'
 import HolidayBubble from './HolidayBubble.vue'
 import TimeBubble from './TimeBubble.vue'
 import SyntaxBubble from './SyntaxBubble.vue'
-import CookieBubble from './CookieBubble.vue'
 import ImageBubble from './ImageBubble.vue'
 import PdfReaderBubble from './PdfReaderBubble.vue'
 import DocReaderBubble from './DocReaderBubble.vue'
@@ -26,7 +24,6 @@ import MemoryBubble from './MemoryBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
-  'bilibili_download': BilibiliDownloadBubble,
   'todo_add': TodoBubble,
   'todo_list': TodoBubble,
   'todo_complete': TodoBubble,
@@ -53,7 +50,6 @@ const registry: Record<string, Component> = {
   'holiday_calendar': HolidayBubble,
   'time_tool': TimeBubble,
   'syntax_checker': SyntaxBubble,
-  'bilibili_set_cookie': CookieBubble,
   'analyze_image': ImageBubble,
   'tavily_search': TavilySearchBubble,
   'pdf_reader': PdfReaderBubble,

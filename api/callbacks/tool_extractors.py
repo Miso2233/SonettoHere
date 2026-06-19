@@ -70,28 +70,6 @@ def _get_data(parsed: dict[str, Any]) -> dict[str, Any] | None:
 # 工具提取器
 # ═══════════════════════════════════════════════════════════════════════
 
-# ── Bilibili 下载 ──────────────────────────────────────────────────────
-
-
-@register("bilibili_download")
-def _extract_bilibili(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 video_title, cover_url, file_path, quality。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-    cover_path = data.get("cover_path", "")
-    return {
-        "video_title": data.get("title"),
-        "cover_url": f"/api/file?path={cover_path}" if cover_path else None,
-        "file_path": data.get("file_path"),
-        "quality": data.get("quality"),
-    }
-
-
 # ── Todo 系列 ──────────────────────────────────────────────────────────
 
 
@@ -705,25 +683,6 @@ def _extract_syntax_check(
         "language": data.get("language", ""),
         "errors": data.get("errors", []),
         "warnings": data.get("warnings", []),
-    }
-
-
-# ── B站 Cookie 设置 ────────────────────────────────────────────────────
-
-
-@register("bilibili_set_cookie")
-def _extract_set_cookie(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 tool_type, message。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-    return {
-        "tool_type": "set_cookie",
-        "message": data.get("message", ""),
     }
 
 

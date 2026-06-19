@@ -1,6 +1,4 @@
 const DISPLAY_NAMES: Record<string, string> = {
-  bilibili_download: '视频下载',
-  bilibili_set_cookie: 'B站 Cookie 设置',
   weather: '天气查询',
   get_current_weather: '天气查询',
   holiday_calendar: '节假日查询',

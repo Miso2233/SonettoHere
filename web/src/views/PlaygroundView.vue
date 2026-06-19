@@ -137,7 +137,6 @@ function stateLabel(s: ToolStatus): string {
 
 function getBubbleComponentName(name: string): string {
   const map: Record<string, string> = {
-    'bilibili_download': 'BilibiliDownloadBubble.vue',
     'todo_add': 'TodoBubble.vue',
     'todo_list': 'TodoBubble.vue',
     'todo_complete': 'TodoBubble.vue',
@@ -163,7 +162,6 @@ function getBubbleComponentName(name: string): string {
     'holiday_calendar': 'HolidayBubble.vue',
     'time_tool': 'TimeBubble.vue',
     'syntax_checker': 'SyntaxBubble.vue',
-    'bilibili_set_cookie': 'CookieBubble.vue',
     'analyze_image': 'ImageBubble.vue',
     'tavily_search': 'TavilySearchBubble.vue',
     'pdf_reader': 'PdfReaderBubble.vue',
@@ -197,21 +195,6 @@ interface MockTemplate {
 }
 
 const mockTemplates: Record<string, MockTemplate> = {
-  bilibili_download: {
-    input: {
-      url: 'https://www.bilibili.com/video/BV1xx411c7mD',
-      quality: 'highest',
-    },
-    doneOutput: '下载完成',
-    toolData: {
-      video_title: '【4K 60FPS】京都·红叶季 — 岚山竹林与常寂光寺',
-      cover_url: 'https://i0.hdslb.com/bfs/archive/82501cb151d19a4b17f8c3b3cd6c5e4e6c8a7b9d.jpg',
-      file_path: 'output/bilibili/京都红叶季_4K60FPS.mp4',
-      quality: '超清 4K',
-      filesize_mb: 847.3,
-      duration: '12:48',
-    },
-  },
   weather: {
     input: { city: '京都', date: '2026-05-16' },
     doneOutput: JSON.stringify({
@@ -837,17 +820,6 @@ const mockTemplates: Record<string, MockTemplate> = {
       warnings: [],
     },
   },
-  bilibili_set_cookie: {
-    input: { cookie: 'SESSDATA=abc123; bili_jct=def456;' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { message: 'Cookie 已保存' },
-    }),
-    toolData: {
-      tool_type: 'set_cookie',
-      message: 'Cookie 已保存',
-    },
-  },
   analyze_image: {
     input: { image_source: 'url:https://example.com/photo.jpg', prompt: '请描述这张图片' },
     doneOutput: JSON.stringify({
@@ -1107,7 +1079,7 @@ function buildMock(name: string, status: ToolStatus): ToolCall {
   // done
   return {
     ...base,
-    elapsed: name === 'bilibili_download' ? 18.45 : (name === 'tavily_search' ? 1.82 : name === 'tavily_extract' ? 2.64 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : 2.35),
+    elapsed: name === 'tavily_search' ? 1.82 : name === 'tavily_extract' ? 2.64 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : 2.35,
     output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
     toolData: tpl?.toolData,
   }
