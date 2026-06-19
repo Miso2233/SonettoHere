@@ -635,7 +635,6 @@ function onResizeEnd(e: PointerEvent) {
 
 <style scoped>
 .chat-input-wrapper {
-  border-top: 1px solid var(--border);
   padding: 12px 24px 16px;
   background: var(--bg-card);
 }
@@ -727,6 +726,8 @@ function onResizeEnd(e: PointerEvent) {
   gap: 6px;
   padding: 0 0 8px 0;
   position: relative;
+  max-width: 768px;
+  margin: 0 auto;
 }
 .file-refs-bar:empty {
   display: none;
@@ -814,6 +815,8 @@ function onResizeEnd(e: PointerEvent) {
   align-items: center;
   gap: 6px;
   padding: 0 0 8px 0;
+  max-width: 768px;
+  margin: 0 auto;
 }
 .link-input {
   flex: 1;
@@ -889,6 +892,8 @@ function onResizeEnd(e: PointerEvent) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  max-width: 768px;
+  margin: 0 auto;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 14px;
