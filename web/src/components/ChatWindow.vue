@@ -11,67 +11,70 @@
         >
           <MessageBubble role="user" :content="turn.userMessage" :refs="turn.refs" />
         </div>
-        <template v-for="(ev, i) in turn.events" :key="i">
+        <!-- 助手侧：events + finalAnswer + 记忆日志，hover 时才显示记忆日志 -->
+        <div class="assistant-side">
+          <template v-for="(ev, i) in turn.events" :key="i">
+            <div
+              v-if="ev.kind === 'thinking'"
+              class="cite-source"
+              @contextmenu.prevent="onBubbleContextMenu($event, 'thinking', ev.tokens, '思考过程')"
+            >
+              <ThinkingBlock :block="ev" />
+            </div>
+            <div
+              v-else-if="ev.kind === 'tool'"
+              class="cite-source"
+              @contextmenu.prevent="
+                onBubbleContextMenu(
+                  $event,
+                  'tool_result',
+                  ev.output || ev.input || '',
+                  ev.name,
+                )
+              "
+            >
+              <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
+            </div>
+          </template>
+          <!-- finalAnswer：仅在已完成（非流式）轮次中展示 -->
           <div
-            v-if="ev.kind === 'thinking'"
+            v-if="turn.finalAnswer && !hasAnswerBlock(turn) && !isStreamingTurn(turn)"
             class="cite-source"
-            @contextmenu.prevent="onBubbleContextMenu($event, 'thinking', ev.tokens, '思考过程')"
+            @contextmenu.prevent="onBubbleContextMenu($event, 'assistant_message', turn.finalAnswer, 'AI')"
           >
-            <ThinkingBlock :block="ev" />
+            <MessageBubble role="assistant" :content="turn.finalAnswer" />
           </div>
-          <div
-            v-else-if="ev.kind === 'tool'"
-            class="cite-source"
-            @contextmenu.prevent="
-              onBubbleContextMenu(
-                $event,
-                'tool_result',
-                ev.output || ev.input || '',
-                ev.name,
-              )
-            "
-          >
-            <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
-          </div>
-        </template>
-        <!-- finalAnswer：仅在已完成（非流式）轮次中展示 -->
-        <div
-          v-if="turn.finalAnswer && !hasAnswerBlock(turn) && !isStreamingTurn(turn)"
-          class="cite-source"
-          @contextmenu.prevent="onBubbleContextMenu($event, 'assistant_message', turn.finalAnswer, 'AI')"
-        >
-          <MessageBubble role="assistant" :content="turn.finalAnswer" />
-        </div>
-        <!-- 后台记忆更新日志（小字，轮次底部） -->
-        <div v-if="turn.memoryEvents?.length" class="memory-tool-log">
-          <div
-            v-for="(me, i) in turn.memoryEvents"
-            :key="i"
-            class="memory-tool-entry"
-            :class="{ 'is-running': me.status === 'running' }"
-          >
-            <span class="memory-tool-icon">
-              <span v-if="me.status === 'running'" class="memory-spinner"></span>
-              <span v-else-if="me.status === 'done'" class="memory-check">&#10003;</span>
-              <span v-else class="memory-cross">&#10007;</span>
-            </span>
-            <!-- memory_review = 未触发任何修改，显示简洁文字 -->
-            <template v-if="me.name === 'memory_review'">
-              <span class="memory-tool-name">记忆检查</span>
-              <span class="memory-tool-status">无需修改</span>
-            </template>
-            <!-- memory_processing = 后台 consumer 正在处理中 -->
-            <template v-else-if="me.name === 'memory_processing'">
-              <span class="memory-tool-name">记忆处理</span>
-              <span class="memory-tool-status">处理中...</span>
-            </template>
-            <template v-else>
-              <span class="memory-tool-name">{{ toolDisplayName(me.name) }}</span>
-              <span v-if="me.status === 'running'" class="memory-tool-status">处理中...</span>
-              <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output" :title="me.output">{{ shortenMemoryIds(me.output) }}</span>
-              <span v-else-if="me.status === 'error'" class="memory-tool-status is-error">失败</span>
-              <span v-if="me.elapsed !== null" class="memory-tool-elapsed">{{ me.elapsed.toFixed(1) }}s</span>
-            </template>
+          <!-- 后台记忆更新日志（小字，轮次底部）—— 默认隐藏，hover 才显示 -->
+          <div v-if="turn.memoryEvents?.length" class="memory-tool-log">
+            <div
+              v-for="(me, i) in turn.memoryEvents"
+              :key="i"
+              class="memory-tool-entry"
+              :class="{ 'is-running': me.status === 'running' }"
+            >
+              <span class="memory-tool-icon">
+                <span v-if="me.status === 'running'" class="memory-spinner"></span>
+                <span v-else-if="me.status === 'done'" class="memory-check">&#10003;</span>
+                <span v-else class="memory-cross">&#10007;</span>
+              </span>
+              <!-- memory_review = 未触发任何修改，显示简洁文字 -->
+              <template v-if="me.name === 'memory_review'">
+                <span class="memory-tool-name">记忆检查</span>
+                <span class="memory-tool-status">无需修改</span>
+              </template>
+              <!-- memory_processing = 后台 consumer 正在处理中 -->
+              <template v-else-if="me.name === 'memory_processing'">
+                <span class="memory-tool-name">记忆处理</span>
+                <span class="memory-tool-status">处理中...</span>
+              </template>
+              <template v-else>
+                <span class="memory-tool-name">{{ toolDisplayName(me.name) }}</span>
+                <span v-if="me.status === 'running'" class="memory-tool-status">处理中...</span>
+                <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output" :title="me.output">{{ shortenMemoryIds(me.output) }}</span>
+                <span v-else-if="me.status === 'error'" class="memory-tool-status is-error">失败</span>
+                <span v-if="me.elapsed !== null" class="memory-tool-elapsed">{{ me.elapsed.toFixed(1) }}s</span>
+              </template>
+            </div>
           </div>
         </div>
       </template>
@@ -550,6 +553,16 @@ function closeContextMenu() {
 
 .scroll-mark:active {
   background: var(--accent-light);
+}
+
+/* ── 助手侧容器：默认隐藏记忆日志，hover 整个区域才显示 ── */
+.assistant-side .memory-tool-log {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.assistant-side:hover .memory-tool-log {
+  opacity: 1;
 }
 
 /* ── 后台记忆更新日志 ── */
