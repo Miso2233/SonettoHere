@@ -63,7 +63,7 @@
             <template v-else>
               <span class="memory-tool-name">{{ toolDisplayName(me.name) }}</span>
               <span v-if="me.status === 'running'" class="memory-tool-status">处理中...</span>
-              <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output">{{ me.output }}</span>
+              <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output" :title="me.output">{{ me.output }}</span>
               <span v-else-if="me.status === 'error'" class="memory-tool-status is-error">失败</span>
               <span v-if="me.elapsed !== null" class="memory-tool-elapsed">{{ me.elapsed.toFixed(1) }}s</span>
             </template>
@@ -612,11 +612,12 @@ function closeContextMenu() {
 }
 
 .memory-tool-output {
-  max-width: 280px;
+  max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--text-tertiary);
+  cursor: default;
 }
 
 .memory-tool-elapsed {
