@@ -62,7 +62,7 @@ import { allSessionStatuses } from '@/composables/useChat';
 import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { constifySession, unconstifySession, useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
-import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const { effectiveCollapsed, toggleSidebar } = useSidebar()
@@ -245,6 +245,8 @@ html, body {
   flex-direction: column;
   padding: 24px 20px;
   gap: 24px;
+  position: relative;
+  overflow: hidden;
 }
 
 .sidebar-header {
@@ -496,6 +498,35 @@ html, body {
   overflow: hidden;
   padding: 0;
   margin: 0;
+}
+
+/* ── Sidebar background image with blur + white overlay ── */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: -5%;
+  background-image: url('/images/sidebar-bg.jpg');
+  background-size: cover;
+  background-position: left center;
+  background-repeat: no-repeat;
+  filter: blur(10px);
+  transform: scale(1.05);
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sidebar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #ffffffd3;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sidebar > :not(.settings-popup) {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Shared markdown rendered content ── */
