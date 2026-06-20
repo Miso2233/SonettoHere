@@ -433,6 +433,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
 function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEvent): void {
   if (event.type === 'memory_tool_start') {
     const me = event as MemoryToolStartEvent
+    if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
     console.log(`[ltm-fe] memory_tool_start session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
     const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
     if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
@@ -444,6 +445,7 @@ function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEve
   }
   if (event.type === 'memory_tool_end') {
     const me = event as MemoryToolEndEvent
+    if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
     console.log(`[ltm-fe] memory_tool_end session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
     const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
     if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
@@ -454,6 +456,7 @@ function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEve
   }
   if (event.type === 'memory_tool_error') {
     const me = event as MemoryToolErrorEvent
+    if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
     const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
     if (!targetTurn) return
     const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
