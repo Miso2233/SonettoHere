@@ -27,7 +27,7 @@ class ReadMemoriesTool(ToolBase):
     description: str = (
         "根据 ID 读取一条长期记忆的完整内容（含变更历史）。"
         "先用 list_memories 获取概览和 ID，再用此工具查看全文。"
-        "[调用积极性: 仅在用户引用或提及时调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 绝对不要在用户没有提及该工具名时使用|仅在用户引用或提及时调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = ReadMemoriesInput
 

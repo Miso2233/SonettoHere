@@ -39,7 +39,7 @@ export interface AnswerEvent {
 
 export interface DoneEvent {
   type: 'done'
-  payload: { context_usage?: ContextUsage }
+  payload: { turn_id?: string; context_usage?: ContextUsage }
 }
 
 export interface ErrorEvent {
@@ -81,6 +81,45 @@ export interface SubSessionCreatedEvent {
   }
 }
 
+/** memory_tool_start — 后台记忆 consumer 开始调用 CRUD 工具 */
+export interface MemoryToolStartEvent {
+  type: 'memory_tool_start'
+  payload: {
+    turn_id: string
+    tool_name: string
+    input: string
+  }
+}
+
+/** memory_tool_end — 后台记忆 consumer 的 CRUD 工具执行完毕 */
+export interface MemoryToolEndEvent {
+  type: 'memory_tool_end'
+  payload: {
+    turn_id: string
+    tool_name: string
+    output: string
+    elapsed: number
+  }
+}
+
+/** memory_tool_error — 后台记忆 consumer 的 CRUD 工具执行出错 */
+export interface MemoryToolErrorEvent {
+  type: 'memory_tool_error'
+  payload: {
+    turn_id: string
+    tool_name: string
+    error: string
+  }
+}
+
+/** memory_done — 后台记忆 consumer 处理完毕（无论是否有修改） */
+export interface MemoryDoneEvent {
+  type: 'memory_done'
+  payload: {
+    turn_id: string
+  }
+}
+
 export type ServerEvent =
   | ThinkingStartEvent
   | TokenEvent
@@ -95,6 +134,10 @@ export type ServerEvent =
   | ContextUsageEvent
   | AskUserEvent
   | SubSessionCreatedEvent
+  | MemoryToolStartEvent
+  | MemoryToolEndEvent
+  | MemoryToolErrorEvent
+  | MemoryDoneEvent
 
 // === WebSocket 客户端 → 服务端消息 ===
 
@@ -161,14 +204,27 @@ export interface ToolCall {
   interaction?: AskUserInteraction
 }
 
-export type TurnEvent = ThinkingBlock | ToolCall
+/** 后台记忆 consumer 的 CRUD 工具调用（渲染在轮次底部小字区） */
+export interface MemoryToolEvent {
+  kind: 'memory_tool'
+  name: string
+  input: string
+  output: string | null
+  elapsed: number | null
+  status: 'running' | 'done' | 'error'
+}
+
+export type TurnEvent = ThinkingBlock | ToolCall | MemoryToolEvent
 
 export interface ChatTurn {
   id: string
   userMessage: string
   refs: ParsedRef[]
   events: TurnEvent[]
+  memoryEvents?: MemoryToolEvent[]
   finalAnswer: string | null
+  /** 后端生成的 turn_id，用于关联后台记忆 consumer 的事件 */
+  turnId?: string
 }
 
 // === 会话与 API 类型 ===

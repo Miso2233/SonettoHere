@@ -4,6 +4,7 @@ import asyncio
 import json
 import sys
 import traceback
+import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -344,10 +345,12 @@ async def _run_agent_turn(
             max_tokens=current_max_tokens,
             model_name=current_model_name or "",
         )
+        turn_id = uuid.uuid4().hex
         await ws.send_json(
-            {  # [向前端通信] 3. 推送 turn 结束 + 上下文用量
+            {  # [向前端通信] 3. 推送 turn 结束 + 上下文用量 + turn_id（用于记忆事件关联）
                 "type": "done",
                 "payload": {
+                    "turn_id": turn_id,
                     "context_usage": context_usage,
                 },
             }
@@ -361,8 +364,11 @@ async def _run_agent_turn(
             [
                 {"role": "user", "content": user_message},
                 {"role": "assistant", "content": final_answer},
-            ]
+            ],
+            session_id=session.session_id,
+            turn_id=turn_id,
         )
+        print(f"[ltm] send_history enqueued session={session.session_id[:8]} turn_id={turn_id[:8]}")
 
     # 4. [Const 会话] 自动持久化到磁盘 YAML
     if final_answer and session.is_const:
@@ -448,6 +454,9 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     app_state = ws.app.state
     session = app_state.session_manager.get_or_create(session_id)
 
+    # 注册 WebSocket 到注册表，供后台记忆 consumer 推送事件
+    app_state.ws_registry.register(session_id, ws)
+
     # ── 推送初始上下文用量 ─────────────────────────────────
     default_max_tokens, default_model = _get_provider_context(app_state)
     initial_usage = await _calculate_context_usage(
@@ -512,6 +521,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     except WebSocketDisconnect:
         pass  # 客户端断开是正常行为
     finally:
+        app_state.ws_registry.unregister(session_id)
         if agent_task and not agent_task.done():
             agent_task.cancel()
         session._active_task = None

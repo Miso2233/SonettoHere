@@ -12,6 +12,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
 from memory.memory_manager import MemoryManager
+from memory.memory_callback import MemoryToolCallback
 
 
 def _sanitize(text: str) -> str:
@@ -247,6 +248,7 @@ class LongTermMemoryInterface:
         self._mm = MemoryManager(yaml_file=str(self._memory_path))
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
+        self._ws_registry = None
 
     @property
     def is_listening(self) -> bool:
@@ -260,20 +262,32 @@ class LongTermMemoryInterface:
         mm = MemoryManager(yaml_file=str(self._memory_path))
         return _format_narrative(mm.show())
 
-    def start_listening(self, llm) -> None:
+    def start_listening(self, llm, ws_registry=None) -> None:
         """创建 asyncio.Queue 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
         """
+        self._ws_registry = ws_registry
         self._queue = asyncio.Queue()
         self._consumer_task = asyncio.create_task(self._consumer(llm))
 
-    async def send_history(self, turn_messages: list[dict]) -> None:
-        """生产者：将本轮对话消息放入队列（非阻塞）。"""
+    async def send_history(
+        self,
+        turn_messages: list[dict],
+        session_id: str | None = None,
+        turn_id: str | None = None,
+    ) -> None:
+        """生产者：将本轮对话消息放入队列（非阻塞）。
+
+        可附带 session_id 和 turn_id，供后台消费者关联到前端对话轮次。
+        """
         if not turn_messages:
             return
         if self._queue is not None:
-            await self._queue.put(list(turn_messages))
+            await self._queue.put((session_id, turn_id, list(turn_messages)))
+            print(f"[ltm] queue.put session={session_id} turn_id={turn_id} queue_size≈{self._queue.qsize()}")
+        else:
+            print(f"[ltm] queue is None, dropping history")
 
     async def stop_listening(self) -> None:
         """发送 None 哨兵并等待消费者排空队列。"""
@@ -287,9 +301,11 @@ class LongTermMemoryInterface:
         """后台消费者协程：从队列取消息，调用 CRUD Agent，写入 memory.yaml。"""
 
         while True:
-            turn_messages = await self._queue.get()
-            if turn_messages is None:
+            item = await self._queue.get()
+            if item is None:
                 break
+            session_id, turn_id, turn_messages = item
+            print(f"[ltm] consumer got session={session_id} turn_id={turn_id} msgs={len(turn_messages)}")
 
             try:
                 _set_current_mm(self._mm)
@@ -335,10 +351,43 @@ class LongTermMemoryInterface:
                     checkpointer=MemorySaver(),
                 )
 
+                # 创建回调：推送 CRUD 工具调用到前端对应轮次
+                callbacks = []
+                if self._ws_registry is not None and session_id:
+                    print(f"[ltm] creating MemoryToolCallback session={session_id[:8]} turn_id={turn_id[:8]}")
+                    memory_cb = MemoryToolCallback(
+                        self._ws_registry, session_id, turn_id or "",
+                    )
+                    callbacks.append(memory_cb)
+                else:
+                    print(f"[ltm] NO ws_registry or session_id — skip callbacks")
+
+                print(f"[ltm] invoking CRUD agent...")
                 await agent.ainvoke(
                     {"messages": [HumanMessage(content=user_prompt)]},
-                    config={"configurable": {"thread_id": "ltm-consumer"}},
+                    config={
+                        "configurable": {"thread_id": "ltm-consumer"},
+                        "callbacks": callbacks,
+                    },
                 )
+                print(f"[ltm] CRUD agent done")
+
+                # 无论是否有工具调用，都通知前端本轮记忆处理完成
+                if self._ws_registry is not None and session_id:
+                    ws = self._ws_registry.get(session_id)
+                    if ws is not None:
+                        try:
+                            await ws.send_json({
+                                "type": "memory_done",
+                                "payload": {"turn_id": turn_id or ""},
+                            })
+                            print(f"[ltm] memory_done sent session={session_id[:8]} turn_id={turn_id[:8]}")
+                        except Exception as e:
+                            print(f"[ltm] memory_done send error: {e}")
+                    else:
+                        print(f"[ltm] ws_registry.get returned None for session={session_id[:8]}")
+                else:
+                    print(f"[ltm] NO ws_registry or session_id — skip memory_done")
 
             except Exception:
                 pass

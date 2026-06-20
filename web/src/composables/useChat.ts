@@ -1,5 +1,5 @@
 import { reactive, computed, watch, nextTick, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent } from '@/types'
+import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryDoneEvent } from '@/types'
 import { refreshSessions, switchSession } from '@/composables/useSession'
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
@@ -12,13 +12,13 @@ export const TURNS_KEY_PREFIX = 'sonetto_turns_'
 /** 将旧格式 turn（userMessage 含 __refs__ 和时间尾缀）迁移为新格式 */
 function migrateLegacyTurn(turn: any): ChatTurn {
   if (Array.isArray(turn.refs)) {
-    return turn as ChatTurn  // 已经是新格式
+    return { memoryEvents: [], ...turn } as ChatTurn
   }
   // 旧格式：从 userMessage 中提取 refs 和时间尾缀
   const prevMsg = (turn.userMessage ?? '') as string
   const { cleanText, refs } = parseReferences(prevMsg || '')
   const text = refs.length > 0 ? cleanText : prevMsg.replace(TIME_SUFFIX_RE, '')
-  return { ...turn, userMessage: text, refs }
+  return { ...turn, userMessage: text, refs, memoryEvents: [] }
 }
 
 // 从 localStorage 恢复所有会话的消息缓存（页面刷新后仍保留）
@@ -240,10 +240,19 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
       userMessage: event.payload.task || '(子 Agent 任务)',
       refs: [],
       events: [],
+      memoryEvents: [],
       finalAnswer: null,
     }
 
     void switchSession(subId)
+    return
+  }
+
+  // memory_tool_* / memory_done 可能在 done 事件之后到达（currentTurn 已清空），
+  // 必须在 const turn = ch.currentTurn 守卫之前处理，通过 turn_id 自行查找目标。
+  if (event.type === 'memory_tool_start' || event.type === 'memory_tool_end'
+    || event.type === 'memory_tool_error' || event.type === 'memory_done') {
+    handleMemoryToolEvent(ch, sid, event)
     return
   }
 
@@ -335,6 +344,11 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
       if (event.payload.context_usage) {
         ch.contextUsage = event.payload.context_usage
       }
+      // 存储后端 turn_id，用于关联后台记忆 consumer 的事件
+      if (ch.currentTurn && (event.payload as Record<string, unknown>).turn_id) {
+        ch.currentTurn.turnId = (event.payload as Record<string, unknown>).turn_id as string
+        console.log(`[ltm-fe] turnId set on turn.id=${ch.currentTurn.id}: ${ch.currentTurn.turnId}`)
+      }
       if (ch.currentTurn) {
         const lastThink = findLastThinking(ch.currentTurn.events)
         const trackBecame = lastThink?.becameAnswer
@@ -410,6 +424,53 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
         }
       }
       break
+    }
+
+  }
+}
+
+/** 后台记忆 consumer 事件处理（在 done 后 currentTurn=null 时也能通过 turn_id 找到目标）。 */
+function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  if (event.type === 'memory_tool_start') {
+    const me = event as MemoryToolStartEvent
+    console.log(`[ltm-fe] memory_tool_start session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
+    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+    if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
+    targetTurn.memoryEvents?.push({
+      kind: 'memory_tool', name: me.payload.tool_name, input: me.payload.input,
+      output: null, elapsed: null, status: 'running',
+    })
+    return
+  }
+  if (event.type === 'memory_tool_end') {
+    const me = event as MemoryToolEndEvent
+    console.log(`[ltm-fe] memory_tool_end session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
+    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+    if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
+    const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
+    if (mt) { mt.output = me.payload.output; mt.elapsed = me.payload.elapsed; mt.status = 'done' }
+    if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+    return
+  }
+  if (event.type === 'memory_tool_error') {
+    const me = event as MemoryToolErrorEvent
+    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+    if (!targetTurn) return
+    const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
+    if (mt) mt.status = 'error'
+    if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+    return
+  }
+  if (event.type === 'memory_done') {
+    const me = event as MemoryDoneEvent
+    console.log(`[ltm-fe] memory_done session=${sid} turn_id=${me.payload.turn_id}`)
+    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+    if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
+    if (!targetTurn.memoryEvents || targetTurn.memoryEvents.length === 0) {
+      targetTurn.memoryEvents = [{
+        kind: 'memory_tool', name: 'memory_review', input: '', output: '', elapsed: null, status: 'done',
+      }]
+      console.log(`[ltm-fe] added memory_review`)
     }
   }
 }
@@ -488,6 +549,7 @@ export function useChat(sessionId: Ref<string>) {
       userMessage: text,
       refs,
       events: [],
+      memoryEvents: [],
       finalAnswer: null,
     }
     ch.currentTurn = turn
@@ -553,6 +615,21 @@ function findRunningTool(events: TurnEvent[], toolName: string): ToolCall | unde
     if (e.kind === 'tool' && e.name === toolName && e.status === 'running') {
       return e as ToolCall
     }
+  }
+  return undefined
+}
+
+/** 通过后端 turn_id 查找 turn（先在 currentTurn 中找，再在 turns 中找）。 */
+function findTurnByBackendId(ch: SessionChannel, turnId: string): ChatTurn | undefined {
+  if (ch.currentTurn?.turnId === turnId) return ch.currentTurn
+  return ch.turns.find(t => t.turnId === turnId)
+}
+
+/** 在 memoryEvents 中查找指定工具名的 running 状态事件。 */
+function findRunningMemoryTool(events: MemoryToolEvent[], toolName: string): MemoryToolEvent | undefined {
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i]
+    if (e.name === toolName && e.status === 'running') return e
   }
   return undefined
 }

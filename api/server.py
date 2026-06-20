@@ -25,6 +25,7 @@ from api.routes import skills as skills_router
 from api.routes import news as news_router
 from api.routes import restart as restart_router
 from api.session_manager import SessionManager, SessionState
+from api.ws_registry import WebSocketRegistry
 from agent.graph import build_agent
 from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from tools.mcp import init_mcp_tools, close_mcp
@@ -115,9 +116,10 @@ async def lifespan(app: FastAPI):
     app.state.system_prompt = get_system_prompt()
     app.state.native_tools = get_tools()
     app.state.session_manager = SessionManager()
+    app.state.ws_registry = WebSocketRegistry()
     app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
     if app.state.llm is not None:
-        app.state.ltm.start_listening(app.state.llm)
+        app.state.ltm.start_listening(app.state.llm, ws_registry=app.state.ws_registry)
     else:
         print("[ltm] Skipped (no LLM available)")
 
