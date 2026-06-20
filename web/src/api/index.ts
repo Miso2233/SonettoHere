@@ -155,6 +155,9 @@ export const api = {
   listTools: () =>
     request<ListToolsResponse>('/tools'),
 
+  listMacros: () =>
+    request<ListMacrosResponse>('/macros'),
+
   // ── Const 固定会话 ──
 
   constifySession: (id: string, name: string) =>

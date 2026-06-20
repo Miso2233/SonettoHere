@@ -45,7 +45,14 @@ export interface ToolRef {
   name: string
 }
 
-export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef | SkillRef | ToolRef
+/** 宏引用 */
+export interface MacroRef {
+  type: 'macro'
+  label: string
+  name: string
+}
+
+export type ParsedRef = FileRef | FolderRef | CiteRef | WebLinkRef | SkillRef | ToolRef | MacroRef
 
 /**
  * 引用 chip 渲染配置，每种 type 自注册 icon 名与 tooltip 函数。
@@ -80,6 +87,10 @@ export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
   tool: {
     icon: 'tool',
     tooltip: (r: ParsedRef) => `工具: ${(r as ToolRef).name}`,
+  },
+  macro: {
+    icon: 'sparkles',
+    tooltip: (r: ParsedRef) => `宏: ${(r as MacroRef).name}`,
   },
 }
 

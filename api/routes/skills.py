@@ -69,6 +69,33 @@ async def list_skills():
     return {"skills": skills}
 
 
+@router.get("/macros")
+async def list_macros():
+    """扫描 macros/ 下所有 MACRO.md，返回结构化列表。"""
+    MACROS_DIR = (
+        Path(__file__).resolve().parent.parent.parent / "macros"
+    )
+    if not MACROS_DIR.is_dir():
+        return {"macros": []}
+
+    macros_list: list[dict[str, str]] = []
+    for mp_path in sorted(MACROS_DIR.rglob("MACRO.md")):
+        rel = mp_path.relative_to(MACROS_DIR).parent
+        meta = _parse_frontmatter(mp_path.read_text(encoding="utf-8"))
+        name = meta.get("name", str(rel))
+        description = meta.get("description", "")
+        path_str = str(mp_path).replace("\\", "/")
+        macros_list.append(
+            {
+                "name": name,
+                "description": description,
+                "path": path_str,
+            }
+        )
+
+    return {"macros": macros_list}
+
+
 @router.get("/tools")
 async def list_tools(request: Request):
     """返回所有已加载的 Python 内置工具（native_tools + mcp_tools）。"""

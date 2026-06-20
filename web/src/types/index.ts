@@ -401,6 +401,10 @@ export interface ListSkillsResponse {
   skills: SkillInfo[]
 }
 
+export interface ListMacrosResponse {
+  macros: SkillInfo[]
+}
+
 // === 内置工具 ===
 
 export interface ToolInfo {

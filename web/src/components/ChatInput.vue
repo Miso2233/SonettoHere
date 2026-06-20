@@ -262,7 +262,7 @@ function onPaste(e: ClipboardEvent) {
 
 // ── @ / # 自动补全（统一状态机） ──
 
-type AcMode = 'skill' | 'tool' | null
+type AcMode = 'skill' | 'tool' | 'macro' | null
 
 const acMode = ref<AcMode>(null)
 const acFilterText = ref('')
@@ -273,11 +273,13 @@ const acTriggerChar = ref('')
 
 const skills = ref<SkillInfo[]>([])
 const tools = ref<ToolInfo[]>([])
+const macros = ref<SkillInfo[]>([])
 
 /** 当前模式对应的数据源 */
 const acSource = computed(() =>
   acMode.value === 'skill' ? skills.value
   : acMode.value === 'tool' ? tools.value
+  : acMode.value === 'macro' ? macros.value
   : []
 )
 
@@ -325,6 +327,15 @@ async function loadTools() {
   }
 }
 
+async function loadMacros() {
+  try {
+    const res = await api.listMacros()
+    macros.value = res.macros
+  } catch (e) {
+    console.error('[ChatInput] 加载宏失败:', e)
+  }
+}
+
 /** 检测 @ / # 触发 */
 watch(text, () => {
   const el = textareaRef.value
@@ -333,10 +344,10 @@ watch(text, () => {
   const cursorPos = el.selectionStart
   const textBeforeCursor = val.slice(0, cursorPos)
 
-  // 检查 @ 和 #，取较近者
+  // 检查 @、#、!、！，取最近者
   let triggerPos = -1
   let triggerChar = ''
-  for (const ch of ['@', '#'] as const) {
+  for (const ch of ['@', '#', '!', '！'] as const) {
     const idx = textBeforeCursor.lastIndexOf(ch)
     if (idx > triggerPos) {
       triggerPos = idx
@@ -344,7 +355,7 @@ watch(text, () => {
     }
   }
 
-  const mode: AcMode = triggerChar === '@' ? 'skill' : triggerChar === '#' ? 'tool' : null
+  const mode: AcMode = triggerChar === '@' ? 'skill' : triggerChar === '#' ? 'tool' : (triggerChar === '!' || triggerChar === '！') ? 'macro' : null
 
   if (triggerPos !== -1 && mode) {
     const after = textBeforeCursor.slice(triggerPos + 1)
@@ -403,8 +414,9 @@ function confirmItem() {
   text.value = text.value.slice(0, acTriggerPos.value) + text.value.slice(cursorPos)
 
   // 创建对应类型的引用
-  const ref: ParsedRef = acMode.value === 'skill'
-    ? { type: 'skill', name: item.name, label: item.name }
+  const ref: ParsedRef =
+    acMode.value === 'skill' ? { type: 'skill', name: item.name, label: item.name }
+    : acMode.value === 'macro' ? { type: 'macro', name: item.name, label: item.name }
     : { type: 'tool', name: item.name, label: item.name }
   refs.value.push(ref)
 
@@ -499,6 +511,7 @@ async function loadProviders() {
 onMounted(loadProviders)
 onMounted(loadSkills)
 onMounted(loadTools)
+onMounted(loadMacros)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')
