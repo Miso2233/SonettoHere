@@ -89,6 +89,14 @@ export const api = {
   health: () =>
     request<HealthResponse>('/health'),
 
+  restart: async () => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) headers['X-Sonetto-Token'] = token
+    try {
+      await fetch(`${BASE}/restart`, { method: 'POST', headers })
+    } catch { /* server will close connection, expected */ }
+  },
+
   // ── Provider ──
 
   listProviders: () =>

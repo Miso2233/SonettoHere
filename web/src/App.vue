@@ -62,7 +62,12 @@ import { allSessionStatuses } from '@/composables/useChat';
 import { health, startPolling, useHealth } from '@/composables/useHealth';
 import { constifySession, unconstifySession, useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
+<<<<<<< Updated upstream
 import { nextTick, onMounted, onUnmounted, ref } from 'vue';
+=======
+import { api } from '@/api';
+import { ref, onMounted, onUnmounted, nextTick } from 'vue';
+>>>>>>> Stashed changes
 import { useRouter } from 'vue-router';
 
 const { effectiveCollapsed, toggleSidebar } = useSidebar()
@@ -79,15 +84,13 @@ async function handleRestart() {
   if (!window.confirm('确定要重启 SonettoHere 服务吗？正在进行的对话可能会中断。')) return
   restarting.value = true
   closeSettingsMenu()
-  try {
-    await fetch('/api/restart', { method: 'POST' })
-  } catch { /* server will close connection, expected */ }
+  api.restart()
   const poll = async () => {
     for (let i = 0; i < 60; i++) {
       await new Promise(r => setTimeout(r, 2000))
       try {
-        const res = await fetch('/api/health')
-        if (res.ok) { location.reload(); return }
+        await api.health()
+        location.reload(); return
       } catch { /* still down */ }
     }
     restarting.value = false
