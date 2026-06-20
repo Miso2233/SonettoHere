@@ -1,5 +1,5 @@
 import { reactive, computed, watch, nextTick, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryDoneEvent } from '@/types'
+import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryStartEvent, MemoryDoneEvent } from '@/types'
 import { refreshSessions, switchSession } from '@/composables/useSession'
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
@@ -248,9 +248,9 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
     return
   }
 
-  // memory_tool_* / memory_done 可能在 done 事件之后到达（currentTurn 已清空），
+  // memory_tool_* / memory_start / memory_done 可能在 done 事件之后到达（currentTurn 已清空），
   // 必须在 const turn = ch.currentTurn 守卫之前处理，通过 turn_id 自行查找目标。
-  if (event.type === 'memory_tool_start' || event.type === 'memory_tool_end'
+  if (event.type === 'memory_start' || event.type === 'memory_tool_start' || event.type === 'memory_tool_end'
     || event.type === 'memory_tool_error' || event.type === 'memory_done') {
     handleMemoryToolEvent(ch, sid, event)
     return
@@ -431,6 +431,17 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
 
 /** 后台记忆 consumer 事件处理（在 done 后 currentTurn=null 时也能通过 turn_id 找到目标）。 */
 function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  if (event.type === 'memory_start') {
+    const me = event as MemoryStartEvent
+    console.log(`[ltm-fe] memory_start session=${sid} turn_id=${me.payload.turn_id}`)
+    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+    if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
+    if (!targetTurn.memoryEvents) targetTurn.memoryEvents = []
+    targetTurn.memoryEvents.push({
+      kind: 'memory_tool', name: 'memory_processing', input: '', output: null, elapsed: null, status: 'running',
+    })
+    return
+  }
   if (event.type === 'memory_tool_start') {
     const me = event as MemoryToolStartEvent
     if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
@@ -469,12 +480,17 @@ function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEve
     console.log(`[ltm-fe] memory_done session=${sid} turn_id=${me.payload.turn_id}`)
     const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
     if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
-    if (!targetTurn.memoryEvents || targetTurn.memoryEvents.length === 0) {
+    // 移除「处理中」占位条目
+    const realEvents = (targetTurn.memoryEvents ?? []).filter(e => e.name !== 'memory_processing')
+    targetTurn.memoryEvents = realEvents
+    if (realEvents.length === 0) {
       targetTurn.memoryEvents = [{
         kind: 'memory_tool', name: 'memory_review', input: '', output: '', elapsed: null, status: 'done',
       }]
       console.log(`[ltm-fe] added memory_review`)
     }
+    if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+    return
   }
 }
 

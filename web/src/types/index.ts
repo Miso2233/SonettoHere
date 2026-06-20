@@ -112,6 +112,14 @@ export interface MemoryToolErrorEvent {
   }
 }
 
+/** memory_start — 后台记忆 consumer 开始处理本轮对话 */
+export interface MemoryStartEvent {
+  type: 'memory_start'
+  payload: {
+    turn_id: string
+  }
+}
+
 /** memory_done — 后台记忆 consumer 处理完毕（无论是否有修改） */
 export interface MemoryDoneEvent {
   type: 'memory_done'
@@ -134,6 +142,7 @@ export type ServerEvent =
   | ContextUsageEvent
   | AskUserEvent
   | SubSessionCreatedEvent
+  | MemoryStartEvent
   | MemoryToolStartEvent
   | MemoryToolEndEvent
   | MemoryToolErrorEvent

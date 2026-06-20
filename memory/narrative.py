@@ -307,6 +307,20 @@ class LongTermMemoryInterface:
             session_id, turn_id, turn_messages = item
             print(f"[ltm] consumer got session={session_id} turn_id={turn_id} msgs={len(turn_messages)}")
 
+            # 无论后续成功与否，先通知前端「开始处理」
+            _sent_done = False
+            if self._ws_registry is not None and session_id:
+                ws = self._ws_registry.get(session_id)
+                if ws is not None:
+                    try:
+                        await ws.send_json({
+                            "type": "memory_start",
+                            "payload": {"turn_id": turn_id or ""},
+                        })
+                        print(f"[ltm] memory_start sent session={session_id[:8]} turn_id={turn_id[:8]}")
+                    except Exception:
+                        pass
+
             try:
                 _set_current_mm(self._mm)
                 items = self._mm.show()
@@ -372,7 +386,10 @@ class LongTermMemoryInterface:
                 )
                 print(f"[ltm] CRUD agent done")
 
-                # 无论是否有工具调用，都通知前端本轮记忆处理完成
+            except Exception as e:
+                print(f"[ltm] CRUD agent error: {e}")
+            finally:
+                # 无论异常与否，都通知前端本轮记忆处理完成
                 if self._ws_registry is not None and session_id:
                     ws = self._ws_registry.get(session_id)
                     if ws is not None:
@@ -388,6 +405,3 @@ class LongTermMemoryInterface:
                         print(f"[ltm] ws_registry.get returned None for session={session_id[:8]}")
                 else:
                     print(f"[ltm] NO ws_registry or session_id — skip memory_done")
-
-            except Exception:
-                pass

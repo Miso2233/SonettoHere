@@ -60,6 +60,11 @@
               <span class="memory-tool-name">记忆检查</span>
               <span class="memory-tool-status">无需修改</span>
             </template>
+            <!-- memory_processing = 后台 consumer 正在处理中 -->
+            <template v-else-if="me.name === 'memory_processing'">
+              <span class="memory-tool-name">记忆处理</span>
+              <span class="memory-tool-status">处理中...</span>
+            </template>
             <template v-else>
               <span class="memory-tool-name">{{ toolDisplayName(me.name) }}</span>
               <span v-if="me.status === 'running'" class="memory-tool-status">处理中...</span>
