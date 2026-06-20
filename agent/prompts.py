@@ -8,6 +8,7 @@ from memory.user_init import ensure_user_md
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent / "anthropic_skills"
+MACROS_DIR = Path(__file__).resolve().parent.parent / "macros"
 
 
 def _read_persona(filename: str) -> str:
@@ -68,6 +69,33 @@ def _scan_anthropic_skills() -> str:
     return "\n".join(lines)
 
 
+def _scan_macros() -> str:
+    """扫描 macros/ 下所有 MACRO.md，返回元数据清单。"""
+    if not MACROS_DIR.is_dir():
+        return ""
+    entries: list[str] = []
+    for mp_path in sorted(MACROS_DIR.rglob("MACRO.md")):
+        rel = mp_path.relative_to(MACROS_DIR).parent
+        meta = _parse_frontmatter(mp_path.read_text(encoding="utf-8"))
+        name = meta.get("name", rel.name)
+        desc = meta.get("description", "")
+        path_str = str(mp_path).replace("\\", "/")
+        if desc:
+            entries.append(f"- [{name}]({path_str}): {desc}")
+        else:
+            entries.append(f"- [{name}]({path_str})")
+    if not entries:
+        return ""
+    lines = [
+        "## 可用宏",
+        "以下宏文件存放在 `macros/` 目录中，包含可复用的指令片段。",
+        "当你需要执行符合上述描述的任务时，应使用文件读取工具按需读取对应 MACRO.md 的完整内容。",
+        "",
+        *entries,
+    ]
+    return "\n".join(lines)
+
+
 def build_system_prompt() -> str:
     """组装完整系统提示词，进程生命周期内只组装一次（LRU 缓存）。"""
     ensure_user_md()
@@ -85,5 +113,7 @@ def build_system_prompt() -> str:
         get_narrative(),
         "",
         _scan_anthropic_skills(),
+        "",
+        _scan_macros(),
     ]
     return "\n".join(parts)

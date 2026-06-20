@@ -140,8 +140,9 @@ _WHITELIST_PATH = (
 _PROJECT_ROOT = os.path.normpath(
     os.path.abspath(Path(__file__).resolve().parent.parent)
 )
-# 默认白名单路径：仅暴露 anthropic_skills 目录
+# 默认白名单路径：仅暴露 anthropic_skills 和 macros 目录
 _DEFAULT_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "anthropic_skills")
+_DEFAULT_MACROS_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "macros")
 
 # ── 路径白名单 ──────────────────────────────────────────────
 
@@ -151,10 +152,10 @@ _WHITELIST_PATH = (
 
 
 def _ensure_whitelist() -> None:
-    """确保白名单文件存在且包含当前工程的 anthropic_skills 目录。
+    """确保白名单文件存在且包含当前工程的 anthropic_skills 和 macros 目录。
 
     在模块导入时（即应用启动时）调用一次：
-    - 文件不存在 → 自动创建，写入 anthropic_skills 路径
+    - 文件不存在 → 自动创建，写入 anthropic_skills + macros 路径
     - 工程被移动（自动条目路径不匹配当前路径） → 更新文件，
       保留用户添加的额外条目，仅替换/添加自动生成条目
     - 文件已存在且自动条目匹配 → 不做任何操作
@@ -162,8 +163,10 @@ def _ensure_whitelist() -> None:
     if not _WHITELIST_PATH.parent.exists():
         _WHITELIST_PATH.parent.mkdir(parents=True)
 
+    _defaults = _default_entries()
+
     if not _WHITELIST_PATH.exists():
-        _write_whitelist([_default_entry()])
+        _write_whitelist(_defaults)
         return
 
     # 文件已存在，检查默认路径是否已在白名单中
@@ -172,40 +175,45 @@ def _ensure_whitelist() -> None:
             raw = yaml.safe_load(f) or {}
         entries = raw.get("whitelist", [])
         if not isinstance(entries, list):
-            _write_whitelist([_default_entry()])
+            _write_whitelist(_defaults)
             return
 
-        current_default = _DEFAULT_WHITELIST_PATH
-        has_current = False
-        auto_entry_idx = -1
+        changed = False
+        for default_entry in _defaults:
+            target_path = os.path.normpath(os.path.abspath(default_entry["path"]))
+            target_desc = default_entry["description"]
+            has_current = False
+            auto_entry_idx = -1
 
-        for i, entry in enumerate(entries):
-            if not isinstance(entry, dict) or "path" not in entry:
+            for i, entry in enumerate(entries):
+                if not isinstance(entry, dict) or "path" not in entry:
+                    continue
+                entry_path = os.path.normpath(os.path.abspath(entry["path"]))
+                if entry_path == target_path:
+                    has_current = True
+                    break
+                if entry.get("description") == target_desc:
+                    auto_entry_idx = i
+
+            if has_current:
                 continue
-            entry_path = os.path.normpath(os.path.abspath(entry["path"]))
-            if entry_path == current_default:
-                has_current = True
-                break
-            if entry.get("description") == "技能目录（自动生成）":
-                auto_entry_idx = i
 
-        if has_current:
-            return  # 没有变化
+            # 工程移动了：更新旧的自动条目，或在开头插入新条目
+            if auto_entry_idx >= 0:
+                entries[auto_entry_idx]["path"] = str(target_path)
+            else:
+                entries.insert(0, default_entry)
+            changed = True
 
-        # 工程移动了：更新旧的自动条目，或在开头插入新条目
-        if auto_entry_idx >= 0:
-            entries[auto_entry_idx]["path"] = str(_DEFAULT_WHITELIST_PATH)
-        else:
-            entries.insert(0, _default_entry())
-
-        with open(_WHITELIST_PATH, "w", encoding="utf-8") as f:
-            yaml.dump(
-                {"whitelist": entries}, f, allow_unicode=True, default_flow_style=False
-            )
+        if changed:
+            with open(_WHITELIST_PATH, "w", encoding="utf-8") as f:
+                yaml.dump(
+                    {"whitelist": entries}, f, allow_unicode=True, default_flow_style=False
+                )
 
     except (yaml.YAMLError, OSError, ValueError):
         # 文件损坏 → 重写
-        _write_whitelist([_default_entry()])
+        _write_whitelist(_defaults)
 
 
 def _default_entry() -> dict:
@@ -214,6 +222,19 @@ def _default_entry() -> dict:
         "description": "技能目录（自动生成）",
         "recursive": True,
     }
+
+
+def _default_macros_entry() -> dict:
+    return {
+        "path": os.path.normpath(str(_DEFAULT_MACROS_WHITELIST_PATH)),
+        "description": "宏目录（自动生成）",
+        "recursive": True,
+    }
+
+
+def _default_entries() -> list[dict]:
+    """返回所有自动生成的默认白名单条目。"""
+    return [_default_entry(), _default_macros_entry()]
 
 
 def _write_whitelist(entries: list) -> None:

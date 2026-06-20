@@ -67,3 +67,6 @@ api/data/auth_token.yaml
 
 # Anthropic Skills（忽略 skill 子目录，保留目录本身用于 .gitkeep）
 anthropic_skills/*/
+
+# Macros（同上）
+macros/*/
