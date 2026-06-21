@@ -275,7 +275,7 @@ const displayOutput = computed(() => {
   background: linear-gradient(135deg, #d4145a, #fbb03b);
   border-radius: 12px;
   color: #fff;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .hero-date {

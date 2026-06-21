@@ -92,7 +92,7 @@ const statusLabel = computed(() => {
   border: 1.5px solid #0000001e;
   border-radius: 6px;
   padding: 4px 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.034);
+  box-shadow: var(--shadow-xs);
   transition: opacity 0.25s;
 }
 

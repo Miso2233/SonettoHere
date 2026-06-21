@@ -221,7 +221,7 @@ async function onBalanceHover() {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   font-size: 12px;
   line-height: 1.6;
   white-space: nowrap;

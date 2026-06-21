@@ -58,7 +58,7 @@ const paragraphs = computed(() => {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 10px;

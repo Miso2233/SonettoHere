@@ -220,12 +220,12 @@ const displayOutput = computed(() => {
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow-md);
   transition: box-shadow 0.2s;
 }
 
 .tarot-card:hover .card-face {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-lg);
 }
 
 .card-name {

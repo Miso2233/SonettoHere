@@ -219,7 +219,7 @@ onMounted(loadEntries)
   transition: box-shadow 0.15s;
 }
 .entry-card:hover {
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-sm);
 }
 .entry-body {
   flex: 1;

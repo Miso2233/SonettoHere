@@ -58,7 +58,7 @@ function getThemeCssVars(): string[] {
     '--accent', '--accent-light', '--border',
     '--user-bubble',
     '--status-ok', '--status-error', '--status-warn',
-    '--shadow', '--radius',
+    '--shadow', '--shadow-xs', '--shadow-sm', '--shadow-md', '--shadow-lg', '--shadow-xl', '--radius',
   ]
   return names.map(n => `${n}: ${style.getPropertyValue(n).trim()};`)
 }

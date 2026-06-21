@@ -667,7 +667,7 @@ function closeContextMenu() {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   font-size: 12px;
   line-height: 1.6;
   white-space: nowrap;
@@ -770,7 +770,7 @@ function closeContextMenu() {
   -webkit-backdrop-filter: blur(16px) saturate(1.2);
   border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   border-radius: 10px;
-  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--shadow-xl);
   display: flex;
   flex-direction: column;
   gap: 12px;

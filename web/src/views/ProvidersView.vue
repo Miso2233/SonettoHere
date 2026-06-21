@@ -413,7 +413,7 @@ onMounted(loadProviders)
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -464,7 +464,7 @@ onMounted(loadProviders)
   border-radius: 50%;
   background: #ffffff;
   transition: transform 0.2s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-xs);
 }
 .toggle-btn.active {
   background: #1f2937;

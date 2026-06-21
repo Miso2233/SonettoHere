@@ -90,7 +90,7 @@ const panelStyle = computed(() => ({
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-xl);
   padding: 4px;
 }
 .ac-item {

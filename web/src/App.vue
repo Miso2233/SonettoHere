@@ -188,7 +188,12 @@ onMounted(() => {
   --status-ok: #000000;
   --status-error: #ef4444;
   --status-warn: #f59e0b;
-  --shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);       /* 兼容别名，同级 --shadow-md */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.04);   /* 输入框、极浅分割 */
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);   /* 卡片、条目 hover */
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);   /* 气泡、通用卡片 */
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);  /* 下拉菜单、浮层 */
+  --shadow-xl: 0 6px 28px rgba(0, 0, 0, 0.18);  /* 模态弹窗、重型浮层 */
   --radius: 10px;
 }
 
@@ -345,7 +350,7 @@ html, body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-lg);
   min-width: 170px;
   padding: 6px;
   overflow: hidden;
