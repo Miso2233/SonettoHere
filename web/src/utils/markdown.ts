@@ -26,6 +26,26 @@ md.use(texmath, {
   },
 })
 
+// 自定义 fence 渲染器：```html 代码块渲染为实际 HTML，而非源代码显示
+const defaultFence = md.renderer.rules.fence
+
+md.renderer.rules.fence = function (tokens, idx, options, env, self) {
+  const token = tokens[idx]
+  const info = token.info ? token.info.trim() : ''
+  const lang = info.split(/\s+/)[0].toLowerCase()
+
+  // ```html 代码块：输出原始内容作为实际 HTML（不包裹 <pre><code>）
+  if (lang === 'html') {
+    return token.content
+  }
+
+  // 其他语言：使用默认渲染（转义后包裹 <pre><code>）
+  if (defaultFence) {
+    return defaultFence(tokens, idx, options, env, self)
+  }
+  return self.renderToken(tokens, idx, options)
+}
+
 export function renderMarkdown(content: string): string {
   if (!content) return ''
   return md.render(content)
@@ -33,7 +53,7 @@ export function renderMarkdown(content: string): string {
 
 /**
  * 检测 Markdown 原文是否包含需要沙箱隔离的原始 HTML/JS/CSS。
- * 跳过围栏代码块内的内容，避免误判示例代码。
+ * 跳过非 HTML 围栏代码块内的内容；HTML 代码块（```html）内的内容仍接受沙箱检测。
  *
  * 触发隔离的条件：
  * - `<script>` — JS 脚本（v-html 不执行，iframe 才执行）
@@ -45,15 +65,25 @@ export function renderMarkdown(content: string): string {
 export function contentNeedsIsolation(markdown: string): boolean {
   if (!markdown) return false
   let inCodeBlock = false
+  let codeBlockLang = ''
   const lines = markdown.split('\n')
   for (const line of lines) {
     const trimmed = line.trimStart()
-    // 切换围栏代码块状态
+    // 切换围栏代码块状态，同时记录语言标签
     if (trimmed.startsWith('```')) {
+      if (!inCodeBlock) {
+        // 进入代码块：提取语言标签（``` 后的第一个词）
+        codeBlockLang = trimmed.slice(3).trim().split(/\s+/)[0].toLowerCase()
+      } else {
+        // 退出代码块：重置语言标签
+        codeBlockLang = ''
+      }
       inCodeBlock = !inCodeBlock
       continue
     }
-    if (inCodeBlock) continue
+
+    // 跳过非 HTML 代码块内的内容
+    if (inCodeBlock && codeBlockLang !== 'html') continue
 
     // 检查原始 <script> 标签
     if (/<script[\s>/]/i.test(line) || /<\/script>/i.test(line)) return true

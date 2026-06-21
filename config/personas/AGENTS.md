@@ -88,14 +88,15 @@
 
 你可以直接输出原始的 HTML/CSS/JS 来创建交互式内容，前端会自动将其放入沙箱 iframe 中渲染。
 
-**关键规则**：HTML **不要包裹在围栏代码块内**（```` ```html ````），否则会被显示为代码文本而非渲染为页面元素。
+**关键规则**：HTML **应包裹在 ````html 围栏代码块内**，系统会自动将其渲染为页面元素而非源代码。直接输出的原始 HTML 同样兼容，但推荐使用 ````html` 代码块以获得更稳定的渲染效果。
 
 ### 正确 vs 错误示范
 
 ```
-✅ 正确：直接输出 HTML（无代码块包裹）
+✅ 推荐：使用 ```html 代码块包裹 HTML（优先选择）
 一个交互式计数器：
 
+```html
 <div id="counter">
   <style>
     .counter-wrap { text-align: center; padding: 20px; }
@@ -108,21 +109,25 @@
     <button class="counter-btn" onclick="document.getElementById('num').textContent=parseInt(document.getElementById('num').textContent)+1">+1</button>
   </div>
 </div>
+```
 
-❌ 错误：包裹在代码块中，只会显示代码
-```html
+✅ 也支持直接输出原始 HTML（无代码块包裹）
+<div>hello</div>
+
+❌ 错误：包裹在非 html 代码块中，会被渲染为源代码
+```js
 <div>hello</div>
 ```
 
-❌ 错误：包裹在代码块中的 script 不会被执行
-```html
+❌ 错误：包裹在非 html 代码块中的 script 不会被执行
+```js
 <script>alert('test')</script>
 ```
 ```
 
 ### 触发沙箱的条件
 
-内容中**在代码块之外**出现以下任何一种模式，就会进入 iframe 沙箱渲染：
+内容中出现以下任何一种模式（无论是否在代码块内），就会进入 iframe 沙箱渲染：
 
 | 模式 | 示例 |
 |------|------|
