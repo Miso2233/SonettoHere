@@ -109,6 +109,44 @@ def _extract_todo_projects(
     return result
 
 
+@register("todo_list_sections")
+def _extract_todo_sections(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 total, sections（含 project_name 上下文）。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    result: dict[str, Any] = {}
+    result["total"] = data.get("total")
+    sections = data.get("sections", [])
+    if isinstance(sections, list):
+        result["sections"] = sections
+        if sections and not result.get("project_name"):
+            result["project_name"] = sections[0].get("project_name")
+    return result if result.get("sections") is not None else None
+
+
+@register("todo_list_labels")
+def _extract_todo_labels(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 total, labels。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    result: dict[str, Any] = {}
+    result["total"] = data.get("total")
+    labels = data.get("labels", [])
+    if isinstance(labels, list):
+        result["labels"] = labels
+    return result if result.get("labels") is not None else None
+
+
 @register_prefix("todo_")
 def _extract_todo_generic(
     tool_name: str,
