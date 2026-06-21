@@ -515,6 +515,7 @@ function closeContextMenu() {
   gap: 4px;
   max-height: 400px;
   overflow-y: auto;
+  padding: 0 6px 8px;
 }
 
 /* ── Section label ── */
