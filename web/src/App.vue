@@ -189,7 +189,8 @@ onMounted(() => {
   --status-error: #ef4444;
   --status-warn: #f59e0b;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);       /* 兼容别名，同级 --shadow-md */
-  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.04);   /* 输入框、极浅分割 */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.04);   /* 极浅分割 */
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.06); /* 大面积超浅阴影（输入框） */
   --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);   /* 卡片、条目 hover */
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);   /* 气泡、通用卡片 */
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);  /* 下拉菜单、浮层 */

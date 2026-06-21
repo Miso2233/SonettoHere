@@ -910,7 +910,7 @@ function onResizeEnd(e: PointerEvent) {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 4px 14px 8px;
-  box-shadow: var(--shadow-xs);
+  box-shadow: var(--shadow-soft);
   transition: border-color 0.2s, box-shadow 0.2s;
   overflow: visible;
 }
@@ -920,7 +920,7 @@ function onResizeEnd(e: PointerEvent) {
 }
 .chat-input:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
+  box-shadow: var(--shadow-soft), 0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* 添加文件按钮 */
