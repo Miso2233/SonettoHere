@@ -1,4 +1,12 @@
 news:
+  - id: "macros-support"
+    title: "新增宏系统"
+    description: "新增 macros 宏目录系统，支持在 anthropic_skills 同级创建 MACRO.md 文件封装可复用指令片段。输入框中输入 ! 或 ！即可触发宏自动补全列表。"
+    type: "feat"
+    date: "2026-06-21"
+    tags: ["宏", "自动补全"]
+    version: "PREVIEW"
+    pr_number: 165
   - id: "v2.4.1-release"
     title: "发布 v2.4.1 版本"
     description: "v2.4.1 补丁版本带来侧栏视觉升级与安全增强。侧栏新增自定义背景图片，支持模糊和白色叠加效果，适配折叠/展开不同设备尺寸。全端 API 调用 Token 审计覆盖，补全 restart 和 health 接口的身份验证，确保每一处请求均携带 X-Sonetto-Token。修复设置弹出菜单的层叠问题。"
