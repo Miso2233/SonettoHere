@@ -14,7 +14,7 @@ news:
     date: "2026-06-19"
     tags: ["发布", "版本"]
     version: "v2.4.0"
-    pr_number: 0
+    pr_number: 158
   - id: "v2.3.0-release"
     title: "发布 v2.3.0 版本"
     description: "v2.3.0 版本聚焦安全加固与细节打磨。新增 API Token 认证机制，host 绑定 127.0.0.1 限制外部访问，拒止锚覆盖 api/data 目录提供双层保护。页面右上角新增重启后端按钮。会话侧边栏分类显示优化，输入框高度与菜单显示修复。CI 引入 Gitleaks 密钥泄露扫描，并补齐后端测试工作流。"
@@ -22,14 +22,14 @@ news:
     date: "2026-06-19"
     tags: ["发布", "版本"]
     version: "v2.3.0"
-    pr_number: 0
+    pr_number: 134
   - id: "session-sidebar-categories"
     title: "会话侧边栏分类改进"
     description: "会话侧边栏分类显示优化：已保存和临时会话分区始终可见，无已保存会话时显示引导提示。侧边栏收起时同步隐藏提示文字。"
     type: "enhance"
     date: "2026-06-19"
     tags: ["会话", "侧边栏", "UI"]
-    version: ""
+    version: "v2.3.0"
     pr_number: 134
   - id: "v2.2.0-release"
     title: "发布 v2.2.0 版本"
