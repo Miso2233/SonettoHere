@@ -144,7 +144,10 @@ function getBubbleComponentName(name: string): string {
     'todo_delete': 'TodoBubble.vue',
     'todo_update': 'TodoBubble.vue',
     'todo_query': 'TodoBubble.vue',
-    'todo_list_projects': 'TodoBubble.vue',
+    'todo_list_projects': 'TodoBubble.vue → ProjectTreeBubble',
+    'todo_add_quick': 'TodoBubble.vue → ActionResultBubble',
+    'todo_list_sections': 'TodoBubble.vue → SectionListBubble',
+    'todo_list_labels': 'TodoBubble.vue → LabelListBubble',
     'task_tracker': 'TaskTrackerBubble.vue',
     'run_python': 'PythonBubble.vue',
     'file_read': 'FilesBubble.vue',
@@ -534,138 +537,92 @@ const mockTemplates: Record<string, MockTemplate> = {
       ],
     },
   },
+  /* ── Todoist 气泡 ── */
+
   todo_add: {
-    input: { content: '在岚山竹林拍一张全景照', project_name: '旅行计划', priority: 3 },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { task_id: '12345678', content: '在岚山竹林拍一张全景照', due_date: '2026-05-20', priority: 3, project: '旅行计划' },
-    }),
-    toolData: {
-      tool_type: 'single_task',
-      task_id: '12345678',
-      content: '在岚山竹林拍一张全景照',
-      due_date: '2026-05-20',
-      priority: 3,
-      project: '旅行计划',
-    },
+    input: { content: '复习行波分析', project_name: '学术', section_name: '考试&复习', priority: 3, due_string: 'tomorrow' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't_new', content: '复习行波分析', project_name: '学术', section_name: '考试&复习', priority: 3, due: { date: '2026-06-22', string: '2026-06-22 15:00', lang: 'en', is_recurring: false, timezone: null }, duration: { amount: 120, unit: 'minute' }, is_completed: false } }),
+    toolData: { task_id: 't_new', content: '复习行波分析', description: '', project_id: 'p2', project_name: '学术', section_id: 's1', section_name: '考试&复习', parent_id: null, labels: [], priority: 3, due: { date: '2026-06-22', string: '2026-06-22 15:00', lang: 'en', is_recurring: false, timezone: null }, deadline: null, duration: { amount: 120, unit: 'minute' }, order: 1, is_collapsed: false, assignee_id: null, assigner_id: null, creator_id: 'u1', is_completed: false, url: null },
+  },
+  todo_add_quick: {
+    input: { text: '买牛奶 #购物 @日用品 明天下午3点 p2' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't_quick', content: '买牛奶', project_name: '购物', priority: 2, due: { date: '2026-06-22', string: 'tomorrow at 15:00', lang: 'en', is_recurring: false, timezone: null }, labels: ['日用品'] } }),
+    toolData: { task_id: 't_quick', content: '买牛奶', description: '', project_id: 'p5', project_name: '购物', section_id: null, section_name: null, parent_id: null, labels: ['日用品'], priority: 2, due: { date: '2026-06-22', string: 'tomorrow at 15:00', lang: 'en', is_recurring: false, timezone: null }, deadline: null, duration: null, order: 1, is_collapsed: false, assignee_id: null, assigner_id: null, creator_id: 'u1', is_completed: false, url: null },
   },
   todo_list: {
-    input: {},
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        total: 4,
-        tasks: [
-          { task_id: '111', content: '预订京都酒店', due_date: '2026-05-25', priority: 4, project: '旅行计划', is_completed: false },
-          { task_id: '222', content: '整理岚山攻略', due_date: '2026-05-18', priority: 2, project: '旅行计划', is_completed: false },
-          { task_id: '333', content: '写周报', due_date: '2026-05-16', priority: 1, project: '工作', is_completed: true },
-          { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
-        ],
-      },
-    }),
-    toolData: {
-      tool_type: 'task_list',
-      total: 4,
-      tasks: [
-        { task_id: '111', content: '预订京都酒店', due_date: '2026-05-25', priority: 4, project: '旅行计划', is_completed: false },
-        { task_id: '222', content: '整理岚山攻略', due_date: '2026-05-18', priority: 2, project: '旅行计划', is_completed: false },
-        { task_id: '333', content: '写周报', due_date: '2026-05-16', priority: 1, project: '工作', is_completed: true },
-        { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
-      ],
-    },
+    input: { project_name: '学术', section_name: '考试&复习' },
+    doneOutput: JSON.stringify({ success: true, data: { total: 5, tasks: [
+      { task_id: 't1', content: 'C++', project_name: '学术', section_name: '考试&复习', priority: 4, due: { date: '2026-07-06', string: '2026-07-06 16:10' }, is_completed: false },
+      { task_id: 't2', content: '近现代史', project_name: '学术', section_name: '考试&复习', priority: 2, due: { date: '2026-07-07', string: '2026-07-07 10:40' }, is_completed: false },
+      { task_id: 't3', content: '数学分析', project_name: '学术', section_name: '考试&复习', priority: 2, due: { date: '2026-07-08', string: '2026-07-08 08:00' }, is_completed: false },
+      { task_id: 't4', content: '复习行波分析', project_name: '学术', section_name: '考试&复习', priority: 3, due: { date: '2026-06-22', string: '2026-06-22 15:00' }, is_completed: false },
+      { task_id: 't5', content: '背离散数学公式', project_name: '学术', section_name: '考试&复习', priority: 3, due: { date: '2026-06-22', string: '2026-06-22 20:00' }, is_completed: false },
+    ] } }),
+    toolData: { total: 5, tasks: [
+      { task_id: 't1', content: 'C++', description: '', project_name: '学术', section_name: '考试&复习', priority: 4, due: { date: '2026-07-06', string: '2026-07-06 16:10' }, is_completed: false },
+      { task_id: 't2', content: '近现代史', description: '', project_name: '学术', section_name: '考试&复习', priority: 2, due: { date: '2026-07-07', string: '2026-07-07 10:40' }, is_completed: false },
+      { task_id: 't3', content: '数学分析', description: '', project_name: '学术', section_name: '考试&复习', priority: 2, due: { date: '2026-07-08', string: '2026-07-08 08:00' }, is_completed: false },
+      { task_id: 't4', content: '复习行波分析', description: '', project_name: '学术', section_name: '考试&复习', priority: 3, due: { date: '2026-06-22', string: '2026-06-22 15:00' }, is_completed: false },
+      { task_id: 't5', content: '背离散数学公式', description: '', project_name: '学术', section_name: '考试&复习', priority: 3, due: { date: '2026-06-22', string: '2026-06-22 20:00' }, is_completed: false },
+    ] },
   },
   todo_complete: {
-    input: { task_id: '111' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { task_id: '111', message: '任务已标记为完成' },
-    }),
-    toolData: {
-      tool_type: 'single_task',
-      task_id: '111',
-      content: '预订京都酒店',
-      message: '任务已标记为完成',
-    },
+    input: { task_id: 't5' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't5', content: '背离散数学公式', is_completed: true } }),
+    toolData: { task_id: 't5', content: '背离散数学公式', description: '', project_id: 'p2', project_name: '学术', section_id: 's1', section_name: '考试&复习', parent_id: null, labels: [], priority: 3, due: { date: '2026-06-22', string: '2026-06-22 20:00', lang: 'en', is_recurring: false, timezone: null }, deadline: null, duration: null, order: 5, is_collapsed: false, assignee_id: null, assigner_id: null, creator_id: 'u1', is_completed: true, url: null },
   },
   todo_uncomplete: {
-    input: { task_id: '111' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { task_id: '111', message: '任务已重新打开' },
-    }),
-    toolData: {
-      tool_type: 'single_task',
-      task_id: '111',
-      content: '预订京都酒店',
-      message: '任务已重新打开',
-    },
+    input: { task_id: 't5' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't5', content: '背离散数学公式', is_completed: false } }),
+    toolData: { task_id: 't5', content: '背离散数学公式', description: '', project_id: 'p2', project_name: '学术', section_id: 's1', section_name: '考试&复习', parent_id: null, labels: [], priority: 3, due: { date: '2026-06-22', string: '2026-06-22 20:00', lang: 'en', is_recurring: false, timezone: null }, deadline: null, duration: null, order: 5, is_collapsed: false, assignee_id: null, assigner_id: null, creator_id: 'u1', is_completed: false, url: null },
   },
   todo_delete: {
-    input: { task_id: '222' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { task_id: '222', message: '任务删除成功' },
-    }),
-    toolData: {
-      tool_type: 'single_task',
-      task_id: '222',
-      content: '整理岚山攻略',
-      message: '任务删除成功',
-    },
+    input: { task_id: 't5' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't5', content: '背离散数学公式' } }),
+    toolData: { task_id: 't5', content: '背离散数学公式', description: '', project_id: 'p2', project_name: '学术', section_id: 's1', section_name: '考试&复习', parent_id: null, labels: [], priority: 3, due: { date: '2026-06-22', string: '2026-06-22 20:00', lang: 'en', is_recurring: false, timezone: null }, deadline: null, duration: null, order: 5, is_collapsed: false, assignee_id: null, assigner_id: null, creator_id: 'u1', is_completed: false, url: null },
   },
   todo_update: {
-    input: { task_id: '333', content: '写双周报', priority: 2 },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { task_id: '333', content: '写双周报', due_date: '2026-05-20', priority: 2, project: '工作' },
-    }),
-    toolData: {
-      tool_type: 'single_task',
-      task_id: '333',
-      content: '写双周报',
-      due_date: '2026-05-20',
-      priority: 2,
-      project: '工作',
-    },
+    input: { task_id: 't2', description: '中国近现代史纲要，7月7日10:40考试，沙河校区' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't2', content: '近现代史', description: '中国近现代史纲要，7月7日10:40考试，沙河校区' } }),
+    toolData: { task_id: 't2', content: '近现代史', description: '中国近现代史纲要，7月7日10:40考试，沙河校区', project_id: 'p2', project_name: '学术', section_id: 's1', section_name: '考试&复习', labels: [], priority: 2, due: { date: '2026-07-07', string: '2026-07-07 10:40' }, is_completed: false },
   },
   todo_query: {
-    input: { task_id: '444' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: { task_id: '444', content: '买机票', due_date: null, priority: 3, project: '旅行计划', is_completed: false },
-    }),
-    toolData: {
-      tool_type: 'single_task',
-      task_id: '444',
-      content: '买机票',
-      due_date: null,
-      priority: 3,
-      project: '旅行计划',
-      is_completed: false,
-    },
+    input: { task_id: 't4' },
+    doneOutput: JSON.stringify({ success: true, data: { task_id: 't4', content: '复习行波分析', description: '半波损失、驻波叠加、两端反射分析，结合 Sonetto 生成的复习资料', project_name: '学术', section_name: '考试&复习', priority: 3, due: { date: '2026-06-22', string: '2026-06-22 15:00' }, creator_id: '58490144', is_completed: false } }),
+    toolData: { task_id: 't4', content: '复习行波分析', description: '半波损失、驻波叠加、两端反射分析，结合 Sonetto 生成的复习资料', project_id: 'p2', project_name: '学术', section_id: 's1', section_name: '考试&复习', parent_id: null, labels: [], priority: 3, due: { date: '2026-06-22', string: '2026-06-22 15:00', lang: 'en', is_recurring: false, timezone: null }, deadline: null, duration: null, order: 4, is_collapsed: false, assignee_id: null, assigner_id: null, creator_id: '58490144', is_completed: false, url: null },
   },
   todo_list_projects: {
     input: {},
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        total: 3,
-        projects: [
-          { project_id: '23456789', name: '旅行计划' },
-          { project_id: '34567890', name: '工作' },
-          { project_id: '45678901', name: 'Inbox' },
-        ],
-      },
-    }),
-    toolData: {
-      tool_type: 'project_list',
-      total: 3,
-      projects: [
-        { project_id: '23456789', name: '旅行计划' },
-        { project_id: '34567890', name: '工作' },
-        { project_id: '45678901', name: 'Inbox' },
-      ],
-    },
+    doneOutput: JSON.stringify({ success: true, data: { total: 4, projects: [
+      { project_id: 'p_inbox', name: 'Inbox', color: 'grey', is_inbox_project: true, view_style: 'list' },
+      { project_id: 'p2', name: '学术', color: 'blue', is_inbox_project: false, view_style: 'board' },
+      { project_id: 'p3', name: '医疗', color: 'green', is_inbox_project: false, view_style: 'list' },
+      { project_id: 'p4', name: '校园', color: 'taupe', is_inbox_project: false, view_style: 'list' },
+    ] } }),
+    toolData: { total: 4, projects: [
+      { project_id: 'p_inbox', name: 'Inbox', color: 'grey', description: '', order: 1, is_favorite: false, is_archived: false, is_shared: false, is_collapsed: false, parent_id: null, view_style: 'list', can_assign_tasks: false, is_inbox_project: true, workspace_id: 'w1', folder_id: null },
+      { project_id: 'p2', name: '学术', color: 'blue', description: '', order: 2, is_favorite: true, is_archived: false, is_shared: false, is_collapsed: false, parent_id: null, view_style: 'board', can_assign_tasks: false, is_inbox_project: false, workspace_id: 'w1', folder_id: null },
+      { project_id: 'p3', name: '医疗', color: 'green', description: '', order: 3, is_favorite: false, is_archived: false, is_shared: false, is_collapsed: false, parent_id: null, view_style: 'list', can_assign_tasks: false, is_inbox_project: false, workspace_id: 'w1', folder_id: null },
+      { project_id: 'p4', name: '校园', color: 'taupe', description: '', order: 4, is_favorite: false, is_archived: false, is_shared: false, is_collapsed: false, parent_id: null, view_style: 'list', can_assign_tasks: false, is_inbox_project: false, workspace_id: 'w1', folder_id: null },
+    ] },
+  },
+  todo_list_sections: {
+    input: { project_name: '学术' },
+    doneOutput: JSON.stringify({ success: true, data: { total: 3, sections: [
+      { section_id: 's1', name: '作业', project_id: 'p2', project_name: '学术', order: 1, is_collapsed: false },
+      { section_id: 's2', name: '考试&复习', project_id: 'p2', project_name: '学术', order: 2, is_collapsed: false },
+      { section_id: 's3', name: '杂项', project_id: 'p2', project_name: '学术', order: 3, is_collapsed: false },
+    ] } }),
+    toolData: { total: 3, project_name: '学术', sections: [
+      { section_id: 's1', name: '作业', project_id: 'p2', project_name: '学术', order: 1, is_collapsed: false },
+      { section_id: 's2', name: '考试&复习', project_id: 'p2', project_name: '学术', order: 2, is_collapsed: false },
+      { section_id: 's3', name: '杂项', project_id: 'p2', project_name: '学术', order: 3, is_collapsed: false },
+    ] },
+  },
+  todo_list_labels: {
+    input: {},
+    doneOutput: JSON.stringify({ success: true, data: { total: 0, labels: [] } }),
+    toolData: { total: 0, labels: [] },
   },
   task_tracker: {
     input: { tasks: ['分析需求文档', '设计数据库结构', '编写API接口', '前端页面开发', '集成测试'] },
