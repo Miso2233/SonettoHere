@@ -37,15 +37,6 @@ class TodoQueryTool(ToolBase):
 
         try:
             task = api.get_task(task_id)
-            return format_success(
-                {
-                    "task_id": task.id,
-                    "content": task.content,
-                    "due_date": self.helper.format_due_date(task),
-                    "priority": task.priority,
-                    "project": self.helper.get_project_name(task.project_id),
-                    "is_completed": task.is_completed,
-                }
-            )
+            return format_success(self.helper.task_to_dict(task))
         except Exception as e:
             return format_error(f"任务不存在: {e}")

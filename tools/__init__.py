@@ -32,6 +32,9 @@ def get_all_tools() -> list[BaseTool]:
     from tools.todo.tool_update import TodoUpdateTool
     from tools.todo.tool_query import TodoQueryTool
     from tools.todo.tool_list_projects import TodoListProjectsTool
+    from tools.todo.tool_list_sections import TodoListSectionsTool
+    from tools.todo.tool_list_labels import TodoListLabelsTool
+    from tools.todo.tool_add_quick import TodoAddQuickTool
 
     # Map
     from tools.map.tool_nearby import NearbySearchTool
@@ -94,6 +97,9 @@ def get_all_tools() -> list[BaseTool]:
         TodoUpdateTool(client=client),
         TodoQueryTool(client=client),
         TodoListProjectsTool(client=client),
+        TodoListSectionsTool(client=client),
+        TodoListLabelsTool(client=client),
+        TodoAddQuickTool(client=client),
         # Map
         NearbySearchTool(client=client),
         GeocodeTool(client=client),
