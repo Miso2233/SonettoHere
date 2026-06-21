@@ -6,13 +6,6 @@
         <div class="lf-tool-label">{{ headerLabel }}</div>
         <div class="lf-timestamp">{{ total }} tasks</div>
       </div>
-      <div class="lf-header-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="4" y="4" width="16" height="16" rx="2"/>
-          <line x1="4" y1="10" x2="20" y2="10"/>
-          <line x1="12" y1="4" x2="12" y2="20"/>
-        </svg>
-      </div>
     </div>
 
     <!-- 任务列表 -->
@@ -102,17 +95,6 @@ function dueText(t: Record<string, any>): string | null {
   color: var(--text-tertiary, #bbb);
   letter-spacing: 0.3px;
 }
-.lf-header-icon {
-  width: 32px;
-  height: 32px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.lf-header-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 /* ── 任务列表 ── */
 .task-list {
   display: flex;

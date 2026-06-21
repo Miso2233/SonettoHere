@@ -6,13 +6,6 @@
         <div class="lf-tool-label">Task · {{ task.content ?? 'N/A' }}</div>
         <div class="lf-timestamp">{{ projectPath }}</div>
       </div>
-      <div class="lf-header-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="4" y="4" width="16" height="16" rx="2"/>
-          <line x1="9" y1="4" x2="9" y2="20"/>
-          <line x1="15" y1="4" x2="15" y2="20"/>
-        </svg>
-      </div>
     </div>
 
     <div v-if="hasTask" class="td-grid">
@@ -124,17 +117,6 @@ function priorityLabel(p: number | null | undefined): string {
   color: var(--text-tertiary, #bbb);
   letter-spacing: 0.3px;
 }
-.lf-header-icon {
-  width: 32px;
-  height: 32px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.lf-header-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 /* ── 详情网格 ── */
 .td-grid {
   display: grid;
@@ -157,7 +139,7 @@ function priorityLabel(p: number | null | undefined): string {
   letter-spacing: 1px;
   text-transform: uppercase;
   color: var(--text-tertiary, #bbb);
-  margin-bottom: 3px;
+  margin-bottom: 6px;
 }
 .td-value {
   color: var(--text-primary);

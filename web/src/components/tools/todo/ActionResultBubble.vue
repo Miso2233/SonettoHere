@@ -6,11 +6,9 @@
         <div class="lf-tool-label">{{ actionLabel }}</div>
         <div class="lf-timestamp">{{ nowStr }}</div>
       </div>
-      <div class="lf-header-icon" v-html="actionSvg"></div>
     </div>
 
     <div class="action-result">
-      <div class="ar-icon">{{ actionIcon }}</div>
       <div class="ar-text">
         <div class="ar-title" :class="{ done: isCompleteAction }">{{ taskTitle }}</div>
         <div class="ar-detail">{{ actionDetail }}</div>
@@ -50,42 +48,6 @@ const actionLabel = computed(() => {
     unknown: 'Task',
   }
   return m[actionType.value]
-})
-
-const actionIcon = computed(() => {
-  const m: Record<string, string> = {
-    create: '+',
-    complete: '✓',
-    uncomplete: '↩',
-    delete: '✕',
-    update: '✎',
-    unknown: '•',
-  }
-  return m[actionType.value]
-})
-
-const actionSvg = computed(() => {
-  const m: Record<string, string> = {
-    create: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polyline points="8,12 11,15 16,9"/>
-    </svg>`,
-    complete: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polyline points="8,12 11,15 16,9"/>
-    </svg>`,
-    uncomplete: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><polyline points="12,8 12,16 8,12 16,12"/>
-    </svg>`,
-    delete: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="8" y1="8" x2="16" y2="16"/><line x1="16" y1="8" x2="8" y2="16"/>
-    </svg>`,
-    update: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M17 2l4 4-14 14-4-4z"/><line x1="15" y1="6" x2="18" y2="9"/>
-    </svg>`,
-    unknown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-    </svg>`,
-  }
-  return m[actionType.value] ?? m.unknown
 })
 
 const nowStr = computed(() => {
@@ -171,39 +133,16 @@ const prioritySuffix = computed(() => {
   color: var(--text-tertiary, #bbb);
   letter-spacing: 0.3px;
 }
-.lf-header-icon {
-  width: 32px;
-  height: 32px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.lf-header-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 /* ── 操作结果 ── */
 .action-result {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.ar-icon {
-  width: 28px;
-  height: 28px;
-  border: 1.5px solid var(--text-primary);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-primary);
-  font-size: 14px;
-  flex-shrink: 0;
-}
 .ar-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   flex: 1;
   min-width: 0;
 }

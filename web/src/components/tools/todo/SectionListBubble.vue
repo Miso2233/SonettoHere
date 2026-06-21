@@ -6,20 +6,12 @@
         <div class="lf-tool-label">{{ headerLabel }}</div>
         <div class="lf-timestamp">{{ total }} section{{ total !== 1 ? 's' : '' }}</div>
       </div>
-      <div class="lf-header-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6"/>
-          <line x1="3" y1="12" x2="21" y2="12"/>
-          <line x1="3" y1="18" x2="21" y2="18"/>
-        </svg>
-      </div>
     </div>
 
     <!-- 分区列表 -->
     <div v-if="sections.length" class="section-tree">
       <div v-for="s in sections" :key="s.section_id" class="st-node">
         <div class="st-row">
-          <span class="pt-color-dot" :style="{ background: dotColor(s._color) }"></span>
           <span class="st-name">{{ s.name }}</span>
           <span v-if="s.project_name" class="st-project">{{ s.project_name }}</span>
           <span class="pt-count">#{{ s.order }}</span>
@@ -50,10 +42,6 @@ const headerLabel = computed(() => {
   if (props.toolData?.project_name) return `${props.toolData.project_name} · Sections`
   return 'Sections'
 })
-
-function dotColor(_color: string | null | undefined): string {
-  return '#9ca3af'
-}
 </script>
 
 <style scoped>
@@ -88,17 +76,6 @@ function dotColor(_color: string | null | undefined): string {
   color: var(--text-tertiary, #bbb);
   letter-spacing: 0.3px;
 }
-.lf-header-icon {
-  width: 32px;
-  height: 32px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-}
-.lf-header-icon svg {
-  width: 100%;
-  height: 100%;
-}
-
 /* ── 分区列表 ── */
 .section-tree {
   display: flex;
@@ -115,12 +92,6 @@ function dotColor(_color: string | null | undefined): string {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.pt-color-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 .st-name {
   font-size: 13px;
