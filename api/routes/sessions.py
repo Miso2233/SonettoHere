@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from api.context_usage import estimate_context_usage
+from agent.prompts import get_system_prompt_parts
 
 router = APIRouter()
 
@@ -113,6 +114,7 @@ async def get_context_usage(session_id: str, request: Request):
         system_prompt=system_prompt,
         max_tokens=max_tokens,
         model_name=model_name,
+        system_prompt_parts=get_system_prompt_parts(),
     )
     usage["session_id"] = session_id
     return usage

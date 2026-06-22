@@ -96,6 +96,29 @@ def _scan_macros() -> str:
     return "\n".join(lines)
 
 
+def get_system_prompt_parts() -> list[dict]:
+    """返回系统提示词的各组成部分（含标题+内容），用于 token 细分展示。
+
+    每个元素::
+        {"key": str, "label": str, "content": str}
+    """
+    ensure_user_md()
+    return [
+        {"key": "behavior_rules", "label": "系统行为规则",
+         "content": "## 行为规则\n" + _read_persona("AGENTS.md")},
+        {"key": "personality", "label": "性格人设",
+         "content": "## 性格设定\n" + _read_persona("SOUL.md")},
+        {"key": "user_self_report", "label": "用户自述",
+         "content": "## 用户自述\n" + _read_if_exists("USER.md")},
+        {"key": "long_term_memory", "label": "长期记忆",
+         "content": "## 我对用户的记忆\n" + get_narrative()},
+        {"key": "skills", "label": "Skills 清单",
+         "content": _scan_anthropic_skills()},
+        {"key": "macros", "label": "宏清单",
+         "content": _scan_macros()},
+    ]
+
+
 def build_system_prompt() -> str:
     """组装完整系统提示词，进程生命周期内只组装一次（LRU 缓存）。"""
     ensure_user_md()

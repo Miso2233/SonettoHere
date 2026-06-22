@@ -318,11 +318,30 @@ export interface DeepSeekBalanceResponse {
 
 // === 上下文窗口用量 ===
 
+export interface BreakdownPart {
+  key?: string
+  label: string
+  tokens: number
+  count?: number  // 仅 messages 使用
+}
+
+export interface BreakdownGroup {
+  total: number
+  usage_percent: number
+  parts: BreakdownPart[]
+}
+
+export interface TokenBreakdown {
+  system_prompt: BreakdownGroup
+  messages: BreakdownGroup
+}
+
 export interface ContextUsage {
   current_tokens: number
   max_tokens: number
   usage_percent: number
   model_name: string
+  breakdown?: TokenBreakdown
 }
 
 // === 健康检查 ===

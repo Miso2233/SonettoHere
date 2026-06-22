@@ -10,7 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agent.graph import build_agent
-from agent.prompts import build_system_prompt
+from agent.prompts import build_system_prompt, get_system_prompt_parts
 from api import interaction
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.const_session_store import save_const_session, serialize_messages
@@ -117,6 +117,7 @@ async def _calculate_context_usage(
         system_prompt=system_prompt,
         max_tokens=max_tokens,
         model_name=model_name,
+        system_prompt_parts=get_system_prompt_parts(),
     )
 
 
