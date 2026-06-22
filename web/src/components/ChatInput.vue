@@ -45,7 +45,7 @@
         ref="textareaRef"
         v-model="text"
         class="input-area"
-        placeholder="输入消息……"
+        placeholder="输入任务或者随便聊聊……  [!展开宏] [@引用技能] [#提示工具]"
         :disabled="disabled"
         rows="1"
         @keydown="onKeydown"
