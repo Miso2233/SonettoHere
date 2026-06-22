@@ -34,12 +34,12 @@
               :style="{ width: Math.min(usage.usage_percent, 100) + '%' }"
             ></div>
           </div>
-          <div class="card-row">
-            <span class="card-label">Current</span>
+          <div class="card-row breakdown-part">
+            <span class="card-label indent">已用</span>
             <span class="card-value">{{ formatTokens(usage.current_tokens) }}</span>
           </div>
-          <div class="card-row">
-            <span class="card-label">Max</span>
+          <div class="card-row breakdown-part">
+            <span class="card-label indent">极限</span>
             <span class="card-value">{{ formatTokens(usage.max_tokens) }}</span>
           </div>
         </div>
