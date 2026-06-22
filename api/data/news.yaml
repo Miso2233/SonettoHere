@@ -1,4 +1,12 @@
 news:
+  - id: "token-usage-breakdown"
+    title: "Token 消耗细分展示"
+    description: "ContextUsageBadge 悬浮弹窗新增 token 消耗细分面板，将上下文用量拆解为系统提示词（行为规则、人设、记忆等 6 个子项）和对话数据（用户输入、回复、工具）两组结构，每组附带微型进度条，总览区同步展示整体进度条。"
+    type: "feat"
+    date: "2026-06-22"
+    tags: ["UI", "Token", "上下文用量"]
+    version: ""
+    pr_number: 0
   - id: "todoist-full-encapsulation"
     title: "Todoist 工具全面增强"
     description: "Todoist 工具套件迎来全面升级。现有 6 个工具补齐 40+ 缺失的 SDK 参数（标签、时长、硬期限等），新增 list_sections、list_labels、add_quick 三个快捷工具，响应字段统一全量展示，并新增 70 个自动化测试保障稳定性。"
