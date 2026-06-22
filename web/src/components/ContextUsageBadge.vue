@@ -22,19 +22,26 @@
       </svg>
       <span class="label">{{ Math.round(usage.usage_percent) }}%</span>
       <div class="hover-card card-usage">
-        <!-- 摘要区域 -->
-        <div class="card-row">
-          <span class="card-label">Current</span>
-          <span class="card-value">{{ formatTokens(usage.current_tokens) }}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Max</span>
-          <span class="card-value">{{ formatTokens(usage.max_tokens) }}</span>
-        </div>
-        <div class="card-divider"></div>
-        <div class="card-row">
-          <span class="card-label">Used</span>
-          <span class="card-value">{{ Math.round(usage.usage_percent) }}%</span>
+        <!-- 总览 -->
+        <div class="breakdown-section">
+          <div class="card-row breakdown-header">
+            <span class="card-label">总览</span>
+            <span class="card-value">{{ Math.round(usage.usage_percent) }}%</span>
+          </div>
+          <div class="mini-bar-track" :class="level">
+            <div
+              class="mini-bar-fill"
+              :style="{ width: Math.min(usage.usage_percent, 100) + '%' }"
+            ></div>
+          </div>
+          <div class="card-row">
+            <span class="card-label">Current</span>
+            <span class="card-value">{{ formatTokens(usage.current_tokens) }}</span>
+          </div>
+          <div class="card-row">
+            <span class="card-label">Max</span>
+            <span class="card-value">{{ formatTokens(usage.max_tokens) }}</span>
+          </div>
         </div>
 
         <!-- 细分数据（可选） -->
@@ -236,6 +243,15 @@ async function onBalanceHover() {
 }
 .danger .label {
   color: var(--status-error);
+}
+.safe .mini-bar-fill {
+  background: var(--status-ok);
+}
+.warn .mini-bar-fill {
+  background: var(--status-warn);
+}
+.danger .mini-bar-fill {
+  background: var(--status-error);
 }
 .model-name {
   color: var(--text-secondary);
