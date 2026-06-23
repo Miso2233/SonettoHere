@@ -65,6 +65,9 @@ api/data/SonettoBlocker
 # 认证 Token（自动生成，每用户本地配置）
 api/data/auth_token.yaml
 
+# MCP 服务器配置（每用户本地配置，可能含 API Key 等敏感信息）
+config/mcp_servers.yaml
+
 # Anthropic Skills（忽略 skill 子目录，保留目录本身用于 .gitkeep）
 anthropic_skills/*/
 

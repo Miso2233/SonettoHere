@@ -312,7 +312,7 @@ Server Startup
   ├─ get_all_skills()
   │    └─ 每个 Skill 注入 SharedAPIClient（单例）
   ├─ init_mcp_tools()
-  │    └─ MultiServerMCPClient → word_* 工具（带前缀）
+  │    └─ 从 YAML 配置加载 MCP 工具
   └─ tools = native + mcp
 
 Every Chat Turn

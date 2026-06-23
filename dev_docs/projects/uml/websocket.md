@@ -50,10 +50,6 @@ class extract_weather <<@register>> {
   + city, temp, condition, humidity, wind
 }
 
-class extract_word <<@register_prefix("word_")>> {
-  + tool_type, action, success, message, ...
-}
-
 ' ===== 交互注册表 =====
 
 class InteractionRegistry {

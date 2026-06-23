@@ -23,6 +23,7 @@ from api.routes import persona as persona_router
 from api.routes import sonetto_blocker as sonetto_blocker_router
 from api.routes import skills as skills_router
 from api.routes import news as news_router
+from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
 from api.session_manager import SessionManager, SessionState
 from api.ws_registry import WebSocketRegistry
@@ -123,7 +124,7 @@ async def lifespan(app: FastAPI):
     else:
         print("[ltm] Skipped (no LLM available)")
 
-    # 加载 MCP 工具（Word 文档编辑能力）
+    # 从 YAML 配置加载 MCP 工具
     app.state.mcp_tools = await init_mcp_tools()
     app.state.tools = app.state.native_tools + app.state.mcp_tools
 
@@ -177,6 +178,9 @@ def create_app() -> FastAPI:
 
     # Provider CRUD 路由
     app.include_router(providers.router, prefix="/api")
+
+    # MCP 服务器配置查看与热加载
+    app.include_router(mcp_router.router, prefix="/api")
 
     # 人设读写 (SOUL.md / USER.md)
     app.include_router(persona_router.router, prefix="/api")
