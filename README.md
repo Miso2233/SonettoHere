@@ -180,6 +180,59 @@ category: <分类名>
 
 > Macro 的优势是轻量：无需修改代码、无需重启服务，新建一篇 Markdown 文件即可扩展 AI 的能力。
 
+## MCP 服务器
+
+SonettoHere 支持通过 MCP（Model Context Protocol）接入外部工具，只需编辑 `config/mcp_servers.yaml` 即可添加 MCP 服务器，无需改动代码。
+
+支持 4 种传输类型：本地子进程（stdio）和远程连接（SSE / Streamable HTTP / WebSocket）。
+
+### 配置字段
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `server_id` | ✓ | 唯一标识，将作为工具名前缀（`{server_id}_工具名`）|
+| `enabled` | | 是否启用，`true`/`false`，默认为 `true` |
+| `description` | | 人类可读的描述，仅用于展示 |
+| `transport` | ✓ | 传输类型：`stdio` / `sse` / `streamable_http` / `websocket` |
+
+#### stdio（本地子进程）
+
+```yaml
+- server_id: "my-server"
+  enabled: true
+  transport: "stdio"
+  command: "node"           # 可执行文件路径
+  args: ["server.js"]       # 命令行参数
+  env:                       # 可选：环境变量
+    API_KEY: "xxx"
+  cwd: "/path/to/workdir"   # 可选：工作目录
+```
+
+#### SSE / Streamable HTTP / WebSocket（远程连接）
+
+```yaml
+- server_id: "remote-service"
+  enabled: true
+  transport: "streamable_http"   # 或 "sse" / "websocket"
+  url: "https://example.com/mcp" # 服务端地址
+  headers:                        # 可选：HTTP 请求头
+    Authorization: "Bearer token"
+  timeout: 30                     # 可选：连接超时（秒）
+```
+
+### 激活方式
+
+- **重启后端**：自动读取配置
+- **热加载**：调用 `POST /api/mcp/reload`，无需重启
+
+### 注意事项
+
+- 工具名称会自动添加 `{server_id}_` 前缀，避免多服务器间的命名冲突
+- MCP 工具在前端统一使用 ToolCallCard 展示，无需注册专属气泡组件
+- `config/mcp_servers.yaml` 已加入 `.gitignore`，不会提交到版本库
+
+---
+
 ## 引用机制
 
 SonettoHere 支持在输入框中引用多种类型的内容作为对话上下文：
