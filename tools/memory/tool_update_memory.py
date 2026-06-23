@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from memory.memory_manager import MAX_DESC_LENGTH
 
 
 class UpdateMemoryInput(BaseModel):
@@ -42,6 +43,11 @@ class UpdateMemoryTool(ToolBase):
             return format_error("id 不能为空，请提供要更新的记忆 ID")
         if not content:
             return format_error("content 不能为空，请提供更新后的内容")
+        if len(content) > MAX_DESC_LENGTH:
+            return format_error(
+                f"更新后的记忆内容超过 {MAX_DESC_LENGTH} 字限制（当前 {len(content)} 字），"
+                f"请精简至 {MAX_DESC_LENGTH} 字以内，或拆分为多条独立条目"
+            )
         if not reason:
             return format_error("reason 不能为空，请说明更新原因")
 

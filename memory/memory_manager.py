@@ -7,6 +7,9 @@ from typing import Optional
 import portalocker
 import yaml
 
+MAX_DESC_LENGTH = 75
+"""记忆描述最大字数限制，超过此长度的创建/更新/合并请求将被驳回。"""
+
 
 def NOW() -> str:
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

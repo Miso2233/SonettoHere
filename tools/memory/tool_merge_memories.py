@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from memory.memory_manager import MAX_DESC_LENGTH
 
 
 class MergeMemoriesInput(BaseModel):
@@ -55,6 +56,11 @@ class MergeMemoriesTool(ToolBase):
             return format_error("id2 不能为空，请提供要合并的从条目 ID")
         if not content:
             return format_error("content 不能为空，请提供合并后的内容")
+        if len(content) > MAX_DESC_LENGTH:
+            return format_error(
+                f"合并后的记忆内容超过 {MAX_DESC_LENGTH} 字限制（当前 {len(content)} 字），"
+                f"请精简至 {MAX_DESC_LENGTH} 字以内，或保留两条各自独立"
+            )
         if not section:
             return format_error("section 不能为空，请指定合并后的分区")
         if not reason:
