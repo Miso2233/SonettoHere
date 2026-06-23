@@ -626,6 +626,9 @@ function startResize(e: PointerEvent) {
     customHeight.value = resizeStartHeight.value
   }
 
+  // 拖拽时清除 textarea 行内高度，让 CSS height: 100% 接管以填充容器
+  if (textareaRef.value) textareaRef.value.style.height = ''
+
   handle.addEventListener('pointermove', onResizeMove)
   handle.addEventListener('pointerup', onResizeEnd)
   handle.addEventListener('pointercancel', onResizeEnd)
@@ -814,6 +817,8 @@ function onResizeEnd(e: PointerEvent) {
 
 /* ── 输入区主体 ── */
 .input-body {
+  flex: 1;
+  min-height: 0;
   padding: 6px 14px 0;
 }
 
@@ -1033,6 +1038,7 @@ function onResizeEnd(e: PointerEvent) {
 }
 .input-area {
   width: 100%;
+  height: 100%;
   border: none;
   outline: none;
   background: transparent;
