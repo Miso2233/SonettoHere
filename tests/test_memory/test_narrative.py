@@ -198,16 +198,16 @@ class TestCrudTools:
         items = mm.show()
         assert items[0]["theme"] == "   "
 
-    def test_create_memory_id_is_uuid(self, tmp_path):
+    def test_create_memory_id_is_hex(self, tmp_path):
         self._make_mm(tmp_path)
         result = narrative.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "身份"}
         )
         # Extract ID from result string
-        match = re.search(r"\[([\w-]+)\]", result)
+        match = re.search(r"\[([a-f0-9]+)\]", result)
         assert match is not None
-        assert len(match.group(1)) == 36  # UUID v4 length
-        assert "-" in match.group(1)  # UUID contains hyphens
+        assert len(match.group(1)) == 8  # 8-char hex
+        assert all(c in "0123456789abcdef" for c in match.group(1))
 
     def test_read_memories_empty(self, tmp_path):
         mm = MemoryManager(yaml_file=str(tmp_path / "memory.yaml"))

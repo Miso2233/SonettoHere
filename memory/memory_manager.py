@@ -1,6 +1,7 @@
 import datetime
 import os
-import uuid
+import re
+import secrets
 from typing import Optional
 
 import portalocker
@@ -70,6 +71,10 @@ class MemoryManager:
         self._yaml_file = yaml_file
         self._ensure_file_exists()
 
+    _UUID_PATTERN = re.compile(
+        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    )
+
     def _ensure_file_exists(self) -> None:
         dir_path = os.path.dirname(self._yaml_file)
         if dir_path:
@@ -78,8 +83,29 @@ class MemoryManager:
             with open(self._yaml_file, "w") as f:
                 yaml.dump({}, f, default_flow_style=False, allow_unicode=True)
 
+    def _maybe_migrate_old_ids(self) -> None:
+        """将 YAML 中旧版 UUID key 原地迁移为短十六进制 ID。调用方必须已持有文件锁。"""
+        with open(self._yaml_file, "r") as f:
+            data = yaml.safe_load(f) or {}
+        old_keys = [k for k in data if self._UUID_PATTERN.match(k)]
+        if not old_keys:
+            return
+        new_data = {}
+        for old_key in old_keys:
+            new_key = self._generate_id()
+            while new_key in new_data:
+                new_key = self._generate_id()
+            new_data[new_key] = data[old_key]
+        for k, v in data.items():
+            if k not in old_keys:
+                new_data[k] = v
+        with open(self._yaml_file, "w") as f:
+            yaml.dump(new_data, f, default_flow_style=False, allow_unicode=True)
+        print(f"[memory] migrated {len(old_keys)} UUID keys to short hex IDs")
+
     def _read_all(self) -> dict[str, "MemoryItem"]:
         """读取完整文件。调用方必须已持有文件锁。"""
+        self._maybe_migrate_old_ids()
         with open(self._yaml_file, "r") as f:
             data = yaml.safe_load(f) or {}
         return {id: MemoryItem(**data[id]) for id in data}
@@ -92,7 +118,7 @@ class MemoryManager:
 
     @staticmethod
     def _generate_id() -> str:
-        return str(uuid.uuid4())
+        return secrets.token_hex(4)
 
     @property
     def _lock_path(self) -> str:

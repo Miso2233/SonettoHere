@@ -87,8 +87,8 @@ class TestMemoryManager:
         assert len(items) == 1
         assert items[0]["description"] == "测试描述"
         assert items[0]["theme"] == "测试主题"
-        # id 是 uuid 格式
-        assert re.match(r"^[\w-]{36}$", items[0]["id"])
+        # id 是 8 字符十六进制
+        assert re.match(r"^[a-f0-9]{8}$", items[0]["id"])
 
     def test_delete_removes_item(self, tmp_path):
         """delete 后 show 为空。"""

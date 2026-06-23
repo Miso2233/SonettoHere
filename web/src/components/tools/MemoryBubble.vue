@@ -20,7 +20,7 @@
             :key="item.id"
             class="memory-item"
           >
-            <code class="memory-id">{{ item.id.slice(0, 8) }}...</code>
+            <code class="memory-id">{{ item.id }}</code>
             <span class="memory-desc">{{ item.description }}</span>
           </div>
         </div>

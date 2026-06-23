@@ -70,7 +70,7 @@
               <template v-else>
                 <span class="memory-tool-name">{{ toolDisplayName(me.name) }}</span>
                 <span v-if="me.status === 'running'" class="memory-tool-status">处理中...</span>
-                <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output" :title="me.output">{{ shortenMemoryIds(me.output) }}</span>
+                <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output" :title="me.output">{{ me.output }}</span>
                 <span v-else-if="me.status === 'error'" class="memory-tool-status is-error">失败</span>
                 <span v-if="me.elapsed !== null" class="memory-tool-elapsed">{{ me.elapsed.toFixed(1) }}s</span>
               </template>
@@ -164,12 +164,6 @@ function isNearBottom(): boolean {
   const el = windowRef.value
   if (!el) return true
   return el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_BOTTOM_THRESHOLD
-}
-
-/** 将输出文本中的完整 UUID（如 [550e8400-e29b-41d4-a716-446655440000]）
- *  缩短为仅显示第一个分段 [550e8400]。 */
-function shortenMemoryIds(text: string): string {
-  return text.replace(/\[([a-f0-9]{8})-[^\]]+\]/gi, '[$1]')
 }
 
 function hasAnswerBlock(turn: ChatTurn): boolean {
