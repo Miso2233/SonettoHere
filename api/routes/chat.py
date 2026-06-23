@@ -30,6 +30,29 @@ def _get_provider_context(app_state) -> tuple[int, str]:
     return 256_000, ""
 
 
+async def _get_session_messages(session) -> list[dict]:
+    """从 LangGraph checkpointer 提取全量会话消息并映射为记忆 Agent 格式。"""
+    try:
+        cpt = await session.checkpointer.aget_tuple(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        if cpt is None:
+            return []
+        raw = cpt.checkpoint.get("channel_values", {}).get("messages", [])
+    except Exception:
+        return []
+
+    role_map = {"human": "user", "ai": "assistant", "tool": "tool"}
+    result = []
+    for m in raw:
+        role = role_map.get(m.type)
+        if role is None:
+            continue
+        content = m.content if isinstance(m.content, str) else str(m.content)
+        result.append({"role": role, "content": content})
+    return result
+
+
 def _get_final_answer(event) -> str:
     """
     从 on_chain_end 事件提取原始 final_answer，
@@ -361,11 +384,15 @@ async def _run_agent_turn(
     if final_answer:
         session.message_count += 2
     if not private_mode:
-        await app_state.ltm.send_history(
-            [
+        # 传入全会话历史，让记忆 Agent 有更多上下文
+        messages_for_memory = await _get_session_messages(session)
+        if not messages_for_memory:
+            messages_for_memory = [
                 {"role": "user", "content": user_message},
                 {"role": "assistant", "content": final_answer},
-            ],
+            ]
+        await app_state.ltm.send_history(
+            messages_for_memory,
             session_id=session.session_id,
             turn_id=turn_id,
         )

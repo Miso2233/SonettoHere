@@ -29,7 +29,7 @@ _CORE_PRINCIPLES = """核心原则：
 2. 只基于对话内容记录事实，不编造不推测。信息少就少写，不要凑字数。新旧矛盾时以新信息为准。
 3. 每条记忆一个独立事实，每次必须提供正确的 section。
 4. 用第三人称自然语言描述。
-5. 禁止使用"今天""明天""昨天""下周"等相对时间词汇，必须使用绝对日期写入记忆。已提供当前时间、日期和星期几，请自行换算。
+5. 禁止使用"今天""明天""昨天""下周"等相对时间词汇，必须使用绝对日期写入记忆。已提供当前日期和星期几，请自行换算。
 6. 少即是多。任何条目不能过长。
 
 反面例子：2026年6月23日，用户 和 Sonetto 讨论了用声明式 YAML 配置（类似 providers.yaml 的模式）来管理 MCP 服务器的方案，目标是实现不写代码就能添加 MCP 服务器。方案包括新建 config/mcp_servers.yaml 以及可选的 POST /api/mcp/reload 热加载端点。
@@ -360,12 +360,10 @@ class LongTermMemoryInterface:
                     "星期六",
                     "星期日",
                 ][now.weekday()]
-                time_suffix = (
-                    f"\n\n## 当前时间\n"
-                    f"日期: {now.strftime('%Y-%m-%d')}  {weekday_cn}\n"
-                    f"时间: {now.strftime('%H:%M:%S')}"
+                date_prefix = (
+                    f"\n\n--- 会话日期: {now.strftime('%Y-%m-%d')} {weekday_cn} ---"
                 )
-                user_prompt = user_prompt + time_suffix
+                user_prompt = user_prompt + date_prefix
 
                 crud_tools = [
                     create_memory,
