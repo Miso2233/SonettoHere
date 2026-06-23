@@ -819,7 +819,7 @@ function onResizeEnd(e: PointerEvent) {
 .input-body {
   flex: 1;
   min-height: 0;
-  padding: 6px 14px 0;
+  padding: 10px 14px 0;
 }
 
 /* 过渡分隔线 */
@@ -1050,7 +1050,7 @@ function onResizeEnd(e: PointerEvent) {
   min-height: 24px;
   max-height: 160px;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: 4px 2px 4px 10px;
 }
 .input-area::placeholder {
   color: #9ca3af;
