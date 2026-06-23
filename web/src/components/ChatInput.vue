@@ -1,20 +1,5 @@
 <template>
   <div class="chat-input-wrapper">
-    <TransitionGroup name="ref-tag" tag="div" class="file-refs-bar" @before-leave="freezeLeavePos">
-      <span
-        v-for="(r, idx) in refs"
-        :key="r.type + r.label + idx"
-        class="file-tag"
-        :class="{ blocked: 'blocked' in r && r.blocked }"
-        :title="getRefTooltip(r)"
-      >
-        <span class="file-tag-icon"><Icon :name="getRefIcon(r)" :size="14" /></span>
-        <span class="file-tag-name">{{ r.label }}</span>
-        <span class="file-tag-source">{{ r.type }}</span>
-        <span v-if="'blocked' in r && r.blocked" class="file-tag-blocked">blocked</span>
-        <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
-      </span>
-    </TransitionGroup>
     <div v-if="showLinkInput" class="link-input-bar">
       <input
         ref="linkInputRef"
@@ -41,19 +26,38 @@
       >
         <div class="resize-handle-grip"></div>
       </div>
-      <textarea
-        ref="textareaRef"
-        v-model="text"
-        class="input-area"
-        placeholder="输入任务或者随便聊聊……  [!展开宏] [@引用技能] [#提示工具]"
-        :disabled="disabled"
-        rows="1"
-        @keydown="onKeydown"
-        @input="autoResize"
-        @paste="onPaste"
-      ></textarea>
+      <TransitionGroup name="ref-tag" tag="div" class="file-refs-bar" @before-leave="freezeLeavePos">
+        <span
+          v-for="(r, idx) in refs"
+          :key="r.type + r.label + idx"
+          class="file-tag"
+          :class="{ blocked: 'blocked' in r && r.blocked }"
+          :title="getRefTooltip(r)"
+        >
+          <span class="file-tag-icon"><Icon :name="getRefIcon(r)" :size="14" /></span>
+          <span class="file-tag-name">{{ r.label }}</span>
+          <span class="file-tag-source">{{ r.type }}</span>
+          <span v-if="'blocked' in r && r.blocked" class="file-tag-blocked">blocked</span>
+          <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
+        </span>
+      </TransitionGroup>
+      <div class="input-body">
+        <textarea
+          ref="textareaRef"
+          v-model="text"
+          class="input-area"
+          placeholder="输入任务或者随便聊聊……  [!展开宏] [@引用技能] [#提示工具]"
+          :disabled="disabled"
+          rows="1"
+          @keydown="onKeydown"
+          @input="autoResize"
+          @paste="onPaste"
+        ></textarea>
+      </div>
+      <hr class="input-divider" />
       <div class="input-bottom-bar">
-        <div class="btn-add-file-wrapper">
+        <div class="input-left-group">
+          <div class="btn-add-file-wrapper">
           <button class="btn-add-file" :disabled="disabled" @click="toggleMenu">
             <span v-if="loading" class="btn-add-file-spin">⟳</span>
             <Icon v-else name="attach" :size="18" />
@@ -70,6 +74,7 @@
             </button>
           </div>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
+          </div>
         </div>
         <div class="input-right-group">
           <div class="dropdown">
@@ -658,21 +663,22 @@ function onResizeEnd(e: PointerEvent) {
 }
 .dropdown-trigger {
   font-size: 11px;
-  padding: 3px 6px;
-  border: none;
-  border-radius: 4px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  transition: all 0.15s;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   max-width: 110px;
 }
 .dropdown-trigger:hover {
+  border-color: var(--border);
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
@@ -689,9 +695,9 @@ function onResizeEnd(e: PointerEvent) {
   line-height: 1.4;
 }
 .dropdown-arrow {
-  font-size: 9px;
+  font-size: 8px;
   line-height: 1;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 .dropdown-menu {
   position: absolute;
@@ -735,11 +741,8 @@ function onResizeEnd(e: PointerEvent) {
 .file-refs-bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 0 8px 0;
-  position: relative;
-  max-width: 768px;
-  margin: 0 auto;
+  gap: 5px;
+  padding: 10px 14px 0;
 }
 .file-refs-bar:empty {
   display: none;
@@ -747,20 +750,26 @@ function onResizeEnd(e: PointerEvent) {
 .file-tag {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  background: var(--bg-primary);
+  gap: 3px;
+  padding: 2px 8px 2px 6px;
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  font-size: 12px;
+  border-radius: 100px;
+  font-size: 11px;
   color: var(--text-primary);
   max-width: 100%;
   overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+}
+.file-tag:hover {
+  border-color: var(--accent-light);
+  background: var(--bg-primary);
 }
 .file-tag-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-weight: 500;
 }
 .file-tag-remove {
   flex-shrink: 0;
@@ -774,15 +783,17 @@ function onResizeEnd(e: PointerEvent) {
   transition: color 0.15s;
 }
 .file-tag-remove:hover {
-  color: #c97a7a;
+  color: var(--status-error);
 }
 .file-tag-source {
-  font-size: 10px;
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  padding: 0 5px;
-  border-radius: 3px;
+  font-size: 9px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  padding: 1px 6px;
+  border-radius: 100px;
   flex-shrink: 0;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
 }
 .file-tag-blocked {
   font-size: 9px;
@@ -799,6 +810,24 @@ function onResizeEnd(e: PointerEvent) {
 }
 .file-tag.blocked .file-tag-name {
   color: var(--status-error);
+}
+
+/* ── 输入区主体 ── */
+.input-body {
+  padding: 6px 14px 0;
+}
+
+/* 过渡分隔线 */
+.input-divider {
+  margin: 6px 14px 0;
+  border: none;
+  height: 1px;
+  background: var(--border);
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.chat-input:focus-within .input-divider {
+  opacity: 1;
 }
 
 /* TransitionGroup 动画：从下往上缓出弹出，退场缩小淡出 */
@@ -882,34 +911,36 @@ function onResizeEnd(e: PointerEvent) {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 14px;
+  height: 12px;
   cursor: ns-resize;
   user-select: none;
   touch-action: none;
   flex-shrink: 0;
+  margin-top: -2px;
 }
 .resize-handle-grip {
-  width: 48px;
+  width: 32px;
   height: 3px;
   border-radius: 2px;
   background: var(--border);
   transition: background 0.15s, width 0.2s;
+  opacity: 0.5;
 }
 .resize-handle:hover .resize-handle-grip {
   background: var(--accent);
-  width: 64px;
+  width: 56px;
+  opacity: 1;
 }
 
 .chat-input {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   max-width: 768px;
   margin: 0 auto;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
-  padding: 4px 14px 8px;
+  padding: 0;
   box-shadow: var(--shadow-soft);
   transition: border-color 0.2s, box-shadow 0.2s;
   overflow: visible;
@@ -930,14 +961,12 @@ function onResizeEnd(e: PointerEvent) {
   z-index: 210;
 }
 .btn-add-file {
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border);
+  width: 30px;
+  height: 30px;
+  border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 18px;
-  line-height: 1;
+  color: var(--text-tertiary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -945,11 +974,12 @@ function onResizeEnd(e: PointerEvent) {
   transition: all 0.15s;
   padding: 0;
   font-family: inherit;
+  font-size: 17px;
+  line-height: 1;
 }
 .btn-add-file:hover:not(:disabled) {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 .btn-add-file:disabled {
   opacity: 0.4;
@@ -1002,7 +1032,7 @@ function onResizeEnd(e: PointerEvent) {
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 .input-area {
-  flex: 1 1 0;
+  width: 100%;
   border: none;
   outline: none;
   background: transparent;
@@ -1012,7 +1042,9 @@ function onResizeEnd(e: PointerEvent) {
   resize: none;
   font-family: inherit;
   min-height: 24px;
+  max-height: 160px;
   overflow-y: auto;
+  padding: 4px 0;
 }
 .input-area::placeholder {
   color: #9ca3af;
@@ -1021,26 +1053,32 @@ function onResizeEnd(e: PointerEvent) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 4px 10px 6px 14px;
+}
+.input-left-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 .input-right-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .input-actions {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
 .btn-send,
 .btn-stop {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border: none;
   border-radius: 50%;
-  font-size: 16px;
+  font-size: 15px;
   cursor: pointer;
-  transition: background 0.15s, opacity 0.15s;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   font-family: inherit;
   display: flex;
   align-items: center;
@@ -1053,9 +1091,14 @@ function onResizeEnd(e: PointerEvent) {
 }
 .btn-send:hover:not(:disabled) {
   background: #1d4ed8;
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.btn-send:active:not(:disabled) {
+  transform: scale(0.95);
 }
 .btn-send:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: default;
 }
 .btn-stop {
