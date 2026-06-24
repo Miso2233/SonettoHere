@@ -73,3 +73,6 @@ anthropic_skills/*/
 
 # Macros（同上）
 macros/*/
+
+# 安全威胁模型（本地文档，不提交）
+dev_docs/security/
