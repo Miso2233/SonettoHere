@@ -30,15 +30,28 @@ class AuthMiddleware:
         if path == "/api/health":
             return await self.app(scope, receive, send)
 
-        # 从 scope 提取 Token
+        # 提取并校验 Token
         token = self._extract_token(scope)
-
-        # 从 app state 获取期望的 Token
         app = scope.get("app")
         expected = app.state.auth_token if app is not None else None
 
         if not expected or token != expected:
             return await self._reject(scope, receive, send)
+
+        # WebSocket 鉴权通过后：拦截 handler 的 websocket.accept 消息，
+        # 自动注入 subprotocol（前端通过 new WebSocket(url, [token]) 请求的协议），
+        # 业务 handler 无需感知 sub-protocol 协商细节。
+        if scope["type"] == "websocket":
+            protocols = scope.get("subprotocols", [])
+            if protocols:
+                original_send = send
+
+                async def _accept_with_subprotocol(message):
+                    if message.get("type") == "websocket.accept" and not message.get("subprotocol"):
+                        message = {**message, "subprotocol": protocols[0]}
+                    await original_send(message)
+
+                return await self.app(scope, receive, _accept_with_subprotocol)
 
         return await self.app(scope, receive, send)
 

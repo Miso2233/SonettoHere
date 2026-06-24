@@ -471,10 +471,7 @@ def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | No
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str):
     """WebSocket 聊天端点 — 接收用户消息、驱动 Agent、处理取消和用户交互。"""
-    # 前端通过 sub-protocol 传递 Token（new WebSocket(url, [token])），
-    # accept 时必须回选相同协议，否则浏览器握手失败直接断开。
-    protocols = (ws.scope or {}).get("subprotocols", [])
-    await ws.accept(subprotocol=protocols[0] if protocols else None)
+    await ws.accept()
 
     # ── 初始化会话 ────────────────────────────────────────
     app_state = ws.app.state
