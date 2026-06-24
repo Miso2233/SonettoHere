@@ -167,8 +167,8 @@ function connectSession(sid: string) {
 
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
   const token = getToken()
-  const url = `${protocol}//${location.host}/ws/chat/${sid}?token=${encodeURIComponent(token)}`
-  ch.ws = new WebSocket(url)
+  const url = `${protocol}//${location.host}/ws/chat/${sid}`
+  ch.ws = new WebSocket(url, [token])
 
   ch.ws.onopen = () => {
     ch.connected = true

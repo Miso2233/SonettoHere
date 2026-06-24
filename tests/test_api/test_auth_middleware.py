@@ -33,37 +33,26 @@ class TestAuthMiddleware:
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
 
-    def test_correct_query_token(self, client, auth_token):
-        """?token= 正确 → 200。"""
-        resp = client.get(f"/api/test?token={auth_token}")
-        assert resp.status_code == 200
-        assert resp.json() == {"status": "ok"}
-
-    def test_query_token_wrong_still_401(self, client):
-        """?token= 值错误 → 401。"""
-        resp = client.get("/api/test?token=wrong-token")
-        assert resp.status_code == 401
-
     def test_ws_path_protected(self, client):
         """/ws/ 路径受保护。"""
         resp = client.get("/ws/test")
         assert resp.status_code == 401
 
     def test_ws_path_with_valid_token(self, client, auth_token):
-        """/ws/ 路径带有效 token → 200。"""
-        resp = client.get(f"/ws/test?token={auth_token}")
+        """/ws/ 路径带 X-Sonetto-Token 头 → 200。"""
+        resp = client.get("/ws/test", headers={"X-Sonetto-Token": auth_token})
         assert resp.status_code == 200
         assert resp.json() == {"status": "ws"}
 
     def test_ws_path_with_wrong_token(self, client):
-        """/ws/ 路径带无效 token → 401。"""
-        resp = client.get("/ws/test?token=wrong")
+        """/ws/ 路径带错误 X-Sonetto-Token → 401。"""
+        resp = client.get("/ws/test", headers={"X-Sonetto-Token": "wrong"})
         assert resp.status_code == 401
 
-    def test_query_token_with_extra_params(self, client, auth_token):
-        """?token= 后还有其他 query params 时仍正确提取。"""
-        resp = client.get(f"/api/test?token={auth_token}&other=value")
-        assert resp.status_code == 200
+    def test_query_param_no_longer_works(self, client):
+        """/api/ 路径仅接受 Header，?token= 查询参数不再有效。"""
+        resp = client.get("/api/test?token=any-token")
+        assert resp.status_code == 401
 
 
 class TestAuthMiddlewareNoToken:

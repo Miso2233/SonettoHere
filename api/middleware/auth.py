@@ -2,8 +2,8 @@
 认证中间件 — ASGI 中间件，统一拦截 HTTP API 和 WebSocket 请求进行 Token 鉴权。
 
 Token 来源：
-- HTTP: 优先 X-Sonetto-Token 请求头，回退到 ?token= 查询参数
-- WebSocket: ?token= 查询参数（WebSocket API 不支持自定义请求头）
+- HTTP / WebSocket 通用: X-Sonetto-Token 请求头
+- WebSocket (浏览器子协议): Sec-WebSocket-Protocol（前端通过 WebSocket sub-protocol 传入）
 
 鉴权失败的响应：
 - HTTP: 401 JSONResponse
@@ -43,19 +43,28 @@ class AuthMiddleware:
         return await self.app(scope, receive, send)
 
     def _extract_token(self, scope) -> str:
-        """从请求头或查询参数提取 Token。"""
-        if scope["type"] == "http":
-            # HTTP：优先请求头
-            headers = dict(scope.get("headers", []))
-            token_bytes = headers.get(b"x-sonetto-token", b"")
-            if token_bytes:
-                return token_bytes.decode()
+        """从请求头提取 Token。
 
-        # WebSocket & HTTP fallback：从查询参数获取
-        query_string = scope.get("query_string", b"").decode()
-        for part in query_string.split("&"):
-            if part.startswith("token="):
-                return part[6:]  # 前端已用 encodeURIComponent，无需额外解码
+        优先 X-Sonetto-Token 自定义头，WebSocket 场景回退到
+        Sec-WebSocket-Protocol（浏览器 WebSocket API 无法设置自定义头，
+        前端通过 sub-protocol 传入）。
+        """
+        headers = dict(scope.get("headers", []))
+
+        # 通用：X-Sonetto-Token 自定义头
+        token_bytes = headers.get(b"x-sonetto-token", b"")
+        if token_bytes:
+            return token_bytes.decode()
+
+        # WebSocket 专用：从 Sec-WebSocket-Protocol 提取
+        # 前端传参格式: new WebSocket(url, [token])
+        # 此时 token 作为唯一 sub-protocol 出现在该头部
+        if scope["type"] == "websocket":
+            protocols = headers.get(b"sec-websocket-protocol", b"").decode()
+            if protocols:
+                # 取第一个非空协议作为 token（前端只传了一个）
+                return protocols.split(", ")[0].strip()
+
         return ""
 
     async def _reject(self, scope, receive, send):
