@@ -45,9 +45,10 @@ class AuthMiddleware:
     def _extract_token(self, scope) -> str:
         """从请求头提取 Token。
 
-        优先 X-Sonetto-Token 自定义头，WebSocket 场景回退到
-        Sec-WebSocket-Protocol（浏览器 WebSocket API 无法设置自定义头，
-        前端通过 sub-protocol 传入）。
+        HTTP / WebSocket 通用路径: X-Sonetto-Token 自定义头
+        WebSocket 专用路径: scope.subprotocols（由 ASGI server/uvicorn 从
+        Sec-WebSocket-Protocol 握手头部解析，前端通过 new WebSocket(url, [token])
+        传入）。优先使用 subprotocols 字段，比手动解析 raw header 更可靠。
         """
         headers = dict(scope.get("headers", []))
 
@@ -56,14 +57,13 @@ class AuthMiddleware:
         if token_bytes:
             return token_bytes.decode()
 
-        # WebSocket 专用：从 Sec-WebSocket-Protocol 提取
-        # 前端传参格式: new WebSocket(url, [token])
-        # 此时 token 作为唯一 sub-protocol 出现在该头部
+        # WebSocket 专用：从 ASGI scope 的 subprotocols 字段提取
+        # ASGI server 在握手时自动解析 Sec-WebSocket-Protocol 头部，
+        # 存入 scope["subprotocols"] = [token]
         if scope["type"] == "websocket":
-            protocols = headers.get(b"sec-websocket-protocol", b"").decode()
+            protocols = scope.get("subprotocols", [])
             if protocols:
-                # 取第一个非空协议作为 token（前端只传了一个）
-                return protocols.split(", ")[0].strip()
+                return protocols[0]
 
         return ""
 
