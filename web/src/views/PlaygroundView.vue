@@ -164,14 +164,10 @@ function getBubbleComponentName(name: string): string {
     'get_current_weather': 'WeatherBubble.vue',
     'holiday_calendar': 'HolidayBubble.vue',
     'time_tool': 'TimeBubble.vue',
-    'syntax_checker': 'SyntaxBubble.vue',
     'analyze_image': 'ImageBubble.vue',
     'tavily_search': 'TavilySearchBubble.vue',
     'pdf_reader': 'PdfReaderBubble.vue',
     'doc_reader': 'DocReaderBubble.vue',
-    'code_quality_analyzer': 'CodeQualityBubble.vue',
-    'unit_test_runner': 'UnitTestBubble.vue',
-    'debugger': 'DebuggerBubble.vue',
     'tavily_extract': 'TavilyExtractBubble.vue',
   }
   return map[name] ?? name
@@ -756,27 +752,6 @@ const mockTemplates: Record<string, MockTemplate> = {
       timezone: 'Asia/Shanghai',
     },
   },
-  syntax_checker: {
-    input: { language: 'python', code: 'def foo():\n  print("hello"\n' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        language: 'python',
-        errors: [
-          { line: 1, column: 23, message: 'SyntaxError: incomplete input. Expected an indented block after function definition', type: 'SyntaxError' },
-        ],
-        warnings: [],
-      },
-    }),
-    toolData: {
-      tool_type: 'syntax_check',
-      language: 'python',
-      errors: [
-        { line: 1, column: 23, message: 'SyntaxError: incomplete input. Expected an indented block after function definition', type: 'SyntaxError' },
-      ],
-      warnings: [],
-    },
-  },
   analyze_image: {
     input: { image_source: 'url:https://example.com/photo.jpg', prompt: '请描述这张图片' },
     doneOutput: JSON.stringify({
@@ -936,54 +911,6 @@ const mockTemplates: Record<string, MockTemplate> = {
       ],
     },
   },
-  code_quality_analyzer: {
-    input: { analysis_type: 'all', file_path: '/home/user/project/src/main.py' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        complexity: { total_lines: 156, function_count: 4, avg_function_length: 18.5, functions: [{ name: 'process_data', line: 1, endline: 25 }, { name: 'validate_input', line: 27, endline: 40 }, { name: 'transform_results', line: 42, endline: 58 }, { name: 'format_output', line: 60, endline: 72 }] },
-        maintainability: { comment_ratio: 0.12, snake_case_count: 8, camel_case_count: 2, maintainability_score: 72 },
-        duplication: { duplicate_lines: 3, duplicate_ratio: 0.019, duplicates: [{ line: 'result = process(item)', count: 3 }, { line: 'if item is None:', count: 2 }] },
-      },
-    }),
-    toolData: {
-      file_path: '/home/user/project/src/main.py',
-      analysis_type: 'all',
-      complexity: { total_lines: 156, function_count: 4, avg_function_length: 18.5, functions: [{ name: 'process_data', line: 1, endline: 25 }, { name: 'validate_input', line: 27, endline: 40 }, { name: 'transform_results', line: 42, endline: 58 }, { name: 'format_output', line: 60, endline: 72 }] },
-      maintainability: { comment_ratio: 0.12, snake_case_count: 8, camel_case_count: 2, maintainability_score: 72 },
-      duplication: { duplicate_lines: 3, duplicate_ratio: 0.019, duplicates: [{ line: 'result = process(item)', count: 3 }, { line: 'if item is None:', count: 2 }] },
-    },
-  },
-  unit_test_runner: {
-    input: { test_file: '/home/user/project/tests/test_math.py' },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        tests_run: 5, failures: 1, errors: 0, skipped: 1, successful: 3, success_rate: 80.0,
-        failures_details: [{ test: 'test_addition (test_math.TestMathFunctions)', message: 'test_addition (test_math.TestMathFunctions)', traceback: 'Traceback (most recent call last):\n  File "tests/test_math.py", line 12, in test_addition\n    self.assertEqual(2 + 2, 5)\nAssertionError: 4 != 5' }],
-      },
-    }),
-    toolData: {
-      tests_run: 5, failures: 1, errors: 0, skipped: 1, successful: 3, success_rate: 80.0,
-      failures_details: [{ test: 'test_addition (test_math.TestMathFunctions)', message: 'test_addition (test_math.TestMathFunctions)', traceback: 'Traceback (most recent call last):\n  File "tests/test_math.py", line 12, in test_addition\n    self.assertEqual(2 + 2, 5)\nAssertionError: 4 != 5' }],
-    },
-  },
-  debugger: {
-    input: { code: 'x = 1\ny = 0\nresult = x / y\nprint(result)', variables: ['x', 'y', 'result'] },
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        status: 'error', error_type: 'ZeroDivisionError', error_message: 'division by zero',
-        traceback: 'Traceback (most recent call last):\n  File "<string>", line 3, in <module>\nZeroDivisionError: division by zero',
-        variables: { x: '1', y: '0', result: '未定义' },
-      },
-    }),
-    toolData: {
-      status: 'error', error_type: 'ZeroDivisionError', error_message: 'division by zero',
-      traceback: 'Traceback (most recent call last):\n  File "<string>", line 3, in <module>\nZeroDivisionError: division by zero',
-      variables: { x: '1', y: '0', result: '未定义' },
-    },
-  },
   tavily_extract: {
     input: { url: 'https://example.com/article', wait_ms: 5000 },
     doneOutput: JSON.stringify({
@@ -1036,7 +963,7 @@ function buildMock(name: string, status: ToolStatus): ToolCall {
   // done
   return {
     ...base,
-    elapsed: name === 'tavily_search' ? 1.82 : name === 'tavily_extract' ? 2.64 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : name === 'code_quality_analyzer' ? 1.52 : name === 'unit_test_runner' ? 4.21 : name === 'debugger' ? 0.67 : 2.35,
+    elapsed: name === 'tavily_search' ? 1.82 : name === 'tavily_extract' ? 2.64 : name === 'pdf_reader' || name === 'doc_reader' ? 0.89 : 2.35,
     output: tpl?.doneOutput ?? JSON.stringify({ success: true, data: { result: 'OK' } }),
     toolData: tpl?.toolData,
   }

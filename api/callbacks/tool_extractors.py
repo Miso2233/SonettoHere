@@ -17,7 +17,6 @@ Handler = Callable[[str, dict[str, Any], str | None], dict[str, Any] | None]
 _REGISTRY: dict[str, Handler] = {}
 _PREFIX_REGISTRY: list[tuple[str, Handler]] = []
 
-
 def register(tool_name: str) -> Callable[[Handler], Handler]:
     """精确匹配注册装饰器。"""
 
@@ -26,7 +25,6 @@ def register(tool_name: str) -> Callable[[Handler], Handler]:
         return fn
 
     return decorator
-
 
 def register_prefix(prefix: str) -> Callable[[Handler], Handler]:
     """前缀匹配注册装饰器（如 todo_*）。"""
@@ -37,9 +35,7 @@ def register_prefix(prefix: str) -> Callable[[Handler], Handler]:
 
     return decorator
 
-
 # ── Dispatch ───────────────────────────────────────────────────────────
-
 
 def _dispatch(
     tool_name: str, parsed: dict[str, Any], tool_input: str | None = None
@@ -54,9 +50,7 @@ def _dispatch(
 
     return None
 
-
 # ── Helper ─────────────────────────────────────────────────────────────
-
 
 def _get_data(parsed: dict[str, Any]) -> dict[str, Any] | None:
     """提取 parsed['data'] 并校验为 dict。success=false 时视为错误返回 None。"""
@@ -65,13 +59,11 @@ def _get_data(parsed: dict[str, Any]) -> dict[str, Any] | None:
     data = parsed.get("data", {})
     return data if isinstance(data, dict) else None
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # 工具提取器
 # ═══════════════════════════════════════════════════════════════════════
 
 # ── Todo 系列 ──────────────────────────────────────────────────────────
-
 
 @register("todo_list")
 def _extract_todo_list(
@@ -90,7 +82,6 @@ def _extract_todo_list(
         result["tasks"] = tasks
     return result
 
-
 @register("todo_list_projects")
 def _extract_todo_projects(
     _tool_name: str,
@@ -107,7 +98,6 @@ def _extract_todo_projects(
     if isinstance(projects, list):
         result["projects"] = projects
     return result
-
 
 @register("todo_list_sections")
 def _extract_todo_sections(
@@ -128,7 +118,6 @@ def _extract_todo_sections(
             result["project_name"] = sections[0].get("project_name")
     return result if result.get("sections") is not None else None
 
-
 @register("todo_list_labels")
 def _extract_todo_labels(
     _tool_name: str,
@@ -145,7 +134,6 @@ def _extract_todo_labels(
     if isinstance(labels, list):
         result["labels"] = labels
     return result if result.get("labels") is not None else None
-
 
 @register_prefix("todo_")
 def _extract_todo_generic(
@@ -171,9 +159,7 @@ def _extract_todo_generic(
             result[field] = data[field]
     return result
 
-
 # ── Task Tracker ───────────────────────────────────────────────────────
-
 
 @register("task_tracker")
 def _extract_task_tracker(
@@ -198,9 +184,7 @@ def _extract_task_tracker(
         result["todos"] = todos
     return result
 
-
 # ── Python 执行 ────────────────────────────────────────────────────────
-
 
 @register("run_python")
 def _extract_run_python(
@@ -228,9 +212,7 @@ def _extract_run_python(
                     result["code"] = code
     return result
 
-
 # ── 文件操作 ────────────────────────────────────────────────────────────
-
 
 @register("file_operations")
 def _extract_file_operations(
@@ -318,9 +300,7 @@ def _extract_file_operations(
 
     return None
 
-
 # ── 文件精确编辑 ────────────────────────────────────────────────────────
-
 
 @register("file_edit")
 def _extract_file_edit(
@@ -386,9 +366,7 @@ def _extract_file_edit(
 
     return None
 
-
 # ── 塔罗占卜 ───────────────────────────────────────────────────────────
-
 
 @register("tarot")
 def _extract_tarot(
@@ -428,9 +406,7 @@ def _extract_tarot(
         "cards": cards,
     }
 
-
 # ── 答案之书 ───────────────────────────────────────────────────────────
-
 
 @register("answer_book")
 def _extract_answer_book(
@@ -448,9 +424,7 @@ def _extract_answer_book(
         "answer": data.get("answer", ""),
     }
 
-
 # ── 地图系列 ───────────────────────────────────────────────────────────
-
 
 @register("nearby_search")
 @register("fuzzy_address_search")
@@ -492,7 +466,6 @@ def _extract_map_search(
         result["city"] = data.get("city", "")
     return result
 
-
 @register("geocode_address")
 def _extract_geocode(
     _tool_name: str,
@@ -507,7 +480,6 @@ def _extract_geocode(
         "address": data.get("address", ""),
         "location": data.get("location", ""),
     }
-
 
 @register("get_transit_route")
 def _extract_transit_route(
@@ -571,7 +543,6 @@ def _extract_transit_route(
         "routes": routes,
     }
 
-
 @register("get_cycling_route")
 def _extract_cycling_route(
     _tool_name: str,
@@ -615,9 +586,7 @@ def _extract_cycling_route(
         "paths": paths,
     }
 
-
 # ── 天气查询 ───────────────────────────────────────────────────────────
-
 
 @register("get_current_weather")
 def _extract_weather(
@@ -679,9 +648,7 @@ def _extract_weather(
         ]
     return result
 
-
 # ── 时间查询 ───────────────────────────────────────────────────────────
-
 
 @register("time_tool")
 def _extract_time(
@@ -702,30 +669,7 @@ def _extract_time(
         "timezone": data.get("timezone", ""),
     }
 
-
-# ── 语法检查 ───────────────────────────────────────────────────────────
-
-
-@register("syntax_checker")
-def _extract_syntax_check(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 tool_type, language, errors, warnings。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-    return {
-        "tool_type": "syntax_check",
-        "language": data.get("language", ""),
-        "errors": data.get("errors", []),
-        "warnings": data.get("warnings", []),
-    }
-
-
 # ── 图片理解 ───────────────────────────────────────────────────────────
-
 
 @register("analyze_image")
 def _extract_analyze_image(
@@ -742,9 +686,7 @@ def _extract_analyze_image(
         "response": data.get("response", ""),
     }
 
-
 # ── 节假日查询 ─────────────────────────────────────────────────────────
-
 
 @register("holiday_calendar")
 def _extract_holiday(
@@ -845,9 +787,7 @@ def _extract_holiday(
 
     return result
 
-
 # ── PDF 阅读 ───────────────────────────────────────────────────────────
-
 
 @register("pdf_reader")
 def _extract_pdf(
@@ -896,9 +836,7 @@ def _extract_pdf(
         result["total_pages"] = data["total_pages"]
     return result
 
-
 # ── Word 文档阅读 ─────────────────────────────────────────────────────
-
 
 @register("doc_reader")
 def _extract_doc(
@@ -948,111 +886,7 @@ def _extract_doc(
         result["total_paragraphs"] = data["total_paragraphs"]
     return result
 
-
-# ── 代码质量分析 ───────────────────────────────────────────────────────
-
-
-@register("code_quality_analyzer")
-def _extract_code_quality(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 file_path, analysis_type；可选 complexity, maintainability, duplication。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-
-    file_path = ""
-    analysis_type = ""
-    if tool_input:
-        try:
-            inp = ast.literal_eval(tool_input)
-        except Exception:
-            pass
-        else:
-            if isinstance(inp, dict):
-                file_path = inp.get("file_path", "") or ""
-                analysis_type = inp.get("analysis_type", "") or ""
-
-    result: dict[str, Any] = {
-        "file_path": file_path,
-        "analysis_type": analysis_type,
-    }
-    if "complexity" in data and isinstance(data["complexity"], dict):
-        result["complexity"] = data["complexity"]
-    if "maintainability" in data and isinstance(data["maintainability"], dict):
-        result["maintainability"] = data["maintainability"]
-    if "duplication" in data and isinstance(data["duplication"], dict):
-        result["duplication"] = data["duplication"]
-    return result
-
-
-# ── 单元测试运行 ───────────────────────────────────────────────────────
-
-
-@register("unit_test_runner")
-def _extract_test_runner(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 tests_run, failures, errors, skipped, successful, success_rate；可选 failures_details, errors_details。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-
-    result: dict[str, Any] = {
-        "tests_run": data.get("tests_run", 0),
-        "failures": data.get("failures", 0),
-        "errors": data.get("errors", 0),
-        "skipped": data.get("skipped", 0),
-        "successful": data.get("successful", 0),
-        "success_rate": data.get("success_rate", 0.0),
-    }
-    if "failures_details" in data and isinstance(data["failures_details"], list):
-        result["failures_details"] = data["failures_details"]
-    if "errors_details" in data and isinstance(data["errors_details"], list):
-        result["errors_details"] = data["errors_details"]
-    return result
-
-
-# ── 代码调试 ───────────────────────────────────────────────────────────
-
-
-@register("debugger")
-def _extract_debugger(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """get_doc 模式返回 operation+content；其余返回 status/variables/output 或 status+error_type/error_message/traceback。"""
-    raw_data = parsed.get("data")
-    if isinstance(raw_data, str):
-        return {"operation": "get_doc", "content": raw_data}
-    if not isinstance(raw_data, dict):
-        return None
-    data = raw_data
-
-    result: dict[str, Any] = {
-        "status": data.get("status", ""),
-    }
-    if "variables" in data and isinstance(data["variables"], dict):
-        result["variables"] = data["variables"]
-    if data.get("status") == "success":
-        result["output"] = data.get("output", "")
-    else:
-        if "error_type" in data:
-            result["error_type"] = data["error_type"]
-        if "error_message" in data:
-            result["error_message"] = data["error_message"]
-        if "traceback" in data:
-            result["traceback"] = data["traceback"]
-    return result
-
-
 # ── Tavily 搜索 ──────────────────────────────────────────────────────────
-
 
 @register("tavily_search")
 def _extract_tavily_search(
@@ -1090,9 +924,7 @@ def _extract_tavily_search(
         "response_time": data.get("response_time", 0),
     }
 
-
 # ── Tavily 提取 ──────────────────────────────────────────────────────────
-
 
 @register("tavily_extract")
 def _extract_tavily_extract(
@@ -1139,11 +971,9 @@ def _extract_tavily_extract(
         "response_time": data.get("response_time", 0),
     }
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # 记忆 CRUD 工具系列
 # ═══════════════════════════════════════════════════════════════════════
-
 
 @register("list_memories")
 def _extract_list_memories(
@@ -1162,7 +992,6 @@ def _extract_list_memories(
         result["count"] = len(items)
     return result if result else None
 
-
 @register("read_memories")
 def _extract_read_memories(
     _tool_name: str,
@@ -1178,7 +1007,6 @@ def _extract_read_memories(
         if key in data:
             result[key] = data[key]
     return result if result else None
-
 
 @register("create_memory")
 @register("update_memory")

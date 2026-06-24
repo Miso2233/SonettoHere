@@ -54,12 +54,6 @@ def get_all_tools() -> list[BaseTool]:
     from tools.files.tool_pdf_reader import PDFReaderTool
     from tools.files.tool_doc_reader import DocReaderTool
 
-    # Development
-    from tools.development.tool_syntax import SyntaxCheckerTool
-    from tools.development.tool_code_quality import CodeQualityTool
-    from tools.development.tool_unit_test import UnitTestTool
-    from tools.development.tool_debug import DebuggerTool
-
     # Task
     from tools.task.tool_tracker import TaskTrackerTool
 
@@ -115,11 +109,6 @@ def get_all_tools() -> list[BaseTool]:
         FileEditTool(client=client),
         PDFReaderTool(client=client),
         DocReaderTool(client=client),
-        # Development
-        SyntaxCheckerTool(client=client),
-        CodeQualityTool(client=client),
-        UnitTestTool(client=client),
-        DebuggerTool(client=client),
         # Task
         TaskTrackerTool(client=client),
         # SubAgent
