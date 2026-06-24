@@ -473,13 +473,6 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     """WebSocket 聊天端点 — 接收用户消息、驱动 Agent、处理取消和用户交互。"""
     await ws.accept()
 
-    # 校验 Token（accept 之后检查，避免 403 日志噪声）
-    token = ws.query_params.get("token", "")
-    expected = ws.app.state.auth_token
-    if not expected or token != expected:
-        await ws.close(code=4001)
-        return
-
     # ── 初始化会话 ────────────────────────────────────────
     app_state = ws.app.state
     session = app_state.session_manager.get_or_create(session_id)
