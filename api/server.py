@@ -25,6 +25,7 @@ from api.routes import skills as skills_router
 from api.routes import news as news_router
 from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
+from api.routes import env_vars as env_vars_router
 from api.session_manager import SessionManager, SessionState
 from api.ws_registry import WebSocketRegistry
 from agent.graph import build_agent
@@ -199,6 +200,9 @@ def create_app() -> FastAPI:
 
     # 重启后端
     app.include_router(restart_router.router, prefix="/api")
+
+    # 工具环境变量管理
+    app.include_router(env_vars_router.router, prefix="/api")
 
     # 健康检查
     @app.get("/api/health")

@@ -457,3 +457,23 @@ export interface BlockerEntry {
 export interface ListBlockerResponse {
   entries: BlockerEntry[]
 }
+
+// === 工具环境变量 ===
+
+export interface EnvVarItem {
+  key: string
+  label: string
+  description: string
+  value: string
+  is_set: boolean
+}
+
+export interface ListEnvVarsResponse {
+  env_vars: EnvVarItem[]
+}
+
+export interface UpdateEnvVarResponse {
+  status: string
+  key: string
+  masked_value: string
+}

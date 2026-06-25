@@ -21,6 +21,8 @@ import type {
   ListWhitelistResponse,
   BlockerEntry,
   ListBlockerResponse,
+  ListEnvVarsResponse,
+  UpdateEnvVarResponse,
 } from '@/types'
 
 declare const __API_TOKEN__: string
@@ -232,4 +234,21 @@ export const api = {
 
   deleteBlocker: (index: number) =>
     request<{ status: string }>(`/sonetto-blocker/${index}`, { method: 'DELETE' }),
+
+  // ── 工具环境变量 ──
+
+  listEnvVars: () =>
+    request<ListEnvVarsResponse>('/env-vars'),
+
+  updateEnvVar: (key: string, value: string) =>
+    request<UpdateEnvVarResponse>('/env-vars', {
+      method: 'PUT',
+      body: JSON.stringify({ key, value }),
+    }),
+
+  batchUpdateEnvVars: (env_vars: { key: string; value: string }[]) =>
+    request<{ status: string; updated: { key: string; masked_value: string }[] }>('/env-vars/batch', {
+      method: 'PUT',
+      body: JSON.stringify({ env_vars }),
+    }),
 }

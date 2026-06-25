@@ -29,6 +29,7 @@
           <router-link to="/user" class="popup-item" @click="closeSettingsMenu">用户 USER</router-link>
           <router-link to="/path-whitelist" class="popup-item" @click="closeSettingsMenu">路径白名单</router-link>
           <router-link to="/sonetto-blocker" class="popup-item" @click="closeSettingsMenu">拒止锚</router-link>
+          <router-link to="/env-vars" class="popup-item" @click="closeSettingsMenu">环境变量</router-link>
           <div class="popup-divider"></div>
           <button class="popup-item popup-action" :class="{ restarting }" :disabled="restarting" @click="handleRestart">
             {{ restarting ? '重启中...' : '重启服务' }}
