@@ -35,6 +35,8 @@ const registry: Record<string, Component> = {
   'file_write': FilesBubble,
   'file_list': FilesBubble,
   'file_operations': FilesBubble,
+  'file_manage': FilesBubble,
+  'file_search': FilesBubble,
   'file_edit': FileEditBubble,
   'tarot': TarotBubble,
   'answer_book': AnswerBookBubble,

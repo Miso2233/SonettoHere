@@ -212,15 +212,65 @@ def _extract_run_python(
                     result["code"] = code
     return result
 
-# ── 文件操作 ────────────────────────────────────────────────────────────
+# ── 文件读取 ────────────────────────────────────────────────────────────
 
-@register("file_operations")
-def _extract_file_operations(
+@register("file_read")
+def _extract_file_read(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 read_file 的数据字段。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+
+    file_path = data.get("file_path", "")
+    content = data.get("content", "")
+    file_info = data.get("file_info", {})
+    return {
+        "operation": "read_file",
+        "file_path": file_path,
+        "file_name": file_path.split("/")[-1].split("\\")[-1] or "unknown",
+        "size_bytes": file_info.get("size", 0),
+        "line_count": content.count("\n") + 1 if isinstance(content, str) else 0,
+        "content": content,
+    }
+
+
+# ── 文件写入 ────────────────────────────────────────────────────────────
+
+@register("file_write")
+def _extract_file_write(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 write_file 的数据字段。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+
+    file_path = data.get("file_path", "")
+    return {
+        "operation": "write_file",
+        "file_path": file_path,
+        "file_name": file_path.split("/")[-1].split("\\")[-1] or "unknown",
+        "size_bytes": data.get("size", 0),
+        "line_count": data.get("line_count", data.get("size", 0)),
+        "success": True,
+    }
+
+
+# ── 文件管理 ────────────────────────────────────────────────────────────
+
+@register("file_manage")
+def _extract_file_manage(
     _tool_name: str,
     parsed: dict[str, Any],
     tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """按 operation (read_file / write_file / list_directory / search_files) 返回不同字段。"""
+    """按 operation (delete_file / rename_file / create_directory) 返回不同字段。"""
     data = _get_data(parsed)
     if data is None:
         return None
@@ -235,43 +285,64 @@ def _extract_file_operations(
             if isinstance(input_parsed, dict):
                 operation = str(input_parsed.get("operation", "") or "")
 
-    if operation == "read_file":
-        file_path = data.get("file_info", {}).get("path", "")
-        content = data.get("content", "")
-        size = data.get("file_info", {}).get("size", 0)
+    if operation == "delete_file":
         return {
-            "operation": "read_file",
-            "file_path": file_path,
-            "file_name": file_path.split("/")[-1].split("\\")[-1] or "unknown",
-            "size_bytes": size,
-            "line_count": content.count("\n") + 1 if isinstance(content, str) else 0,
-            "content": content,
+            "operation": "delete_file",
+            "file_path": data.get("file_path", ""),
+            "message": data.get("message", ""),
         }
 
-    if operation == "write_file":
-        file_path = data.get("file_path", "")
-        size = data.get("size", 0)
+    if operation == "rename_file":
         return {
-            "operation": "write_file",
-            "file_path": file_path,
-            "file_name": file_path.split("/")[-1].split("\\")[-1] or "unknown",
-            "size_bytes": size,
-            "line_count": size,
-            "success": True,
+            "operation": "rename_file",
+            "file_path": data.get("old_path", data.get("file_path", "")),
+            "new_path": data.get("new_path", ""),
+            "message": data.get("message", ""),
         }
 
-    if operation in ("list_directory",):
+    if operation == "create_directory":
+        return {
+            "operation": "create_directory",
+            "directory_path": data.get("directory_path", ""),
+            "message": data.get("message", ""),
+        }
+
+    return None
+
+
+# ── 文件搜索 ────────────────────────────────────────────────────────────
+
+@register("file_search")
+def _extract_file_search(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """按 operation (list_directory / search_files) 返回不同字段。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+
+    operation = ""
+    if tool_input:
+        try:
+            input_parsed = ast.literal_eval(tool_input)
+        except (ValueError, SyntaxError, TypeError):
+            pass
+        else:
+            if isinstance(input_parsed, dict):
+                operation = str(input_parsed.get("operation", "") or "")
+
+    if operation == "list_directory":
         directory = data.get("directory", "")
         items_raw = data.get("items", [])
         items = []
         for item in items_raw if isinstance(items_raw, list) else []:
-            items.append(
-                {
-                    "name": item.get("name", ""),
-                    "type": "directory" if item.get("is_dir") else "file",
-                    "size_bytes": item.get("size", 0),
-                }
-            )
+            items.append({
+                "name": item.get("name", ""),
+                "type": "directory" if item.get("is_dir") else "file",
+                "size_bytes": item.get("size", 0),
+            })
         return {
             "operation": "list_directory",
             "directory_path": directory,
@@ -284,13 +355,11 @@ def _extract_file_operations(
         items_raw = data.get("found_files", [])
         items = []
         for item in items_raw if isinstance(items_raw, list) else []:
-            items.append(
-                {
-                    "name": item.get("name", ""),
-                    "type": "directory" if item.get("is_dir") else "file",
-                    "size_bytes": item.get("size", 0),
-                }
-            )
+            items.append({
+                "name": item.get("name", ""),
+                "type": "directory" if item.get("is_dir") else "file",
+                "size_bytes": item.get("size", 0),
+            })
         return {
             "operation": "search_files",
             "search_directory": directory,
@@ -299,6 +368,7 @@ def _extract_file_operations(
         }
 
     return None
+
 
 # ── 文件精确编辑 ────────────────────────────────────────────────────────
 
@@ -341,6 +411,7 @@ def _extract_file_edit(
             "offset": data.get("offset", 0),
             "content": data.get("content", ""),
             "line_count": len(lines),
+            "lines": lines,
         }
 
     if operation == "multi_edit":

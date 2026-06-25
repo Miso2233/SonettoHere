@@ -49,7 +49,10 @@ def get_all_tools() -> list[BaseTool]:
     from tools.network.tavily import TavilySearchTool, TavilyExtractTool
 
     # Files
-    from tools.files.tool_file_ops import FileOperationsTool
+    from tools.files.tool_file_read import FileReadTool
+    from tools.files.tool_file_write import FileWriteTool
+    from tools.files.tool_file_manage import FileManageTool
+    from tools.files.tool_file_search import FileSearchTool
     from tools.files.tool_file_edit import FileEditTool
 
     # Task
@@ -103,7 +106,10 @@ def get_all_tools() -> list[BaseTool]:
         TavilySearchTool(client=client),
         TavilyExtractTool(client=client),
         # Files
-        FileOperationsTool(client=client),
+        FileReadTool(client=client),
+        FileWriteTool(client=client),
+        FileManageTool(client=client),
+        FileSearchTool(client=client),
         FileEditTool(client=client),
         # Task
         TaskTrackerTool(client=client),

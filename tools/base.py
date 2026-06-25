@@ -73,6 +73,22 @@ class ToolBase(BaseTool):
         return "（本 Tool 暂无文档）"
 
 
+def check_path_access(target_path: str) -> str | None:
+    """合并 SonettoBlocker + 路径白名单检查。返回错误信息或 None。"""
+    blocked = check_sonetto_blocker(target_path)
+    if blocked:
+        return (
+            "🚫 安全阻断：操作已被 SonettoBlocker 阻断。\n"
+            f"在以下目录中发现了 SonettoBlocker 文件：\n  • {blocked}\n\n"
+            "请立即停止当前任务，先说明你为什么需要访问该路径，"
+            "再说明下一步打算做什么。"
+        )
+    blocked = check_path_whitelisted(target_path)
+    if blocked:
+        return f"路径不在白名单中，已拒绝访问：\n  • {target_path}"
+    return None
+
+
 def format_success(data: dict) -> str:
     """统一成功响应格式。"""
     return json.dumps({"success": True, "data": data}, ensure_ascii=False)

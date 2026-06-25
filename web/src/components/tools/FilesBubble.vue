@@ -130,6 +130,57 @@
           </div>
         </template>
 
+        <!-- ===== 删除文件 ===== -->
+        <template v-else-if="op === 'delete_file'">
+          <div class="write-success">
+            <span class="success-icon">&#10003;</span>
+            <div class="write-success-text">
+              <div class="write-success-title">删除成功</div>
+              <div class="write-success-detail">{{ td.file_path }}</div>
+            </div>
+          </div>
+          <div class="file-actions">
+            <button
+              v-if="td.file_path"
+              class="action-btn"
+              @click="copyPath"
+            >
+              复制路径
+            </button>
+          </div>
+        </template>
+
+        <!-- ===== 重命名文件 ===== -->
+        <template v-else-if="op === 'rename_file'">
+          <div class="write-success">
+            <span class="success-icon">&#10003;</span>
+            <div class="write-success-text">
+              <div class="write-success-title">重命名成功</div>
+              <div class="write-success-detail">{{ td.file_path }} → {{ td.new_path }}</div>
+            </div>
+          </div>
+        </template>
+
+        <!-- ===== 创建目录 ===== -->
+        <template v-else-if="op === 'create_directory'">
+          <div class="write-success">
+            <span class="success-icon">&#10003;</span>
+            <div class="write-success-text">
+              <div class="write-success-title">目录创建成功</div>
+              <div class="write-success-detail">{{ td.directory_path }}</div>
+            </div>
+          </div>
+          <div class="file-actions">
+            <button
+              v-if="td.directory_path"
+              class="action-btn"
+              @click="copyPath"
+            >
+              复制路径
+            </button>
+          </div>
+        </template>
+
         <!-- ===== 其他文件操作 fallback ===== -->
         <div v-else class="raw-output">{{ JSON.stringify(toolCall.toolData, null, 2) }}</div>
       </div>
@@ -187,7 +238,7 @@ const previewLineCount = computed(() => MAX_PREVIEW_LINES)
 // ── 文件列表 ──
 const items = computed<Array<{ name: string; type: string; size_bytes?: number; modified?: string }>>(() => {
   const raw = td.value.items as Array<Record<string, unknown>> | undefined
-  return (raw ?? []) as any
+  return Array.isArray(raw) ? raw : []
 })
 
 const MAX_VISIBLE_ITEMS = 20
@@ -215,7 +266,9 @@ const runningLabel = computed(() => {
   switch (props.toolCall.name) {
     case 'file_read': return '正在读取文件...'
     case 'file_write': return '正在写入文件...'
-    case 'file_list': return '正在列出文件...'
+    case 'file_list':
+    case 'file_search': return '正在搜索文件...'
+    case 'file_manage': return '正在管理文件...'
     default: return '正在操作文件...'
   }
 })
