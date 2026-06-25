@@ -11,8 +11,6 @@ import WeatherBubble from './WeatherBubble.vue'
 import HolidayBubble from './HolidayBubble.vue'
 import TimeBubble from './TimeBubble.vue'
 import ImageBubble from './ImageBubble.vue'
-import PdfReaderBubble from './PdfReaderBubble.vue'
-import DocReaderBubble from './DocReaderBubble.vue'
 import TavilySearchBubble from './TavilySearchBubble.vue'
 import TavilyExtractBubble from './TavilyExtractBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
@@ -50,9 +48,7 @@ const registry: Record<string, Component> = {
   'time_tool': TimeBubble,
     'analyze_image': ImageBubble,
   'tavily_search': TavilySearchBubble,
-  'pdf_reader': PdfReaderBubble,
-  'doc_reader': DocReaderBubble,
-        'tavily_extract': TavilyExtractBubble,
+  'tavily_extract': TavilyExtractBubble,
   'ask_user_for_info': AskUserBubble,
   'ask_user_qa': AskUserBubble,
   'ask_user_single_choice': AskUserBubble,

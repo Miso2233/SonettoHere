@@ -51,8 +51,6 @@ def get_all_tools() -> list[BaseTool]:
     # Files
     from tools.files.tool_file_ops import FileOperationsTool
     from tools.files.tool_file_edit import FileEditTool
-    from tools.files.tool_pdf_reader import PDFReaderTool
-    from tools.files.tool_doc_reader import DocReaderTool
 
     # Task
     from tools.task.tool_tracker import TaskTrackerTool
@@ -107,8 +105,6 @@ def get_all_tools() -> list[BaseTool]:
         # Files
         FileOperationsTool(client=client),
         FileEditTool(client=client),
-        PDFReaderTool(client=client),
-        DocReaderTool(client=client),
         # Task
         TaskTrackerTool(client=client),
         # SubAgent
