@@ -33,8 +33,6 @@
 | `bike` | 骑行路线图标 | `MapBubble.vue` |
 | `todo-due` | 任务截止日期图标 | `TodoBubble.vue` |
 | `todo-project` | 任务项目图标 | `TodoBubble.vue` |
-| `answer-book` | 答案之书图标 | `AnswerBookBubble.vue` |
-| `sparkle` | 答案之书分隔图标 | `AnswerBookBubble.vue` |
 | `file-page` | 文件图标 | `FilesBubble.vue` |
 | `folder` | 文件夹图标 | `FilesBubble.vue` |
 | `checkmark` | 成功勾 | `FilesBubble.vue` / `AskUserBubble.vue` / `TaskTrackerBubble.vue` / `TodoBubble.vue` |

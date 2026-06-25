@@ -477,24 +477,6 @@ def _extract_tarot(
         "cards": cards,
     }
 
-# ── 答案之书 ───────────────────────────────────────────────────────────
-
-@register("answer_book")
-def _extract_answer_book(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 tool_type, question, answer。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-    return {
-        "tool_type": "answer_book",
-        "question": data.get("question", ""),
-        "answer": data.get("answer", ""),
-    }
-
 # ── 地图系列 ───────────────────────────────────────────────────────────
 
 @register("nearby_search")

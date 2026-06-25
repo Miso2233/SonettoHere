@@ -5,7 +5,6 @@ import PythonBubble from './PythonBubble.vue'
 import FilesBubble from './FilesBubble.vue'
 import FileEditBubble from './FileEditBubble.vue'
 import TarotBubble from './TarotBubble.vue'
-import AnswerBookBubble from './AnswerBookBubble.vue'
 import MapBubble from './MapBubble.vue'
 import WeatherBubble from './WeatherBubble.vue'
 import HolidayBubble from './HolidayBubble.vue'
@@ -38,7 +37,6 @@ const registry: Record<string, Component> = {
   'file_search': FilesBubble,
   'file_edit': FileEditBubble,
   'tarot': TarotBubble,
-  'answer_book': AnswerBookBubble,
   'nearby_search': MapBubble,
   'fuzzy_address_search': MapBubble,
   'geocode_address': MapBubble,

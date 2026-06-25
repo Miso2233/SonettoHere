@@ -262,7 +262,7 @@ def get_all_tools() -> list[BaseTool]:
 | **Development** | `syntax_checker` / `code_quality` / `unit_test` / `debugger` | 本地执行 | [TOOL.md](../tools/development/TOOL.md) |
 | **Task** | `task_tracker` | 无（内存状态） | [TOOL.md](../tools/task/TOOL.md) |
 | **Interaction** | `ask_user` | 无 | [TOOL.md](../tools/interaction/TOOL.md) |
-| **Entertainment** | `answer_book` / `tarot` | UAPI + 内置塔罗牌库 | [TOOL.md](../tools/entertainment/TOOL.md) |
+| **Entertainment** | `tarot` | 内置塔罗牌库 | [TOOL.md](../tools/entertainment/TOOL.md) |
 
 ---
 

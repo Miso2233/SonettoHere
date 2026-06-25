@@ -115,7 +115,6 @@ package "Interaction" {
 }
 
 package "Entertainment" {
-  class AnswerBookSkill
   class TarotSkill
 }
 
@@ -223,7 +222,6 @@ CodeQualitySkill -|> SkillBase
 
 AskUserQASkill -|> SkillBase
 
-AnswerBookSkill -|> SkillBase
 TarotSkill -|> SkillBase
 
 BilibiliDownloadSkill -|> SkillBase
@@ -282,7 +280,7 @@ skills/
 │   ├── SKILL.md
 │   └── skill_*.py
 │
-├── entertainment/               # 娱乐（2 个 skill）
+├── entertainment/               # 娱乐（1 个 skill）
 │   ├── SKILL.md
 │   └── skill_*.py
 │

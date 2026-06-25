@@ -66,7 +66,6 @@ def get_all_tools() -> list[BaseTool]:
     from tools.interaction.tool_multi_choice import AskUserMultiChoiceTool
 
     # Entertainment
-    from tools.entertainment.tool_answer_book import AnswerBookTool
     from tools.entertainment.tool_tarot import TarotTool
 
     # Memory
@@ -118,7 +117,6 @@ def get_all_tools() -> list[BaseTool]:
         AskUserSingleChoiceTool(client=client),
         AskUserMultiChoiceTool(client=client),
         # Entertainment
-        AnswerBookTool(client=client),
         TarotTool(client=client),
         # Memory
         ListMemoriesTool(client=client),

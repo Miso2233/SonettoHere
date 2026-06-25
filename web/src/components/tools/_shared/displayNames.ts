@@ -42,7 +42,6 @@ const DISPLAY_NAMES: Record<string, string> = {
   get_transit_route: '公交换乘',
   get_cycling_route: '骑行路线',
   tarot: '塔罗牌',
-  answer_book: '答案之书',
   ask_user: '询问用户',
   ask_user_for_info: '询问用户',
   ask_user_qa: '询问用户',

@@ -155,7 +155,6 @@ function getBubbleComponentName(name: string): string {
     'file_list': 'FilesBubble.vue',
     'file_operations': 'FilesBubble.vue',
     'tarot': 'TarotBubble.vue',
-    'answer_book': 'AnswerBookBubble.vue',
     'nearby_search': 'MapBubble.vue',
     'fuzzy_address_search': 'MapBubble.vue',
     'geocode_address': 'MapBubble.vue',
@@ -717,26 +716,6 @@ const mockTemplates: Record<string, MockTemplate> = {
         { name: 'App.vue', type: 'file', size_bytes: 2890, modified: '05-08' },
         { name: 'BaseCard.vue', type: 'file', size_bytes: 2100, modified: '04-25' },
       ],
-    },
-  },
-  answer_book: {
-    input: { question: '我今天的面试会顺利吗？' },
-    doneOutput: JSON.stringify({ success: true, data: { question: '我今天的面试会顺利吗？', answer: '答案是肯定的' } }),
-    toolData: {
-      tool_type: 'answer_book',
-      question: '我今天的面试会顺利吗？',
-      answer: '答案是肯定的',
-    },
-  },
-
-    }),
-    toolData: {
-      tool_type: 'time',
-      datetime: '2026-05-16 14:32:00',
-      date: '2026-05-16',
-      time: '14:32:00',
-      weekday: 'Saturday',
-      timezone: 'Asia/Shanghai',
     },
   },
   analyze_image: {

@@ -45,7 +45,7 @@ Kaleidoscope 设计 → Playground 验收 → 后端 extractor → 收集反馈 
 | `skills/files/` | 文件操作 | file_ops, pdf_reader, doc_reader |
 | `skills/development/` | 开发辅助 | syntax, code_quality, unit_test, debugger |
 | `skills/todo/` | Todoist | add, list, complete, ... |
-| `skills/entertainment/` | 娱乐 | tarot, answer_book |
+| `skills/entertainment/` | 娱乐 | tarot |
 | `skills/bilibili/` | B站 | download, set_cookie |
 | `skills/task/` | 任务管理 | task_tracker |
 | `skills/interaction/` | WebUI 交互 | ask_user_qa, ask_user_single_choice, ask_user_multi_choice |
