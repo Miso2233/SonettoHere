@@ -34,8 +34,6 @@ const DISPLAY_NAMES: Record<string, string> = {
   todo_add_quick: '快速添加待办',
   todo_list_sections: '分区列表',
   todo_list_labels: '标签列表',
-  time: '时间查询',
-  time_tool: '时间查询',
   python: 'Python 执行',
   run_python: 'Python 执行',
   nearby_search: '周边搜索',

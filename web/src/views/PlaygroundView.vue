@@ -163,7 +163,6 @@ function getBubbleComponentName(name: string): string {
     'get_cycling_route': 'MapBubble.vue',
     'get_current_weather': 'WeatherBubble.vue',
     'holiday_calendar': 'HolidayBubble.vue',
-    'time_tool': 'TimeBubble.vue',
     'analyze_image': 'ImageBubble.vue',
     'tavily_search': 'TavilySearchBubble.vue',
     'tavily_extract': 'TavilyExtractBubble.vue',
@@ -729,17 +728,7 @@ const mockTemplates: Record<string, MockTemplate> = {
       answer: '答案是肯定的',
     },
   },
-  time_tool: {
-    input: {},
-    doneOutput: JSON.stringify({
-      success: true,
-      data: {
-        datetime: '2026-05-16 14:32:00',
-        date: '2026-05-16',
-        time: '14:32:00',
-        weekday: 'Saturday',
-        timezone: 'Asia/Shanghai',
-      },
+
     }),
     toolData: {
       tool_type: 'time',

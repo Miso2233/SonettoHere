@@ -20,7 +20,6 @@ def get_all_tools() -> list[BaseTool]:
     client = _get_client()
 
     # System
-    from tools.system.tool_time import TimeTool
     from tools.system.tool_python import RunPythonTool
 
     # Todo
@@ -80,7 +79,6 @@ def get_all_tools() -> list[BaseTool]:
 
     return [
         # System
-        TimeTool(client=client),
         RunPythonTool(client=client),
         # Todo
         TodoAddTool(client=client),

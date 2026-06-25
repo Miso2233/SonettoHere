@@ -9,7 +9,6 @@ import AnswerBookBubble from './AnswerBookBubble.vue'
 import MapBubble from './MapBubble.vue'
 import WeatherBubble from './WeatherBubble.vue'
 import HolidayBubble from './HolidayBubble.vue'
-import TimeBubble from './TimeBubble.vue'
 import ImageBubble from './ImageBubble.vue'
 import TavilySearchBubble from './TavilySearchBubble.vue'
 import TavilyExtractBubble from './TavilyExtractBubble.vue'
@@ -47,8 +46,7 @@ const registry: Record<string, Component> = {
   'get_cycling_route': MapBubble,
   'get_current_weather': WeatherBubble,
   'holiday_calendar': HolidayBubble,
-  'time_tool': TimeBubble,
-    'analyze_image': ImageBubble,
+  'analyze_image': ImageBubble,
   'tavily_search': TavilySearchBubble,
   'tavily_extract': TavilyExtractBubble,
   'ask_user_for_info': AskUserBubble,

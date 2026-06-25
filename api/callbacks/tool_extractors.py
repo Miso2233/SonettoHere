@@ -719,27 +719,6 @@ def _extract_weather(
         ]
     return result
 
-# ── 时间查询 ───────────────────────────────────────────────────────────
-
-@register("time_tool")
-def _extract_time(
-    _tool_name: str,
-    parsed: dict[str, Any],
-    _tool_input: str | None = None,
-) -> dict[str, Any] | None:
-    """返回 tool_type, datetime, date, time, weekday, timezone。"""
-    data = _get_data(parsed)
-    if data is None:
-        return None
-    return {
-        "tool_type": "time",
-        "datetime": data.get("datetime", ""),
-        "date": data.get("date", ""),
-        "time": data.get("time", ""),
-        "weekday": data.get("weekday", ""),
-        "timezone": data.get("timezone", ""),
-    }
-
 # ── 图片理解 ───────────────────────────────────────────────────────────
 
 @register("analyze_image")
