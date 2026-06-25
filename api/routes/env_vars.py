@@ -35,18 +35,6 @@ ENV_VAR_META: dict[str, dict[str, str]] = {
         "label": "Tavily",
         "description": "网络搜索与内容提取",
     },
-    "LANGSMITH_API_KEY": {
-        "label": "LangSmith",
-        "description": "LLM 调试与追踪（可选）",
-    },
-    "QQ_APPID": {
-        "label": "QQ Bot AppID",
-        "description": "QQ 机器人应用 ID",
-    },
-    "QQ_TOKEN": {
-        "label": "QQ Bot Token",
-        "description": "QQ 机器人密钥",
-    },
 }
 
 
