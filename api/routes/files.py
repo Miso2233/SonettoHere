@@ -6,9 +6,11 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 
+from _appdirs import get_sonetto_home
+
 router = APIRouter()
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = get_sonetto_home()
 
 
 @router.get("/select-file")

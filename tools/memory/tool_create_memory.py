@@ -1,9 +1,8 @@
 """Tool: create_memory — 添加一条新记忆条目。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
+from _appdirs import get_personas_dir
 from memory.memory_manager import MAX_DESC_LENGTH
 from tools.base import ToolBase, format_error, format_success
 
@@ -19,12 +18,7 @@ class CreateMemoryInput(BaseModel):
     )
 
 
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
+MEMORY_PATH = get_personas_dir() / "memory.yaml"
 
 
 class CreateMemoryTool(ToolBase):

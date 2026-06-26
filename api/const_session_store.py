@@ -8,8 +8,9 @@ from pathlib import Path
 
 import yaml
 
-# api/const_session_store.py → api/data/const-sessions/
-_CONST_DIR = Path(__file__).resolve().parent / "data" / "const-sessions"
+from _appdirs import get_const_sessions_dir
+
+_CONST_DIR = get_const_sessions_dir()
 
 
 def _ensure_dir() -> Path:

@@ -1,14 +1,14 @@
 """系统提示词组装。"""
 
 import re
-from pathlib import Path
 
+from _appdirs import get_macros_dir, get_personas_dir, get_skills_dir
 from memory.narrative import get_narrative
 from memory.user_init import ensure_user_md
 
-PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
-ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent / "anthropic_skills"
-MACROS_DIR = Path(__file__).resolve().parent.parent / "macros"
+PERSONAS_DIR = get_personas_dir()
+ANTHROPIC_SKILLS_DIR = get_skills_dir()
+MACROS_DIR = get_macros_dir()
 
 
 def _read_persona(filename: str) -> str:

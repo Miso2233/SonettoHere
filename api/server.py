@@ -150,7 +150,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS：开发环境仅放行 Vite（5173），生产可加 localhost:8000
+    # CORS：开发环境放行 Vite（5173），生产/打包放行 localhost 和文件协议
     cors_origins = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -159,6 +159,8 @@ def create_app() -> FastAPI:
         cors_origins += [
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            "file://",
+            "app://.",
         ]
     app.add_middleware(
         CORSMiddleware,

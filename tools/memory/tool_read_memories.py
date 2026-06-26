@@ -1,9 +1,8 @@
 """Tool: read_memories — 按 ID 读取单条记忆的完整内容。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
+from _appdirs import get_personas_dir
 from tools.base import ToolBase, format_error, format_success
 
 
@@ -14,12 +13,7 @@ class ReadMemoriesInput(BaseModel):
     )
 
 
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
+MEMORY_PATH = get_personas_dir() / "memory.yaml"
 
 
 class ReadMemoriesTool(ToolBase):

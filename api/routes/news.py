@@ -2,12 +2,13 @@
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-from pathlib import Path
 import yaml
+
+from _appdirs import get_api_data_dir
 
 router = APIRouter()
 
-NEWS_PATH = Path(__file__).resolve().parent.parent / "data" / "news.yaml"
+NEWS_PATH = get_api_data_dir() / "news.yaml"
 
 
 # ── Pydantic 模型 ──

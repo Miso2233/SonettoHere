@@ -3,8 +3,10 @@
 import shutil
 from pathlib import Path
 
-PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+from _appdirs import get_personas_dir, get_sonetto_home
+
+PERSONAS_DIR = get_personas_dir()
+PROJECT_ROOT = get_sonetto_home()
 
 
 def _copy_if_missing(src: Path, dst: Path, description: str = "") -> None:

@@ -1,16 +1,15 @@
 """REST API — 工具环境变量管理（读取/更新 .env 文件）。"""
 
-from pathlib import Path
-
 from dotenv import dotenv_values, set_key
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from _appdirs import get_env_path
 from config.settings import get_settings
 
 router = APIRouter()
 
-ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
+ENV_PATH = get_env_path()
 
 # ── 已知环境变量元信息 ──
 

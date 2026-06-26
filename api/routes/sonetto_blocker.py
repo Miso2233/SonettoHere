@@ -4,20 +4,16 @@
 并持久化跟踪列表到 sonetto_blocker.yaml。"""
 
 import os
-from pathlib import Path
 
 import yaml
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from _appdirs import get_api_data_dir
+
 router = APIRouter()
 
-YAML_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "api"
-    / "data"
-    / "sonetto_blocker.yaml"
-)
+YAML_PATH = get_api_data_dir() / "sonetto_blocker.yaml"
 
 BLOCKER_FILENAME = "SonettoBlocker"
 

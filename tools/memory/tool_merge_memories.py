@@ -1,9 +1,8 @@
 """Tool: merge_memories — 合并两条相似记忆。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
+from _appdirs import get_personas_dir
 from tools.base import ToolBase, format_error, format_success
 from memory.memory_manager import MAX_DESC_LENGTH
 
@@ -21,12 +20,7 @@ class MergeMemoriesInput(BaseModel):
     )
 
 
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
+MEMORY_PATH = get_personas_dir() / "memory.yaml"
 
 
 class MergeMemoriesTool(ToolBase):

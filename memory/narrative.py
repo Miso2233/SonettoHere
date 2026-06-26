@@ -11,6 +11,7 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import create_react_agent
 
+from _appdirs import get_personas_dir
 from memory.memory_callback import MemoryToolCallback
 from memory.memory_manager import MAX_DESC_LENGTH, MemoryManager
 
@@ -20,7 +21,7 @@ def _sanitize(text: str) -> str:
     return text.replace("\n", " ").replace("\r", " ")
 
 
-PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
+PERSONAS_DIR = get_personas_dir()
 MEMORY_PATH = PERSONAS_DIR / "memory.yaml"
 
 _CORE_PRINCIPLES = """核心原则：

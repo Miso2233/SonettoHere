@@ -11,6 +11,7 @@ from langchain_core.tools import BaseTool
 from todoist_api_python.api import TodoistAPI
 from uapi import UapiClient
 
+from _appdirs import get_api_data_dir, get_sonetto_home, get_skills_dir, get_macros_dir
 from config.settings import get_settings
 
 
@@ -148,23 +149,13 @@ def check_sonetto_blocker(target_path: str) -> str | None:
 
 # ── 路径白名单 ──────────────────────────────────────────────
 
-_WHITELIST_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "path_whitelist.yaml"
-)
+_WHITELIST_PATH = get_api_data_dir() / "path_whitelist.yaml"
 
-# 项目根目录：由 base.py 所在位置 (tools/base.py) 向上推一级
-_PROJECT_ROOT = os.path.normpath(
-    os.path.abspath(Path(__file__).resolve().parent.parent)
-)
+# 数据根目录
+_PROJECT_ROOT = str(get_sonetto_home())
 # 默认白名单路径：仅暴露 anthropic_skills 和 macros 目录
-_DEFAULT_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "anthropic_skills")
-_DEFAULT_MACROS_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "macros")
-
-# ── 路径白名单 ──────────────────────────────────────────────
-
-_WHITELIST_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "path_whitelist.yaml"
-)
+_DEFAULT_WHITELIST_PATH = str(get_skills_dir())
+_DEFAULT_MACROS_WHITELIST_PATH = str(get_macros_dir())
 
 
 def _ensure_whitelist() -> None:
@@ -267,12 +258,10 @@ def _write_whitelist(entries: list) -> None:
         yaml.dump(content, f, allow_unicode=True, default_flow_style=False)
 
 
-_BLOCKER_YAML_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "sonetto_blocker.yaml"
-)
+_BLOCKER_YAML_PATH = get_api_data_dir() / "sonetto_blocker.yaml"
 
 _BLOCKER_FILENAME = "SonettoBlocker"
-_AUTO_BLOCKER_PATH = os.path.join(_PROJECT_ROOT, "api", "data")
+_AUTO_BLOCKER_PATH = str(get_api_data_dir())
 
 
 def _ensure_blocker() -> None:

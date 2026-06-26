@@ -2,13 +2,14 @@
 
 import subprocess
 import sys
-from pathlib import Path
 
 from fastapi import APIRouter
 
+from _appdirs import get_sonetto_home
+
 router = APIRouter()
 
-_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+_PROJECT_ROOT = get_sonetto_home()
 _MAIN_PY = _PROJECT_ROOT / "main.py"
 
 

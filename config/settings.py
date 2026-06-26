@@ -3,9 +3,15 @@
 LLM 提供商配置（API key、base_url、model、context_window）
 已移至 providers.yaml，通过 Web UI /providers 管理。
 此文件仅保留工具类凭据和第三方服务 API key。
+
+.env 路径解析：
+1. 优先使用 ``_appdirs.get_env_path()``（支持 ``SONETTO_HOME`` 环境变量）
+2. 回退到工作目录下的 ``.env``
 """
 
 from pydantic_settings import BaseSettings
+
+from _appdirs import get_env_path
 
 
 class Settings(BaseSettings):
@@ -27,7 +33,7 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
 
     model_config = {
-        "env_file": ".env",
+        "env_file": str(get_env_path()),
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }

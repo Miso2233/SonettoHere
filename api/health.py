@@ -2,16 +2,16 @@
 
 import asyncio
 import time
-from pathlib import Path
 from typing import Literal
 
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from _appdirs import get_skills_dir
 from memory.memory_manager import MemoryManager
 from memory.narrative import MEMORY_PATH
 
-ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent / "anthropic_skills"
+ANTHROPIC_SKILLS_DIR = get_skills_dir()
 
 
 class ComponentHealth(BaseModel):
