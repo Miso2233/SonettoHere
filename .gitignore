@@ -6,6 +6,11 @@ __pycache__/
 *.egg-info/
 /dist/
 build/
+# 保留桌面打包的 source 文件（非构建产物）
+!build/packaging/electron/*.js
+!build/packaging/electron/*.json
+!build/packaging/electron/*.spec
+!build/*.bat
 *.egg
 
 # Virtual environment
