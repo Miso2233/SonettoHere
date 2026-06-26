@@ -1,0 +1,58 @@
+{
+  "name": "sonettohere-desktop",
+  "version": "2.6.0",
+  "description": "SonettoHere Desktop — AI Agent 桌面应用",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac --x64",
+    "build:linux": "electron-builder --linux --x64"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "build": {
+    "appId": "com.sonettohere.desktop",
+    "productName": "SonettoHere",
+    "directories": {
+      "output": "../../../dist-electron"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../../dist/sonettohere-backend",
+        "to": "backend",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "../../images/logo.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "../../images/logo.png"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "../../images/logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "perMachine": false
+    }
+  }
+}
