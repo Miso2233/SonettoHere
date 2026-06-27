@@ -61,6 +61,7 @@ export interface WeatherData {
   aqi_category?: string
   aqi_primary?: string
   uv?: number
+  cloud?: string
 
   // forecast=true
   forecast?: WeatherForecastItem[]

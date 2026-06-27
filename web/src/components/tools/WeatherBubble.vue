@@ -36,6 +36,8 @@
             <span>{{ conditionText }}</span>
             <span class="divider">|</span>
             <span>{{ windText }}</span>
+            <span class="divider" v-if="td.humidity">|</span>
+            <span v-if="td.humidity">湿度 {{ td.humidity }}</span>
           </div>
 
           <!-- 天气预警 -->
@@ -57,9 +59,6 @@
 
           <!-- 详情 -->
           <div class="lf-details" v-if="hasDetails">
-            <div class="lf-detail-item" v-if="td.humidity">
-              湿度<span class="lf-dv">{{ td.humidity }}</span>
-            </div>
             <div class="lf-detail-item" v-if="td.temp_feel">
               体感<span class="lf-dv">{{ td.temp_feel }}</span>
             </div>
@@ -68,6 +67,9 @@
             </div>
             <div class="lf-detail-item" v-if="td.pressure">
               气压<span class="lf-dv">{{ td.pressure }}</span>
+            </div>
+            <div class="lf-detail-item" v-if="td.cloud">
+              云量<span class="lf-dv">{{ td.cloud }}</span>
             </div>
             <div class="lf-detail-item" v-if="td.aqi !== undefined && td.aqi !== null">
               AQI<span class="lf-dv">{{ td.aqi }}<span class="aqi-label" v-if="td.aqi_category">{{ td.aqi_category }}</span></span>
@@ -255,7 +257,7 @@ function svgIcon(condition: string, size: number): string {
 
 // ── 详情 ──
 const hasDetails = computed(() =>
-  !!(td.value.humidity || td.value.temp_feel || td.value.visibility || td.value.pressure
+  !!(td.value.temp_feel || td.value.visibility || td.value.pressure || td.value.cloud
      || td.value.aqi != null || td.value.uv != null)
 )
 

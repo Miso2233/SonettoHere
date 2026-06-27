@@ -699,6 +699,8 @@ def _extract_weather(
         result["aqi_primary"] = data["aqi_primary"]
     if "uv" in data:
         result["uv"] = data["uv"]
+    if "cloud" in data:
+        result["cloud"] = f"{data['cloud']}%"
     alerts = data.get("alerts")
     if isinstance(alerts, list) and len(alerts) > 0:
         result["alerts"] = [
