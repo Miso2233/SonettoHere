@@ -1,4 +1,12 @@
 news:
+  - id: "tool-simplify-env-vars"
+    title: "工具精简与环境变量管理"
+    description: "6+ 开发工具转为独立 Anthropic Skills（语法检查/代码质量/单元测试/调试器/PDF阅读/DOC阅读），file_ops 拆分为 4 个专注文件工具（读/写/管理/搜索），代码净减 1873 行。新增环境变量管理页面，支持可视化 CRUD 操作与密码脱敏展示。"
+    type: "refactor"
+    date: "2026-06-25"
+    tags: ["重构", "工具", "环境变量", "Anthropic Skills"]
+    version: "v2.7.0"
+    pr_number: 183
   - id: "v2.7.0-release"
     title: "发布 v2.7.0 版本"
     description: "v2.7.0 版本聚焦工具架构重组与运维能力升级。6+ 开发工具转为独立 Anthropic Skills，file_ops 拆分为 4 个专注文件工具，代码净减 1873 行。新增环境变量管理页面，支持可视化 CRUD 操作。WebSocket 认证集中至 AuthMiddleware ASGI 中间件解除业务耦合。记忆系统增加内容长度限制与驳回机制，sessionId 格式验证修复 CRITICAL 级 SSRF 告警。"
