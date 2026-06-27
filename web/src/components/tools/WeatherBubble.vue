@@ -38,6 +38,23 @@
             <span>{{ windText }}</span>
           </div>
 
+          <!-- 天气预警 -->
+          <div class="lf-alerts" v-if="td.alerts && td.alerts.length">
+            <div v-for="(alert, i) in td.alerts" :key="i" class="lf-alert-item"
+                 :class="'alert-level-' + (alert.level || 'unknown')">
+              <div class="alert-header">
+                <span class="alert-icon">&#9888;</span>
+                <span class="alert-title">{{ alert.title }}</span>
+                <span class="alert-level-tag">{{ alert.level }}</span>
+              </div>
+              <div class="alert-text">{{ alert.text }}</div>
+              <div class="alert-footer" v-if="alert.guidance && alert.guidance.length">
+                <div v-for="(g, gi) in (Array.isArray(alert.guidance) ? alert.guidance : [alert.guidance])"
+                     :key="gi" class="alert-guidance">· {{ g }}</div>
+              </div>
+            </div>
+          </div>
+
           <!-- 详情 -->
           <div class="lf-details" v-if="hasDetails">
             <div class="lf-detail-item" v-if="td.humidity">
@@ -52,6 +69,12 @@
             <div class="lf-detail-item" v-if="td.pressure">
               气压<span class="lf-dv">{{ td.pressure }}</span>
             </div>
+            <div class="lf-detail-item" v-if="td.aqi !== undefined && td.aqi !== null">
+              AQI<span class="lf-dv">{{ td.aqi }}<span class="aqi-label" v-if="td.aqi_category">{{ td.aqi_category }}</span></span>
+            </div>
+            <div class="lf-detail-item" v-if="td.uv !== undefined && td.uv !== null">
+              UV<span class="lf-dv">{{ td.uv }}</span>
+            </div>
           </div>
 
           <!-- 预报 -->
@@ -62,6 +85,12 @@
               <div class="hi">{{ day.high }}</div>
               <div class="lo">{{ day.low }}</div>
               <div class="fc-cond">{{ day.condition }}</div>
+              <div class="fc-meta" v-if="day.pop || day.sunrise || day.sunset || day.humidity">
+                <span class="fc-pop" v-if="day.pop">{{ day.pop }}</span>
+                <span class="fc-sun" v-if="day.sunrise || day.sunset">
+                  {{ day.sunrise || '' }}<template v-if="day.sunrise && day.sunset">/</template>{{ day.sunset || '' }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -76,6 +105,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
+import type { WeatherData, WeatherForecastItem } from './weather-types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
@@ -90,12 +120,12 @@ if (rawOutput) {
 }
 
 // ── 数据源 ──
-const td = computed<Record<string, any>>(() => {
-  if (props.toolCall.toolData) return props.toolCall.toolData as Record<string, any>
+const td = computed<WeatherData>(() => {
+  if (props.toolCall.toolData) return props.toolCall.toolData as WeatherData
   if (props.toolCall.output) {
     try {
       const p = JSON.parse(props.toolCall.output)
-      if (p?.data) return p.data as Record<string, any>
+      if (p?.data) return p.data as WeatherData
     } catch { /* ignore */ }
   }
   return {}
@@ -109,15 +139,14 @@ const conditionText = computed(() => td.value.condition || '')
 const windText = computed(() => td.value.wind || '')
 
 // ── 温度解析 ──
-const tempRaw = computed(() => String(td.value.temp || ''))
 const tempValue = computed(() => {
-  const m = tempRaw.value.match(/^(-?\d+\.?\d*)/)
-  return m ? m[1] : tempRaw.value
+  const raw = String(td.value.temp || '')
+  return raw.replace(/°[CF]?$/, '') || raw
 })
 const tempUnit = computed(() => {
-  if (tempRaw.value.includes('°C') || tempRaw.value.includes('℃')) return '°C'
-  if (tempRaw.value.includes('°F')) return '°F'
-  return ''
+  const raw = String(td.value.temp || '')
+  if (raw.includes('°F')) return '°F'
+  return '°C'
 })
 
 // ── SVG 天气图标工厂 ──
@@ -226,11 +255,12 @@ function svgIcon(condition: string, size: number): string {
 
 // ── 详情 ──
 const hasDetails = computed(() =>
-  !!(td.value.humidity || td.value.temp_feel || td.value.visibility || td.value.pressure)
+  !!(td.value.humidity || td.value.temp_feel || td.value.visibility || td.value.pressure
+     || td.value.aqi != null || td.value.uv != null)
 )
 
 // ── 预报 ──
-const forecastList = computed<Array<Record<string, any>>>(() => {
+const forecastList = computed<WeatherForecastItem[]>(() => {
   const fc = td.value.forecast
   return Array.isArray(fc) ? fc : []
 })
@@ -392,6 +422,13 @@ const displayOutput = computed(() => {
   color: var(--text-primary);
   margin-top: 3px;
 }
+.aqi-label {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-left: 2px;
+}
 
 /* ── 预报 ── */
 .lf-forecast {
@@ -433,6 +470,52 @@ const displayOutput = computed(() => {
   color: var(--text-secondary);
   margin-top: 2px;
 }
+.fc-meta {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.fc-pop, .fc-sun {
+  display: block;
+}
+
+/* ── 预警 ── */
+.lf-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lf-alert-item {
+  padding: 10px 12px;
+  border-left: 3px solid;
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--bg-primary);
+}
+.lf-alert-item.alert-level-red { border-color: #dc2626; background: rgba(220,38,38,0.04); }
+.lf-alert-item.alert-level-orange { border-color: #ea580c; background: rgba(234,88,12,0.04); }
+.lf-alert-item.alert-level-yellow { border-color: #ca8a04; background: rgba(202,138,4,0.04); }
+.lf-alert-item.alert-level-blue { border-color: #2563eb; background: rgba(37,99,235,0.04); }
+.lf-alert-item.alert-level-unknown { border-color: var(--border); }
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.alert-icon { font-size: 14px; }
+.alert-title { font-weight: 600; color: var(--text-primary); }
+.alert-level-tag {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  text-transform: uppercase;
+}
+.alert-text { color: var(--text-secondary); font-size: 11px; margin-top: 4px; }
+.alert-footer { margin-top: 6px; }
+.alert-guidance { font-size: 11px; color: var(--text-tertiary); line-height: 1.6; }
 
 /* ── 降级 ── */
 .raw-output {

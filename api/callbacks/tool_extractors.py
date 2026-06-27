@@ -680,6 +680,8 @@ def _extract_weather(
         "humidity": humidity_str,
         "wind": wind_str,
     }
+    if "report_time" in data:
+        result["update_time"] = data["report_time"]
     if "feels_like" in data:
         feels = data["feels_like"]
         result["temp_feel"] = _fmt_temp(feels)
@@ -687,6 +689,31 @@ def _extract_weather(
         result["visibility"] = f"{data['visibility']}km"
     if "pressure" in data:
         result["pressure"] = f"{data['pressure']}hPa"
+    if "aqi" in data:
+        result["aqi"] = data["aqi"]
+    if "aqi_level" in data:
+        result["aqi_level"] = data["aqi_level"]
+    if "aqi_category" in data:
+        result["aqi_category"] = data["aqi_category"]
+    if "aqi_primary" in data:
+        result["aqi_primary"] = data["aqi_primary"]
+    if "uv" in data:
+        result["uv"] = data["uv"]
+    alerts = data.get("alerts")
+    if isinstance(alerts, list) and len(alerts) > 0:
+        result["alerts"] = [
+            {
+                "title": a.get("title", ""),
+                "type": a.get("type", ""),
+                "level": a.get("level", ""),
+                "text": a.get("text", ""),
+                "publish_time": a.get("publish_time", ""),
+                "publisher": a.get("publisher", ""),
+                "guidance": a.get("guidance", ""),
+            }
+            for a in alerts
+            if isinstance(a, dict)
+        ]
     forecast = data.get("forecast")
     if isinstance(forecast, list):
         result["forecast"] = [
@@ -695,10 +722,42 @@ def _extract_weather(
                 "high": _fmt_temp(d.get("temp_max", "")),
                 "low": _fmt_temp(d.get("temp_min", "")),
                 "condition": d.get("weather_day", d.get("weather_night", "")),
+                "sunrise": d.get("sunrise", ""),
+                "sunset": d.get("sunset", ""),
+                "pop": f"{d['pop']}%" if isinstance(d.get("pop"), (int, float)) else str(d.get("pop", "")) if d.get("pop") else "",
+                "humidity": f"{d['humidity']}%" if isinstance(d.get("humidity"), (int, float)) else str(d.get("humidity", "")) if d.get("humidity") else "",
             }
             for d in forecast
             if isinstance(d, dict)
         ]
+
+    # ── 逐小时预报（已提取，UI 暂未渲染） ──
+    hourly = data.get("hourly_forecast")
+    if isinstance(hourly, list):
+        result["hourly_forecast"] = [
+            {
+                "time": h.get("time", ""),
+                "temperature": str(h.get("temperature", "")),
+                "weather": h.get("weather", ""),
+                "wind_direction": h.get("wind_direction", ""),
+                "wind_speed": str(h.get("wind_speed", "")),
+                "humidity": str(h.get("humidity", "")),
+                "pop": f"{h['pop']}%" if isinstance(h.get("pop"), (int, float)) else str(h.get("pop", "")),
+            }
+            for h in hourly
+            if isinstance(h, dict)
+        ]
+
+    # ── 分钟级降水（已提取，UI 暂未渲染） ──
+    if "minutely_precip" in data:
+        result["minutely_precip"] = data["minutely_precip"]
+    if "minutely_forecast" in data:
+        result["minutely_forecast"] = data["minutely_forecast"]
+
+    # ── 生活指数（已提取，UI 暂未渲染） ──
+    if "life_indices" in data:
+        result["life_indices"] = data["life_indices"]
+
     return result
 
 # ── 图片理解 ───────────────────────────────────────────────────────────
