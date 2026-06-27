@@ -1,4 +1,12 @@
 news:
+  - id: "v2.7.0-release"
+    title: "发布 v2.7.0 版本"
+    description: "v2.7.0 版本聚焦工具架构重组与运维能力升级。6+ 开发工具转为独立 Anthropic Skills，file_ops 拆分为 4 个专注文件工具，代码净减 1873 行。新增环境变量管理页面，支持可视化 CRUD 操作。WebSocket 认证集中至 AuthMiddleware ASGI 中间件解除业务耦合。记忆系统增加内容长度限制与驳回机制，sessionId 格式验证修复 CRITICAL 级 SSRF 告警。"
+    type: "feat"
+    date: "2026-06-27"
+    tags: ["发布", "版本"]
+    version: "v2.7.0"
+    pr_number: 0
   - id: "mcp-yaml-config"
     title: "MCP YAML 配置化"
     description: "新增 config/mcp_servers.yaml 声明式配置，支持本地 stdio 和远程 SSE/HTTP/WebSocket 四种传输类型，用户仅需编辑 YAML 即可接入 MCP 服务器，无需改代码。内置 POST /api/mcp/reload 热加载端点，工具名自动添加 serverId 前缀，前端统一展示。"
