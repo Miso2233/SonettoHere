@@ -532,6 +532,13 @@ export function useChat(sessionId: Ref<string>) {
 
   function setAutoApprove(val: boolean) {
     activeChannel.value.autoApprove = val
+    const ch = activeChannel.value
+    if (ch.ws && ch.ws.readyState === WebSocket.OPEN) {
+      ch.ws.send(JSON.stringify({
+        type: 'update_auto_approve',
+        payload: { auto_approve: val }
+      }))
+    }
   }
 
   // Session 切换：只确保新 Session 的 WS 连接，不断开旧的

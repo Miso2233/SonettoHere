@@ -514,7 +514,8 @@ async def websocket_chat(ws: WebSocket, session_id: str):
 
                     auto_approve = payload.get("auto_approve", False)
                     interaction.current_ws.set(ws)  # 供工具函数通过 WebSocket 推送交互
-                    interaction.auto_approve.set(auto_approve)  # 设置自动批准模式
+                    interaction.current_session_id.set(session_id)
+                    interaction.set_session_auto_approve(session_id, auto_approve)
 
                     agent_task = asyncio.create_task(
                         _run_agent_turn(
@@ -541,6 +542,12 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                         agent_task.cancel()
                         agent_task = None
 
+                case "update_auto_approve":
+                    interaction.set_session_auto_approve(
+                        session_id, msg["payload"]["auto_approve"]
+                    )
+                    session.auto_approve = msg["payload"]["auto_approve"]
+
     except WebSocketDisconnect:
         pass  # 客户端断开是正常行为
     finally:
@@ -548,3 +555,4 @@ async def websocket_chat(ws: WebSocket, session_id: str):
         if agent_task and not agent_task.done():
             agent_task.cancel()
         session._active_task = None
+        interaction.clear_session_settings(session_id)

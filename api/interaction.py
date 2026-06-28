@@ -14,10 +14,30 @@ from tools.base import format_error
 # 当前连接对应的 WebSocket 实例（在 chat.py 中设置）
 current_ws: contextvars.ContextVar = contextvars.ContextVar("current_ws")
 
-# 当前会话的自动批准模式（在 chat.py 中设置）
-auto_approve: contextvars.ContextVar = contextvars.ContextVar(
-    "auto_approve", default=False
+# 当前会话 ID（在 chat.py 中设置），供工具函数查询会话级设置
+current_session_id: contextvars.ContextVar = contextvars.ContextVar(
+    "current_session_id", default=""
 )
+
+# 会话级 auto_approve 设置 —— 使用模块级 dict 而非 ContextVar，
+# 以便 WebSocket 主循环在处理 update_auto_approve 消息时写入的值
+# 能立即被正在运行的 Agent 任务中的工具函数读取到。
+_settings: dict[str, bool] = {}  # session_id -> auto_approve
+
+
+def set_session_auto_approve(session_id: str, value: bool) -> None:
+    """设置指定会话的自动批准模式。所有 asyncio 任务共享此存储。"""
+    _settings[session_id] = value
+
+
+def get_session_auto_approve(session_id: str) -> bool:
+    """获取指定会话的自动批准模式。不存在时返回 False（安全的默认值）。"""
+    return _settings.get(session_id, False)
+
+
+def clear_session_settings(session_id: str) -> None:
+    """WebSocket 断开时清理会话设置，防止内存泄漏。"""
+    _settings.pop(session_id, None)
 
 # 全局待处理交互表：interaction_id → Future
 _pending: dict[str, asyncio.Future] = {}

@@ -50,7 +50,8 @@ class RunPythonTool(ToolBase):
         if not code:
             return format_error("code 不能为空")
 
-        if interaction.auto_approve.get():
+        session_id = interaction.current_session_id.get()
+        if session_id and interaction.get_session_auto_approve(session_id):
             try:
                 output = await asyncio.to_thread(_exec_code, code)
                 return format_success({"output": output, "code": code})

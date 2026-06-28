@@ -180,7 +180,15 @@ export interface UserResponseMessage {
   }
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage
+/** 会话中途更新 auto_approve 设置 */
+export interface UpdateAutoApproveMessage {
+  type: 'update_auto_approve'
+  payload: {
+    auto_approve: boolean
+  }
+}
+
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage
 
 // === 前端 UI 状态类型 ===
 
