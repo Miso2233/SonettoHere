@@ -14,8 +14,6 @@ const DISPLAY_NAMES: Record<string, string> = {
   map_fuzzy_addr: '地址解析',
   file_read: '读取文件',
   file_write: '写入文件',
-  file_list: '文件列表',
-  file_operations: '文件操作',
   file_manage: '文件管理',
   file_search: '文件搜索',
   file_edit: '文件编辑',

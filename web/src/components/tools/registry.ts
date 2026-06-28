@@ -31,8 +31,6 @@ const registry: Record<string, Component> = {
   'run_python': PythonBubble,
   'file_read': FilesBubble,
   'file_write': FilesBubble,
-  'file_list': FilesBubble,
-  'file_operations': FilesBubble,
   'file_manage': FilesBubble,
   'file_search': FilesBubble,
   'file_edit': FileEditBubble,

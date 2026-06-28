@@ -26,7 +26,6 @@
           </div>
           <div class="file-meta">
             <span class="meta-tag" v-if="fileSize">{{ fileSize }}</span>
-            <span class="meta-tag" v-if="td.encoding">{{ td.encoding }}</span>
             <span class="meta-tag" v-if="td.line_count">{{ td.line_count }} 行</span>
           </div>
           <div class="file-preview" v-if="td.content">
@@ -93,9 +92,6 @@
             <span class="meta-tag" v-if="td.total_items != null">
               {{ td.total_items }} 项
             </span>
-            <span class="meta-tag" v-if="td.extension">
-              {{ td.extension }}
-            </span>
           </div>
           <div class="items-list" v-if="items.length > 0">
             <div
@@ -106,7 +102,6 @@
               <span class="item-icon">{{ item.type === 'directory' ? '&#128193;' : '&#128196;' }}</span>
               <span class="item-name">{{ item.name }}</span>
               <span class="item-size" v-if="item.size_bytes != null">{{ formatSize(item.size_bytes) }}</span>
-              <span class="item-date" v-if="item.modified">{{ item.modified }}</span>
             </div>
           </div>
           <div class="items-footer" v-if="isMoreItems">
@@ -114,7 +109,7 @@
           </div>
           <div class="file-actions">
             <button
-              v-if="td.directory_path"
+              v-if="td.directory_path || td.search_directory"
               class="action-btn"
               @click="copyPath"
             >
@@ -229,7 +224,7 @@ const isTruncated = computed(() => {
 const previewLineCount = computed(() => MAX_PREVIEW_LINES)
 
 // ── 文件列表 ──
-const items = computed<Array<{ name: string; type: string; size_bytes?: number; modified?: string }>>(() => {
+const items = computed<Array<{ name: string; type: string; size_bytes?: number }>>(() => {
   const raw = td.value.items as Array<Record<string, unknown>> | undefined
   return Array.isArray(raw) ? raw : []
 })
@@ -259,7 +254,6 @@ const runningLabel = computed(() => {
   switch (props.toolCall.name) {
     case 'file_read': return '正在读取文件...'
     case 'file_write': return '正在写入文件...'
-    case 'file_list':
     case 'file_search': return '正在搜索文件...'
     case 'file_manage': return '正在管理文件...'
     default: return '正在操作文件...'
@@ -277,6 +271,7 @@ function formatSize(bytes: number): string {
 function copyPath() {
   const path = td.value.file_path as string
     || td.value.directory_path as string
+    || td.value.search_directory as string
     || ''
   if (!path) return
   navigator.clipboard.writeText(path)
@@ -519,13 +514,6 @@ function copyContent() {
   text-align: right;
 }
 
-.item-date {
-  font-size: 11px;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  min-width: 56px;
-  text-align: right;
-}
 
 .items-footer {
   font-size: 11px;
