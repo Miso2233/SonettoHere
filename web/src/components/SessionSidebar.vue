@@ -561,6 +561,10 @@ function closeContextMenu() {
 .session-item.is-const {
   background: color-mix(in srgb, var(--accent) 4%, transparent);
 }
+/* active const sessions should have a clean white bg */
+.session-item.is-const.active {
+  background: var(--bg-card);
+}
 
 .session-item-main {
   display: flex;
