@@ -420,10 +420,7 @@ function closeContextMenu() {
   font-size: 42px;
   font-weight: 700;
   letter-spacing: -0.5px;
-  background: linear-gradient(135deg, #000000 40%, #555555 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent);
 }
 .empty-desc {
   font-size: 20px;

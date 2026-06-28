@@ -325,7 +325,6 @@ watch(() => props.toolCall.output, () => {
   margin: 4px 0;
   max-height: 200px;
   overflow-y: auto;
-  border-left: 2px solid var(--accent);
 }
 .tool-section :deep(.markdown-body code) {
   font-size: 12px;

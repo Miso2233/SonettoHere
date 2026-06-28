@@ -167,22 +167,6 @@ function copyCode() {
 </script>
 
 <style scoped>
-@font-face {
-  font-family: 'MapleMono';
-  src: url('/fonts/MapleMono-NF-CN-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'MapleMono';
-  src: url('/fonts/MapleMono-NF-CN-Italic.ttf') format('truetype');
-  font-weight: 400;
-  font-style: italic;
-  font-display: swap;
-}
-
 .py-section {
   margin-bottom: 12px;
 }
@@ -254,14 +238,14 @@ function copyCode() {
   flex-shrink: 0;
   text-align: right;
   padding-right: 12px;
-  font-family: 'MapleMono', 'SF Mono', 'Consolas', monospace;
+  font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
   color: var(--text-secondary);
   user-select: none;
 }
 
 .py-code-block :deep(.py-tokens) {
-  font-family: 'MapleMono', 'SF Mono', 'Consolas', monospace;
+  font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
   white-space: pre;
   color: var(--text-primary);
@@ -275,7 +259,7 @@ function copyCode() {
 .py-code-block :deep(.py-num)     { color: #fe640b; }
 
 .py-stdout {
-  font-family: 'MapleMono', 'SF Mono', 'Consolas', monospace;
+  font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
   color: var(--text-primary);
   background: var(--bg-secondary);

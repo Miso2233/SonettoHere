@@ -82,7 +82,6 @@ const displayOutput = computed(() => {
   background: var(--bg-primary);
   border: 1px solid var(--border);
   border-radius: 8px;
-  border-left: 3px solid var(--accent);
 }
 
 .image-content :deep(h1),

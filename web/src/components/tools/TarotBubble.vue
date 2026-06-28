@@ -329,7 +329,7 @@ const displayOutput = computed(() => {
   flex: 1;
   padding: 8px 12px;
   background: var(--bg-primary);
-  border-left: 3px solid #b8860b;
+  border: 1px solid #b8860b;
   border-radius: 4px;
   display: flex;
   flex-direction: column;

@@ -258,7 +258,7 @@ html, body {
 .sidebar-header {
   display: flex;
   justify-content: center;
-  transition: max-height 0.25s ease, opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  transition: opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s;
   overflow: hidden;
   max-height: 100px;
 }
@@ -300,7 +300,7 @@ html, body {
 }
 
 .nav-label {
-  transition: max-width 0.25s ease, opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  transition: opacity 0.2s ease 0.05s, transform 0.25s ease 0.05s;
   overflow: hidden;
   white-space: nowrap;
   max-width: 200px;
@@ -438,7 +438,7 @@ html, body {
 }
 
 .sidebar .health-panel {
-  transition: max-height 0.25s ease, opacity 0.2s ease 0.05s, padding 0.25s ease, margin 0.25s ease;
+  transition: opacity 0.2s ease 0.05s;
   overflow: hidden;
   max-height: 300px;
 }
@@ -446,7 +446,7 @@ html, body {
 /* ── Collapsible sidebar ── */
 .sidebar {
   position: relative;
-  transition: width 0.25s ease, min-width 0.25s ease, padding 0.25s ease;
+  transition: width 0.25s ease;
 }
 .sidebar.collapsed {
   width: 58px;
