@@ -362,6 +362,7 @@ def _extract_file_search(
             })
         return {
             "operation": "search_files",
+            "search_pattern": data.get("search_pattern", ""),
             "search_directory": directory,
             "total_items": data.get("count", len(items)),
             "items": items,

@@ -86,6 +86,10 @@
             <div class="dir-header-text">
               <div class="dir-name">{{ dirName }}</div>
               <div class="dir-path">{{ td.directory_path || td.search_directory }}</div>
+              <div class="search-pattern" v-if="td.search_pattern">
+                <span class="search-pattern-label">搜索</span>
+                <code class="search-pattern-value">{{ td.search_pattern }}</code>
+              </div>
             </div>
           </div>
           <div class="file-meta">
@@ -332,6 +336,27 @@ function copyContent() {
   font-family: 'SF Mono', 'Consolas', monospace;
   word-break: break-all;
   opacity: 0.8;
+}
+
+.search-pattern {
+  font-size: 11px;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.search-pattern-label {
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.search-pattern-value {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  background: var(--bg-secondary, #f0f0f0);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--text-primary);
 }
 
 .dir-name {
