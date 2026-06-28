@@ -517,6 +517,12 @@ function onDocumentClick() {
 onMounted(() => document.addEventListener('click', onDocumentClick))
 onUnmounted(() => document.removeEventListener('click', onDocumentClick))
 
+onMounted(() => document.addEventListener('keydown', onDocumentKeyDown))
+onUnmounted(() => document.removeEventListener('keydown', onDocumentKeyDown))
+
+onMounted(() => document.addEventListener('keyup', onDocumentKeyUp))
+onUnmounted(() => document.removeEventListener('keyup', onDocumentKeyUp))
+
 async function loadProviders() {
   try {
     const res = await api.listProviders()
@@ -641,6 +647,39 @@ function onMicPointerLeave() {
   if (longPressTimer.value) {
     clearTimeout(longPressTimer.value)
     longPressTimer.value = null
+  }
+}
+
+// ── 空格键长按语音输入 ──
+
+/** textarea 是否当前焦点元素 */
+function isTextareaFocused(): boolean {
+  return document.activeElement === textareaRef.value
+}
+
+function onDocumentKeyDown(e: KeyboardEvent) {
+  if (e.code !== 'Space' && e.key !== ' ') return
+  if (props.disabled) return
+  // 用户在 textarea 内打字时不拦截空格
+  if (isTextareaFocused()) return
+
+  e.preventDefault()
+  if (longPressTimer.value) return // 防重复
+
+  longPressTimer.value = setTimeout(() => {
+    startVoiceInput()
+  }, 200)
+}
+
+function onDocumentKeyUp(e: KeyboardEvent) {
+  if (e.code !== 'Space' && e.key !== ' ') return
+
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  if (isRecording.value) {
+    stopVoiceInput()
   }
 }
 
