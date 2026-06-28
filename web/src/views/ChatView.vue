@@ -141,6 +141,11 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
     sendUserResponse(d.interactionId, d.response)
   } else if (payload.action === 'undo') {
     handleUndo()
+  } else if (payload.action === 'open-file') {
+    const d = payload.data as { path: string }
+    if (d.path) {
+      window.open('/api/file?path=' + encodeURIComponent(d.path), '_blank')
+    }
   }
 }
 
