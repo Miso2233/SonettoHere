@@ -28,6 +28,25 @@ export interface WeatherForecastItem {
   humidity?: string
 }
 
+/** 分钟级降水 — 单个降水区间 */
+export interface MinutePrecipRange {
+  start: string
+  end: string
+  max_precip: number
+  avg_precip: number
+  intensity: string
+  duration_minutes: number
+}
+
+/** 分钟级降水 — 压缩摘要 */
+export interface MinutePrecipSummary {
+  summary: string
+  update_time?: string
+  ranges: MinutePrecipRange[]
+  range_count: number
+  original_point_count: number
+}
+
 /** 逐小时预报（UI 暂未渲染） */
 export interface WeatherHourlyItem {
   time: string
@@ -68,7 +87,7 @@ export interface WeatherData {
 
   // 已提取但 UI 暂未渲染（阶段 F）
   hourly_forecast?: WeatherHourlyItem[]
-  minutely_precip?: unknown
+  minutely_precip?: MinutePrecipSummary
   minutely_forecast?: unknown
   life_indices?: Record<string, unknown>
 }

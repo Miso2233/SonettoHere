@@ -57,6 +57,24 @@
             </div>
           </div>
 
+          <!-- 分钟级降水 -->
+          <div class="lf-precip" v-if="hasPrecip">
+            <div class="precip-summary">
+              <span class="precip-icon" v-html="precipIcon"></span>
+              <span>{{ precipData?.summary }}</span>
+            </div>
+            <div class="precip-ranges" v-if="precipData && precipData.ranges.length">
+              <div v-for="(range, i) in precipData.ranges" :key="i" class="precip-range-item">
+                <span class="p-time">{{ fmtTime(range.start) }} – {{ fmtTime(range.end) }}</span>
+                <span class="p-bar" :style="{ width: pBarWidth(range) + '%' }"
+                      :class="'p-level-' + range.intensity"></span>
+                <span class="p-intensity" :class="'p-level-' + range.intensity">{{ range.intensity }}</span>
+                <span class="p-duration">{{ range.duration_minutes }}′</span>
+                <span class="p-detail-extra" v-if="range.max_precip > 0.1">{{ range.max_precip }}mm</span>
+              </div>
+            </div>
+          </div>
+
           <!-- 详情 -->
           <div class="lf-details" v-if="hasDetails">
             <div class="lf-detail-item" v-if="td.temp_feel">
@@ -107,7 +125,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
-import type { WeatherData, WeatherForecastItem } from './weather-types'
+import type { WeatherData, WeatherForecastItem, MinutePrecipSummary } from './weather-types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
@@ -266,6 +284,40 @@ const forecastList = computed<WeatherForecastItem[]>(() => {
   const fc = td.value.forecast
   return Array.isArray(fc) ? fc : []
 })
+
+// ── 分钟级降水 ──
+const precipData = computed<MinutePrecipSummary | null>(() => {
+  const p = td.value.minutely_precip
+  if (p && typeof p === 'object' && 'summary' in p && 'ranges' in p) {
+    return p as MinutePrecipSummary
+  }
+  return null
+})
+const hasPrecip = computed(() => !!precipData.value)
+
+const precipIcon = computed(() => {
+  const d = precipData.value
+  if (!d) return ''
+  if (d.range_count === 0) {
+    // 无降水
+    return '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="5"/><line x1="8" y1="3" x2="8" y2="4"/><line x1="8" y1="12" x2="8" y2="13"/><line x1="3" y1="8" x2="4" y2="8"/><line x1="12" y1="8" x2="13" y2="8"/></svg>'
+  }
+  // 有降水
+  return '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 8 Q3 5 5.5 5 Q6 3 8 3.5 Q10 3 10.5 5 Q13 4.8 13 8 L3 8Z"/><line x1="6" y1="10" x2="5.2" y2="13"/><line x1="9" y1="10" x2="8.2" y2="13"/><line x1="12" y1="10" x2="11.5" y2="12"/></svg>'
+})
+
+function fmtTime(iso: string): string {
+  if (!iso) return ''
+  // "2026-06-28T18:00:03+08:00" → "18:00"
+  const m = iso.match(/T(\d{2}:\d{2})/)
+  return m ? m[1] : iso
+}
+
+function pBarWidth(range: { max_precip: number; intensity: string }): number {
+  // 强度映射到宽度百分比
+  const map: Record<string, number> = { 暴雨: 100, 大雨: 72, 中雨: 44, 小雨: 22, 微量: 10 }
+  return map[range.intensity] || 10
+}
 
 function formatDay(day: string): string {
   if (!day) return ''
@@ -518,6 +570,85 @@ const displayOutput = computed(() => {
 .alert-text { color: var(--text-secondary); font-size: 11px; margin-top: 4px; }
 .alert-footer { margin-top: 6px; }
 .alert-guidance { font-size: 11px; color: var(--text-tertiary); line-height: 1.6; }
+
+/* ── 降水 ── */
+.lf-precip {
+  border-top: 1px solid var(--border);
+  padding: 6px 0 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.precip-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.precip-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+.precip-icon svg { width: 100%; height: 100%; }
+
+.precip-ranges {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0 0 20px;
+}
+.precip-range-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.p-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  min-width: 62px;
+  font-size: 10px;
+}
+.p-bar {
+  height: 6px;
+  border-radius: 1px;
+  min-width: 4px;
+  transition: width 0.2s;
+  background: currentColor;
+  opacity: 0.25;
+}
+.p-bar.p-level-暴雨 { color: #7c3aed; }
+.p-bar.p-level-大雨 { color: #dc2626; }
+.p-bar.p-level-中雨 { color: #ea580c; }
+.p-bar.p-level-小雨 { color: #2563eb; }
+.p-bar.p-level-微量 { color: var(--border); }
+.p-intensity {
+  font-size: 10px;
+  font-weight: 500;
+  min-width: 2em;
+}
+.p-intensity.p-level-暴雨 { color: #7c3aed; }
+.p-intensity.p-level-大雨 { color: #dc2626; }
+.p-intensity.p-level-中雨 { color: #ea580c; }
+.p-intensity.p-level-小雨 { color: #2563eb; }
+.p-intensity.p-level-微量 { color: var(--text-tertiary); }
+.p-duration {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.p-detail-extra {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: auto;
+}
 
 /* ── 降级 ── */
 .raw-output {
