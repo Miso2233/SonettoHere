@@ -96,6 +96,7 @@
               <button v-for="m in currentModels" :key="m" class="dropdown-option" :class="{ selected: selectedModelName === m }" @click="selectModel(m)">{{ m }}</button>
             </div>
           </div>
+          <span class="input-separator"></span>
           <div class="input-actions">
             <button
               v-if="!isStreaming"
@@ -689,6 +690,10 @@ function onResizeEnd(e: PointerEvent) {
   color: var(--status-error);
   opacity: 0.7;
 }
+.dropdown-trigger:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 2px;
+}
 .dropdown-option.disabled {
   color: var(--text-secondary);
   font-style: italic;
@@ -707,8 +712,8 @@ function onResizeEnd(e: PointerEvent) {
   bottom: calc(100% + 4px);
   right: 0;
   z-index: 200;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: var(--shadow-lg);
   min-width: 140px;
@@ -722,9 +727,9 @@ function onResizeEnd(e: PointerEvent) {
   text-align: left;
   padding: 6px 10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
-  color: #374151;
+  color: var(--text-primary);
   font-size: 12px;
   cursor: pointer;
   font-family: inherit;
@@ -732,12 +737,12 @@ function onResizeEnd(e: PointerEvent) {
   transition: background 0.1s;
 }
 .dropdown-option:hover {
-  background: #f3f4f6;
+  background: var(--bg-secondary);
 }
 .dropdown-option.selected {
-  color: #000000;
+  color: var(--accent);
   font-weight: 600;
-  background: #f9fafb;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 /* 引用标签条 */
@@ -1071,6 +1076,13 @@ function onResizeEnd(e: PointerEvent) {
   align-items: center;
   gap: 6px;
 }
+.input-separator {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
 .input-actions {
   display: flex;
   gap: 4px;
@@ -1104,7 +1116,7 @@ function onResizeEnd(e: PointerEvent) {
   transform: scale(0.95);
 }
 .btn-send:disabled {
-  opacity: 0.3;
+  opacity: 0.2;
   cursor: default;
 }
 .btn-stop {
