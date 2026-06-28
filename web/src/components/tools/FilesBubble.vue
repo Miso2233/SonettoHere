@@ -72,13 +72,6 @@
           <div class="file-path-display">{{ td.file_path }}</div>
           <div class="file-actions">
             <button
-              v-if="td.file_path"
-              class="action-btn"
-              @click="openFile"
-            >
-              打开文件
-            </button>
-            <button
               class="action-btn"
               @click="copyPath"
             >
@@ -295,12 +288,6 @@ function copyContent() {
   if (!content) return
   navigator.clipboard.writeText(content)
   emit('action', { action: 'copy-content', data: { length: content.length } })
-}
-
-function openFile() {
-  const path = td.value.file_path as string | undefined
-  if (!path) return
-  emit('action', { action: 'open-file', data: { path } })
 }
 </script>
 

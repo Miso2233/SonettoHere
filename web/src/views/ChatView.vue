@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { api, getToken } from '@/api'
+import { api } from '@/api'
 import ChatInput from '@/components/ChatInput.vue'
 import ChatWindow from '@/components/ChatWindow.vue'
 import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
@@ -141,13 +141,6 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
     sendUserResponse(d.interactionId, d.response)
   } else if (payload.action === 'undo') {
     handleUndo()
-  } else if (payload.action === 'open-file') {
-    const d = payload.data as { path: string }
-    if (d.path) {
-      const base = '/api/file?path=' + encodeURIComponent(d.path)
-      const token = getToken()
-      window.open(token ? base + '&token=' + encodeURIComponent(token) : base, '_blank')
-    }
   }
 }
 
