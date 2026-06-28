@@ -75,6 +75,22 @@
           </div>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
           </div>
+          <button
+            class="btn-mic"
+            :class="{ recording: isRecording }"
+            :disabled="disabled"
+            :title="isRecording ? '松开停止录音' : '长按语音输入'"
+            @pointerdown.prevent="onMicPointerDown"
+            @pointerup="onMicPointerUp"
+            @pointerleave="onMicPointerLeave"
+          >
+            <Icon v-if="!isRecording" name="mic" :size="18" />
+            <span v-else class="btn-mic-recording-icon">
+              <span class="rec-bar rec-bar-1"></span>
+              <span class="rec-bar rec-bar-2"></span>
+              <span class="rec-bar rec-bar-3"></span>
+            </span>
+          </button>
         </div>
         <div class="input-right-group">
           <div class="dropdown">
@@ -590,6 +606,121 @@ function autoResize() {
   el.style.height = Math.min(el.scrollHeight, 160) + 'px'
 }
 
+// ── 语音输入（Web Speech API） ──
+
+const isRecording = ref(false)
+const longPressTimer = ref<ReturnType<typeof setTimeout> | null>(null)
+const recognitionRef = ref<any>(null)
+
+/** 获取 SpeechRecognition 构造器（含厂商前缀） */
+function getSpeechRecognition(): any | null {
+  const w = window as any
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null
+}
+
+function onMicPointerDown() {
+  if (props.disabled) return
+  // 延迟启动，避免轻触误触发
+  longPressTimer.value = setTimeout(() => {
+    startVoiceInput()
+  }, 200)
+}
+
+function onMicPointerUp() {
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+  if (isRecording.value) {
+    stopVoiceInput()
+  }
+}
+
+function onMicPointerLeave() {
+  // 指针移出按钮但未释放：若尚未开始录音则取消；若正在录音不中断
+  if (longPressTimer.value) {
+    clearTimeout(longPressTimer.value)
+    longPressTimer.value = null
+  }
+}
+
+function startVoiceInput() {
+  const SpeechRecognition = getSpeechRecognition()
+  if (!SpeechRecognition) {
+    console.warn('[ChatInput] 当前浏览器不支持 Web Speech API')
+    // 可选：通过 emit 或 UI 提示
+    return
+  }
+
+  try {
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'zh-CN'
+    recognition.continuous = true
+    recognition.interimResults = true
+    recognition.maxAlternatives = 1
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = ''
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          finalTranscript += event.results[i][0].transcript
+        }
+      }
+      if (finalTranscript) {
+        const el = textareaRef.value
+        if (el) {
+          const cursorPos = el.selectionStart
+          text.value =
+            text.value.slice(0, cursorPos) +
+            finalTranscript +
+            text.value.slice(cursorPos)
+          // 光标移到插入文本末尾
+          const newPos = cursorPos + finalTranscript.length
+          nextTick(() => {
+            el.focus()
+            el.selectionStart = el.selectionEnd = newPos
+          })
+        } else {
+          text.value += finalTranscript
+        }
+        autoResize()
+      }
+    }
+
+    recognition.onerror = (event: any) => {
+      console.error('[ChatInput] 语音识别错误:', event.error)
+      if (event.error === 'not-allowed') {
+        // 麦克风权限被拒，显示一下提示
+      }
+      isRecording.value = false
+      recognitionRef.value = null
+    }
+
+    recognition.onend = () => {
+      isRecording.value = false
+      recognitionRef.value = null
+    }
+
+    recognition.start()
+    recognitionRef.value = recognition
+    isRecording.value = true
+  } catch (e) {
+    console.error('[ChatInput] 启动语音识别失败:', e)
+  }
+}
+
+function stopVoiceInput() {
+  if (recognitionRef.value) {
+    try {
+      recognitionRef.value.stop()
+    } catch {
+      // 可能 already ended
+    }
+    recognitionRef.value = null
+  }
+  isRecording.value = false
+}
+
 // ── 拖拽调整输入框高度 ──
 
 const customHeight = ref<number | null>(null)
@@ -1002,6 +1133,63 @@ function onResizeEnd(e: PointerEvent) {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ── 语音输入按钮 ── */
+.btn-mic {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-mic:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-mic:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-mic.recording {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+/* 录音动画条 */
+.btn-mic-recording-icon {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 18px;
+}
+.rec-bar {
+  display: block;
+  width: 3px;
+  background: currentColor;
+  border-radius: 2px;
+  animation: rec-bar-anim 0.6s ease-in-out infinite alternate;
+}
+.rec-bar-1 { height: 8px; animation-delay: 0s; }
+.rec-bar-2 { height: 14px; animation-delay: 0.15s; }
+.rec-bar-3 { height: 8px; animation-delay: 0.3s; }
+@keyframes rec-bar-anim {
+  from { transform: scaleY(0.5); }
+  to { transform: scaleY(1.2); }
 }
 
 /* 添加文件菜单 */
