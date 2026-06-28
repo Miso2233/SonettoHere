@@ -56,23 +56,29 @@ class AuthMiddleware:
         return await self.app(scope, receive, send)
 
     def _extract_token(self, scope) -> str:
-        """从请求头提取 Token。
+        """从请求头或 query string 提取 Token。
 
-        HTTP / WebSocket 通用路径: X-Sonetto-Token 自定义头
-        WebSocket 专用路径: scope.subprotocols（由 ASGI server/uvicorn 从
-        Sec-WebSocket-Protocol 握手头部解析，前端通过 new WebSocket(url, [token])
-        传入）。优先使用 subprotocols 字段，比手动解析 raw header 更可靠。
+        优先级：
+        1. X-Sonetto-Token 请求头
+        2. Query string 中的 token 参数（用于 window.open 等无法添加自定义头的场景）
+        3. WebSocket subprotocols
         """
         headers = dict(scope.get("headers", []))
 
-        # 通用：X-Sonetto-Token 自定义头
+        # 1. X-Sonetto-Token 自定义头
         token_bytes = headers.get(b"x-sonetto-token", b"")
         if token_bytes:
             return token_bytes.decode()
 
-        # WebSocket 专用：从 ASGI scope 的 subprotocols 字段提取
-        # ASGI server 在握手时自动解析 Sec-WebSocket-Protocol 头部，
-        # 存入 scope["subprotocols"] = [token]
+        # 2. Query string 中的 token 参数
+        qs = scope.get("query_string", b"").decode()
+        if qs:
+            params = dict(p.split("=", 1) for p in qs.split("&") if "=" in p)
+            qs_token = params.get("token", "")
+            if qs_token:
+                return qs_token
+
+        # 3. WebSocket subprotocols
         if scope["type"] == "websocket":
             protocols = scope.get("subprotocols", [])
             if protocols:
