@@ -79,7 +79,7 @@
             class="btn-mic"
             :class="{ recording: isRecording }"
             :disabled="disabled"
-            :title="isRecording ? '松开停止录音' : '长按语音输入'"
+            :title="isRecording ? '松开停止录音' : '长按语音输入[SPACE]'"
             @pointerdown.prevent="onMicPointerDown"
             @pointerup="onMicPointerUp"
             @pointerleave="onMicPointerLeave"
