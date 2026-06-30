@@ -50,7 +50,17 @@ async def _get_session_messages(session) -> list[dict]:
         role = role_map.get(m.type)
         if role is None:
             continue
-        content = m.content if isinstance(m.content, str) else str(m.content)
+        content = m.content
+        if isinstance(content, list):
+            # 多模态消息：仅提取文本，丢弃 image_url 的 base64 数据
+            parts = [
+                b.get("text", "")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ]
+            content = " ".join(parts) if parts else "[图片]"
+        elif not isinstance(content, str):
+            content = str(content)
         result.append({"role": role, "content": content})
     return result
 
