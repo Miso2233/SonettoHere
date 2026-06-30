@@ -96,7 +96,7 @@
             :class="{ active: imageRecognition }"
             :disabled="disabled"
             title="图像认知：开启后随消息发送图片给 LLM（图片引用将转为视觉输入）"
-            @click="imageRecognition = !imageRecognition"
+            @click="$emit('toggleImageRecognition')"
           >
             <Icon name="image-cog" :size="18" />
           </button>
@@ -185,6 +185,7 @@ const props = defineProps<{
   disabled: boolean
   privateMode: boolean
   autoApprove: boolean
+  imageRecognition: boolean
 }>()
 
 const emit = defineEmits<{
@@ -193,6 +194,7 @@ const emit = defineEmits<{
   modelChange: [providerId: string, modelName: string]
   togglePrivate: []
   toggleAutoApprove: []
+  toggleImageRecognition: []
 }>()
 
 const text = ref('')
@@ -204,7 +206,6 @@ const showMenu = ref(false)
 const showLinkInput = ref(false)
 const linkUrl = ref('')
 const linkInputRef = ref<HTMLInputElement | null>(null)
-const imageRecognition = ref(false)
 
 // ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
 
@@ -633,7 +634,7 @@ function handleSend() {
   let sendImageRecog = false
   let imagePaths: string[] | undefined
 
-  if (imageRecognition.value) {
+  if (props.imageRecognition) {
     const { imageRefs, otherRefs } = filterImageRefs(refs.value)
     if (imageRefs.length > 0) {
       imagePaths = imageRefs.map(r => r.path)
