@@ -91,6 +91,15 @@
               <span class="rec-bar rec-bar-3"></span>
             </span>
           </button>
+          <button
+            class="btn-image-cog"
+            :class="{ active: imageRecognition }"
+            :disabled="disabled"
+            title="图像认知：开启后随消息发送图片给 LLM（图片引用将转为视觉输入）"
+            @click="imageRecognition = !imageRecognition"
+          >
+            <Icon name="image-cog" :size="18" />
+          </button>
         </div>
         <div class="input-right-group">
           <div class="dropdown">
@@ -150,7 +159,7 @@ import AutocompletePanel from '@/components/AutocompletePanel.vue'
 import Icon from '@/components/Icon.vue'
 import type { ProviderConfig, SkillInfo, ToolInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
-import { REF_CHIP_CONFIG } from '@/utils/references'
+import { REF_CHIP_CONFIG, filterImageRefs } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -159,7 +168,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string]
+  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]]
   stop: []
   modelChange: [providerId: string, modelName: string]
 }>()
@@ -173,6 +182,7 @@ const showMenu = ref(false)
 const showLinkInput = ref(false)
 const linkUrl = ref('')
 const linkInputRef = ref<HTMLInputElement | null>(null)
+const imageRecognition = ref(false)
 
 // ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
 
@@ -597,7 +607,20 @@ function handleSend() {
   const msg = text.value.trim()
   if (!msg || props.disabled) return
 
-  emit('send', msg, refs.value, selectedProviderId.value || undefined, selectedModelName.value || undefined)
+  let sendRefs = refs.value
+  let sendImageRecog = false
+  let imagePaths: string[] | undefined
+
+  if (imageRecognition.value) {
+    const { imageRefs, otherRefs } = filterImageRefs(refs.value)
+    if (imageRefs.length > 0) {
+      imagePaths = imageRefs.map(r => r.path)
+      sendRefs = otherRefs
+      sendImageRecog = true
+    }
+  }
+
+  emit('send', msg, sendRefs, selectedProviderId.value || undefined, selectedModelName.value || undefined, sendImageRecog, imagePaths)
   text.value = ''
   refs.value = []
   nextTick(() => autoResize())
@@ -1209,7 +1232,36 @@ function onResizeEnd(e: PointerEvent) {
   50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
-/* 录音动画条 */
+/* ── 图像认知按钮 ── */
+.btn-image-cog {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-image-cog:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-image-cog:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-image-cog.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
 .btn-mic-recording-icon {
   display: flex;
   align-items: center;

@@ -106,3 +106,8 @@ class ImageUnderstandTool(ToolBase):
             )
         except Exception as e:
             return format_error(f"图片理解失败: {e}")
+
+
+# 公共别名 — 供 chat.py 等模块复用图片加载与 MIME 推断逻辑
+load_image_bytes = _load_image_bytes
+get_mime_type = _get_mime_type

@@ -1,4 +1,4 @@
-import type { ParsedRef } from '@/utils/references'
+import type { FileRef, ParsedRef } from '@/utils/references'
 
 // === WebSocket 服务端 → 客户端事件 ===
 
@@ -158,6 +158,10 @@ export interface ChatMessage {
     auto_approve?: boolean
     provider_id?: string
     model_name?: string
+    /** 图像认知模式：图片 ref 被移除，后端 base64 编码后注入上下文 */
+    image_recognition?: boolean
+    /** 图像认知模式下的图片文件绝对路径列表 */
+    image_refs?: string[]
   }
 }
 
@@ -237,6 +241,8 @@ export interface ChatTurn {
   id: string
   userMessage: string
   refs: ParsedRef[]
+  /** 图像认知模式下发送的图片引用（用于 UI 展示） */
+  imageRefs?: FileRef[]
   events: TurnEvent[]
   memoryEvents?: MemoryToolEvent[]
   finalAnswer: string | null

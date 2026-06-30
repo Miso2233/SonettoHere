@@ -94,6 +94,30 @@ export const REF_CHIP_CONFIG: Record<string, RefChipConfig> = {
   },
 }
 
+/** 图像认知：支持的图片扩展名列表 */
+export const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+
+/** 判断一个 ref 是否为图片文件 */
+export function isImageRef(ref: ParsedRef): boolean {
+  if (ref.type !== 'file') return false
+  const path = (ref as FileRef).path.toLowerCase()
+  return IMAGE_EXTENSIONS.some(ext => path.endsWith(ext))
+}
+
+/** 将 refs 分为图片 ref 与其他 ref 两组 */
+export function filterImageRefs(refs: ParsedRef[]): { imageRefs: FileRef[]; otherRefs: ParsedRef[] } {
+  const imageRefs: FileRef[] = []
+  const otherRefs: ParsedRef[] = []
+  for (const ref of refs) {
+    if (isImageRef(ref)) {
+      imageRefs.push(ref as FileRef)
+    } else {
+      otherRefs.push(ref)
+    }
+  }
+  return { imageRefs, otherRefs }
+}
+
 export interface ParseResult {
   cleanText: string
   refs: ParsedRef[]

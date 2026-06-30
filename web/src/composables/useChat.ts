@@ -573,7 +573,7 @@ export function useChat(sessionId: Ref<string>) {
     { immediate: true }
   )
 
-  function send(text: string, refs: ParsedRef[] = [], providerId?: string, modelName?: string) {
+  function send(text: string, refs: ParsedRef[] = [], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]) {
     const ch = activeChannel.value
     if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) {
       console.warn(`[useChat:send] WebSocket 未就绪, readyState=${ch.ws?.readyState}, session=${sessionId.value}`)
@@ -589,6 +589,9 @@ export function useChat(sessionId: Ref<string>) {
       id: crypto.randomUUID(),
       userMessage: text,
       refs,
+      imageRefs: imageRecognition && imagePaths?.length
+        ? imagePaths.map(p => ({ type: 'file' as const, path: p, label: p.split(/[/\\]/).pop() || p }))
+        : undefined,
       events: [],
       memoryEvents: [],
       finalAnswer: null,
@@ -597,7 +600,14 @@ export function useChat(sessionId: Ref<string>) {
 
     const payload: ClientMessage = {
       type: 'chat',
-      payload: { message: flatMsg, private: ch.privateMode, auto_approve: ch.autoApprove, provider_id: providerId, model_name: modelName },
+      payload: {
+        message: flatMsg,
+        private: ch.privateMode,
+        auto_approve: ch.autoApprove,
+        provider_id: providerId,
+        model_name: modelName,
+        ...(imageRecognition && imagePaths?.length ? { image_recognition: true, image_refs: imagePaths } : {}),
+      },
     }
     ch.ws.send(JSON.stringify(payload))
   }

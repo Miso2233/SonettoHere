@@ -131,8 +131,8 @@ function addCitation(ref: ParsedRef) {
   chatInputRef.value?.addRef(ref)
 }
 
-function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string) {
-  send(text, refs, providerId, modelName)
+function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]) {
+  send(text, refs, providerId, modelName, imageRecognition, imagePaths)
 }
 
 function handleToolAction(payload: { action: string; data?: unknown }) {

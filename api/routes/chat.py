@@ -1,6 +1,7 @@
 """WebSocket 端点 — 流式 Agent 对话，含取消、用户交互和多轮上下文。"""
 
 import asyncio
+import base64
 import json
 import sys
 import traceback
@@ -17,6 +18,7 @@ from api.const_session_store import save_const_session, serialize_messages
 from api.context_usage import estimate_context_usage
 from api.session_manager import SessionState
 from tools.base import format_error
+from tools.network.tool_image_understand import load_image_bytes, get_mime_type
 
 router = APIRouter()
 
@@ -244,6 +246,8 @@ async def _run_agent_turn(
     auto_approve: bool = False,
     provider_id: str | None = None,
     model_name: str | None = None,
+    image_recognition: bool = False,
+    image_refs: list[str] | None = None,
 ):
     """
     在指定的session中编排一轮 Agent 对话。
@@ -252,6 +256,9 @@ async def _run_agent_turn(
 
     若指定了 provider_id + model_name，则从 ProviderManager 动态创建 LLM；
     否则退化到 app_state.llm 全局 fallback。
+
+    若 image_recognition 为 True，则将 image_refs 中的图片文件 base64 编码后
+    以多模态内容注入 HumanMessage，使 LLM 能直接"看见"图片。
     """
     # 1. [准备环境] 从 WebSocket 获取应用状态
     app_state = ws.app.state
@@ -296,7 +303,25 @@ async def _run_agent_turn(
         checkpointer=session.checkpointer,
     )
     session._graph = agent_sonetto
-    inputs = {"messages": [HumanMessage(content=user_message)]}
+    # 构建输入消息 — 图像认知模式下发多模态 HumanMessage
+    if image_recognition and image_refs:
+        content_parts: list[dict] = [{"type": "text", "text": user_message}]
+        for img_path in image_refs:
+            if not img_path.strip():
+                continue
+            try:
+                image_bytes, mime = load_image_bytes(f"local:{img_path}")
+                image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+                content_parts.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime};base64,{image_b64}"},
+                })
+            except (FileNotFoundError, IsADirectoryError, PermissionError) as e:
+                print(f"[image_recognition] 跳过无法加载的图片 {img_path}: {e}", file=sys.stderr)
+                continue
+        inputs = {"messages": [HumanMessage(content=content_parts)]}
+    else:
+        inputs = {"messages": [HumanMessage(content=user_message)]}
     config = {
         "configurable": {"thread_id": session.session_id},
         "callbacks": [ws_callback],
@@ -517,6 +542,10 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                     interaction.current_session_id.set(session_id)
                     interaction.set_session_auto_approve(session_id, auto_approve)
 
+                    # 图像认知模式参数
+                    image_recognition = payload.get("image_recognition", False)
+                    image_refs = payload.get("image_refs", [])
+
                     agent_task = asyncio.create_task(
                         _run_agent_turn(
                             ws,
@@ -526,6 +555,8 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                             auto_approve=auto_approve,
                             provider_id=payload.get("provider_id"),
                             model_name=payload.get("model_name"),
+                            image_recognition=image_recognition,
+                            image_refs=image_refs,
                         )
                     )
                     session._active_task = agent_task  # 供外部 REST 接口查询活跃状态
