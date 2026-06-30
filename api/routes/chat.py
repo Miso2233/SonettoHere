@@ -296,9 +296,13 @@ async def _run_agent_turn(
         return
 
     system_prompt = build_system_prompt()
+    # 图像认知模式下移除 analyze_image 工具，避免 LLM 同时拥有视觉与重复工具
+    tools = app_state.tools
+    if image_recognition:
+        tools = [t for t in tools if t.name != "analyze_image"]
     agent_sonetto = build_agent(
         model=llm,
-        tools=app_state.tools,
+        tools=tools,
         system_prompt=system_prompt,
         checkpointer=session.checkpointer,
     )
