@@ -1,6 +1,11 @@
 """上下文窗口用量估算 — 基于 tiktoken 的 token 计数工具。"""
 
+import base64
+import io
+import math
+
 import tiktoken
+from PIL import Image
 
 _ENCODING = None
 
@@ -17,6 +22,36 @@ def count_tokens(text: str) -> int:
     if not isinstance(text, str) or not text:
         return 0
     return len(_get_encoding().encode(text))
+
+
+def _estimate_image_tokens(image_url: str, model_name: str = "") -> int:
+    """估算一张图片在多模态消息中的 token 消耗。
+
+    从 data URL 中解码图片，获取尺寸后按模型计费规则估算。
+    """
+    if not image_url.startswith("data:"):
+        return 500  # 未知格式的图片 URL，保守估算
+
+    try:
+        # 解码 base64 数据
+        _, encoded = image_url.split(",", 1)
+        image_bytes = base64.b64decode(encoded)
+        img = Image.open(io.BytesIO(image_bytes))
+        w, h = img.size
+    except Exception:
+        return 500  # 解码失败，保守估算
+
+    model_lower = model_name.lower()
+
+    # Claude — 每张图约 800~1600 token，按像素比例估算
+    if "claude" in model_lower:
+        return max(800, min(3200, (w * h) // 750))
+
+    # OpenAI / 兼容接口 — GPT-4o 高细节计费公式
+    # 85 base + 170 per 512x512 tile
+    tiles_w = math.ceil(w / 512)
+    tiles_h = math.ceil(h / 512)
+    return 85 + 170 * tiles_w * tiles_h
 
 
 def estimate_context_usage(
@@ -62,17 +97,24 @@ def estimate_context_usage(
 
     for msg in messages:
         content = msg.content if hasattr(msg, "content") else str(msg)
-        # content 可能是 list（Anthropic 多内容块格式）或 None
+        image_tokens = 0
+
+        # content 可能是 list（多内容块格式，含 image_url）或 None
         if isinstance(content, list):
-            parts_text = [
-                b.get("text", "")
-                for b in content
-                if isinstance(b, dict) and b.get("type") == "text"
-            ]
+            parts_text = []
+            for b in content:
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "text":
+                    parts_text.append(b.get("text", ""))
+                elif b.get("type") == "image_url":
+                    url = b.get("image_url", {}).get("url", "")
+                    image_tokens += _estimate_image_tokens(url, model_name)
             content = " ".join(parts_text)
         elif not isinstance(content, str):
             content = str(content) if content is not None else ""
         t = count_tokens(content) + 4  # ~4 tokens 消息格式化开销
+        t += image_tokens  # 图片 token 计入当前消息
 
         role = getattr(msg, "type", "")
         bucket = role if role in msg_buckets else "human"  # fallback
