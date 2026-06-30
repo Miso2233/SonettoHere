@@ -100,6 +100,24 @@
           >
             <Icon name="image-cog" :size="18" />
           </button>
+          <button
+            class="btn-memory"
+            :class="{ active: privateMode }"
+            :disabled="disabled"
+            :title="privateMode ? '私密模式已开启，记忆不会被记录' : '记忆模式，对话将保存到长期记忆'"
+            @click="$emit('togglePrivate')"
+          >
+            <Icon name="memory" :size="18" />
+          </button>
+          <button
+            class="btn-check"
+            :class="{ active: autoApprove }"
+            :disabled="disabled"
+            :title="autoApprove ? '自动执行：Python 代码将直接执行' : '审核模式：代码执行前需确认'"
+            @click="$emit('toggleAutoApprove')"
+          >
+            <Icon name="code" :size="18" />
+          </button>
         </div>
         <div class="input-right-group">
           <div class="dropdown">
@@ -165,12 +183,16 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 const props = defineProps<{
   isStreaming: boolean
   disabled: boolean
+  privateMode: boolean
+  autoApprove: boolean
 }>()
 
 const emit = defineEmits<{
   send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]]
   stop: []
   modelChange: [providerId: string, modelName: string]
+  togglePrivate: []
+  toggleAutoApprove: []
 }>()
 
 const text = ref('')
@@ -1262,6 +1284,69 @@ function onResizeEnd(e: PointerEvent) {
   color: var(--accent);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
 }
+
+/* ── 记忆/私密模式按钮 ── */
+.btn-memory {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-memory:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-memory:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-memory.active {
+  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
+  color: var(--status-warn);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warn) 30%, transparent);
+}
+
+/* ── 检查/自动执行按钮 ── */
+.btn-check {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-check:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-check:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-check.active {
+  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
+  color: var(--status-warn);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warn) 30%, transparent);
+}
+
 .btn-mic-recording-icon {
   display: flex;
   align-items: center;
