@@ -2,6 +2,15 @@
   <div class="message-row" :class="role">
     <div class="bubble" :class="role">
       <RenderMarkdown v-if="content" :content="content" />
+      <div v-if="imageRefs?.length" class="image-thumbnails">
+        <ImageThumbnail
+          v-for="(img, idx) in imageRefs"
+          :key="idx"
+          :path="img.path"
+          :label="img.label"
+          @click="handleImageClick"
+        />
+      </div>
       <div v-if="refs?.length" class="ref-chips">
         <ReferenceChip
           v-for="(r, idx) in refs"
@@ -14,11 +23,21 @@
 </template>
 
 <script setup lang="ts">
-import type { ParsedRef } from '@/utils/references';
+import type { FileRef, ParsedRef } from '@/utils/references';
+import ImageThumbnail from './ImageThumbnail.vue';
 import ReferenceChip from './ReferenceChip.vue';
 import RenderMarkdown from './RenderMarkdown.vue';
 
-const props = defineProps<{ role: 'user' | 'assistant'; content: string; refs?: ParsedRef[] }>()
+const props = defineProps<{
+  role: 'user' | 'assistant'
+  content: string
+  refs?: ParsedRef[]
+  imageRefs?: FileRef[]
+}>()
+
+function handleImageClick(path: string) {
+  // 预留：点击缩略图可放大预览
+}
 </script>
 
 <style scoped>
@@ -51,6 +70,12 @@ const props = defineProps<{ role: 'user' | 'assistant'; content: string; refs?: 
   background: var(--bg-card);
   color: var(--text-primary);
   border-bottom-left-radius: 4px;
+}
+.image-thumbnails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 .ref-chips {
   display: flex;

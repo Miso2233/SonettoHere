@@ -9,7 +9,7 @@
           :data-user-msg-idx="turnsIndex(mergedIdx)"
           @contextmenu.prevent="onBubbleContextMenu($event, 'user_message', turn.userMessage, '用户', turnsIndex(mergedIdx))"
         >
-          <MessageBubble role="user" :content="turn.userMessage" :refs="turn.refs" />
+          <MessageBubble role="user" :content="turn.userMessage" :refs="turn.refs" :image-refs="turn.imageRefs" />
         </div>
         <!-- 助手侧：events + finalAnswer + 记忆日志，hover 时才显示记忆日志 -->
         <div class="assistant-side">

@@ -17,7 +17,7 @@ from api.dependencies import get_llm, get_system_prompt, get_tools
 from api.health import get_health_report
 from api.providers.manager import ProviderManager
 from api.providers.store import ProviderConfigStore
-from api.routes import chat, files, memory, sessions, balance, providers
+from api.routes import chat, files, images, memory, sessions, balance, providers
 from api.routes import path_whitelist as path_whitelist_router
 from api.routes import persona as persona_router
 from api.routes import sonetto_blocker as sonetto_blocker_router
@@ -172,6 +172,7 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router, prefix="/api")
     app.include_router(memory.router, prefix="/api")
     app.include_router(files.router, prefix="/api")
+    app.include_router(images.router, prefix="/api")
     app.include_router(balance.router, prefix="/api")
 
     # WebSocket 路由（无 /api 前缀）

@@ -221,6 +221,18 @@ export const api = {
       `/check-path-blocked?path=${encodeURIComponent(path)}`
     ),
 
+  // ── 图片服务（用于缩略图渲染）──
+
+  /** 将本地图片路径转为 blob URL，供 <img> 展示。返回的 URL 需在适当时机 revoke。 */
+  getImageBlobUrl: async (path: string): Promise<string> => {
+    const headers: Record<string, string> = {}
+    if (token) headers['X-Sonetto-Token'] = token
+    const res = await fetch(`${BASE}/images/serve?path=${encodeURIComponent(path)}`, { headers })
+    if (!res.ok) throw new Error(`加载图片失败: ${res.status}`)
+    const blob = await res.blob()
+    return URL.createObjectURL(blob)
+  },
+
   // ── SonettoBlocker 拒止锚 ──
 
   listBlockers: () =>
