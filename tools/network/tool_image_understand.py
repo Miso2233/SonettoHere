@@ -63,6 +63,8 @@ class ImageUnderstandTool(ToolBase):
         "使用智谱 GLM-5V-Turbo 多模态模型理解图片内容。"
         "支持本地文件（local:path）和网络图片（url:https://...）。"
         "可指定 prompt 提问，如 '这张图里有什么文字？'。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "【注意】当用户通过图像认知模式发图时，你虽然能直接看到图片内容，但并不知道图片在磁盘上的路径。"
+        "只有在你明确知道需分析图片的路径时才能调用，不可编造路径。"
     )
     args_schema: type[BaseModel] = ImageUnderstandInput
 
