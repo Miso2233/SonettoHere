@@ -75,7 +75,10 @@ function handleImageClick(path: string) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-bottom: 8px;
+  justify-content: flex-start;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 .ref-chips {
   display: flex;
