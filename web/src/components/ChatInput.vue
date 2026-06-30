@@ -1280,9 +1280,9 @@ function onResizeEnd(e: PointerEvent) {
   cursor: default;
 }
 .btn-image-cog.active {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, #81ae92 12%, transparent);
+  color: #81ae92;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
 }
 
 /* ── 记忆/私密模式按钮 ── */
@@ -1311,9 +1311,9 @@ function onResizeEnd(e: PointerEvent) {
   cursor: default;
 }
 .btn-memory.active {
-  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
-  color: var(--status-warn);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warn) 30%, transparent);
+  background: color-mix(in srgb, #81ae92 12%, transparent);
+  color: #81ae92;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
 }
 
 /* ── 检查/自动执行按钮 ── */
@@ -1342,9 +1342,9 @@ function onResizeEnd(e: PointerEvent) {
   cursor: default;
 }
 .btn-check.active {
-  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
-  color: var(--status-warn);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warn) 30%, transparent);
+  background: color-mix(in srgb, #81ae92 12%, transparent);
+  color: #81ae92;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
 }
 
 .btn-mic-recording-icon {
@@ -1433,7 +1433,7 @@ function onResizeEnd(e: PointerEvent) {
 .input-left-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
 }
 .input-right-group {
   display: flex;
