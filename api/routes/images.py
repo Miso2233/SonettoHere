@@ -5,6 +5,8 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 
+from tools.base import check_path_access
+
 router = APIRouter()
 
 IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
@@ -25,5 +27,10 @@ async def serve_image(path: str = Query(...)):
     ext = file_path.suffix.lower()
     if ext not in IMAGE_EXTENSIONS:
         raise HTTPException(status_code=400, detail="不支持的图片格式")
+
+    # 安全校验：SonettoBlocker + 路径白名单
+    blocker_err = check_path_access(str(file_path))
+    if blocker_err is not None:
+        raise HTTPException(status_code=403, detail="路径被安全策略阻断")
 
     return FileResponse(path=str(file_path))

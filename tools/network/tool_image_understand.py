@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from zai import ZhipuAiClient
 
 from config.settings import get_settings
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, check_path_access, format_error, format_success
 
 MODEL = "glm-5v-turbo"
 
@@ -28,6 +28,10 @@ def _load_image_bytes(image_source: str) -> tuple[bytes, str]:
     """解析 image_source 前缀，返回 (bytes, mime_type)。"""
     if image_source.startswith("local:"):
         path = image_source[6:]
+        # 安全校验：SonettoBlocker + 路径白名单
+        err = check_path_access(path)
+        if err is not None:
+            raise PermissionError(err)
         file_path = Path(path)
         if not file_path.exists():
             raise FileNotFoundError(f"文件不存在: {path}")
