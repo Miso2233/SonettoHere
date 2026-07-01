@@ -2,7 +2,9 @@
 
 ![首页](images/%E9%A6%96%E9%A1%B5.png)
 
-基于 LangChain + LangGraph 的 ReAct AI Agent，支持 **多 LLM 提供商**、**SubAgent**、**Anthropic Skill 体系**。
+基于 LangChain + LangGraph 的 ReAct AI Agent，支持 **多 LLM 提供商**、**SubAgent**、**Anthropic Skill 体系**，以及**多模态视觉LLM配套设施支持**。
+
+学生和办公人士的任务管理与任务解决助手，亦可用于日常聊天陪伴。
 
 ## 快速开始
 
