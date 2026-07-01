@@ -20,13 +20,28 @@ def _ensure_dir() -> Path:
 # ── 消息序列化 ─────────────────────────────────────────────────
 
 
+def flatten_content(content) -> str:
+    """将消息 content 展平为纯文本字符串。
+
+    当 content 为列表（多模态格式，含 image_url 等）时，
+    仅提取所有 text 字段，忽略非文本块（图片 base64 等）。
+    """
+    if isinstance(content, list):
+        texts = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                texts.append(part.get("text", ""))
+        return "\n".join(texts)
+    return content if isinstance(content, str) else str(content or "")
+
+
 def serialize_messages(raw_messages: list) -> list[dict]:
     """将 LangChain BaseMessage 对象列表转为可序列化的纯 dict 列表。"""
     result = []
     for msg in raw_messages:
         entry: dict = {
             "type": getattr(msg, "type", "unknown"),
-            "content": msg.content if hasattr(msg, "content") else str(msg),
+            "content": flatten_content(msg.content) if hasattr(msg, "content") else str(msg),
         }
         if hasattr(msg, "tool_call_id") and msg.tool_call_id:
             entry["tool_call_id"] = msg.tool_call_id

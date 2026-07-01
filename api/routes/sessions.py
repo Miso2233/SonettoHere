@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
+from api.const_session_store import flatten_content
 from api.context_usage import estimate_context_usage
 from agent.prompts import get_system_prompt_parts
 
@@ -209,7 +210,7 @@ async def generate_session_title(session_id: str, request: Request):
     conversation_lines = []
     for m in messages:
         role = "user" if m.type == "human" else "assistant"
-        content = (m.content[:600] if hasattr(m, "content") else str(m))[:600]
+        content = flatten_content(getattr(m, "content", None))[:600]
         conversation_lines.append(f"[{role}]\n{content}")
     conversation_text = "\n\n".join(conversation_lines)
 
