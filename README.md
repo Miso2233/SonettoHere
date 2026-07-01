@@ -215,6 +215,13 @@ SonettoHere 支持通过 MCP（Model Context Protocol）接入外部工具，只
 
 #### SSE / Streamable HTTP / WebSocket（远程连接）
 
+| 字段 | 适用传输类型 | 说明 |
+|---|---|---|
+| `url` | 全部 | 服务端地址 |
+| `headers` | SSE / Streamable HTTP | 可选：HTTP 请求头 |
+| `timeout` | SSE / Streamable HTTP | 可选：连接超时（秒） |
+| `sse_read_timeout` | SSE | 可选：SSE 读取超时（秒），如 `30` |
+
 ```yaml
 - server_id: "remote-service"
   enabled: true
@@ -223,6 +230,7 @@ SonettoHere 支持通过 MCP（Model Context Protocol）接入外部工具，只
   headers:                        # 可选：HTTP 请求头
     Authorization: "Bearer token"
   timeout: 30                     # 可选：连接超时（秒）
+  # sse_read_timeout: 30         # 仅 SSE 传输类型适用
 ```
 
 ### 激活方式
