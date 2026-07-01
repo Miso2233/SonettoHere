@@ -1,19 +1,35 @@
 news:
+  - id: "v2.8.0-release"
+    title: "发布 v2.8.0 版本"
+    description: "v2.8.0 版本带来多模态交互升级与语音输入支持。新增图像认知模式，一键切换多模态理解并将图片直接注入 LLM；新增语音输入功能，长按按钮或空格键激活 Web Speech API 语音识别。修复多模态消息在固定会话和标题生成时 base64 图片数据泄入上下文窗口的问题，修复 CodeQL 报告的路径穿越漏洞。"
+    type: "feat"
+    date: "2026-07-01"
+    tags: ["发布", "版本"]
+    version: "v2.8.0"
+    pr_number: 0
+  - id: "voice-input"
+    title: "语音输入功能上线"
+    description: "输入框新增语音输入按钮，长按按钮或长按空格键即可激活 Web Speech API 进行语音识别，识别结果自动填入输入框，释放双手提升输入效率。"
+    type: "feat"
+    date: "2026-06-29"
+    tags: ["语音", "输入", "UI"]
+    version: "v2.8.0"
+    pr_number: 198
   - id: "image-cognition-button"
     title: "图像认知按钮上线"
     description: "输入框新增图像认知按钮，一键切换图像理解模式。用户消息气泡支持图片缩略图展示，后端新增图像 token 估算与缩略图路由，多模态消息处理全面优化。"
     type: "feat"
     date: "2026-07-01"
     tags: ["图像", "多模态", "UI"]
-    version: ""
-    pr_number: 0
+    version: "v2.8.0"
+    pr_number: 199
   - id: "auto-approve-mid-turn"
     title: "工具交互优化"
     description: "Python 自动执行开关支持对话中途即时生效，无需等待下一轮对话。文件搜索气泡新增搜索表达式的可视化展示。气泡前端字段与后端全面对齐，修复字段不一致问题。"
     type: "feat"
     date: "2026-06-28"
     tags: ["工具", "优化"]
-    version: ""
+    version: "v2.7.0"
     pr_number: 195
   - id: "weather-tool-enhance"
     title: "天气工具优化升级"
@@ -21,7 +37,7 @@ news:
     type: "enhance"
     date: "2026-06-27"
     tags: ["天气", "优化"]
-    version: ""
+    version: "v2.7.0"
     pr_number: 186
   - id: "tool-simplify-env-vars"
     title: "工具精简与环境变量管理"
@@ -38,7 +54,7 @@ news:
     date: "2026-06-27"
     tags: ["发布", "版本"]
     version: "v2.7.0"
-    pr_number: 0
+    pr_number: 185
   - id: "mcp-yaml-config"
     title: "MCP YAML 配置化"
     description: "新增 config/mcp_servers.yaml 声明式配置，支持本地 stdio 和远程 SSE/HTTP/WebSocket 四种传输类型，用户仅需编辑 YAML 即可接入 MCP 服务器，无需改代码。内置 POST /api/mcp/reload 热加载端点，工具名自动添加 serverId 前缀，前端统一展示。"
