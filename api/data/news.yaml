@@ -1,4 +1,12 @@
 news:
+  - id: "image-cognition-button"
+    title: "图像认知按钮上线"
+    description: "输入框新增图像认知按钮，一键切换图像理解模式。用户消息气泡支持图片缩略图展示，后端新增图像 token 估算与缩略图路由，多模态消息处理全面优化。"
+    type: "feat"
+    date: "2026-07-01"
+    tags: ["图像", "多模态", "UI"]
+    version: ""
+    pr_number: 0
   - id: "auto-approve-mid-turn"
     title: "工具交互优化"
     description: "Python 自动执行开关支持对话中途即时生效，无需等待下一轮对话。文件搜索气泡新增搜索表达式的可视化展示。气泡前端字段与后端全面对齐，修复字段不一致问题。"
