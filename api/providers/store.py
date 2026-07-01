@@ -10,7 +10,9 @@ from api.providers import ProviderConfig
 class ProviderConfigStore:
     """读写 providers.yaml，API key 直接存储在文件中。"""
 
-    def __init__(self, path: str | Path = "providers.yaml"):
+    def __init__(self, path: str | Path | None = None):
+        if path is None:
+            path = Path(__file__).resolve().parent.parent.parent / "config" / "providers.yaml"
         self.path = Path(path)
 
     def load_all(self) -> list[ProviderConfig]:

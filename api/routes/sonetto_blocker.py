@@ -14,8 +14,7 @@ router = APIRouter()
 
 YAML_PATH = (
     Path(__file__).resolve().parent.parent.parent
-    / "api"
-    / "data"
+    / "config"
     / "sonetto_blocker.yaml"
 )
 

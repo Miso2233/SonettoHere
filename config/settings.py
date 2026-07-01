@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     tavily_api_key: str = ""
 
     model_config = {
-        "env_file": ".env",
+        "env_file": "config/.env",
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }

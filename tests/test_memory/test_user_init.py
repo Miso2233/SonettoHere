@@ -123,14 +123,14 @@ class TestEnsureEnvFile:
     """ensure_env_file 测试。"""
 
     def test_creates_env_from_example(self, monkeypatch, tmp_path):
-        """.env 不存在时从 example 复制。"""
+        """.env 不存在时从 example 复制到 config/。"""
         project_root = tmp_path
         example = project_root / ".env.example"
         example.write_text("API_KEY=test", encoding="utf-8")
 
         monkeypatch.setattr(user_init, "PROJECT_ROOT", project_root)
 
-        env_file = project_root / ".env"
+        env_file = project_root / "config" / ".env"
         assert not env_file.exists()
 
         user_init.ensure_env_file()
@@ -144,7 +144,9 @@ class TestEnsureEnvFile:
         example = project_root / ".env.example"
         example.write_text("新内容。", encoding="utf-8")
 
-        env_file = project_root / ".env"
+        config_dir = project_root / "config"
+        config_dir.mkdir(parents=True)
+        env_file = config_dir / ".env"
         env_file.write_text("用户已有的配置。", encoding="utf-8")
 
         monkeypatch.setattr(user_init, "PROJECT_ROOT", project_root)
@@ -160,7 +162,7 @@ class TestEnsureEnvFile:
 
         user_init.ensure_env_file()
 
-        env_file = project_root / ".env"
+        env_file = project_root / "config" / ".env"
         assert not env_file.exists()
 
 
@@ -186,4 +188,4 @@ class TestEnsureAll:
         # 三个目标文件都应被创建
         assert (persona_dir / "USER.md").exists()
         assert (persona_dir / "SOUL.md").exists()
-        assert (project_root / ".env").exists()
+        assert (project_root / "config" / ".env").exists()

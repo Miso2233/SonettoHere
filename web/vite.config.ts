@@ -6,7 +6,7 @@ import path from 'node:path'
 
 function loadApiToken(): string {
   try {
-    const yamlPath = path.resolve(__dirname, '..', 'api', 'data', 'auth_token.yaml')
+    const yamlPath = path.resolve(__dirname, '..', 'config', 'auth_token.yaml')
     const raw = fs.readFileSync(yamlPath, 'utf-8')
     const match = raw.match(/^token:\s*(.+)$/m)
     const token = match?.[1]?.trim()

@@ -10,7 +10,7 @@ from config.settings import get_settings
 
 router = APIRouter()
 
-ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
+ENV_PATH = Path(__file__).resolve().parent.parent.parent / "config" / ".env"
 
 # ── 已知环境变量元信息 ──
 

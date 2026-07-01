@@ -149,7 +149,7 @@ def check_sonetto_blocker(target_path: str) -> str | None:
 # ── 路径白名单 ──────────────────────────────────────────────
 
 _WHITELIST_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "path_whitelist.yaml"
+    Path(__file__).resolve().parent.parent / "config" / "path_whitelist.yaml"
 )
 
 # 项目根目录：由 base.py 所在位置 (tools/base.py) 向上推一级
@@ -163,7 +163,7 @@ _DEFAULT_MACROS_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "macros")
 # ── 路径白名单 ──────────────────────────────────────────────
 
 _WHITELIST_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "path_whitelist.yaml"
+    Path(__file__).resolve().parent.parent / "config" / "path_whitelist.yaml"
 )
 
 
@@ -268,15 +268,15 @@ def _write_whitelist(entries: list) -> None:
 
 
 _BLOCKER_YAML_PATH = (
-    Path(__file__).resolve().parent.parent / "api" / "data" / "sonetto_blocker.yaml"
+    Path(__file__).resolve().parent.parent / "config" / "sonetto_blocker.yaml"
 )
 
 _BLOCKER_FILENAME = "SonettoBlocker"
-_AUTO_BLOCKER_PATH = os.path.join(_PROJECT_ROOT, "api", "data")
+_AUTO_BLOCKER_PATH = os.path.join(_PROJECT_ROOT, "config")
 
 
 def _ensure_blocker() -> None:
-    """确保 api/data/ 目录受 SonettoBlocker 保护。
+    """确保 config/ 目录受 SonettoBlocker 保护。
 
     在模块导入时自动运行：
     - 如果 api/data/ 下没有 SonettoBlocker 标记文件 → 创建
@@ -327,6 +327,8 @@ def _ensure_blocker() -> None:
 # 模块加载时自动执行：确保白名单存在 + api/data/ 拒止锚存在（首次 import 时运行一次）
 _ensure_whitelist()
 _ensure_blocker()
+
+# ── 路径白名单加载 ──────────────────────────────────────────────
 
 
 def _load_path_whitelist() -> list[tuple[str, bool]]:

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import yaml
 
-AUTH_TOKEN_PATH = Path(__file__).resolve().parent / "data" / "auth_token.yaml"
+AUTH_TOKEN_PATH = Path(__file__).resolve().parent.parent / "config" / "auth_token.yaml"
 
 
 def load_or_create_token() -> str:

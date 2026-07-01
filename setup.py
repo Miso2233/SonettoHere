@@ -136,7 +136,7 @@ def setup_frontend():
 
 
 def setup_env():
-    env_path = os.path.join(PROJECT_ROOT, ".env")
+    env_path = os.path.join(PROJECT_ROOT, "config", ".env")
     example_path = os.path.join(PROJECT_ROOT, ".env.example")
 
     if os.path.exists(env_path):
@@ -230,7 +230,7 @@ def setup_provider():
         provider_id = "custom-provider"
 
     # 写入 providers.yaml
-    yaml_path = os.path.join(PROJECT_ROOT, "providers.yaml")
+    yaml_path = os.path.join(PROJECT_ROOT, "config", "providers.yaml")
     models_block = "\n".join(f"  - {m}" for m in models)
     entry = f"""- api_key: {api_key}
   base_url: {base_url}
@@ -298,9 +298,9 @@ def setup_persona():
 
 
 def summary():
-    env_path = os.path.join(PROJECT_ROOT, ".env")
+    env_path = os.path.join(PROJECT_ROOT, "config", ".env")
     env_ok = os.path.exists(env_path)
-    prov_path = os.path.join(PROJECT_ROOT, "providers.yaml")
+    prov_path = os.path.join(PROJECT_ROOT, "config", "providers.yaml")
     prov_ok = os.path.exists(prov_path) and os.path.getsize(prov_path) > 20
     print()
     print("=" * 48)
