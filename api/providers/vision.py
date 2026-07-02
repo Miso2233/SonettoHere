@@ -43,8 +43,9 @@ async def test_model_vision(
         )
 
         response = await llm.ainvoke([message])
-        text = response.content if hasattr(response, "content") else str(response)
-        return "Sonetto" in text
+        raw = response.content if hasattr(response, "content") else str(response)
+        text = raw if isinstance(raw, str) else str(raw)
+        return "Sonetto".lower() in text.lower()
     except Exception:
         return False
 
