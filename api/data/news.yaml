@@ -6,7 +6,7 @@ news:
     date: "2026-07-02"
     tags: ["视觉", "多模态", "检测", "UI"]
     version: ""
-    pr_number: 0
+    pr_number: 205
   - id: "v2.8.0-release"
     title: "发布 v2.8.0 版本"
     description: "v2.8.0 版本带来多模态交互升级与语音输入支持。新增图像认知模式，一键切换多模态理解并将图片直接注入 LLM；新增语音输入功能，长按按钮或空格键激活 Web Speech API 语音识别。修复多模态消息在固定会话和标题生成时 base64 图片数据泄入上下文窗口的问题，修复 CodeQL 报告的路径穿越漏洞。"
