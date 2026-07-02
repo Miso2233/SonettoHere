@@ -48,6 +48,7 @@
       :private-mode="privateMode"
       :auto-approve="autoApprove"
       :image-recognition="imageRecognition"
+      :has-vision="selectedModelHasVision"
       @send="onSend"
       @stop="cancel"
       @model-change="onModelChange"

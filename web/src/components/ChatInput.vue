@@ -93,10 +93,10 @@
           </button>
           <button
             class="btn-image-cog"
-            :class="{ active: imageRecognition }"
+            :class="{ active: imageRecognition, 'flash-denied': flashVisionDenied }"
             :disabled="disabled"
-            title="图像认知：开启后随消息发送图片给 LLM（图片引用将转为视觉输入）"
-            @click="$emit('toggleImageRecognition')"
+            :title="imageCogTitle"
+            @click="handleToggleImageRecognition"
           >
             <Icon name="image-cog" :size="18" />
           </button>
@@ -186,6 +186,7 @@ const props = defineProps<{
   privateMode: boolean
   autoApprove: boolean
   imageRecognition: boolean
+  hasVision?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -242,6 +243,31 @@ function getRefTooltip(r: ParsedRef): string {
 }
 
 defineExpose({ addRef })
+
+// ── 图像认知按钮：无视觉模型时闪烁拒绝 ──
+const flashVisionDenied = ref(false)
+let flashTimer: ReturnType<typeof setTimeout> | null = null
+
+const imageCogTitle = computed(() => {
+  if (props.hasVision === false) {
+    return '当前模型不支持视觉能力，无法使用图像认知'
+  }
+  return '图像认知：开启后随消息发送图片给 LLM（图片引用将转为视觉输入）'
+})
+
+function handleToggleImageRecognition() {
+  if (props.hasVision === false) {
+    // 模型不支持视觉 → 闪烁低饱和度红色提示，不切换
+    flashVisionDenied.value = true
+    if (flashTimer) clearTimeout(flashTimer)
+    flashTimer = setTimeout(() => {
+      flashVisionDenied.value = false
+      flashTimer = null
+    }, 600)
+    return
+  }
+  emit('toggleImageRecognition')
+}
 
 // ── 链接引用 ──
 
@@ -1284,6 +1310,18 @@ function onResizeEnd(e: PointerEvent) {
   background: color-mix(in srgb, #81ae92 12%, transparent);
   color: #81ae92;
   box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
+}
+
+/* 无视觉模型时闪烁拒绝 */
+.btn-image-cog.flash-denied {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  color: #ef4444;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ef4444 30%, transparent);
+  animation: vision-flash-fade 0.6s ease-out;
+}
+@keyframes vision-flash-fade {
+  0%   { background: color-mix(in srgb, #ef4444 35%, transparent); }
+  100% { background: color-mix(in srgb, #ef4444 0%, transparent); }
 }
 
 /* ── 记忆/私密模式按钮 ── */
