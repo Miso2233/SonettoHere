@@ -19,9 +19,13 @@ class ProviderConfig:
     models: list[str] = field(default_factory=list)
     enabled: bool = True
     context_window: int = 256_000
+    model_vision: dict[str, bool] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        if not d.get("model_vision"):
+            del d["model_vision"]
+        return d
 
 
 @dataclass

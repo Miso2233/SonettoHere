@@ -1,11 +1,19 @@
 """REST API — 提供商 CRUD 与连接测试。"""
 
+from pathlib import Path
+
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from api.providers import ProviderConfig
+from api.providers.vision import detect_vision_capabilities
 
 router = APIRouter()
+
+# 视觉能力测试图片路径
+IMAGE_PATH = (
+    Path(__file__).resolve().parent.parent / "data" / "SonettoTest.png"
+)
 
 
 # ── Pydantic 请求/响应模型 ──────────────────────────────
@@ -64,8 +72,8 @@ def get_provider(provider_id: str, request: Request):
 
 
 @router.post("/providers")
-def create_provider(body: ProviderCreateBody, request: Request):
-    """新增提供商。"""
+async def create_provider(body: ProviderCreateBody, request: Request):
+    """新增提供商，并自动检测每个模型的视觉能力。"""
     mgr = _get_manager(request)
     if mgr.get_config(body.id) is not None:
         raise HTTPException(
@@ -82,13 +90,22 @@ def create_provider(body: ProviderCreateBody, request: Request):
         enabled=body.enabled,
         context_window=body.context_window,
     )
+
+    # 先写入基础配置（不含 vision）
     mgr.save_config(config)
+
+    # 检测视觉能力并更新配置
+    if config.models and IMAGE_PATH.exists():
+        vision = await detect_vision_capabilities(config, IMAGE_PATH)
+        config.model_vision = vision
+        mgr.save_config(config)
+
     return config.to_dict()
 
 
 @router.put("/providers/{provider_id}")
-def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request):
-    """更新提供商配置（部分字段）。"""
+async def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request):
+    """更新提供商配置（部分字段），并重新检测视觉能力。"""
     mgr = _get_manager(request)
     config = mgr.get_config(provider_id)
     if config is None:
@@ -98,7 +115,15 @@ def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request
     for field, value in update_data.items():
         setattr(config, field, value)
 
+    # 先写入更新（不含 vision）
     mgr.save_config(config)
+
+    # 检测视觉能力并更新配置
+    if config.models and IMAGE_PATH.exists():
+        vision = await detect_vision_capabilities(config, IMAGE_PATH)
+        config.model_vision = vision
+        mgr.save_config(config)
+
     return config.to_dict()
 
 

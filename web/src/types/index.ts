@@ -388,6 +388,7 @@ export interface ProviderConfig {
   models: string[]
   enabled: boolean
   context_window?: number
+  model_vision?: Record<string, boolean>
 }
 
 export interface ListProvidersResponse {

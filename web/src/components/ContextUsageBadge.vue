@@ -100,7 +100,7 @@
 
     <!-- 模型名 → 余额弹窗 -->
     <span class="model-name hover-trigger" @mouseenter="onBalanceHover">
-      {{ displayModelName }}
+      {{ displayModelName }}<Icon v-if="hasVision" name="image-cog" :size="14" class="vision-icon" />
       <div class="hover-card card-balance">
         <template v-if="!isDeepSeek">
           <div class="balance-idle">余额查询仅支持 DeepSeek</div>
@@ -150,10 +150,12 @@
 import { ref, computed } from 'vue'
 import type { ContextUsage, DeepSeekBalanceResponse } from '@/types'
 import { api } from '@/api'
+import Icon from '@/components/Icon.vue'
 
 const props = defineProps<{
   usage: ContextUsage | null
   selectedModel?: string
+  hasVision?: boolean
 }>()
 
 const displayModelName = computed(() => props.selectedModel || props.usage?.model_name || '')
@@ -256,6 +258,11 @@ async function onBalanceHover() {
 .model-name {
   color: var(--text-secondary);
   opacity: 1;
+}
+.vision-icon {
+  margin-left: 4px;
+  opacity: 0.6;
+  vertical-align: middle;
 }
 .ring-group {
   display: inline-flex;

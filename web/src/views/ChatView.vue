@@ -27,7 +27,7 @@
             自动执行
           </span>
         </div>
-        <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" />
+        <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" :has-vision="selectedModelHasVision" />
         <TaskTrackerBar :data="taskTrackerData as any" />
     </header>
 
@@ -73,6 +73,7 @@ import { useChat } from '@/composables/useChat'
 import { health } from '@/composables/useHealth'
 import { useSession } from '@/composables/useSession'
 import type { ParsedRef } from '@/utils/references'
+import type { ProviderConfig } from '@/types'
 import { computed, onMounted, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
@@ -80,19 +81,23 @@ const { connected, isStreaming, turns, currentTurn, error, contextUsage, taskTra
   useChat(sessionId)
 
 const selectedModelName = ref('')
+const selectedProviderId = ref('')
+const providers = ref<ProviderConfig[]>([])
 const hasProviders = ref(true)
 const imageRecognition = ref(false)
 
 onMounted(async () => {
   try {
     const res = await api.listProviders()
+    providers.value = res.providers
     hasProviders.value = res.providers.some(p => p.enabled)
   } catch {
     hasProviders.value = true // fallback: assume there's a provider
   }
 })
 
-function onModelChange(_providerId: string, modelName: string) {
+function onModelChange(providerId: string, modelName: string) {
+  selectedProviderId.value = providerId
   selectedModelName.value = modelName
 }
 
@@ -100,6 +105,12 @@ const isSubagent = computed(() => {
   return sessions.value.some(
     s => s.session_id === sessionId.value && s.is_subagent
   )
+})
+
+const selectedModelHasVision = computed(() => {
+  if (!selectedProviderId.value || !selectedModelName.value) return false
+  const provider = providers.value.find(p => p.id === selectedProviderId.value)
+  return provider?.model_vision?.[selectedModelName.value] === true
 })
 
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null)
