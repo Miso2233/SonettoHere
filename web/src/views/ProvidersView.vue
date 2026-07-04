@@ -137,6 +137,7 @@
               <span v-else-if="editingModelCapabilities[m]?.tool_call === false" class="cap-badge no-cap" title="无工具调用">⚙️✗</span>
               <span v-if="editingModelCapabilities[m]?.structured_output === true" class="cap-badge structured" title="结构化输出">📋</span>
               <span v-else-if="editingModelCapabilities[m]?.structured_output === false" class="cap-badge no-cap" title="无结构化输出">📋✗</span>
+              <span v-if="discoveredModelContextWindows[m]" class="ctx-badge" :title="`上下文窗口: ${discoveredModelContextWindows[m].toLocaleString()} tokens`">{{ (discoveredModelContextWindows[m] / 1000).toFixed(0) }}K</span>
             </label>
             <div class="model-actions">
               <button
@@ -254,6 +255,7 @@ async function handleTest() {
 const discovering = ref(false)
 const discoveredModels = ref<string[]>([])
 const selectedModels = ref<string[]>([])
+const discoveredModelContextWindows = ref<Record<string, number>>({})
 
 // ── 能力检测 ──
 const editingModelCapabilities = ref<Record<string, Record<string, boolean>>>({})
@@ -286,6 +288,7 @@ async function handleDiscover() {
       const res = await api.discoverModelsForExisting(editingId.value)
       discoveredModels.value = res.models
       selectedModels.value = [...res.models]
+      discoveredModelContextWindows.value = res.model_context_windows ?? {}
       if (res.default_model_warning) {
         defaultModelWarning.value = res.default_model_warning
         form.value.defaultModel = null
@@ -297,6 +300,12 @@ async function handleDiscover() {
       })
       discoveredModels.value = res.models
       selectedModels.value = [...res.models]
+      discoveredModelContextWindows.value = res.model_context_windows ?? {}
+    }
+    // 如果用户未设置全局 context_window，从第一个模型自动填充
+    if (!form.value.context_window || form.value.context_window === 256000) {
+      const firstCtx = discoveredModelContextWindows.value[selectedModels.value[0]]
+      if (firstCtx) form.value.context_window = firstCtx
     }
   } catch (e: any) {
     formError.value = e.message
@@ -631,6 +640,15 @@ onMounted(loadProviders)
 }
 .cap-badge.no-cap {
   opacity: 0.35;
+}
+.ctx-badge {
+  font-size: 10px;
+  margin-left: 3px;
+  padding: 0 4px;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 3px;
+  font-family: 'SF Mono', 'Consolas', monospace;
 }
 
 .card-context-window {

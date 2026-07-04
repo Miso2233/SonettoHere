@@ -1,0 +1,5 @@
+# 模型上下文窗口用户自定义覆盖。
+# 优先级高于代码中的硬编码表。
+# 格式：精确模型名 → context_window token 数
+overrides:
+  # "my-custom-model": 64000

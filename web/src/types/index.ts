@@ -392,6 +392,7 @@ export interface ProviderConfig {
   model_capabilities?: Record<string, Record<string, boolean>>
   is_default_provider?: boolean
   default_model?: string | null
+  model_context_windows?: Record<string, number>
 }
 
 export interface ListProvidersResponse {
@@ -407,6 +408,7 @@ export interface TestConnectionResponse {
 export interface DiscoverModelsResponse {
   models: string[]
   default_model_warning?: string
+  model_context_windows?: Record<string, number>
 }
 
 // === 系统更新动态 ===

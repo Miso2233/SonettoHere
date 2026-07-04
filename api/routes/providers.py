@@ -232,13 +232,23 @@ async def test_existing_provider(provider_id: str, request: Request):
 async def discover_models(body: TestConnectionBody):
     """根据凭据拉取模型列表（前端向导步骤 3）。"""
     from openai import AsyncOpenAI
+    from api.data.model_context_windows import get_context_window
 
     try:
         client = AsyncOpenAI(api_key=body.api_key, base_url=body.base_url)
         models = await client.models.list()
         model_names = sorted(m.id for m in models.data)
 
-        return {"models": model_names}
+        # 尝试从 API 元数据获取上下文窗口
+        model_context_windows: dict[str, int] = {}
+        for m in models.data:
+            ctx = getattr(m, "max_context_length", None) or getattr(m, "context_window", None)
+            if ctx:
+                model_context_windows[m.id] = int(ctx)
+            else:
+                model_context_windows[m.id] = get_context_window(m.id)
+
+        return {"models": model_names, "model_context_windows": model_context_windows}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
@@ -250,6 +260,7 @@ async def discover_models_for_existing(provider_id: str, request: Request):
     重新拉取后，如果原来的 default_model 已不存在，自动置 None 并返回警告。
     """
     from openai import AsyncOpenAI
+    from api.data.model_context_windows import get_context_window
 
     mgr = _get_manager(request)
     config = mgr.get_config(provider_id)
@@ -266,6 +277,16 @@ async def discover_models_for_existing(provider_id: str, request: Request):
         if config.default_model is not None and config.default_model not in model_names:
             warning = f"Default model '{config.default_model}' is no longer available and has been reset"
             config.default_model = None
+
+        # 填充 model_context_windows
+        model_context_windows: dict[str, int] = {}
+        for m in models.data:
+            ctx = getattr(m, "max_context_length", None) or getattr(m, "context_window", None)
+            if ctx:
+                model_context_windows[m.id] = int(ctx)
+            else:
+                model_context_windows[m.id] = get_context_window(m.id)
+        config.model_context_windows = model_context_windows
 
         config.models = model_names
         mgr.save_config(config)
@@ -326,4 +347,70 @@ async def test_single_capability(provider_id: str, body: TestCapabilityBody, req
 async def test_all_capabilities(provider_id: str, body: TestCapabilityBody, request: Request):
     """测试指定模型的所有能力。兼容旧端点路径。"""
     return await test_single_capability(provider_id, body, request)
+
+
+# ── 上下文窗口 ─────────────────────────────────────────────
+
+
+class RefreshContextWindowsBody(BaseModel):
+    url: str = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json"
+
+
+@router.post("/providers/refresh-context-windows")
+async def refresh_context_windows(body: RefreshContextWindowsBody, request: Request):
+    """从 LiteLLM 公开数据源拉取最新模型上下文窗口，更新配置文件。"""
+    import httpx
+    import yaml
+    from pathlib import Path
+
+    config_path = Path(__file__).resolve().parent.parent.parent / "config" / "model_context_windows.yaml"
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(body.url)
+            resp.raise_for_status()
+            litellm_data = resp.json()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch: {exc}")
+
+    fetched: dict[str, int] = {}
+    for model_id, model_info in litellm_data.items():
+        if isinstance(model_info, dict) and model_info.get("max_input_tokens"):
+            fetched[model_id] = int(model_info["max_input_tokens"])
+
+    if not fetched:
+        raise HTTPException(status_code=502, detail="No valid context window data found")
+
+    # 写入 YAML 配置文件
+    overrides = {}
+    if config_path.exists():
+        try:
+            with open(config_path, encoding="utf-8") as f:
+                existing = yaml.safe_load(f) or {}
+                overrides = existing.get("overrides", {})
+        except Exception:
+            pass
+
+    merged = {**overrides}
+    for model_id, ctx in fetched.items():
+        if model_id not in merged:
+            merged[model_id] = ctx
+
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.dump({"overrides": merged}, f, default_flow_style=False, allow_unicode=True)
+
+    # 更新已配置 provider 的 model_context_windows
+    mgr = _get_manager(request)
+    updated = 0
+    for config in mgr.list_configs():
+        if not config.models:
+            continue
+        for mn in config.models:
+            if mn not in config.model_context_windows:
+                config.model_context_windows[mn] = fetched.get(mn, 128_000)
+        mgr.save_config(config)
+        updated += 1
+
+    return {"status": "ok", "fetched_models": len(fetched), "updated_providers": updated}
 

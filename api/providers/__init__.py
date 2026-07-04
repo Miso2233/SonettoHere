@@ -23,6 +23,7 @@ class ProviderConfig:
     model_capabilities: dict[str, dict[str, bool]] = field(default_factory=dict)
     is_default_provider: bool = False
     default_model: str | None = None
+    model_context_windows: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -34,6 +35,8 @@ class ProviderConfig:
             d.pop("is_default_provider", None)
         if d.get("default_model") is None:
             d.pop("default_model", None)
+        if not d.get("model_context_windows"):
+            d.pop("model_context_windows", None)
         return d
 
 
