@@ -55,6 +55,7 @@ class FileEditTool(ToolBase):
     name: str = "file_edit"
     description: str = (
         "文件精确编辑：读取文件、精确字符串替换、多笔编辑、文本搜索。"
+        "仅支持 UTF-8 编码的文本文件，非 UTF-8 文件（如二进制、GBK 编码）会返回错误提示。"
         "基于 Claude Code Edit 工具模式，支持 old_string 精确匹配替换。"
         "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
@@ -121,8 +122,14 @@ class FileEditTool(ToolBase):
     # ── Read ──────────────────────────────────────────────────────
 
     def _read(self, file_path: str, offset: int = 0, limit: int = 0) -> str:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except UnicodeDecodeError:
+            return format_error(
+                f"文件编码错误: 文件 '{file_path}' 不是有效的 UTF-8 编码，"
+                "无法以文本方式读取。请确认文件编码或以二进制方式处理。"
+            )
 
         total_lines = len(lines)
         start = offset if offset > 0 else 0
@@ -154,8 +161,14 @@ class FileEditTool(ToolBase):
     ) -> str:
         if not old_string:
             return format_error("edit 操作需要提供 old_string")
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            return format_error(
+                f"文件编码错误: 文件 '{file_path}' 不是有效的 UTF-8 编码，"
+                "无法以文本方式读取。请确认文件编码或以二进制方式处理。"
+            )
 
         count = content.count(old_string)
         if count == 0:
@@ -194,8 +207,14 @@ class FileEditTool(ToolBase):
         if not isinstance(edit_list, list) or not edit_list:
             return format_error("edits 应为非空 JSON 数组")
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            return format_error(
+                f"文件编码错误: 文件 '{file_path}' 不是有效的 UTF-8 编码，"
+                "无法以文本方式读取。请确认文件编码或以二进制方式处理。"
+            )
 
         results: list[dict[str, Any]] = []
         for i, edit in enumerate(edit_list):
@@ -259,8 +278,14 @@ class FileEditTool(ToolBase):
         except re.error as e:
             return format_error(f"正则表达式错误: {e}")
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except UnicodeDecodeError:
+            return format_error(
+                f"文件编码错误: 文件 '{file_path}' 不是有效的 UTF-8 编码，"
+                "无法以文本方式读取。请确认文件编码或以二进制方式处理。"
+            )
 
         matches: list[dict[str, Any]] = []
         for i, line in enumerate(lines):

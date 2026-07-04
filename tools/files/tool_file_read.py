@@ -18,6 +18,7 @@ class FileReadTool(ToolBase):
     name: str = "file_read"
     description: str = (
         "读取文件内容并返回完整文本。"
+        "仅支持 UTF-8 编码的文本文件，非 UTF-8 文件（如二进制、GBK 编码）会返回错误提示。"
         "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
     )
     args_schema: type[BaseModel] = FileReadInput
@@ -37,8 +38,14 @@ class FileReadTool(ToolBase):
         if not os.path.isfile(file_path):
             return format_error(f"路径不是文件: {file_path}")
 
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = f.read()
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = f.read()
+        except UnicodeDecodeError:
+            return format_error(
+                f"文件编码错误: 文件 '{file_path}' 不是有效的 UTF-8 编码，"
+                "无法以文本方式读取。请确认文件编码或以二进制方式处理。"
+            )
 
         st = os.stat(file_path)
         return format_success({
