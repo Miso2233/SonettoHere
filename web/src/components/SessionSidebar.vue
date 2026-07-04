@@ -158,6 +158,7 @@
           @click.stop
         >
           <div class="constify-card-title">固定会话</div>
+          <div v-if="constifyError" class="constify-error">{{ constifyError }}</div>
           <div class="constify-input-row">
             <input
               ref="constifyInputRef"
@@ -336,6 +337,7 @@ const constifyInputRef = ref<HTMLInputElement | null>(null)
 const constifyCardTop = ref(0)
 const constifyCardLeft = ref(0)
 const generating = ref(false)
+const constifyError = ref('')
 
 /** 鼠标右键触发时的目标元素 rect，用于定位卡片 */
 let constifyAnchorRect: DOMRect | null = null
@@ -380,6 +382,7 @@ function showConstifyCard(session: SessionInfo) {
   }
   constifyTarget.value = session
   constifyName.value = session.const_name || ''
+  constifyError.value = ''
   closeContextMenu()
   nextTick(() => {
     adjustConstifyCardPosition()
@@ -401,6 +404,7 @@ async function generateTitle() {
     })
   } catch (e) {
     console.error('[constify] 标题生成失败:', e)
+    constifyError.value = e instanceof Error ? e.message : '标题生成失败'
   } finally {
     generating.value = false
   }
@@ -416,6 +420,7 @@ function confirmConstify() {
 function cancelConstify() {
   constifyTarget.value = null
   constifyName.value = ''
+  constifyError.value = ''
 }
 
 // ── 悬浮详情卡片 ──────────────────────────────────────────────
@@ -784,6 +789,16 @@ function closeContextMenu() {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.constify-error {
+  font-size: 12px;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  line-height: 1.4;
+  word-break: break-all;
 }
 
 .constify-input-row {

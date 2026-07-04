@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from api.providers import ProviderConfig
 from api.providers.vision import detect_vision_capabilities
+from api.dependencies import get_llm
 
 router = APIRouter()
 
@@ -50,6 +51,27 @@ class TestConnectionBody(BaseModel):
 
 def _get_manager(request: Request):
     return request.app.state.provider_manager
+
+
+async def _refresh_app_llm(request: Request) -> None:
+    """从 provider_manager 刷新 app.state.llm，同步 LTM 消费者生命周期。"""
+    mgr = _get_manager(request)
+    old_llm = getattr(request.app.state, "llm", None)
+    ltm = getattr(request.app.state, "ltm", None)
+
+    try:
+        request.app.state.llm = get_llm(mgr)
+        if old_llm is None and ltm is not None and not ltm.is_listening:
+            ltm.start_listening(
+                request.app.state.llm,
+                ws_registry=request.app.state.ws_registry,
+            )
+            print("[provider] LLM became available \u2014 LTM consumer started")
+    except RuntimeError:
+        request.app.state.llm = None
+        if ltm is not None and ltm.is_listening:
+            await ltm.stop_listening()
+            print("[provider] LLM became unavailable \u2014 LTM consumer stopped")
 
 
 # ── CRUD ────────────────────────────────────────────────
@@ -100,6 +122,7 @@ async def create_provider(body: ProviderCreateBody, request: Request):
         config.model_vision = vision
         mgr.save_config(config)
 
+    await _refresh_app_llm(request)
     return config.to_dict()
 
 
@@ -124,14 +147,16 @@ async def update_provider(provider_id: str, body: ProviderUpdateBody, request: R
         config.model_vision = vision
         mgr.save_config(config)
 
+    await _refresh_app_llm(request)
     return config.to_dict()
 
 
 @router.delete("/providers/{provider_id}")
-def delete_provider(provider_id: str, request: Request):
+async def delete_provider(provider_id: str, request: Request):
     """删除提供商配置。"""
     if not _get_manager(request).delete_config(provider_id):
         raise HTTPException(status_code=404, detail="Provider not found")
+    await _refresh_app_llm(request)
     return {"status": "deleted"}
 
 

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from api.const_session_store import flatten_content
 from api.context_usage import estimate_context_usage
+from api.dependencies import get_llm
 from agent.prompts import get_system_prompt_parts
 
 router = APIRouter()
@@ -232,7 +233,19 @@ async def generate_session_title(session_id: str, request: Request):
     prompt = f"{system_prompt}\n\n对话内容：\n{conversation_text}\n\n标题："
 
     try:
-        llm = request.app.state.llm
+        # 优先通过 provider_manager 动态获取 LLM（支持 Web UI 添加后的热更新）
+        mgr = getattr(request.app.state, "provider_manager", None)
+        if mgr is not None and mgr.count > 0:
+            llm = get_llm(mgr)
+        else:
+            llm = request.app.state.llm
+
+        if llm is None:
+            raise HTTPException(
+                status_code=503,
+                detail="没有可用的 LLM 提供商。请在模型设置中添加并启用一个提供商。",
+            )
+
         response = await llm.ainvoke(prompt)
         title = (
             response.content.strip().strip('"').strip("'")
@@ -242,6 +255,8 @@ async def generate_session_title(session_id: str, request: Request):
         title = title[:50]
         if not title:
             title = "未命名会话"
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"标题生成失败: {e}")
 
