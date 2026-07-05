@@ -46,7 +46,7 @@ news:
     date: "2026-07-01"
     tags: ["发布", "版本"]
     version: "v2.8.0"
-    pr_number: 0
+    pr_number: 203
   - id: "voice-input"
     title: "语音输入功能上线"
     description: "输入框新增语音输入按钮，长按按钮或长按空格键即可激活 Web Speech API 进行语音识别，识别结果自动填入输入框，释放双手提升输入效率。"
