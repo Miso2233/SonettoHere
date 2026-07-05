@@ -13,7 +13,7 @@ news:
     type: "enhance"
     date: "2026-06-26"
     tags: ["天气", "降水", "UI"]
-    version: ""
+    version: "v2.8.0"
     pr_number: 196
   - id: "todoist-bubble-wireframe"
     title: "Todoist 气泡线框化重构"
@@ -21,7 +21,7 @@ news:
     type: "refactor"
     date: "2026-06-21"
     tags: ["Todoist", "UI", "重构"]
-    version: ""
+    version: "v2.5.0"
     pr_number: 172
   - id: "memory-real-time-events"
     title: "记忆操作实时追踪"
@@ -29,7 +29,7 @@ news:
     type: "feat"
     date: "2026-06-20"
     tags: ["记忆", "实时", "WebSocket", "UI"]
-    version: ""
+    version: "v2.5.0"
     pr_number: 166
   - id: "model-vision-detection"
     title: "视觉能力自动检测"
