@@ -37,7 +37,7 @@ news:
     type: "feat"
     date: "2026-07-02"
     tags: ["视觉", "多模态", "检测", "UI"]
-    version: ""
+    version: "v3.0.0"
     pr_number: 205
   - id: "v2.8.0-release"
     title: "发布 v2.8.0 版本"
@@ -166,7 +166,7 @@ news:
     date: "2026-06-19"
     tags: ["发布", "版本"]
     version: "v2.2.0"
-    pr_number: 0
+    pr_number: 129
   - id: "chat-input-resize-handle"
     title: "输入框拖拽调整高度"
     description: "ChatInput 文本输入框顶部新增拖拽手柄，hover 时显示蓝色横线。使用 Pointer Events 实现流畅拖拽，容器高度可在默认高度到 600px 之间自由调整，拖拽后高度自动保持不受输入内容影响。"
@@ -190,7 +190,7 @@ news:
     date: "2026-06-16"
     tags: ["发布", "版本"]
     version: "v2.0.0"
-    pr_number: 0
+    pr_number: 114
   - id: "unified-provider-management"
     title: "提供商管理全面升级"
     description: "彻底移除 .env 模型配置，所有 LLM 提供商统一由 providers.yaml 通过前端 UI 管理。ProviderConfig 新增 context_window 字段，前端无提供商时友好提示引导配置。告别 .env 手动修改模型参数。"
