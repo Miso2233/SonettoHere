@@ -69,7 +69,7 @@ class MemoryItem:
 
 
 class MemoryManager:
-    def __init__(self, yaml_file: str = "memory.yaml"):
+    def __init__(self, yaml_file: str):
         self._yaml_file = yaml_file
         self._ensure_file_exists()
 
