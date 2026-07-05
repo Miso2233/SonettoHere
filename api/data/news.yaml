@@ -1,7 +1,7 @@
 news:
   - id: "v3.0.0-release"
     title: "发布 v3.0.0 版本"
-    description: "v3.0.0 版本带来配置架构的重大升级。所有配置文件统一迁移至 config/ 目录（providers.yaml、.env、auth_token.yaml、path_whitelist.yaml 等），新增自动迁移框架和升级脚本，启动时自动完成配置搬迁。记忆管理器重构清理孤儿锁文件，添加 Provider 后 LLM 实例自动刷新，Windows 编码兼容性全面修复。"
+    description: "v3.0.0完成了版本迁移的基础设施。Sonetto3的每一个版本都可以通过双击根目录的upgrade.bat升级到GitHub主分支最新版本。那么在明媚歌声的尽头，请别再停留。"
     type: "feat"
     date: "2026-07-05"
     tags: ["发布", "版本", "配置"]
