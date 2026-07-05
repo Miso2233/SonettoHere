@@ -10,11 +10,21 @@ _tools: list | None = None
 def get_llm(provider_manager=None):
     """获取 LLM。
 
-    从 ProviderManager 中取第一个 enabled provider 创建 LLM。
+    从 ProviderManager 中优先取 is_default_provider=True 的供应商创建 LLM，
+    若无默认供应商则取第一个 enabled provider。
     若无可用的 provider 则抛出 RuntimeError。
     LLM 配置统一由 providers.yaml 管理，不再降级到 .env。
     """
     if provider_manager is not None and provider_manager.count > 0:
+        # 优先取默认供应商
+        for provider in provider_manager.iter_enabled():
+            if provider.config.is_default_provider:
+                return provider.create_llm(
+                    provider.default_model,
+                    temperature=0.7,
+                    streaming=True,
+                )
+        # 退化到第一个 enabled provider
         for provider in provider_manager.iter_enabled():
             return provider.create_llm(
                 provider.default_model,

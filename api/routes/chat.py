@@ -24,9 +24,17 @@ router = APIRouter()
 
 
 def _get_provider_context(app_state) -> tuple[int, str]:
-    """从 ProviderManager 获取默认 context_window 和 model_name。"""
+    """从 ProviderManager 获取默认 context_window 和 model_name。
+
+    优先取 is_default_provider=True 的供应商。
+    """
     mgr = getattr(app_state, "provider_manager", None)
     if mgr is not None and mgr.count > 0:
+        # 优先取默认供应商
+        for provider in mgr.iter_enabled():
+            if provider.config.is_default_provider:
+                return provider.config.context_window, provider.default_model
+        # 退化到第一个 enabled provider
         for provider in mgr.iter_enabled():
             return provider.config.context_window, provider.default_model
     return 256_000, ""

@@ -20,11 +20,17 @@ class ProviderConfig:
     enabled: bool = True
     context_window: int = 256_000
     model_vision: dict[str, bool] = field(default_factory=dict)
+    is_default_provider: bool = False
+    default_model: str | None = None
 
     def to_dict(self) -> dict:
         d = asdict(self)
         if not d.get("model_vision"):
             del d["model_vision"]
+        if not d.get("is_default_provider"):
+            d.pop("is_default_provider", None)
+        if d.get("default_model") is None:
+            d.pop("default_model", None)
         return d
 
 
@@ -49,6 +55,8 @@ class Provider(ABC):
 
     @property
     def default_model(self) -> str:
+        if self.config.default_model and self.config.default_model in self.config.models:
+            return self.config.default_model
         return self.config.models[0] if self.config.models else ""
 
     @property

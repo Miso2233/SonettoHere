@@ -560,7 +560,10 @@ function selectProvider(id: string) {
   openDropdown.value = null
   const p = providers.value.find(p => p.id === id)
   currentModels.value = p?.models ?? []
-  selectedModelName.value = currentModels.value[0] || ''
+  // 优先使用供应商的 default_model，退化到第一个模型
+  selectedModelName.value = (p?.default_model && currentModels.value.includes(p.default_model))
+    ? p.default_model
+    : (currentModels.value[0] || '')
   emit('modelChange', selectedProviderId.value, selectedModelName.value)
 }
 
@@ -586,9 +589,10 @@ async function loadProviders() {
   try {
     const res = await api.listProviders()
     providers.value = res.providers.filter(p => p.enabled)
-    // 默认选中第一个已启用的提供商
+    // 默认选中默认供应商，退化到第一个已启用的提供商
     if (providers.value.length > 0 && !selectedProviderId.value) {
-      selectProvider(providers.value[0].id)
+      const defaultP = providers.value.find(p => p.is_default_provider) || providers.value[0]
+      selectProvider(defaultP.id)
     }
   } catch {
     // 静默失败
