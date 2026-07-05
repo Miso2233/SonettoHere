@@ -1,4 +1,4 @@
-"""REST API — 提供商 CRUD 与连接测试。"""
+"""REST API — 提供商 CRUD、连接测试、能力检测。"""
 
 from pathlib import Path
 
@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from api.providers import ProviderConfig
-from api.providers.vision import detect_vision_capabilities
+from api.providers.capabilities import get_all_testers, test_model_capabilities
 from api.dependencies import get_llm
 
 router = APIRouter()
@@ -46,6 +46,11 @@ class TestConnectionBody(BaseModel):
     provider_type: str = "openai"
 
 
+class TestCapabilityBody(BaseModel):
+    model_name: str
+    capability: str | None = None  # None = 测试所有能力
+
+
 # ── HELPERS ─────────────────────────────────────────────
 
 
@@ -74,6 +79,18 @@ async def _refresh_app_llm(request: Request) -> None:
             print("[provider] LLM became unavailable \u2014 LTM consumer stopped")
 
 
+def _get_testers() -> list:
+    """获取可用的能力检测器列表。"""
+    from api.providers.capabilities.vision import VisionTester
+    from api.providers.capabilities.tool_call import ToolCallTester
+    from api.providers.capabilities.structured_output import StructuredOutputTester
+
+    testers = [ToolCallTester(), StructuredOutputTester()]
+    if IMAGE_PATH.exists():
+        testers.append(VisionTester(IMAGE_PATH))
+    return testers
+
+
 # ── CRUD ────────────────────────────────────────────────
 
 
@@ -95,7 +112,7 @@ def get_provider(provider_id: str, request: Request):
 
 @router.post("/providers")
 async def create_provider(body: ProviderCreateBody, request: Request):
-    """新增提供商，并自动检测每个模型的视觉能力。"""
+    """新增提供商，自动检测能力。"""
     mgr = _get_manager(request)
     if mgr.get_config(body.id) is not None:
         raise HTTPException(
@@ -113,13 +130,18 @@ async def create_provider(body: ProviderCreateBody, request: Request):
         context_window=body.context_window,
     )
 
-    # 先写入基础配置（不含 vision）
+    # 先写入基础配置
     mgr.save_config(config)
 
-    # 检测视觉能力并更新配置
-    if config.models and IMAGE_PATH.exists():
-        vision = await detect_vision_capabilities(config, IMAGE_PATH)
-        config.model_vision = vision
+    # 自动检测所有能力
+    if config.models:
+        testers = _get_testers()
+        for model in config.models:
+            try:
+                results = await test_model_capabilities(config, model, testers)
+                config.model_capabilities[model] = results
+            except Exception:
+                pass
         mgr.save_config(config)
 
     await _refresh_app_llm(request)
@@ -128,7 +150,7 @@ async def create_provider(body: ProviderCreateBody, request: Request):
 
 @router.put("/providers/{provider_id}")
 async def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request):
-    """更新提供商配置（部分字段），并重新检测视觉能力。"""
+    """更新提供商配置（部分字段），不再自动检测能力。"""
     mgr = _get_manager(request)
     config = mgr.get_config(provider_id)
     if config is None:
@@ -138,13 +160,18 @@ async def update_provider(provider_id: str, body: ProviderUpdateBody, request: R
     for field, value in update_data.items():
         setattr(config, field, value)
 
-    # 先写入更新（不含 vision）
     mgr.save_config(config)
 
-    # 检测视觉能力并更新配置
-    if config.models and IMAGE_PATH.exists():
-        vision = await detect_vision_capabilities(config, IMAGE_PATH)
-        config.model_vision = vision
+    # 自动检测能力（仅对新模型或尚未检测的模型）
+    if config.models:
+        testers = _get_testers()
+        for model in config.models:
+            if model not in config.model_capabilities or not config.model_capabilities[model]:
+                try:
+                    results = await test_model_capabilities(config, model, testers)
+                    config.model_capabilities[model] = results
+                except Exception:
+                    pass
         mgr.save_config(config)
 
     await _refresh_app_llm(request)
@@ -241,3 +268,53 @@ async def discover_models_for_existing(provider_id: str, request: Request):
         return {"models": model_names}
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+# ── 能力检测 ─────────────────────────────────────────────
+
+
+@router.post("/providers/{provider_id}/test-capability")
+async def test_single_capability(provider_id: str, body: TestCapabilityBody, request: Request):
+    """测试指定模型的单个或所有能力，并保存结果。"""
+    mgr = _get_manager(request)
+    config = mgr.get_config(provider_id)
+    if config is None:
+        raise HTTPException(status_code=404, detail="Provider not found")
+
+    if body.model_name not in config.models:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Model '{body.model_name}' is not in provider's model list",
+        )
+
+    testers = _get_testers()
+    if body.capability:
+        testers = [t for t in testers if t.capability_name == body.capability]
+        if not testers:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unknown capability '{body.capability}'",
+            )
+
+    results = await test_model_capabilities(config, body.model_name, testers)
+
+    # 保存到 model_capabilities
+    if body.capability:
+        # 单项测试：只更新一个能力
+        model_caps = config.model_capabilities.get(body.model_name, {})
+        model_caps[body.capability] = results[body.capability]
+        if body.model_name not in config.model_capabilities:
+            config.model_capabilities[body.model_name] = {}
+        config.model_capabilities[body.model_name].update(model_caps)
+    else:
+        # 全量测试：替换整个模型的记录
+        config.model_capabilities[body.model_name] = results
+
+    mgr.save_config(config)
+    return {"capabilities": results}
+
+
+@router.post("/providers/{provider_id}/test-all-capabilities")
+async def test_all_capabilities(provider_id: str, body: TestCapabilityBody, request: Request):
+    """测试指定模型的所有能力。兼容旧端点路径。"""
+    return await test_single_capability(provider_id, body, request)

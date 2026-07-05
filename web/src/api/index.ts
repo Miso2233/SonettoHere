@@ -145,6 +145,18 @@ export const api = {
       method: 'POST',
     }),
 
+  testCapability: (id: string, body: { model_name: string; capability?: string }) =>
+    request<{ capabilities: Record<string, boolean> }>(`/providers/${id}/test-capability`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  testAllCapabilities: (id: string, body: { model_name: string }) =>
+    request<{ capabilities: Record<string, boolean> }>(`/providers/${id}/test-all-capabilities`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   // ── News ──
 
   listNews: () =>

@@ -37,7 +37,7 @@
             <div class="card-models-title">模型（{{ p.models.length }}）</div>
             <div class="card-models-tags">
               <span v-for="m in p.models" :key="m" class="model-tag">
-                {{ m }}<Icon v-if="p.model_vision?.[m] === true" name="image-cog" :size="12" class="vision-dot" title="支持视觉" />
+                {{ m }}<CapabilityBadges :capabilities="getModelCapabilities(p, m)" />
               </span>
               <span v-if="p.models.length === 0" class="model-tag empty">未配置</span>
             </div>
@@ -114,12 +114,27 @@
       <div v-if="discoveredModels.length > 0" class="form-section">
         <label class="form-label">选择模型（{{ selectedModels.length }}/{{ discoveredModels.length }}）</label>
         <div class="model-list">
-          <label v-for="m in discoveredModels" :key="m" class="model-item">
-            <input type="checkbox" :value="m" :checked="selectedModels.includes(m)" @change="toggleModel(m)" />
-            {{ m }}
-            <span v-if="editingModelVision[m] === true" class="vision-badge">视觉</span>
-            <span v-else-if="editingModelVision[m] === false" class="vision-badge no-vision">无视觉</span>
-          </label>
+          <div v-for="m in discoveredModels" :key="m" class="model-item">
+            <label class="model-checkbox-label">
+              <input type="checkbox" :value="m" :checked="selectedModels.includes(m)" @change="toggleModel(m)" />
+              <span class="model-name-text">{{ m }}</span>
+              <span v-if="editingModelCapabilities[m]?.vision === true" class="cap-badge" title="视觉">🖼️</span>
+              <span v-else-if="editingModelCapabilities[m]?.vision === false" class="cap-badge no-cap" title="无视觉">🖼️✗</span>
+              <span v-if="editingModelCapabilities[m]?.tool_call === true" class="cap-badge" title="工具调用">⚙️</span>
+              <span v-else-if="editingModelCapabilities[m]?.tool_call === false" class="cap-badge no-cap" title="无工具调用">⚙️✗</span>
+              <span v-if="editingModelCapabilities[m]?.structured_output === true" class="cap-badge" title="结构化输出">📋</span>
+              <span v-else-if="editingModelCapabilities[m]?.structured_output === false" class="cap-badge no-cap" title="无结构化输出">📋✗</span>
+            </label>
+            <div class="model-actions">
+              <button
+                type="button"
+                class="btn-test-cap"
+                :disabled="testingCap !== null"
+                @click.stop="testModelCapabilities(m)"
+                :title="testingCap === m ? '测试中...' : (testingCap !== null ? '请等待当前检测完成' : '测试能力')"
+              >{{ testingCap === m ? '⏳' : '🔍' }}</button>
+            </div>
+          </div>
         </div>
         <button type="button" class="btn sm" @click="selectAllModels">全选</button>
         <button type="button" class="btn sm" @click="selectedModels = []">取消全选</button>
@@ -140,6 +155,7 @@ import { api } from '@/api'
 import type { ProviderConfig, TestConnectionResponse } from '@/types'
 import { computed, onMounted, ref } from 'vue'
 import Icon from '@/components/Icon.vue'
+import CapabilityBadges from '@/components/CapabilityBadges.vue'
 
 // ── 预设提供商列表 ──
 const presets = [
@@ -204,6 +220,28 @@ async function handleTest() {
   }
 }
 
+// ── 能力检测 ──
+const editingModelCapabilities = ref<Record<string, Record<string, boolean>>>({})
+const testingCap = ref<string | null>(null)
+
+function getModelCapabilities(provider: ProviderConfig, model: string): Record<string, boolean> | undefined {
+  return provider.model_capabilities?.[model] ?? (provider.model_vision ? { vision: provider.model_vision[model] } as Record<string, boolean> : undefined)
+}
+
+async function testModelCapabilities(model: string) {
+  if (testingCap.value !== null) return
+  if (discovering.value) return  // 拉取中不可检测
+  testingCap.value = model
+  try {
+    const res = await api.testAllCapabilities(editingId.value, { model_name: model })
+    editingModelCapabilities.value[model] = res.capabilities
+  } catch (e: any) {
+    console.error('能力测试失败', e)
+  } finally {
+    testingCap.value = null
+  }
+}
+
 // ── 拉取模型 ──
 const discovering = ref(false)
 const discoveredModels = ref<string[]>([])
@@ -231,6 +269,11 @@ async function handleDiscover() {
   } catch (e: any) {
     formError.value = e.message
   } finally {
+    // 清除已不存在模型的旧能力数据
+    const newSet = new Set(discoveredModels.value)
+    for (const m of Object.keys(editingModelCapabilities.value)) {
+      if (!newSet.has(m)) delete editingModelCapabilities.value[m]
+    }
     discovering.value = false
   }
 }
@@ -267,6 +310,7 @@ function startAdd() {
   discoveredModels.value = []
   selectedModels.value = []
   editingModelVision.value = {}
+  editingModelCapabilities.value = {}
   formError.value = ''
   testOk.value = false
 }
@@ -284,6 +328,15 @@ function startEdit(p: ProviderConfig) {
   }
   discoveredModels.value = [...p.models]
   selectedModels.value = [...p.models]
+  // 合并 model_capabilities 和向后兼容的 model_vision
+  editingModelCapabilities.value = {}
+  for (const m of p.models) {
+    const caps: Record<string, boolean> = { ...(p.model_capabilities?.[m] || {}) }
+    if (p.model_vision?.[m] !== undefined && caps.vision === undefined) {
+      caps.vision = p.model_vision[m]
+    }
+    editingModelCapabilities.value[m] = caps
+  }
   editingModelVision.value = p.model_vision ?? {}
   formError.value = ''
   testOk.value = false
@@ -622,25 +675,72 @@ select.input { cursor: pointer; }
 .msg.ok { background: #d1fae5; color: #065f46; }
 .msg.error { background: #fee2e2; color: #991b1b; }
 
+/* ── 能力标记 ── */
+.cap-badge {
+  font-size: 10px;
+  margin-left: 2px;
+}
+.cap-badge.no-cap {
+  opacity: 0.35;
+}
+
 .model-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 240px;
+  gap: 2px;
+  max-height: 300px;
   overflow-y: auto;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px;
 }
 .model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  border-radius: 4px;
   font-size: 13px;
   font-family: 'SF Mono', 'Consolas', monospace;
-  padding: 4px 6px;
-  cursor: pointer;
-  border-radius: 4px;
 }
 .model-item:hover { background: var(--bg-secondary); }
-.model-item input { margin-right: 8px; }
+.model-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.model-checkbox-label input { margin: 0; flex-shrink: 0; }
+.model-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.btn-test-cap {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.btn-test-cap:hover {
+  opacity: 1;
+}
+.btn-test-cap:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
 
 .form-actions {
   display: flex;

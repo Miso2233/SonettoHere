@@ -111,7 +111,10 @@ const isSubagent = computed(() => {
 const selectedModelHasVision = computed(() => {
   if (!selectedProviderId.value || !selectedModelName.value) return false
   const provider = providers.value.find(p => p.id === selectedProviderId.value)
-  return provider?.model_vision?.[selectedModelName.value] === true
+  if (!provider) return false
+  // 同时检查新老两种存储方式
+  return provider.model_vision?.[selectedModelName.value] === true
+    || provider.model_capabilities?.[selectedModelName.value]?.vision === true
 })
 
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null)

@@ -20,11 +20,14 @@ class ProviderConfig:
     enabled: bool = True
     context_window: int = 256_000
     model_vision: dict[str, bool] = field(default_factory=dict)
+    model_capabilities: dict[str, dict[str, bool]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         d = asdict(self)
         if not d.get("model_vision"):
             del d["model_vision"]
+        if not d.get("model_capabilities"):
+            d.pop("model_capabilities", None)
         return d
 
 

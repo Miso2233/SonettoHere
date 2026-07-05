@@ -397,6 +397,34 @@ async def _run_agent_turn(
                 "payload": {"code": "AGENT_ERROR", "message": str(e)},
             }
         )
+        # 运行时能力修正：检测是否因能力不足导致错误，触发重测
+        if provider_id and model_name and hasattr(app_state, "provider_manager"):
+            try:
+                mgr = app_state.provider_manager
+                config = mgr.get_config(provider_id)
+                if config is not None:
+                    err_str = str(e).lower()
+                    needs_retest = []
+                    if "vision" in err_str or "image" in err_str or "multimodal" in err_str:
+                        needs_retest.append("vision")
+                    if "tool" in err_str or "function call" in err_str:
+                        needs_retest.append("tool_call")
+                    if "json" in err_str or "structure" in err_str or "parse" in err_str:
+                        needs_retest.append("structured_output")
+                    if needs_retest:
+                        from api.providers.capabilities import get_all_testers, test_model_capabilities
+                        testers = [
+                            t for t in get_all_testers()
+                            if t.capability_name in needs_retest
+                        ]
+                        if testers:
+                            results = await test_model_capabilities(config, model_name, testers)
+                            model_caps = config.model_capabilities.get(model_name, {})
+                            model_caps.update(results)
+                            config.model_capabilities[model_name] = model_caps
+                            mgr.save_config(config)
+            except Exception as retest_err:
+                print(f"[capability-retest] Error during retest: {retest_err}", file=sys.stderr)
     finally:
         session._active_task = None
         context_usage = await _calculate_context_usage(
