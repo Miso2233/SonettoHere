@@ -1,4 +1,36 @@
 news:
+  - id: "v3.0.0-release"
+    title: "发布 v3.0.0 版本"
+    description: "v3.0.0 版本带来配置架构的重大升级。所有配置文件统一迁移至 config/ 目录（providers.yaml、.env、auth_token.yaml、path_whitelist.yaml 等），新增自动迁移框架和升级脚本，启动时自动完成配置搬迁。记忆管理器重构清理孤儿锁文件，添加 Provider 后 LLM 实例自动刷新，Windows 编码兼容性全面修复。"
+    type: "feat"
+    date: "2026-07-05"
+    tags: ["发布", "版本", "配置"]
+    version: "v3.0.0"
+    pr_number: 0
+  - id: "minute-precipitation"
+    title: "分钟级降水预报上线"
+    description: "天气工具新增分钟级降水预报展示。后端将 ~120 个降水数据点自动压缩为连续降水区间摘要，携带强度分级和持续时间；前端工具气泡新增降水信息栏，展示时间范围、强度色条和降水量。原始点数据对 LLM 透明，简化理解。"
+    type: "enhance"
+    date: "2026-06-26"
+    tags: ["天气", "降水", "UI"]
+    version: ""
+    pr_number: 196
+  - id: "todoist-bubble-wireframe"
+    title: "Todoist 气泡线框化重构"
+    description: "Todoist 工具气泡全面重构为 6 个独立子组件，全线框黑白配色。包括项目树、任务列表（p1-p4 灰度优先级）、任务详情（2×2 网格信息卡）、操作结果（创建/完成/删除/更新四变体）、分区列表和标签网格，视觉风格统一清晰。"
+    type: "refactor"
+    date: "2026-06-21"
+    tags: ["Todoist", "UI", "重构"]
+    version: ""
+    pr_number: 172
+  - id: "memory-real-time-events"
+    title: "记忆操作实时追踪"
+    description: "后台记忆 consumer 通过 WebSocket 实时推送记忆操作事件到前端，每轮对话底部显示记忆操作日志。新增 MemoryToolCallback 将 CRUD 工具调用转为事件流，turn_id 关联确保事件准确归属对话轮次，无修改时自动显示「记忆检查 — 无需修改」。"
+    type: "feat"
+    date: "2026-06-20"
+    tags: ["记忆", "实时", "WebSocket", "UI"]
+    version: ""
+    pr_number: 166
   - id: "model-vision-detection"
     title: "视觉能力自动检测"
     description: "后端自动检测每个模型的视觉能力，在提供商管理页面和顶部栏直观显示当前模型是否支持多模态输入。无视觉模型时输入框提示闪烁引导用户切换模型，简化多模态体验的发现与配置。"
