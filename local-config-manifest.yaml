@@ -1,0 +1,104 @@
+# =============================================================================
+# 本地配置清单 — local config manifest
+# =============================================================================
+# 用途：记录所有「跨版本升级时必须保留」但「未被 git 追踪」的本地配置和
+#       运行时数据文件。方便开发版本升级脚本时知道需要拷贝哪些文件。
+#
+# 原则：此清单中的文件在版本升级时同等重要，不存在“可重建”一说。
+#       无论是用户手工编辑的还是自动生成的，跨越版本时全部保留。
+#
+# 维护者：每次新增/移除未追踪的配置文件时同步更新此文件。
+#       version 字段在配置数据结构发生不兼容变更时 +1。
+# =============================================================================
+
+# ── 清单版本 ─────────────────────────────────────────────────────────────────
+# version=0 表示初始版本，之后每次数据结构（文件路径、字段）变更时递增。
+version: 0
+
+# ── 元数据 ───────────────────────────────────────────────────────────────────
+metadata:
+  description: "SonettoHere 本地配置文件注册表"
+  created_at: "2026-07-05"
+  project: "SonettoHere"
+  note: >
+    此文件本身受 git 追踪，不属于需保留的配置。
+    所有 paths 中的文件均在 .gitignore 中排除。
+
+# ── 文件清单 ─────────────────────────────────────────────────────────────────
+# 所有文件在版本升级时视为同等重要，统一备份。
+# ───────────────────────────────────────────────────────────────────────────────
+
+paths:
+  - path: "config/.env"
+    description: "第三方工具 API 凭据（Todoist、高德、Tavily 等）"
+    since_version: 0
+    created_by: "setup.py Step 4 / memory/user_init.py ensure_env_file"
+    source_template: "config/.env.example"
+    required_for: "所有依赖外部 API 的工具功能"
+    gitignored: true
+
+  - path: "config/providers.yaml"
+    description: "LLM 提供商配置（base_url / api_key / model / context_window）"
+    since_version: 0
+    created_by: "setup.py Step 5 / Web UI /providers 页面"
+    source_template: null
+    required_for: "对话功能"
+    gitignored: true
+
+  - path: "config/personas/USER.md"
+    description: "用户自我介绍（system prompt 注入，AI 借此了解用户）"
+    since_version: 0
+    created_by: "setup.py Step 6"
+    source_template: "config/personas/USER.example.md"
+    required_for: "个性化对话体验"
+    gitignored: true
+
+  - path: "config/personas/SOUL.md"
+    description: "AI 角色人设定义（语气、规则、领域知识）"
+    since_version: 0
+    created_by: "setup.py Step 6"
+    source_template: "config/personas/SOUL.example.md"
+    required_for: "AI 人设风格"
+    gitignored: true
+
+  - path: "config/mcp_servers.yaml"
+    description: "声明式 MCP 服务器配置（可含 API Key）"
+    since_version: 0
+    created_by: "用户手工编辑"
+    source_template: null
+    required_for: "MCP 工具功能"
+    gitignored: true
+
+  - path: "config/personas/memory.yaml"
+    description: "AI 长期记忆存储（对话中学习的用户信息）"
+    since_version: 0
+    created_by: "memory/narrative.py LongTermMemoryInterface 消费者"
+    source_template: null
+    required_for: "AI 记忆功能"
+    gitignored: true
+
+  - path: "config/sonetto_blocker.yaml"
+    description: "安全阻断路径列表（防止 AI 访问敏感目录）"
+    since_version: 0
+    created_by: "启动时由代码自动生成"
+    source_template: null
+    required_for: "安全防护机制"
+    gitignored: true
+
+  - path: "config/path_whitelist.yaml"
+    description: "文件系统路径白名单（含用户在 UI 添加的自定义条目）"
+    since_version: 0
+    created_by: "启动时自动创建默认条目 + 用户在 UI 添加自定义路径"
+    source_template: null
+    required_for: "文件浏览工具"
+    note: "启动时会自动写入 anthropic_skills/ 和 macros/ 两个默认路径，但用户在 UI 添加的自定义白名单仅在此文件中保存，无法自动重建"
+    gitignored: true
+
+  - path: "api/data/const-sessions/"
+    description: "固定会话持久化快照目录（内含 *.yaml）"
+    since_version: 0
+    created_by: "api/const_session_store.py save_const_session"
+    source_template: null
+    required_for: "Const 固定会话功能"
+    gitignored: true
+

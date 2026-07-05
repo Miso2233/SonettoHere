@@ -137,7 +137,7 @@ def setup_frontend():
 
 def setup_env():
     env_path = os.path.join(PROJECT_ROOT, "config", ".env")
-    example_path = os.path.join(PROJECT_ROOT, ".env.example")
+    example_path = os.path.join(PROJECT_ROOT, "config", ".env.example")
 
     if os.path.exists(env_path):
         skip(".env 已存在")

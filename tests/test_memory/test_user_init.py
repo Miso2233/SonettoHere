@@ -125,7 +125,9 @@ class TestEnsureEnvFile:
     def test_creates_env_from_example(self, monkeypatch, tmp_path):
         """.env 不存在时从 example 复制到 config/。"""
         project_root = tmp_path
-        example = project_root / ".env.example"
+        config_dir = project_root / "config"
+        config_dir.mkdir(parents=True)
+        example = config_dir / ".env.example"
         example.write_text("API_KEY=test", encoding="utf-8")
 
         monkeypatch.setattr(user_init, "PROJECT_ROOT", project_root)
@@ -141,11 +143,11 @@ class TestEnsureEnvFile:
     def test_env_not_overwritten(self, monkeypatch, tmp_path):
         """.env 已存在时不覆盖。"""
         project_root = tmp_path
-        example = project_root / ".env.example"
-        example.write_text("新内容。", encoding="utf-8")
-
         config_dir = project_root / "config"
         config_dir.mkdir(parents=True)
+        example = config_dir / ".env.example"
+        example.write_text("新内容。", encoding="utf-8")
+
         env_file = config_dir / ".env"
         env_file.write_text("用户已有的配置。", encoding="utf-8")
 
@@ -173,12 +175,14 @@ class TestEnsureAll:
         """ensure_all 依次调用三个 ensure 函数。"""
         persona_dir = tmp_path / "personas"
         persona_dir.mkdir(parents=True)
+        config_dir = tmp_path / "config"
+        config_dir.mkdir(parents=True)
         project_root = tmp_path
 
         # 准备所有 example 文件
         (persona_dir / "USER.example.md").write_text("user", encoding="utf-8")
         (persona_dir / "SOUL.example.md").write_text("soul", encoding="utf-8")
-        (project_root / ".env.example").write_text("env", encoding="utf-8")
+        (config_dir / ".env.example").write_text("env", encoding="utf-8")
 
         monkeypatch.setattr(user_init, "PERSONAS_DIR", persona_dir)
         monkeypatch.setattr(user_init, "PROJECT_ROOT", project_root)

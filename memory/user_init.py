@@ -42,7 +42,7 @@ def ensure_env_file() -> None:
     env_dst = PROJECT_ROOT / "config" / ".env"
     env_dst.parent.mkdir(parents=True, exist_ok=True)
     _copy_if_missing(
-        PROJECT_ROOT / ".env.example",
+        PROJECT_ROOT / "config" / ".env.example",
         env_dst,
         "请编辑 .env 填写 API Key",
     )
