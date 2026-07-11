@@ -43,6 +43,7 @@
               <div class="card-keywords">
                 <span v-for="(kw, ki) in card.keywords.slice(0, 3)" :key="ki" class="kw">{{ kw }}</span>
               </div>
+              <div class="card-fortune">{{ card.fortune }}</div>
             </div>
           </div>
         </div>
@@ -69,6 +70,7 @@
                 <span class="card-row-pos">{{ card.position }}</span>
                 <span class="card-row-kw">{{ card.keywords.slice(0, 2).join(' · ') }}</span>
               </div>
+              <div class="card-row-fortune">{{ card.fortune }}</div>
             </div>
           </div>
         </div>
@@ -301,6 +303,15 @@ const displayOutput = computed(() => {
   white-space: nowrap;
 }
 
+.card-fortune {
+  font-size: 12px;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.5;
+  padding: 0 2px;
+  opacity: 0.85;
+}
+
 /* ── 竖排列表（4+ 张） ── */
 .cards-list {
   display: flex;
@@ -387,6 +398,13 @@ const displayOutput = computed(() => {
 .card-row-kw {
   color: var(--text-primary);
   opacity: 0.6;
+}
+
+.card-row-fortune {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  opacity: 0.75;
 }
 
 /* ── 降级 ── */
