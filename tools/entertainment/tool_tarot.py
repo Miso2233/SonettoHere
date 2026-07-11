@@ -93,6 +93,7 @@ class TarotTool(ToolBase):
                     "suit": card.get("suit", "大阿尔卡纳"),
                     "element": card.get("element", ""),
                     "keywords": card["keywords"],
+                    "fortune": random.choice(meanings),
                     "position": pos,
                     "status": status,
                     "orientation": "reversed" if card["is_reversed"] else "upright",
