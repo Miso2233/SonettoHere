@@ -544,7 +544,7 @@ cards:
   - 你的关系或事业可能陷入了停滞——需要诚实地审视，是继续投入还是及时止损、另寻出路。
 - id: 22
   name: 权杖Ace
-  name_en: Ace of 权杖
+  name_en: Ace of Wands
   symbol: A
   suit: 权杖
   element: 火
@@ -873,7 +873,7 @@ cards:
   - 过分沉迷于他人的宏大蓝图而迷失了自己的方向
 - id: 36
   name: 圣杯Ace
-  name_en: Ace of 圣杯
+  name_en: Ace of Cups
   symbol: A
   suit: 圣杯
   element: 水
@@ -921,7 +921,7 @@ cards:
   - 需要敞开心扉真诚交流，哪怕一次深入的对话就能扭转局面
 - id: 38
   name: 圣杯三
-  name_en: 三 of 圣杯
+  name_en: Three of Cups
   symbol: 三
   suit: 圣杯
   element: 水
@@ -945,7 +945,7 @@ cards:
   - 闲言碎语和背后议论正在侵蚀真正的情谊
 - id: 39
   name: 圣杯四
-  name_en: 四 of 圣杯
+  name_en: Four of Cups
   symbol: 四
   suit: 圣杯
   element: 水
@@ -969,7 +969,7 @@ cards:
   - 需要独处时间来重新找回自己的根基与内在力量
 - id: 40
   name: 圣杯五
-  name_en: 五 of 圣杯
+  name_en: Five of Cups
   symbol: 五
   suit: 圣杯
   element: 水
@@ -993,7 +993,7 @@ cards:
   - 学会宽恕自己，知道你已尽力而为，不必再自责
 - id: 41
   name: 圣杯六
-  name_en: 六 of 圣杯
+  name_en: Six of Cups
   symbol: 六
   suit: 圣杯
   element: 水
@@ -1017,7 +1017,7 @@ cards:
   - 童年问题或未解决的家庭创伤需要你勇敢面对
 - id: 42
   name: 圣杯七
-  name_en: 七 of 圣杯
+  name_en: Seven of Cups
   symbol: 七
   suit: 圣杯
   element: 水
@@ -1041,7 +1041,7 @@ cards:
   - 减少选项，聚焦于最重要的一件事情上全力以赴
 - id: 43
   name: 圣杯八
-  name_en: 八 of 圣杯
+  name_en: Eight of Cups
   symbol: 八
   suit: 圣杯
   element: 水
@@ -1065,7 +1065,7 @@ cards:
   - 害怕改变而选择维持现状，即使明知已不再适合自己
 - id: 44
   name: 圣杯九
-  name_en: 九 of 圣杯
+  name_en: Nine of Cups
   symbol: 九
   suit: 圣杯
   element: 水
@@ -1089,7 +1089,7 @@ cards:
   - 提醒自己不要过度放纵，保持节制与生活的平衡
 - id: 45
   name: 圣杯十
-  name_en: 十 of 圣杯
+  name_en: Ten of Cups
   symbol: 十
   suit: 圣杯
   element: 水
@@ -1113,7 +1113,7 @@ cards:
   - 需要重新建立沟通渠道，寻求共同基础来修补关系
 - id: 46
   name: 圣杯侍者
-  name_en: 侍者 of 圣杯
+  name_en: Page of Cups
   symbol: 侍者
   suit: 圣杯
   element: 水
@@ -1137,7 +1137,7 @@ cards:
   - 情感上不够成熟，容易戏剧化地过度分享或情绪失控
 - id: 47
   name: 圣杯骑士
-  name_en: 骑士 of 圣杯
+  name_en: Knight of Cups
   symbol: 骑士
   suit: 圣杯
   element: 水
@@ -1161,7 +1161,7 @@ cards:
   - 需要将想法落地，评估时间、成本和资源来推进项目
 - id: 48
   name: 圣杯皇后
-  name_en: 皇后 of 圣杯
+  name_en: Queen of Cups
   symbol: 皇后
   suit: 圣杯
   element: 水
@@ -1185,7 +1185,7 @@ cards:
   - 需要向内转，花时间独处来重新连接自己的感受和需求
 - id: 49
   name: 圣杯国王
-  name_en: 国王 of 圣杯
+  name_en: King of Cups
   symbol: 国王
   suit: 圣杯
   element: 水
@@ -1209,7 +1209,7 @@ cards:
   - 需要向内探索潜意识中的情感根源，通过疗愈来恢复平衡
 - id: 50
   name: 宝剑Ace
-  name_en: Ace of 宝剑
+  name_en: Ace of Swords
   symbol: A
   suit: 宝剑
   element: 风
@@ -1233,7 +1233,7 @@ cards:
   - 想法尚未成熟就暴露在外，反而容易遭到否定
 - id: 51
   name: 宝剑二
-  name_en: 二 of 宝剑
+  name_en: Two of Swords
   symbol: 二
   suit: 宝剑
   element: 风
@@ -1257,7 +1257,7 @@ cards:
   - 试图扮演和事佬结果夹在中间两头受气，需要抽身离开
 - id: 52
   name: 宝剑三
-  name_en: 三 of 宝剑
+  name_en: Three of Swords
   symbol: 三
   suit: 宝剑
   element: 风
@@ -1281,7 +1281,7 @@ cards:
   - 学会在开口前先思考，避免因冲动言语造成无法挽回的伤害
 - id: 53
   name: 宝剑四
-  name_en: 四 of 宝剑
+  name_en: Four of Swords
   symbol: 四
   suit: 宝剑
   element: 风
@@ -1305,7 +1305,7 @@ cards:
   - 明明知道需要休息却无法说服自己停下来，正走向彻底崩溃
 - id: 54
   name: 宝剑五
-  name_en: 五 of 宝剑
+  name_en: Five of Swords
   symbol: 五
   suit: 宝剑
   element: 风
@@ -1329,7 +1329,7 @@ cards:
   - 冲突之后终于准备好向前看，把能量重新收回到自己身上
 - id: 55
   name: 宝剑六
-  name_en: 六 of 宝剑
+  name_en: Six of Swords
   symbol: 六
   suit: 宝剑
   element: 风
@@ -1353,7 +1353,7 @@ cards:
   - 需要先处理遗留的问题才能全身心地投入新的旅程
 - id: 56
   name: 宝剑七
-  name_en: 七 of 宝剑
+  name_en: Seven of Swords
   symbol: 七
   suit: 宝剑
   element: 风
@@ -1377,7 +1377,7 @@ cards:
   - 计谋被识破，面临被揭穿的风险
 - id: 57
   name: 宝剑八
-  name_en: 八 of 宝剑
+  name_en: Eight of Swords
   symbol: 八
   suit: 宝剑
   element: 风
@@ -1401,7 +1401,7 @@ cards:
   - 从负面思维中解脱，重获自由
 - id: 58
   name: 宝剑九
-  name_en: 九 of 宝剑
+  name_en: Nine of Swords
   symbol: 九
   suit: 宝剑
   element: 风
@@ -1425,7 +1425,7 @@ cards:
   - 寻求帮助，明白不必独自承受一切
 - id: 59
   name: 宝剑十
-  name_en: 十 of 宝剑
+  name_en: Ten of Swords
   symbol: 十
   suit: 宝剑
   element: 风
@@ -1449,7 +1449,7 @@ cards:
   - 拖延放手只会延长痛苦，该是翻篇的时候了
 - id: 60
   name: 宝剑侍者
-  name_en: 侍者 of 宝剑
+  name_en: Page of Swords
   symbol: 侍者
   suit: 宝剑
   element: 风
@@ -1473,7 +1473,7 @@ cards:
   - 需要静下心来整理思绪和计划
 - id: 61
   name: 宝剑骑士
-  name_en: 骑士 of 宝剑
+  name_en: Knight of Swords
   symbol: 骑士
   suit: 宝剑
   element: 风
@@ -1497,7 +1497,7 @@ cards:
   - 需要放慢节奏，重新评估方向和策略
 - id: 62
   name: 宝剑皇后
-  name_en: 皇后 of 宝剑
+  name_en: Queen of Swords
   symbol: 皇后
   suit: 宝剑
   element: 风
@@ -1521,7 +1521,7 @@ cards:
   - 需要重新找到理智与情感的平衡
 - id: 63
   name: 宝剑国王
-  name_en: 国王 of 宝剑
+  name_en: King of Swords
   symbol: 国王
   suit: 宝剑
   element: 风
@@ -1545,7 +1545,7 @@ cards:
   - 需要审视自身的偏见和固执己见
 - id: 64
   name: 星币Ace
-  name_en: Ace of 星币
+  name_en: Ace of Pentacles
   symbol: A
   suit: 星币
   element: 土
@@ -1569,7 +1569,7 @@ cards:
   - 过度消费或投资不慎，财务根基变得不稳
 - id: 65
   name: 星币二
-  name_en: 二 of 星币
+  name_en: Two of Pentacles
   symbol: 二
   suit: 星币
   element: 土
@@ -1593,7 +1593,7 @@ cards:
   - 缺乏条理和规划，陷入一片混乱
 - id: 66
   name: 星币三
-  name_en: 三 of 星币
+  name_en: Three of Pentacles
   symbol: 三
   suit: 星币
   element: 土
@@ -1617,7 +1617,7 @@ cards:
   - 需要重新协调目标和协作方式
 - id: 67
   name: 星币四
-  name_en: 四 of 星币
+  name_en: Four of Pentacles
   symbol: 四
   suit: 星币
   element: 土
@@ -1641,7 +1641,7 @@ cards:
   - 进入自我保护模式，通过整理和掌控内部环境来应对混乱的外界
 - id: 68
   name: 星币五
-  name_en: 五 of 星币
+  name_en: Five of Pentacles
   symbol: 五
   suit: 星币
   element: 土
@@ -1665,7 +1665,7 @@ cards:
   - 需要破除"我负担不起"的限制性信念，信任宇宙和生命的支持
 - id: 69
   name: 星币六
-  name_en: 六 of 星币
+  name_en: Six of Pentacles
   symbol: 六
   suit: 星币
   element: 土
@@ -1689,7 +1689,7 @@ cards:
   - 关系中给予和接受严重不平衡，一方付出过多而另一方只取不给
 - id: 70
   name: 星币七
-  name_en: 七 of 星币
+  name_en: Seven of Pentacles
   symbol: 七
   suit: 星币
   element: 土
@@ -1713,7 +1713,7 @@ cards:
   - 需要进行成本效益分析，识别哪些任务能真正带来回报
 - id: 71
   name: 星币八
-  name_en: 八 of 星币
+  name_en: Eight of Pentacles
   symbol: 八
   suit: 星币
   element: 土
@@ -1737,7 +1737,7 @@ cards:
   - 被琐碎的小事填满时间，却在真正重要的目标上缺乏进展
 - id: 72
   name: 星币九
-  name_en: 九 of 星币
+  name_en: Nine of Pentacles
   symbol: 九
   suit: 星币
   element: 土
@@ -1761,7 +1761,7 @@ cards:
   - 在自我投资上犹豫不决，需要学会无条件地爱自己和投资自己
 - id: 73
   name: 星币十
-  name_en: 十 of 星币
+  name_en: Ten of Pentacles
   symbol: 十
   suit: 星币
   element: 土
@@ -1785,7 +1785,7 @@ cards:
   - 家人之间在金钱和价值观上产生严重分歧
 - id: 74
   name: 星币侍者
-  name_en: 侍者 of 星币
+  name_en: Page of Pentacles
   symbol: 侍者
   suit: 星币
   element: 土
@@ -1809,7 +1809,7 @@ cards:
   - 从过去的失败中汲取教训，将挫折转化为未来成功的经验
 - id: 75
   name: 星币骑士
-  name_en: 骑士 of 星币
+  name_en: Knight of Pentacles
   symbol: 骑士
   suit: 星币
   element: 土
@@ -1833,7 +1833,7 @@ cards:
   - 忽略生活中的实际事务，需要花时间处理好被搁置的财务和家务
 - id: 76
   name: 星币皇后
-  name_en: 皇后 of 星币
+  name_en: Queen of Pentacles
   symbol: 皇后
   suit: 星币
   element: 土
@@ -1857,7 +1857,7 @@ cards:
   - 需要在重要领域做出取舍，并与他人重新协商各自的分工和承诺
 - id: 77
   name: 星币国王
-  name_en: 国王 of 星币
+  name_en: King of Pentacles
   symbol: 国王
   suit: 星币
   element: 土
