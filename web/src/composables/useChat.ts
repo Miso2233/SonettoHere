@@ -297,7 +297,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
 
     case 'tool_start': {
       const tsEvent = event as { type: 'tool_start'; payload: { call_id: string; tool_name: string; input: string } }
-      console.log(`[useChat] tool_start: "${tsEvent.payload.tool_name}"`, { input: tsEvent.payload.input, call_id: tsEvent.payload.call_id, session: sid })
+      console.log('[useChat] tool_start:', tsEvent.payload.tool_name, { input: tsEvent.payload.input, call_id: tsEvent.payload.call_id, session: sid })
       turn.events.push({
         kind: 'tool',
         name: tsEvent.payload.tool_name,
