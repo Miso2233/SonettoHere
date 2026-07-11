@@ -1,4 +1,28 @@
 news:
+  - id: "v3.1.0-release"
+    title: "发布 v3.1.0 版本"
+    description: "v3.1.0 带来默认供应商与模型选择系统，提供商页新增默认标记与默认模型设定位；升级器重构为迁移 ID 驱动机制，支持更健壮的版本间配置迁移；修复并行工具调用 call_id 匹配和 tool_name 字符串注入漏洞。"
+    type: "feat"
+    date: "2026-07-11"
+    tags: ["发布", "版本"]
+    version: "v3.1.0"
+    pr_number: 0
+  - id: "default-provider-model"
+    title: "默认供应商/模型选择功能"
+    description: "提供商管理新增默认供应商标记，顶栏自动联动展示当前默认模型。编辑表单内可为每个提供商设定默认模型，模型列表中星标直观标识。无缝切换默认模型后顶部栏与上下文用量同步更新。"
+    type: "feat"
+    date: "2026-07-11"
+    tags: ["提供商", "默认", "UI"]
+    version: "v3.1.0"
+    pr_number: 218
+  - id: "upgrade-migration-driven"
+    title: "升级器重构为迁移 ID 驱动"
+    description: "升级器全面重构，采用迁移 ID（migration_id）驱动机制替代版本号对比。每次迁移与对应升级脚本绑定，支持幂等执行、版本跳跃识别和失败回滚提示，配置升级过程更安全透明。"
+    type: "refactor"
+    date: "2026-07-10"
+    tags: ["升级", "重构", "迁移"]
+    version: "v3.1.0"
+    pr_number: 230
   - id: "v3.0.0-release"
     title: "发布 v3.0.0 版本"
     description: "v3.0.0完成了版本迁移的基础设施。Sonetto3的每一个版本都可以通过双击根目录的upgrade.bat升级到GitHub主分支最新版本。那么在明媚歌声的尽头，请别再停留。"
