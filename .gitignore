@@ -84,3 +84,6 @@ macros/*/
 
 # 安全威胁模型（本地文档，不提交）
 dev_docs/security/
+
+# 迁移运行时状态（每个用户本地不同）
+scripts/migrations/.applied

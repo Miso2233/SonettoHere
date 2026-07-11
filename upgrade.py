@@ -2,17 +2,16 @@
 """SonettoHere — 本地配置自动升级器
 
 工作流程：
-  1. 读取当前配置版本号（local-config-manifest.yaml）
+  1. 读取已应用的迁移 ID 列表（scripts/migrations/.applied）
   2. git pull 拉取最新代码
-  3. 读取新版本号
-  4. 发现并依次执行 scripts/migrations/from{X}to{X+1}.py
-  5. 验证最终版本号
+  3. 扫描 scripts/migrations/，找出尚未应用的迁移脚本
+  4. 按文件名字母序依次执行
+  5. 每成功一个，将迁移 ID 追加到 .applied
 
 用法:
   python upgrade.py
 """
 
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -20,10 +19,10 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 MANIFEST_PATH = PROJECT_ROOT / "local-config-manifest.yaml"
 MIGRATIONS_DIR = PROJECT_ROOT / "scripts" / "migrations"
+APPLIED_PATH = MIGRATIONS_DIR / ".applied"
 
 
-def read_version() -> int:
-    """从 manifest 解析 version 字段。"""
+def _load_manifest() -> dict:
     import yaml
 
     if not MANIFEST_PATH.exists():
@@ -31,51 +30,60 @@ def read_version() -> int:
         sys.exit(0)
 
     with open(MANIFEST_PATH, encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        return yaml.safe_load(f) or {}
 
-    version = data.get("version")
-    if version is None:
-        print("[upgrade] manifest 中缺少 version 字段")
-        sys.exit(1)
-    return int(version)
+
+def _read_applied_file() -> list[str] | None:
+    """读取 .applied。不存在返回 None。"""
+    if not APPLIED_PATH.exists():
+        return None
+    content = APPLIED_PATH.read_text(encoding="utf-8").strip()
+    return content.splitlines() if content else []
+
+
+def _write_applied_file(values: list[str]) -> None:
+    APPLIED_PATH.parent.mkdir(parents=True, exist_ok=True)
+    APPLIED_PATH.write_text("\n".join(values) + "\n", encoding="utf-8")
+
+
+def read_applied_migrations() -> list[str]:
+    """读取已应用的迁移 ID 列表。兼容旧版 manifest version 字段。"""
+    applied = _read_applied_file()
+    if applied is not None:
+        return applied
+
+    # 旧格式兼容：version=N → 生成 from0to1 ~ from{N-1}to{N}
+    version = _load_manifest().get("version", 0)
+    applied = [f"from{i}to{i+1}" for i in range(version)]
+    _write_applied_file(applied)
+    print(f"[upgrade] 已从 manifest version={version} 迁移至 .applied 格式")
+    return applied
 
 
 def _is_connection_error(stderr: str) -> bool:
-    """判断 git 错误信息是否为网络连接问题。"""
     keywords = [
-        "Failed to connect",
-        "Could not resolve host",
-        "Connection refused",
-        "Network is unreachable",
-        "Unable to access",
-        "Couldn't connect",
-        "连接失败",
-        "无法连接",
-        "网络不通",
+        "Failed to connect", "Could not resolve host", "Connection refused",
+        "Network is unreachable", "Unable to access", "Couldn't connect",
+        "连接失败", "无法连接", "网络不通",
     ]
     return any(k in stderr for k in keywords)
 
 
 def _run_git_pull(proxy: str | None = None) -> subprocess.CompletedProcess:
-    """执行 git pull，可选带代理。"""
     cmd = ["git", "pull"]
     if proxy:
         cmd = ["git", "-c", f"http.proxy={proxy}", "-c", f"https.proxy={proxy}", "pull"]
     return subprocess.run(
-        cmd,
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
+        cmd, cwd=PROJECT_ROOT, capture_output=True, text=True,
     )
 
 
-def git_pull() -> bool:
-    """执行 git pull，返回是否有新提交拉取。"""
+def git_pull() -> None:
     print("[upgrade] git pull ...")
     result = _run_git_pull()
 
     if result.returncode != 0 and _is_connection_error(result.stderr):
-        print(f"[upgrade] 连接失败，将通过代理重试。")
+        print("[upgrade] 连接失败，将通过代理重试。")
         port = input("  代理端口（默认 7890，直接回车使用默认值）: ").strip()
         if not port:
             port = "7890"
@@ -87,55 +95,32 @@ def git_pull() -> bool:
         print(f"[upgrade] git pull 失败:\n{result.stderr}")
         sys.exit(1)
 
-    stdout = result.stdout.strip()
-    if "Already up to date" in stdout:
-        print("[upgrade] 已是最新，无需升级")
-        return False
-    print(f"[upgrade] 已拉取更新")
-    return True
+    if "Already up to date" in result.stdout.strip():
+        print("[upgrade] 已是最新")
+    else:
+        print("[upgrade] 已拉取更新")
 
 
-def discover_scripts(old_version: int, new_version: int) -> list[Path]:
-    """扫描迁移目录，找出 old→new 之间所有需要执行的脚本。
-
-    匹配 scripts/migrations/from{X}to{X+1}.py 文件名。
-    """
+def discover_pending_migrations(applied: list[str]) -> list[Path]:
     if not MIGRATIONS_DIR.is_dir():
         print(f"[upgrade] 迁移脚本目录不存在: {MIGRATIONS_DIR}")
         return []
 
-    pattern = re.compile(r"^from(\d+)to(\d+)\.py$")
-    available: dict[tuple[int, int], Path] = {}
-
-    for fpath in MIGRATIONS_DIR.iterdir():
-        if not fpath.is_file():
+    pending = []
+    for fpath in sorted(MIGRATIONS_DIR.iterdir()):
+        if not fpath.is_file() or fpath.suffix != ".py" or fpath.name == "__init__.py":
             continue
-        m = pattern.match(fpath.name)
-        if m:
-            start, end = int(m.group(1)), int(m.group(2))
-            if end == start + 1:
-                available[(start, end)] = fpath
-
-    # 按起始版本排序
-    scripts: list[Path] = []
-    for v in range(old_version, new_version):
-        key = (v, v + 1)
-        if key not in available:
-            print(f"[upgrade] 缺少迁移脚本: from{v}to{v+1}.py，跳过")
-            continue
-        scripts.append(available[key])
-
-    return scripts
+        if fpath.stem not in applied:
+            pending.append(fpath)
+    return pending
 
 
 def run_script(script: Path) -> None:
-    """执行单个迁移脚本。"""
+    mig_id = script.stem
     print(f"[upgrade] 执行 {script.name} ...")
     result = subprocess.run(
         [sys.executable, str(script)],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
+        cwd=PROJECT_ROOT, capture_output=True, text=True,
     )
     if result.stdout:
         for line in result.stdout.strip().splitlines():
@@ -147,6 +132,11 @@ def run_script(script: Path) -> None:
                 print(f"  ERR: {line}")
         sys.exit(1)
 
+    applied = _read_applied_file() or []
+    applied.append(mig_id)
+    _write_applied_file(applied)
+    print(f"[upgrade] ✔ {mig_id} 已记录")
+
 
 def main():
     print("=" * 48)
@@ -154,42 +144,24 @@ def main():
     print("=" * 48)
     print()
 
-    # 1. 读取当前版本
-    old_version = read_version()
-    print(f"[upgrade] 当前版本: {old_version}")
+    applied = read_applied_migrations()
+    print(f"[upgrade] 已应用 {len(applied)} 个迁移")
 
-    # 2. git pull
-    has_update = git_pull()
-    if not has_update:
+    git_pull()
+
+    pending = discover_pending_migrations(applied)
+    if not pending:
+        print("[upgrade] 无需执行新的迁移")
         sys.exit(0)
 
-    # 3. 读取新版本
-    new_version = read_version()
-    print(f"[upgrade] 新版本:   {new_version}")
+    print(f"[upgrade] 发现 {len(pending)} 个待执行迁移:")
+    for script in pending:
+        print(f"  - {script.name}")
 
-    if new_version <= old_version:
-        print("[upgrade] 版本号未变化，无需迁移")
-        sys.exit(0)
-
-    # 4. 发现并执行迁移脚本
-    scripts = discover_scripts(old_version, new_version)
-    if not scripts:
-        print(f"[upgrade] 未找到从 v{old_version} 升级所需的迁移脚本")
-        sys.exit(0)
-
-    print(f"[upgrade] 计划执行 {len(scripts)} 个迁移脚本: "
-          f"v{old_version} → v{new_version}")
-    for script in scripts:
+    for script in pending:
         run_script(script)
 
-    # 5. 验证最终版本
-    final_version = read_version()
-    if final_version == new_version:
-        print(f"\n[upgrade] ✅ 升级完成: v{old_version} → v{final_version}")
-    else:
-        print(f"\n[upgrade] ⚠️  最终版本 ({final_version}) "
-              f"与预期 ({new_version}) 不一致")
-        sys.exit(1)
+    print(f"\n[upgrade] ✅ 升级完成")
 
 
 if __name__ == "__main__":
