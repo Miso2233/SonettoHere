@@ -17,20 +17,8 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-MANIFEST_PATH = PROJECT_ROOT / "local-config-manifest.yaml"
 MIGRATIONS_DIR = PROJECT_ROOT / "scripts" / "migrations"
 APPLIED_PATH = MIGRATIONS_DIR / ".applied"
-
-
-def _load_manifest() -> dict:
-    import yaml
-
-    if not MANIFEST_PATH.exists():
-        print("[upgrade] 未找到 local-config-manifest.yaml，跳过升级")
-        sys.exit(0)
-
-    with open(MANIFEST_PATH, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
 
 
 def _read_applied_file() -> list[str] | None:
@@ -47,17 +35,8 @@ def _write_applied_file(values: list[str]) -> None:
 
 
 def read_applied_migrations() -> list[str]:
-    """读取已应用的迁移 ID 列表。兼容旧版 manifest version 字段。"""
-    applied = _read_applied_file()
-    if applied is not None:
-        return applied
-
-    # 旧格式兼容：version=N → 生成 from0to1 ~ from{N-1}to{N}
-    version = _load_manifest().get("version", 0)
-    applied = [f"from{i}to{i+1}" for i in range(version)]
-    _write_applied_file(applied)
-    print(f"[upgrade] 已从 manifest version={version} 迁移至 .applied 格式")
-    return applied
+    """读取已应用的迁移 ID 列表。"""
+    return _read_applied_file() or []
 
 
 def _is_connection_error(stderr: str) -> bool:
