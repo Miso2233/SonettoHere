@@ -1,5 +1,5 @@
 import { reactive, computed, watch, nextTick, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryStartEvent, MemoryDoneEvent } from '@/types'
+import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, TokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent, MemoryToolEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryStartEvent, MemoryDoneEvent } from '@/types'
 import { refreshSessions, switchSession } from '@/composables/useSession'
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
@@ -229,6 +229,43 @@ export function ensureConnected(sid: string) {
 
 // ── 事件路由 ──────────────────────────────────────────────
 
+/** read_memories 是纯读取操作，前端无需显示其执行状态。 */
+function skipReadMemories(payload: { tool_name: string }): boolean {
+  return payload.tool_name === 'read_memories'
+}
+
+/** 后台记忆 consumer 事件类型。 */
+type MemoryEventType = 'memory_start' | 'memory_tool_start' | 'memory_tool_end' | 'memory_tool_error' | 'memory_done'
+
+/** 后台记忆 consumer 事件处理器签名。 */
+type MemoryEventHandler = (ch: SessionChannel, sid: string, event: ServerEvent) => void
+
+/** 记忆事件处理器注册表。新增记忆事件类型只需在此注册，调用方守卫自动覆盖。 */
+const memoryHandlers = new Map<MemoryEventType, MemoryEventHandler>([
+  ['memory_start', handleMemoryStart],
+  ['memory_tool_start', handleMemoryToolStart],
+  ['memory_tool_end', handleMemoryToolEnd],
+  ['memory_tool_error', handleMemoryToolError],
+  ['memory_done', handleMemoryDone],
+])
+
+/** 事件路由处理器签名（turn 已由调用方守卫保证存在）。 */
+type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
+
+/** 事件路由处理器注册表。 */
+const turnHandlers = new Map<string, TurnEventHandler>([
+  ['thinking_start', handleThinkingStart],
+  ['token', handleToken],
+  ['thinking_end', handleThinkingEnd],
+  ['tool_start', handleToolStart],
+  ['tool_end', handleToolEnd],
+  ['tool_error', handleToolError],
+  ['answer', handleAnswer],
+  ['done', handleDone],
+  ['error', handleError],
+  ['ask_user', handleAskUser],
+])
+
 function handleEventForChannel(sid: string, event: ServerEvent) {
   const ch = channels.get(sid)
   if (!ch) return
@@ -263,256 +300,251 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
     return
   }
 
-  // memory_tool_* / memory_start / memory_done 可能在 done 事件之后到达（currentTurn 已清空），
+  // 后台记忆 consumer 事件可能在 done 事件之后到达（currentTurn 已清空），
   // 必须在 const turn = ch.currentTurn 守卫之前处理，通过 turn_id 自行查找目标。
-  if (event.type === 'memory_start' || event.type === 'memory_tool_start' || event.type === 'memory_tool_end'
-    || event.type === 'memory_tool_error' || event.type === 'memory_done') {
-    handleMemoryToolEvent(ch, sid, event)
+  const memoryHandler = memoryHandlers.get(event.type as MemoryEventType)
+  if (memoryHandler) {
+    memoryHandler(ch, sid, event)
     return
   }
 
   const turn = ch.currentTurn
   if (!turn) return
 
-  switch (event.type) {
-    case 'thinking_start':
-      turn.events.push({ kind: 'thinking', tokens: '', done: false, becameAnswer: false })
-      break
-
-    case 'token': {
-      const lastThink = findLastThinking(turn.events)
-      if (lastThink) {
-        lastThink.tokens += event.payload.token
-      }
-      break
-    }
-
-    case 'thinking_end': {
-      const lastThink = findLastThinking(turn.events)
-      if (lastThink) {
-        lastThink.done = true
-      }
-      break
-    }
-
-    case 'tool_start': {
-      const tsEvent = event as { type: 'tool_start'; payload: { call_id: string; tool_name: string; input: string } }
-      console.log('[useChat] tool_start:', tsEvent.payload.tool_name, { input: tsEvent.payload.input, call_id: tsEvent.payload.call_id, session: sid })
-      turn.events.push({
-        kind: 'tool',
-        name: tsEvent.payload.tool_name,
-        input: tsEvent.payload.input,
-        output: null,
-        elapsed: null,
-        status: 'running',
-        callId: tsEvent.payload.call_id,
-      })
-      break
-    }
-
-    case 'tool_end': {
-      const teEvent = event as { type: 'tool_end'; payload: { call_id: string; tool_name: string; output: string; elapsed: number; tool_data?: Record<string, unknown> } }
-      // 精确匹配：优先用 call_id，降级用 heuristic
-      const tc = findToolByCallId(turn.events, teEvent.payload.call_id)
-        ?? findBestMatchingTool(turn.events, teEvent.payload.tool_name)
-      if (tc) {
-        tc.output = event.payload.output
-        tc.elapsed = event.payload.elapsed
-        tc.status = 'done'
-        if (event.payload.tool_data) {
-          tc.toolData = event.payload.tool_data
-          if (event.payload.tool_name === 'task_tracker' && event.payload.tool_data) {
-            ch.taskTrackerData = event.payload.tool_data as Record<string, unknown>
-          }
-        }
-        console.log(`[useChat] tool_end: "${event.payload.tool_name}"`, {
-          output_len: (event.payload.output || '').length,
-          output_preview: (event.payload.output || '').slice(0, 100),
-          has_tool_data: !!event.payload.tool_data,
-          elapsed: event.payload.elapsed,
-          session: sid,
-        })
-      }
-      // ask_user 工具执行完毕 → 用户已回应，回到工作态
-      if (ch.isAwaitingUser && event.payload.tool_name === ch._awaitingToolName) {
-        ch.isAwaitingUser = false
-        ch._awaitingToolName = null
-      }
-      break
-    }
-
-    case 'tool_error': {
-      const teEvent = event as { type: 'tool_error'; payload: { call_id: string; tool_name: string; error: string } }
-      const tc = findToolByCallId(turn.events, teEvent.payload.call_id)
-        ?? findBestMatchingTool(turn.events, teEvent.payload.tool_name)
-      if (tc) {
-        tc.status = 'error'
-      }
-      break
-    }
-
-    case 'answer': {
-      const lastThink = findLastThinking(turn.events)
-      if (lastThink) {
-        lastThink.becameAnswer = true
-      }
-      turn.finalAnswer = event.payload.content
-      break
-    }
-
-    case 'done':
-      ch.isAwaitingUser = false
-      ch._awaitingToolName = null
-      if (event.payload.context_usage) {
-        ch.contextUsage = event.payload.context_usage
-      }
-      // 存储后端 turn_id，用于关联后台记忆 consumer 的事件
-      if (ch.currentTurn && (event.payload as Record<string, unknown>).turn_id) {
-        ch.currentTurn.turnId = (event.payload as Record<string, unknown>).turn_id as string
-        console.log(`[ltm-fe] turnId set on turn.id=${ch.currentTurn.id}: ${ch.currentTurn.turnId}`)
-      }
-      if (ch.currentTurn) {
-        const lastThink = findLastThinking(ch.currentTurn.events)
-        const trackBecame = lastThink?.becameAnswer
-        console.log(`[useChat:done] 会话 ${sid}: becameAnswer=${trackBecame}, events=${ch.currentTurn.events.length}, finalAnswer=${ch.currentTurn.finalAnswer?.slice(0, 50) ?? 'null'}`)
-        if (trackBecame) {
-          const turnToFinalize = ch.currentTurn
-          void nextTick(() => {
-            setTimeout(() => {
-              console.log(`[useChat:done] becameAnswer 分支执行 persist (会话 ${sid})`)
-              ch.turns.push(turnToFinalize)
-              ch.currentTurn = null
-              ch.isStreaming = false
-              if (!ch.privateMode) {
-                persistTurns(sid)
-              }
-            }, 420)
-          })
-        } else {
-          console.log(`[useChat:done] 直接分支执行 persist (会话 ${sid})`)
-          ch.turns.push(ch.currentTurn)
-          ch.currentTurn = null
-          ch.isStreaming = false
-          if (!ch.privateMode) {
-            persistTurns(sid)
-          }
-        }
-        void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
-      } else {
-        console.warn(`[useChat:done] 会话 ${sid} 的 done 事件到达时 currentTurn 为 null`)
-        ch.isStreaming = false
-      }
-      // 子 Agent 完成 → 自动切回主会话
-      if (ch.parentSessionId) {
-        setTimeout(() => switchSession(ch.parentSessionId!), 500)
-      }
-      break
-
-    case 'error':
-      ch.isAwaitingUser = false
-      ch._awaitingToolName = null
-      ch.error = event.payload.message
-      ch.isStreaming = false
-      break
-
-    case 'pong':
-      break
-
-    case 'ask_user': {
-      const ae = event as AskUserEvent
-      ch.isAwaitingUser = true
-      ch._awaitingToolName = ae.payload.tool_name
-      console.log('[useChat] received ask_user event:', {
-        tool_name: ae.payload.tool_name,
-        question: ae.payload.question?.slice(0, 50),
-        mode: ae.payload.mode,
-        interaction_id: ae.payload.interaction_id,
-        session: sid,
-      })
-      const runningTool = findFirstRunningToolForInteraction(turn.events, ae.payload.tool_name)
-      console.log('[useChat] findFirstRunningToolForInteraction result:', runningTool ? {
-        name: runningTool.name,
-        status: runningTool.status,
-        has_interaction: !!runningTool.interaction,
-      } : 'NOT FOUND')
-      if (runningTool) {
-        runningTool.interaction = {
-          question: ae.payload.question,
-          mode: ae.payload.mode,
-          options: ae.payload.options,
-          interactionId: ae.payload.interaction_id,
-          submitted: false,
-          code: ae.payload.code,
-        }
-      }
-      break
-    }
-
+  const turnHandler = turnHandlers.get(event.type)
+  if (turnHandler) {
+    turnHandler(ch, sid, turn, event)
   }
 }
 
-/** 后台记忆 consumer 事件处理（在 done 后 currentTurn=null 时也能通过 turn_id 找到目标）。 */
-function handleMemoryToolEvent(ch: SessionChannel, sid: string, event: ServerEvent): void {
-  if (event.type === 'memory_start') {
-    const me = event as MemoryStartEvent
-    console.log(`[ltm-fe] memory_start session=${sid} turn_id=${me.payload.turn_id}`)
-    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
-    if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
-    if (!targetTurn.memoryEvents) targetTurn.memoryEvents = []
-    targetTurn.memoryEvents.push({
-      kind: 'memory_tool', name: 'memory_processing', input: '', output: null, elapsed: null, status: 'running',
-    })
-    return
+/** 后台记忆 consumer 开始处理本轮对话：压入「处理中」占位条目。 */
+function handleMemoryStart(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  const me = event as MemoryStartEvent
+  console.log(`[ltm-fe] memory_start session=${sid} turn_id=${me.payload.turn_id}`)
+  const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+  if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
+  if (!targetTurn.memoryEvents) targetTurn.memoryEvents = []
+  targetTurn.memoryEvents.push({
+    kind: 'memory_tool', name: 'memory_processing', input: '', output: null, elapsed: null, status: 'running',
+  })
+}
+
+/** 后台记忆 consumer 开始调用 CRUD 工具：压入 running 状态工具事件。 */
+function handleMemoryToolStart(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  const me = event as MemoryToolStartEvent
+  if (skipReadMemories(me.payload)) return
+  console.log(`[ltm-fe] memory_tool_start session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
+  const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+  if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
+  targetTurn.memoryEvents?.push({
+    kind: 'memory_tool', name: me.payload.tool_name, input: me.payload.input,
+    output: null, elapsed: null, status: 'running',
+  })
+}
+
+/** 后台记忆 consumer 的 CRUD 工具执行完毕：更新匹配事件为 done。 */
+function handleMemoryToolEnd(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  const me = event as MemoryToolEndEvent
+  if (skipReadMemories(me.payload)) return
+  console.log(`[ltm-fe] memory_tool_end session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
+  const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+  if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
+  const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
+  if (mt) { mt.output = me.payload.output; mt.elapsed = me.payload.elapsed; mt.status = 'done' }
+  if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+}
+
+/** 后台记忆 consumer 的 CRUD 工具出错：更新匹配事件为 error。 */
+function handleMemoryToolError(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  const me = event as MemoryToolErrorEvent
+  if (skipReadMemories(me.payload)) return
+  const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+  if (!targetTurn) return
+  const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
+  if (mt) mt.status = 'error'
+  if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+}
+
+/** 后台记忆 consumer 处理完毕：移除「处理中」占位，无实际工具事件时渲染 memory_review。 */
+function handleMemoryDone(ch: SessionChannel, sid: string, event: ServerEvent): void {
+  const me = event as MemoryDoneEvent
+  console.log(`[ltm-fe] memory_done session=${sid} turn_id=${me.payload.turn_id}`)
+  const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
+  if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
+  // 移除「处理中」占位条目
+  const realEvents = (targetTurn.memoryEvents ?? []).filter(e => e.name !== 'memory_processing')
+  targetTurn.memoryEvents = realEvents
+  if (realEvents.length === 0) {
+    targetTurn.memoryEvents = [{
+      kind: 'memory_tool', name: 'memory_review', input: '', output: '', elapsed: null, status: 'done',
+    }]
+    console.log(`[ltm-fe] added memory_review`)
   }
-  if (event.type === 'memory_tool_start') {
-    const me = event as MemoryToolStartEvent
-    if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
-    console.log(`[ltm-fe] memory_tool_start session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
-    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
-    if (!targetTurn) { console.log(`[ltm-fe] NO turn found for ${me.payload.turn_id}`); return }
-    targetTurn.memoryEvents?.push({
-      kind: 'memory_tool', name: me.payload.tool_name, input: me.payload.input,
-      output: null, elapsed: null, status: 'running',
-    })
-    return
+  if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+}
+
+/** thinking_start：压入思考块。 */
+function handleThinkingStart(ch: SessionChannel, _sid: string, turn: ChatTurn, _event: ServerEvent): void {
+  turn.events.push({ kind: 'thinking', tokens: '', done: false, becameAnswer: false })
+}
+
+/** token：追加到最后一个思考块。 */
+function handleToken(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const lastThink = findLastThinking(turn.events)
+  if (lastThink) {
+    lastThink.tokens += (event as TokenEvent).payload.token
   }
-  if (event.type === 'memory_tool_end') {
-    const me = event as MemoryToolEndEvent
-    if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
-    console.log(`[ltm-fe] memory_tool_end session=${sid} turn_id=${me.payload.turn_id} tool=${me.payload.tool_name}`)
-    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
-    if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
-    const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
-    if (mt) { mt.output = me.payload.output; mt.elapsed = me.payload.elapsed; mt.status = 'done' }
-    if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
-    return
+}
+
+/** thinking_end：标记最后一个思考块完成。 */
+function handleThinkingEnd(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const lastThink = findLastThinking(turn.events)
+  if (lastThink) {
+    lastThink.done = true
   }
-  if (event.type === 'memory_tool_error') {
-    const me = event as MemoryToolErrorEvent
-    if (me.payload.tool_name === 'read_memories') return  // 纯读取不显示
-    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
-    if (!targetTurn) return
-    const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
-    if (mt) mt.status = 'error'
-    if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
-    return
-  }
-  if (event.type === 'memory_done') {
-    const me = event as MemoryDoneEvent
-    console.log(`[ltm-fe] memory_done session=${sid} turn_id=${me.payload.turn_id}`)
-    const targetTurn = findTurnByBackendId(ch, me.payload.turn_id)
-    if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
-    // 移除「处理中」占位条目
-    const realEvents = (targetTurn.memoryEvents ?? []).filter(e => e.name !== 'memory_processing')
-    targetTurn.memoryEvents = realEvents
-    if (realEvents.length === 0) {
-      targetTurn.memoryEvents = [{
-        kind: 'memory_tool', name: 'memory_review', input: '', output: '', elapsed: null, status: 'done',
-      }]
-      console.log(`[ltm-fe] added memory_review`)
+}
+
+/** tool_start：压入 running 状态工具调用。 */
+function handleToolStart(ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const tsEvent = event as { type: 'tool_start'; payload: { call_id: string; tool_name: string; input: string } }
+  console.log('[useChat] tool_start:', tsEvent.payload.tool_name, { input: tsEvent.payload.input, call_id: tsEvent.payload.call_id, session: sid })
+  turn.events.push({
+    kind: 'tool',
+    name: tsEvent.payload.tool_name,
+    input: tsEvent.payload.input,
+    output: null,
+    elapsed: null,
+    status: 'running',
+    callId: tsEvent.payload.call_id,
+  })
+}
+
+/** tool_end：更新匹配工具调用为 done，提取 tool_data，处理 ask_user 状态恢复。 */
+function handleToolEnd(ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const teEvent = event as { type: 'tool_end'; payload: { call_id: string; tool_name: string; output: string; elapsed: number; tool_data?: Record<string, unknown> } }
+  // 精确匹配：优先用 call_id，降级用 heuristic
+  const tc = findToolByCallId(turn.events, teEvent.payload.call_id)
+    ?? findBestMatchingTool(turn.events, teEvent.payload.tool_name)
+  if (tc) {
+    tc.output = teEvent.payload.output
+    tc.elapsed = teEvent.payload.elapsed
+    tc.status = 'done'
+    if (teEvent.payload.tool_data) {
+      tc.toolData = teEvent.payload.tool_data
+      if (teEvent.payload.tool_name === 'task_tracker' && teEvent.payload.tool_data) {
+        ch.taskTrackerData = teEvent.payload.tool_data as Record<string, unknown>
+      }
     }
-    if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
-    return
+    console.log(`[useChat] tool_end: "${teEvent.payload.tool_name}"`, {
+      output_len: (teEvent.payload.output || '').length,
+      output_preview: (teEvent.payload.output || '').slice(0, 100),
+      has_tool_data: !!teEvent.payload.tool_data,
+      elapsed: teEvent.payload.elapsed,
+      session: sid,
+    })
+  }
+  // ask_user 工具执行完毕 → 用户已回应，回到工作态
+  if (ch.isAwaitingUser && teEvent.payload.tool_name === ch._awaitingToolName) {
+    ch.isAwaitingUser = false
+    ch._awaitingToolName = null
+  }
+}
+
+/** tool_error：更新匹配工具调用为 error。 */
+function handleToolError(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const teEvent = event as { type: 'tool_error'; payload: { call_id: string; tool_name: string; error: string } }
+  const tc = findToolByCallId(turn.events, teEvent.payload.call_id)
+    ?? findBestMatchingTool(turn.events, teEvent.payload.tool_name)
+  if (tc) {
+    tc.status = 'error'
+  }
+}
+
+/** answer：标记思考块为 becameAnswer，设置 finalAnswer。 */
+function handleAnswer(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const lastThink = findLastThinking(turn.events)
+  if (lastThink) {
+    lastThink.becameAnswer = true
+  }
+  turn.finalAnswer = (event as AnswerEvent).payload.content
+}
+
+/** done：finalize 当前轮次，持久化，刷新会话列表。 */
+function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const de = event as DoneEvent
+  ch.isAwaitingUser = false
+  ch._awaitingToolName = null
+  if (de.payload.context_usage) {
+    ch.contextUsage = de.payload.context_usage
+  }
+  // 存储后端 turn_id，用于关联后台记忆 consumer 的事件
+  if (de.payload.turn_id) {
+    turn.turnId = de.payload.turn_id
+    console.log(`[ltm-fe] turnId set on turn.id=${turn.id}: ${turn.turnId}`)
+  }
+  const lastThink = findLastThinking(turn.events)
+  const trackBecame = lastThink?.becameAnswer
+  console.log(`[useChat:done] 会话 ${sid}: becameAnswer=${trackBecame}, events=${turn.events.length}, finalAnswer=${turn.finalAnswer?.slice(0, 50) ?? 'null'}`)
+  if (trackBecame) {
+    const turnToFinalize = turn
+    void nextTick(() => {
+      setTimeout(() => {
+        console.log(`[useChat:done] becameAnswer 分支执行 persist (会话 ${sid})`)
+        ch.turns.push(turnToFinalize)
+        ch.currentTurn = null
+        ch.isStreaming = false
+        if (!ch.privateMode) { persistTurns(sid) }
+      }, 420)
+    })
+  } else {
+    console.log(`[useChat:done] 直接分支执行 persist (会话 ${sid})`)
+    ch.turns.push(turn)
+    ch.currentTurn = null
+    ch.isStreaming = false
+    if (!ch.privateMode) { persistTurns(sid) }
+  }
+  void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
+  // 子 Agent 完成 → 自动切回主会话
+  if (ch.parentSessionId) {
+    setTimeout(() => switchSession(ch.parentSessionId!), 500)
+  }
+}
+
+/** error：清除流式状态，设置错误信息。 */
+function handleError(ch: SessionChannel, _sid: string, _turn: ChatTurn, event: ServerEvent): void {
+  ch.isAwaitingUser = false
+  ch._awaitingToolName = null
+  ch.error = (event as ErrorEvent).payload.message
+  ch.isStreaming = false
+}
+
+/** ask_user：设置交互等待状态，在 running 工具上挂载 interaction。 */
+function handleAskUser(ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const ae = event as AskUserEvent
+  ch.isAwaitingUser = true
+  ch._awaitingToolName = ae.payload.tool_name
+  console.log('[useChat] received ask_user event:', {
+    tool_name: ae.payload.tool_name,
+    question: ae.payload.question?.slice(0, 50),
+    mode: ae.payload.mode,
+    interaction_id: ae.payload.interaction_id,
+    session: sid,
+  })
+  const runningTool = findFirstRunningToolForInteraction(turn.events, ae.payload.tool_name)
+  console.log('[useChat] findFirstRunningToolForInteraction result:', runningTool ? {
+    name: runningTool.name,
+    status: runningTool.status,
+    has_interaction: !!runningTool.interaction,
+  } : 'NOT FOUND')
+  if (runningTool) {
+    runningTool.interaction = {
+      question: ae.payload.question,
+      mode: ae.payload.mode,
+      options: ae.payload.options,
+      interactionId: ae.payload.interaction_id,
+      submitted: false,
+      code: ae.payload.code,
+    }
   }
 }
 
