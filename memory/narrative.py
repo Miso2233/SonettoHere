@@ -5,10 +5,13 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
+from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
+
+from api.ws_registry import WebSocketRegistry
 
 from memory.memory_callback import MemoryToolCallback
 from memory.memory_manager import MAX_DESC_LENGTH, MemoryManager
@@ -286,7 +289,9 @@ class LongTermMemoryInterface:
         mm = MemoryManager(yaml_file=str(self._memory_path))
         return _format_narrative(mm.show())
 
-    def start_listening(self, llm, ws_registry=None) -> None:
+    def start_listening(
+        self, llm: BaseChatModel, ws_registry: WebSocketRegistry | None = None
+    ) -> None:
         """创建 asyncio.Queue 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
@@ -323,7 +328,7 @@ class LongTermMemoryInterface:
             self._queue = None
             self._consumer_task = None
 
-    async def _consumer(self, llm) -> None:
+    async def _consumer(self, llm: BaseChatModel) -> None:
         """后台消费者协程：从队列取消息，调用 CRUD Agent，写入 memory.yaml。"""
 
         while True:
@@ -378,7 +383,7 @@ class LongTermMemoryInterface:
                 date_prefix = (
                     f"\n\n--- 会话日期: {now.strftime('%Y-%m-%d')} {weekday_cn} ---"
                 )
-                user_prompt = user_prompt + date_prefix
+                user_prompt += date_prefix
 
                 crud_tools = [
                     create_memory,
@@ -388,10 +393,10 @@ class LongTermMemoryInterface:
                     merge_memories,
                 ]
 
-                agent = create_react_agent(
+                agent = create_agent(
                     model=llm,
                     tools=crud_tools,
-                    prompt=system_prompt,
+                    system_prompt=system_prompt,
                     checkpointer=MemorySaver(),
                 )
 
