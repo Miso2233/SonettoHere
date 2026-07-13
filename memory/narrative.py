@@ -270,12 +270,18 @@ class LongTermMemoryInterface:
         await ltm.stop_listening()        # 排空队列并停止
     """
 
-    def __init__(self, memory_path: str | Path) -> None:
+    def __init__(
+        self,
+        memory_path: str | Path,
+        llm: BaseChatModel | None = None,
+        ws_registry: WebSocketRegistry | None = None,
+    ) -> None:
         self._memory_path = Path(memory_path)
         self._mm = MemoryManager(yaml_file=str(self._memory_path))
+        self._llm = llm
+        self._ws_registry = ws_registry
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
-        self._ws_registry = None
 
     @property
     def is_listening(self) -> bool:
@@ -290,15 +296,18 @@ class LongTermMemoryInterface:
         return _format_narrative(mm.show())
 
     def start_listening(
-        self, llm: BaseChatModel, ws_registry: WebSocketRegistry | None = None
+        self, ws_registry: WebSocketRegistry | None = None
     ) -> None:
         """创建 asyncio.Queue 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
         """
-        self._ws_registry = ws_registry
+        if self._llm is None:
+            raise RuntimeError("LLM not set — cannot start listening")
+        if ws_registry is not None:
+            self._ws_registry = ws_registry
         self._queue = asyncio.Queue()
-        self._consumer_task = asyncio.create_task(self._consumer(llm))
+        self._consumer_task = asyncio.create_task(self._consumer())
 
     async def send_history(
         self,
@@ -328,7 +337,7 @@ class LongTermMemoryInterface:
             self._queue = None
             self._consumer_task = None
 
-    async def _consumer(self, llm: BaseChatModel) -> None:
+    async def _consumer(self) -> None:
         """后台消费者协程：从队列取消息，调用 CRUD Agent，写入 memory.yaml。"""
 
         while True:
@@ -394,7 +403,7 @@ class LongTermMemoryInterface:
                 ]
 
                 agent = create_agent(
-                    model=llm,
+                    model=self._llm,
                     tools=crud_tools,
                     system_prompt=system_prompt,
                     checkpointer=MemorySaver(),

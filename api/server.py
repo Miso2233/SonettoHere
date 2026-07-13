@@ -131,9 +131,13 @@ async def lifespan(app: FastAPI):
     app.state.native_tools = get_tools()
     app.state.session_manager = SessionManager()
     app.state.ws_registry = WebSocketRegistry()
-    app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
+    app.state.ltm = LongTermMemoryInterface(
+        MEMORY_PATH,
+        llm=app.state.llm,
+        ws_registry=app.state.ws_registry,
+    )
     if app.state.llm is not None:
-        app.state.ltm.start_listening(app.state.llm, ws_registry=app.state.ws_registry)
+        app.state.ltm.start_listening()
     else:
         print("[ltm] Skipped (no LLM available)")
 

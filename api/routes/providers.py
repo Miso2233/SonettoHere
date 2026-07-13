@@ -55,8 +55,8 @@ async def _refresh_app_llm(request: Request) -> None:
     try:
         request.app.state.llm = get_llm(mgr)
         if old_llm is None and ltm is not None and not ltm.is_listening:
+            ltm._llm = request.app.state.llm
             ltm.start_listening(
-                request.app.state.llm,
                 ws_registry=request.app.state.ws_registry,
             )
             print("[provider] LLM became available \u2014 LTM consumer started")
