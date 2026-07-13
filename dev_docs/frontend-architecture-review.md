@@ -150,39 +150,55 @@ export function useSession() {
 
 ## 3. 可引入但未使用的设计模式
 
-### 3.1 观察者/发布-订阅模式（Observer Pattern）
+### 3.1 观察者/发布-订阅模式（Observer Pattern） — ✅ 已实施
 
-**现状：** `useChat.ts` 的 `handleEventForChannel` 是一个约 250 行的巨型 switch 语句，逐类型处理 WebSocket 事件：
+**重构前：** `useChat.ts` 的 `handleEventForChannel` 包含一个 12 路 switch（170 行）和一个 5 段 if-chain（62 行），逐类型处理 WebSocket 事件。
+
+**重构后：** 替换为两张 `Map<EventType, Handler>` 注册表，handler 独立到外部模块：
+
+```
+useChat.ts                      # 分发层
+├── memoryHandlers.get(type)    # 后台记忆事件 → useChat.memory.ts
+└── turnHandlers.get(type)      # 主流程事件   → useChat.handlers.ts
+```
 
 ```typescript
+// useChat.memory.ts — 记忆事件
+export type MemoryEventType = 'memory_start' | 'memory_tool_start' | 'memory_tool_end' | 'memory_tool_error' | 'memory_done'
+type MemoryEventHandler = (ch: SessionChannel, sid: string, event: ServerEvent) => void
+
+export const memoryHandlers = new Map<MemoryEventType, MemoryEventHandler>([
+  ['memory_start', handleMemoryStart],
+  ['memory_tool_start', handleMemoryToolStart],
+  // ...
+])
+```
+
+```typescript
+// useChat.handlers.ts — 主流程事件
+type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
+
+export const turnHandlers = new Map<string, TurnEventHandler>([
+  ['thinking_start', handleThinkingStart],
+  ['token', handleToken],
+  ['tool_start', handleToolStart],
+  ['tool_end', handleToolEnd],
+  ['done', handleDone],
+  // ...
+])
+```
+
+```typescript
+// useChat.ts — 分发
 function handleEventForChannel(sid: string, event: ServerEvent) {
   const ch = channels.get(sid)
-  if (!ch) return
-  // context_usage → early return
-  // sub_session_created → early return
-  // memory_* → 另路由
-  const turn = ch.currentTurn
-  switch (event.type) {
-    case 'thinking_start': ...
-    case 'token': ...
-    case 'tool_start': ...
-    case 'tool_end': ...
-    // ... 10+ 种事件类型
-  }
+  // 1. context_usage / sub_session_created → early return
+  // 2. memory 事件 → memoryHandlers.get()
+  // 3. 主流程事件 → turnHandlers.get()
 }
 ```
 
-**可应用模式：** 为每种 `ServerEvent.type` 注册独立的事件处理器：
-
-```typescript
-// 理想设计
-type EventHandler = (ch: SessionChannel, sid: string, event: ServerEvent) => void
-const handlers = new Map<string, EventHandler>()
-
-handlers.set('thinking_start', (ch, sid, event) => { ... })
-handlers.set('tool_end', (ch, sid, event) => { ... })
-handlers.set('memory_start', handleMemoryStart) // 独立模块
-```
+**效果：** switch/if-chain → 声明式注册表 + 独立 handler 函数。新增事件类型只需写 handler 函数 + 注册一行，调用方守卫自动覆盖。
 
 **收益：** 每次新增事件类型只需新增一个处理器，switch 不再膨胀。`memory_*` 事件已半独立（`handleMemoryToolEvent` 函数），但没有注册机制。
 
@@ -322,24 +338,29 @@ function useCrudForm<T>() {
 
 ## 4. 难以维护的点
 
-### 4.1 `useChat.ts` — 750+ 行，职能混杂 ⚠️
+### 4.1 `useChat.ts` — 职能混杂 ⚠️（已部分拆分）
 
-**文件大小：** 752 行，40+ 个函数，单一文件。
+**文件分布：** `useChat.ts` 517 行（原 752）+ `useChat.handlers.ts` 187 行 + `useChat.memory.ts` 89 行。
 
-**混杂的职责：**
+**仍存在的混杂职责（`useChat.ts`）：**
 | 职责 | 行数范围 | 说明 |
 |------|---------|------|
-| localStorage 持久化 | 10-73 | `saveTurnsToStorage`, `loadAllTurnsFromStorage` |
+| localStorage 持久化 | 10-93 | `saveTurnsToStorage`, `loadAllTurnsFromStorage` |
 | WebSocket 连接管理 | 164-228 | `connectSession`, `ensureConnected`, 重连逻辑 |
 | 多会话通道管理 | 96-160 | `channels` Map, `getOrCreateChannel` |
-| 事件路由 + 处理 | 232-517 | 巨型 switch + `handleMemoryToolEvent` |
-| Turn 状态管理 | 520-667 | `send`, `cancel`, `sendUserResponse`, `removeTurns` |
-| 工具查找函数 | 671-751 | `findToolByCallId`, `findBestMatchingTool` 等 |
+| 事件路由（仅分发） | 252-283 | 两张注册表的 `.get()` 分发，无业务逻辑 |
+| Turn 状态管理 | 287-433 | `send`, `cancel`, `sendUserResponse`, `removeTurns` |
+| 工具查找函数 | 435-517 | `findToolByCallId`, `findBestMatchingTool` 等 |
 
-**维护风险：**
-- 修改一处可能意外影响另一处
+**已完成的改进：** ✅
+- 15 个 handler 函数 → `useChat.memory.ts` / `useChat.handlers.ts`
+- 2 张注册表（`memoryHandlers` / `turnHandlers`）随 handler 迁移
+- `handleEventForChannel` 从 170 行 switch + 62 行 if-chain → 30 行分发
+- `pong` 无操作分支已消除
+
+**仍存在的维护风险：**
 - 无法独立测试 WebSocket 重连逻辑（与 localStorage 紧耦合）
-- 新增事件类型需要深入理解整个文件
+- `persistTurns` 仍与模块级 `channels` Map 耦合
 
 ### 4.2 `ChatInput.vue` — 900+ 行的巨型组件
 
@@ -509,7 +530,7 @@ CSS 中 `transition: max-height 0.3s cubic-bezier(...)` 与 JS 中 `350ms` 的�
 | 4 | 提取通用 CRUD composable | `PathWhitelistView`, `EnvVarsView`, `SonettoBlockerView` | 创建 `useCrudForm<T>()` |
 | 5 | 引入 Pinia | 全部 composable | 替换模块级 reactive ref，获得 DevTools + 类型安全 + 测试隔离 |
 | 6 | 消除 `as any` | 各处 | 使用更精确的类型或类型守卫 |
-| 7 | 事件路由注册化 | `useChat.ts` | 将 switch 提取为 Map<EventType, Handler> |
+| 7 | ✅ 事件路由注册化 | `useChat.ts` → `useChat.handlers.ts` + `useChat.memory.ts` | 15 个 handler 已提取为 Map<EventType, Handler> 注册表 + 独立模块 |
 
 #### P2 — 影响可靠性
 
@@ -523,7 +544,8 @@ CSS 中 `transition: max-height 0.3s cubic-bezier(...)` 与 JS 中 `350ms` 的�
 
 ```
 Phase 1（短期，1-2 天）
-├── 拆分 useChat.ts → useWebSocket + useTurnPersistence
+├── ✅ 事件路由注册化 — handler 已提取到 useChat.{memory,handlers}.ts
+├── 拆分 useChat.ts → useWebSocket + useTurnPersistence（剩余部分）
 ├── 提取 useVoiceInput composable
 └── 紧急性 bug 修复
 
