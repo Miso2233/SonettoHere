@@ -268,7 +268,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
   // 后台记忆 consumer 事件可能在 done 事件之后到达（currentTurn 已清空），
   // 必须在 const turn = ch.currentTurn 守卫之前处理，通过 turn_id 自行查找目标。
   const memoryHandler = memoryHandlers.get(event.type as MemoryEventType)
-  if (memoryHandler) {
+  if (typeof memoryHandler === 'function') {
     memoryHandler(ch, sid, event)
     return
   }
@@ -277,7 +277,7 @@ function handleEventForChannel(sid: string, event: ServerEvent) {
   if (!turn) return
 
   const turnHandler = turnHandlers.get(event.type)
-  if (turnHandler) {
+  if (typeof turnHandler === 'function') {
     turnHandler(ch, sid, turn, event)
   }
 }
