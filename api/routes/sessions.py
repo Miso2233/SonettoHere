@@ -4,10 +4,9 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from api.const_session_store import flatten_content
-from api.context_usage import estimate_context_usage
+from api.context_usage import estimate_context_usage_from_session
 from api.dependencies import get_llm
 from api.providers import FALLBACK_CTX
-from agent.prompts import get_system_prompt_parts
 
 router = APIRouter()
 
@@ -93,30 +92,13 @@ async def get_context_usage(session_id: str, request: Request):
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     mgr = getattr(request.app.state, "provider_manager", None)
-    max_tokens = FALLBACK_CTX
-    model_name = ""
-    if mgr is not None and mgr.count > 0:
-        for provider in mgr.iter_enabled():
-            model_name = provider.default_model
-            max_tokens = provider.config.model_context_windows.get(model_name, FALLBACK_CTX) if model_name else FALLBACK_CTX
-            break
+    max_tokens, model_name = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
 
-    system_prompt = request.app.state.system_prompt
-    try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        counting_messages = (
-            cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
-        )
-    except Exception:
-        counting_messages = []
-    usage = estimate_context_usage(
-        messages=counting_messages,
-        system_prompt=system_prompt,
+    usage = await estimate_context_usage_from_session(
+        session,
+        request.app.state.system_prompt,
         max_tokens=max_tokens,
         model_name=model_name,
-        system_prompt_parts=get_system_prompt_parts(),
     )
     usage["session_id"] = session_id
     return usage

@@ -10,11 +10,11 @@ from fastapi import WebSocket
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agent.graph import build_agent
-from agent.prompts import build_system_prompt, get_system_prompt_parts
+from agent.prompts import build_system_prompt
 from api import interaction
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.const_session_store import save_const_session, serialize_messages
-from api.context_usage import estimate_context_usage
+from api.context_usage import estimate_context_usage_from_session
 from api.session_manager import SessionState
 from tools.base import format_error
 from tools.network.tool_image_understand import load_image_bytes, get_mime_type
@@ -58,7 +58,7 @@ async def _stream_turn(
             final_answer = _get_final_answer(event)
         # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
         if event.get("event") == "on_chain_end" and event.get("name") == "tools":
-            usage = await _calculate_context_usage(
+            usage = await estimate_context_usage_from_session(
                 session,
                 system_prompt,
                 max_tokens=max_tokens,
@@ -80,38 +80,6 @@ async def _stream_turn(
         except Exception:
             pass
     return final_answer
-
-
-async def _calculate_context_usage(
-    session,
-    system_prompt,
-    *,
-    max_tokens: int = 256_000,
-    model_name: str = "",
-) -> dict:
-    """
-    从 checkpointer 拉取消息列表，估算上下文用量。
-    返回字典，包括现用量、最大用量、占比、模型名称。
-    """
-    try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        if cpt is not None:
-            channel_values = cpt.checkpoint.get("channel_values", {})
-            counting_messages = channel_values.get("messages", [])
-        else:
-            counting_messages = []
-    except Exception:
-        counting_messages = []
-
-    return estimate_context_usage(
-        messages=counting_messages,
-        system_prompt=system_prompt,
-        max_tokens=max_tokens,
-        model_name=model_name,
-        system_prompt_parts=get_system_prompt_parts(),
-    )
 
 
 async def _inject_cancel_tool_messages(session, config, ws: WebSocket) -> None:
@@ -303,7 +271,7 @@ async def run_agent_turn(
     _run_error: str | None = None
     try:
         # turn 开始时推送当前上下文用量（含刚加入的 user message）
-        initial_turn_usage = await _calculate_context_usage(
+        initial_turn_usage = await estimate_context_usage_from_session(
             session,
             system_prompt,
             max_tokens=current_max_tokens,
@@ -358,7 +326,7 @@ async def run_agent_turn(
         )
     finally:
         session.clear_active_task()
-        context_usage = await _calculate_context_usage(
+        context_usage = await estimate_context_usage_from_session(
             session,
             system_prompt,
             max_tokens=current_max_tokens,

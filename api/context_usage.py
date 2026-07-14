@@ -1,11 +1,16 @@
 """上下文窗口用量估算 — 基于 tiktoken 的 token 计数工具。"""
 
+from __future__ import annotations
+
 import base64
 import io
 import math
 
 import tiktoken
 from PIL import Image
+
+from agent.prompts import get_system_prompt_parts
+from api.session_manager import SessionState
 
 _ENCODING = None
 
@@ -153,3 +158,35 @@ def estimate_context_usage(
         }
 
     return result
+
+
+async def estimate_context_usage_from_session(
+    session: SessionState,
+    system_prompt: str,
+    *,
+    max_tokens: int,
+    model_name: str = "",
+) -> dict:
+    """从 session checkpointer 拉取消息列表，估算上下文用量。
+
+    返回字典，包括现用量、最大用量、占比、模型名称。
+    """
+    try:
+        cpt = await session.checkpointer.aget_tuple(
+            {"configurable": {"thread_id": session.session_id}}
+        )
+        if cpt is not None:
+            channel_values = cpt.checkpoint.get("channel_values", {})
+            counting_messages = channel_values.get("messages", [])
+        else:
+            counting_messages = []
+    except Exception:
+        counting_messages = []
+
+    return estimate_context_usage(
+        messages=counting_messages,
+        system_prompt=system_prompt,
+        max_tokens=max_tokens,
+        model_name=model_name,
+        system_prompt_parts=get_system_prompt_parts(),
+    )

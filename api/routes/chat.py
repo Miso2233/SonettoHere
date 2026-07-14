@@ -9,7 +9,8 @@ from collections.abc import Awaitable, Callable
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from api import interaction
-from api.agent_turn import run_agent_turn, _calculate_context_usage
+from api.agent_turn import run_agent_turn
+from api.context_usage import estimate_context_usage_from_session
 from api.providers import FALLBACK_CTX
 from api.session_manager import SessionState
 
@@ -164,7 +165,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     # ── 推送初始上下文用量 ─────────────────────────────────
     mgr = getattr(app_state, "provider_manager", None)
     default_max_tokens, default_model = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
-    initial_usage = await _calculate_context_usage(
+    initial_usage = await estimate_context_usage_from_session(
         session,
         app_state.system_prompt,
         max_tokens=default_max_tokens,
