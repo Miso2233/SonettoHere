@@ -128,7 +128,7 @@ class CallSubAgentTool(ToolBase):
         try:
             # 等待前端连接并触发 auto-start（最多等 10 秒）
             try:
-                final_answer = await asyncio.wait_for(sub._pending_result, timeout=120)
+                final_answer = await asyncio.wait_for(sub.pending_future, timeout=120)
                 print(
                     f"[call_sub_agent] pending_result resolved, answer len={len(final_answer)}",
                     file=sys.stderr,
@@ -139,7 +139,7 @@ class CallSubAgentTool(ToolBase):
                     file=sys.stderr,
                 )
                 # 如果前端一直未连接，后端直接执行（无 WS streaming）
-                if not sub._pending_result.done():
+                if not sub.is_pending_done():
                     # 尝试后台执行
                     final_answer = await self._run_background(sub, task, app_state)
                     print(
@@ -163,10 +163,8 @@ class CallSubAgentTool(ToolBase):
         except asyncio.CancelledError:
             print("[call_sub_agent] cancelled", file=sys.stderr)
             # 主 Agent 被取消 → 取消 sub-agent
-            if sub._active_task and not sub._active_task.done():
-                sub._active_task.cancel()
-            if sub._pending_result and not sub._pending_result.done():
-                sub._pending_result.cancel()
+            sub.cancel_active_task()
+            sub.cancel_pending()
             return format_error("主任务被取消，子 Agent 已终止")
         except Exception as e:
             print(f"[call_sub_agent] error: {e}", file=sys.stderr)
@@ -240,9 +238,9 @@ class CallSubAgentTool(ToolBase):
         )
 
         if final_answer:
-            sub.message_count += 2
-            sub._pending_result.set_result(final_answer)
+            sub.increment_messages()
+            sub.resolve_pending(final_answer)
         else:
-            sub._pending_result.set_exception(RuntimeError("子 Agent 未能产生有效回答"))
+            sub.fail_pending("子 Agent 未能产生有效回答")
 
         return final_answer

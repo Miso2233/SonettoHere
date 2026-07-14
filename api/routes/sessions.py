@@ -39,8 +39,7 @@ async def get_session(session_id: str, request: Request):
         "session_id": session.session_id,
         "message_count": session.message_count,
         "created_at": session.created_at,
-        "has_active_agent": session._active_task is not None
-        and not session._active_task.done(),
+        "has_active_agent": session.has_active_task(),
         "is_const": session.is_const,
         "const_name": session.const_name,
     }
@@ -76,14 +75,14 @@ async def undo_session_messages(session_id: str, request: Request, n: int = 1):
     session = sm.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    if session._graph is None:
+    if session.get_graph() is None:
         raise HTTPException(
             status_code=400, detail="No agent graph available for this session"
         )
 
     config = {"configurable": {"thread_id": session_id}}
-    deleted = await undo_rounds(session._graph, config, n=n)
-    session.message_count = max(0, session.message_count - deleted)
+    deleted = await undo_rounds(session.get_graph(), config, n=n)
+    session.reduce_messages(deleted)
     return {"deleted_count": deleted}
 
 
@@ -151,7 +150,7 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
         raise HTTPException(status_code=404, detail="Session not found")
 
     # Agent 运行中禁止固定
-    if session._active_task is not None and not session._active_task.done():
+    if session.has_active_task():
         raise HTTPException(status_code=409, detail="Agent 仍在运行中，无法固定会话")
 
     # 从 checkpointer 提取消息
@@ -176,8 +175,7 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
     save_const_session(session.session_id, body.name, metadata, serialized)
 
     # 标记为 const
-    session.is_const = True
-    session.const_name = body.name
+    session.constify(body.name)
 
     return {
         "session_id": session.session_id,
@@ -274,7 +272,6 @@ async def unconstify_session(session_id: str, request: Request):
     sm = request.app.state.session_manager
     session = sm.get(session_id)
     if session is not None:
-        session.is_const = False
-        session.const_name = ""
+        session.unconstify()
 
     return {"status": "ok"}

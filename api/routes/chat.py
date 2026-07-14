@@ -186,7 +186,7 @@ async def _inject_cancel_tool_messages(session, config, ws: WebSocket) -> None:
     model_to_tools 条件边走，检测到人造 ToolMessage 后返回 "model" 但该边目的地
     不含 "model" 导致 KeyError 使写入失败。
     """
-    graph = session._graph
+    graph = session.get_graph()
     if graph is None:
         return
 
@@ -325,7 +325,7 @@ async def _run_agent_turn(
         system_prompt=system_prompt,
         checkpointer=session.checkpointer,
     )
-    session._graph = agent_sonetto
+    session.set_graph(agent_sonetto)
     # 构建输入消息 — 图像认知模式下发多模态 HumanMessage
     if image_recognition and image_refs:
         content_parts: list[dict] = [{"type": "text", "text": user_message}]
@@ -410,7 +410,7 @@ async def _run_agent_turn(
             }
         )
     finally:
-        session._active_task = None
+        session.clear_active_task()
         context_usage = await _calculate_context_usage(
             session,
             system_prompt,
@@ -430,7 +430,7 @@ async def _run_agent_turn(
 
     # 3. [后处理] 增加消息计数器，将对话记录入长期记忆
     if final_answer:
-        session.message_count += 2
+        session.increment_messages()
     if not private_mode:
         # 传入全会话历史，让记忆 Agent 有更多上下文
         messages_for_memory = await _get_session_messages(session)
@@ -475,44 +475,39 @@ async def _run_agent_turn(
             )
 
     # 5. [Sub-agent] 如果有待处理的 pending_result，resolve 它
-    if session._pending_result is not None and not session._pending_result.done():
+    if session.has_pending_result():
         if _run_error:
             print(
                 f"[sub-agent:{session.session_id[:8]}] resolving pending_result with run error",
                 file=sys.stderr,
             )
-            session._pending_result.set_exception(
-                RuntimeError(f"子 Agent 执行失败: {_run_error}")
-            )
+            session.fail_pending(f"子 Agent 执行失败: {_run_error}")
         elif final_answer:
             print(
                 f"[sub-agent:{session.session_id[:8]}] resolving pending_result with answer",
                 file=sys.stderr,
             )
-            session._pending_result.set_result(final_answer)
+            session.resolve_pending(final_answer)
         else:
             print(
                 f"[sub-agent:{session.session_id[:8]}] resolving pending_result with exception (empty answer)",
                 file=sys.stderr,
             )
-            session._pending_result.set_exception(
-                RuntimeError("Sub-agent 未能产生有效回答")
-            )
+            session.fail_pending("Sub-agent 未能产生有效回答")
 
 
 def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | None:
     """WebSocket 重连时，若会话有未完成的 sub-agent 任务则自动恢复执行。"""
-    if session._sub_agent_task is None or session._pending_result is None:
+    if not session.has_sub_agent_task() or session.pending_future is None:
         return None
-    if session._pending_result.done():
+    if session.is_pending_done():
         return None
-    task = session._sub_agent_task
-    session._sub_agent_task = None  # 消费掉，防止重连后重复启动
+    task = session.consume_sub_agent_task()
     interaction.current_ws.set(ws)
     agent_task = asyncio.create_task(
         _run_agent_turn(ws, session, task, private_mode=False)
     )
-    session._active_task = agent_task
+    session.set_active_task(agent_task)
     return agent_task
 
 
@@ -582,7 +577,7 @@ async def websocket_chat(ws: WebSocket, session_id: str):
                             image_refs=image_refs,
                         )
                     )
-                    session._active_task = agent_task  # 供外部 REST 接口查询活跃状态
+                    session.set_active_task(agent_task)  # 供外部 REST 接口查询活跃状态
 
                 case "user_response":
                     payload = msg.get("payload", {})
@@ -608,5 +603,5 @@ async def websocket_chat(ws: WebSocket, session_id: str):
         app_state.ws_registry.unregister(session_id)
         if agent_task and not agent_task.done():
             agent_task.cancel()
-        session._active_task = None
+        session.clear_active_task()
         interaction.clear_session_settings(session_id)

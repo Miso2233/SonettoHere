@@ -30,6 +30,92 @@ class SessionState:
     is_const: bool = False
     const_name: str = ""
 
+    # ── _graph 封装 ────────────────────────────────────────────
+    def get_graph(self) -> CompiledStateGraph | None:
+        """返回缓存的 Agent 编译图，未构建时返回 None。"""
+        return self._graph
+
+    def set_graph(self, graph: CompiledStateGraph) -> None:
+        """缓存 Agent 编译图（供 undo/重放使用）。"""
+        self._graph = graph
+
+    # ── _active_task 封装 ──────────────────────────────────────
+    def has_active_task(self) -> bool:
+        """Agent 是否正在运行（协程未完成）。"""
+        return self._active_task is not None and not self._active_task.done()
+
+    def set_active_task(self, task: asyncio.Task | None) -> None:
+        """设置当前 Agent 运行任务。"""
+        self._active_task = task
+
+    def clear_active_task(self) -> None:
+        """清除 Agent 任务引用。"""
+        self._active_task = None
+
+    def cancel_active_task(self) -> None:
+        """取消正在运行的 Agent 任务（如存在且未完成）。"""
+        if self._active_task is not None and not self._active_task.done():
+            self._active_task.cancel()
+
+    # ── _sub_agent_task 封装 ───────────────────────────────────
+    def has_sub_agent_task(self) -> bool:
+        """是否有子 Agent 任务描述待消费。"""
+        return self._sub_agent_task is not None
+
+    def consume_sub_agent_task(self) -> str | None:
+        """消费子 Agent 任务描述（一次性取出并清空）。"""
+        task = self._sub_agent_task
+        self._sub_agent_task = None
+        return task
+
+    # ── _pending_result 封装 ───────────────────────────────────
+    @property
+    def pending_future(self) -> asyncio.Future | None:
+        """暴露内部 Future，用于 asyncio.wait_for 等原生操作。"""
+        return self._pending_result
+
+    def has_pending_result(self) -> bool:
+        """是否有待处理的 Future 且未完成。"""
+        return self._pending_result is not None and not self._pending_result.done()
+
+    def is_pending_done(self) -> bool:
+        """Future 是否存在且已完成（含成功和异常）。"""
+        return self._pending_result is not None and self._pending_result.done()
+
+    def resolve_pending(self, value: str) -> None:
+        """以结果值完成子 Agent 的 Future。"""
+        if self._pending_result is not None and not self._pending_result.done():
+            self._pending_result.set_result(value)
+
+    def fail_pending(self, message: str) -> None:
+        """以 RuntimeError 失败子 Agent 的 Future。"""
+        if self._pending_result is not None and not self._pending_result.done():
+            self._pending_result.set_exception(RuntimeError(message))
+
+    def cancel_pending(self) -> None:
+        """取消子 Agent 的 Future。"""
+        if self._pending_result is not None and not self._pending_result.done():
+            self._pending_result.cancel()
+
+    # ── 公有字段便捷方法 ───────────────────────────────────────
+    def constify(self, name: str) -> None:
+        """将会话标记为固定会话。"""
+        self.is_const = True
+        self.const_name = name
+
+    def unconstify(self) -> None:
+        """取消固定标记。"""
+        self.is_const = False
+        self.const_name = ""
+
+    def increment_messages(self, by: int = 2) -> None:
+        """增加消息计数（默认 user+assistant 一对）。"""
+        self.message_count += by
+
+    def reduce_messages(self, by: int) -> None:
+        """减少消息计数（下限 0，用于 undo）。"""
+        self.message_count = max(0, self.message_count - by)
+
 
 class SessionManager:
     def __init__(self, ttl_seconds: int = 1800):
@@ -81,7 +167,7 @@ class SessionManager:
     def list_sessions(self) -> list[dict]:
         result = []
         for s in self._sessions.values():
-            has_active = s._active_task is not None and not s._active_task.done()
+            has_active = s.has_active_task()
             result.append(
                 {
                     "session_id": s.session_id,
