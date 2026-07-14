@@ -16,11 +16,11 @@ class TestGetLlm:
             deps.get_llm(provider_manager=None)
 
     def test_get_llm_empty_provider_raises(self):
-        """provider_manager.count == 0 → RuntimeError。"""
+        """provider_manager 有 provider 但为 None → RuntimeError。"""
         import pytest
 
         pm = MagicMock()
-        pm.count = 0
+        pm.get_default_provider.return_value = None
         with pytest.raises(RuntimeError, match="No enabled LLM provider"):
             deps.get_llm(provider_manager=pm)
 
@@ -32,8 +32,7 @@ class TestGetLlm:
         fake_provider.create_llm.return_value = fake_llm
 
         pm = MagicMock()
-        pm.count = 1
-        pm.iter_enabled.return_value = [fake_provider]
+        pm.get_default_provider.return_value = fake_provider
 
         result = deps.get_llm(provider_manager=pm)
 
