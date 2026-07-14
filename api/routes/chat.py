@@ -1,7 +1,10 @@
 """WebSocket 端点 — 连接管理、消息派发。"""
 
+from __future__ import annotations
+
 import asyncio
 import json
+from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -14,6 +17,8 @@ from api.agent_turn import (
 from api.session_manager import SessionState
 
 router = APIRouter()
+
+Handler = Callable[[WebSocket, str, SessionState, asyncio.Task | None, dict, object], Awaitable[asyncio.Task | None]]
 
 
 def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | None:
@@ -31,9 +36,125 @@ def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | No
     return agent_task
 
 
+_HANDLERS: dict[str, Handler] = {}
+
+def ws_event_handler(event_type: str):
+    """装饰器：将 handler 函数注册到 _HANDLERS 字典。"""
+    def decorator(func):
+        _HANDLERS[event_type] = func
+        return func
+    return decorator
+
+
+# ── 消息处理器 ────────────────────────────────────────────
+
+
+@ws_event_handler("ping")
+async def _handle_ping(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+    app_state,
+) -> asyncio.Task | None:
+    """处理 ping 心跳。"""
+    await ws.send_json({"type": "pong", "payload": {}})
+    return agent_task
+
+
+@ws_event_handler("chat")
+async def _handle_chat(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+    app_state,
+) -> asyncio.Task | None:
+    """处理聊天消息：创建 Agent 轮次。"""
+    if agent_task is not None and not agent_task.done():
+        return agent_task  # 已有 Agent 运行中，忽略本次输入
+
+    payload = msg["payload"]
+    user_message = payload["message"].strip()
+    if not user_message:
+        return agent_task
+
+    auto_approve = payload.get("auto_approve", False)
+    interaction.current_ws.set(ws)  # 供工具函数通过 WebSocket 推送交互
+    interaction.current_session_id.set(session_id)
+    interaction.set_session_auto_approve(session_id, auto_approve)
+
+    agent_task = asyncio.create_task(
+        run_agent_turn(
+            ws,
+            session,
+            user_message,
+            private_mode=payload.get("private", False),
+            auto_approve=auto_approve,
+            provider_id=payload.get("provider_id"),
+            model_name=payload.get("model_name"),
+            image_recognition=payload.get("image_recognition", False),
+            image_refs=payload.get("image_refs", []),
+        )
+    )
+    session.set_active_task(agent_task)
+    return agent_task
+
+
+@ws_event_handler("user_response")
+async def _handle_user_response(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+    app_state,
+) -> asyncio.Task | None:
+    """处理用户交互响应。"""
+    payload = msg.get("payload", {})
+    interaction_id = payload.get("interaction_id", "")
+    response = payload.get("response", "")
+    if interaction_id:
+        interaction.resolve(interaction_id, response)
+    return agent_task
+
+
+@ws_event_handler("cancel")
+async def _handle_cancel(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+    app_state,
+) -> asyncio.Task | None:
+    """处理取消请求。"""
+    if agent_task is not None and not agent_task.done():
+        agent_task.cancel()
+    return None
+
+
+@ws_event_handler("update_auto_approve")
+async def _handle_update_auto_approve(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+    app_state,
+) -> asyncio.Task | None:
+    """更新自动批准设置。"""
+    interaction.set_session_auto_approve(
+        session_id, msg["payload"]["auto_approve"]
+    )
+    session.auto_approve = msg["payload"]["auto_approve"]
+    return agent_task
+
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str):
-    """WebSocket 聊天端点 — 接收用户消息、驱动 Agent、处理取消和用户交互。"""
+    """WebSocket 聊天端点 — 接收消息、派发、生命周期管理。"""
     await ws.accept()
 
     # ── 初始化会话 ────────────────────────────────────────
@@ -56,72 +177,23 @@ async def websocket_chat(ws: WebSocket, session_id: str):
     # ── 断线重连时恢复 sub-agent ──────────────────────────
     agent_task = _resume_sub_agent(ws, session)
 
-    # ── 消息主循环 ────────────────────────────────────────
+    # ── 消息主循环（字典派发） ─────────────────────────────
     try:
         while True:
             raw = await ws.receive_text()
             msg = json.loads(raw)
 
-            match msg.get("type", ""):
-                case "ping":
-                    await ws.send_json({"type": "pong", "payload": {}})
-
-                case "chat":
-                    if agent_task and not agent_task.done():
-                        continue  # 已有 Agent 运行中，忽略本次输入
-
-                    payload = msg["payload"]
-                    user_message = payload["message"].strip()
-                    if not user_message:
-                        continue
-
-                    auto_approve = payload.get("auto_approve", False)
-                    interaction.current_ws.set(ws)  # 供工具函数通过 WebSocket 推送交互
-                    interaction.current_session_id.set(session_id)
-                    interaction.set_session_auto_approve(session_id, auto_approve)
-
-                    # 图像认知模式参数
-                    image_recognition = payload.get("image_recognition", False)
-                    image_refs = payload.get("image_refs", [])
-
-                    agent_task = asyncio.create_task(
-                        run_agent_turn(
-                            ws,
-                            session,
-                            user_message,
-                            private_mode=payload.get("private", False),
-                            auto_approve=auto_approve,
-                            provider_id=payload.get("provider_id"),
-                            model_name=payload.get("model_name"),
-                            image_recognition=image_recognition,
-                            image_refs=image_refs,
-                        )
-                    )
-                    session.set_active_task(agent_task)  # 供外部 REST 接口查询活跃状态
-
-                case "user_response":
-                    payload = msg.get("payload", {})
-                    interaction_id = payload.get("interaction_id", "")
-                    response = payload.get("response", "")
-                    if interaction_id:
-                        interaction.resolve(interaction_id, response)
-
-                case "cancel":
-                    if agent_task and not agent_task.done():
-                        agent_task.cancel()
-                        agent_task = None
-
-                case "update_auto_approve":
-                    interaction.set_session_auto_approve(
-                        session_id, msg["payload"]["auto_approve"]
-                    )
-                    session.auto_approve = msg["payload"]["auto_approve"]
+            handler = _HANDLERS.get(msg.get("type", ""))
+            if handler is not None:
+                agent_task = await handler(
+                    ws, session_id, session, agent_task, msg, app_state
+                )
 
     except WebSocketDisconnect:
         pass  # 客户端断开是正常行为
     finally:
         app_state.ws_registry.unregister(session_id)
-        if agent_task and not agent_task.done():
+        if agent_task is not None and not agent_task.done():
             agent_task.cancel()
         session.clear_active_task()
         interaction.clear_session_settings(session_id)
