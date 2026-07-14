@@ -22,25 +22,6 @@ from tools.network.tool_image_understand import load_image_bytes, get_mime_type
 from api.providers import FALLBACK_CTX
 
 
-def _get_provider_context(app_state) -> tuple[int, str]:
-    """从 ProviderManager 获取默认 max_tokens 和 model_name。
-
-    优先取 is_default_provider=True 的供应商，查询其 default_model 的上下文窗口。
-    """
-    mgr = getattr(app_state, "provider_manager", None)
-    if mgr is not None and mgr.count > 0:
-        for provider in mgr.iter_enabled():
-            if provider.config.is_default_provider:
-                model = provider.default_model
-                ctx = provider.config.model_context_windows.get(model, FALLBACK_CTX)
-                return ctx, model
-        for provider in mgr.iter_enabled():
-            model = provider.default_model
-            ctx = provider.config.model_context_windows.get(model, FALLBACK_CTX)
-            return ctx, model
-    return FALLBACK_CTX, ""
-
-
 async def _get_session_messages(session) -> list[dict]:
     """从 LangGraph checkpointer 提取全量会话消息并映射为记忆 Agent 格式。"""
     try:
@@ -285,7 +266,8 @@ async def run_agent_turn(
     ws_callback = WebSocketCallback(ws)  # WebUI 回调函数系统
 
     # 获取默认上下文窗口大小
-    default_max_tokens, _ = _get_provider_context(app_state)
+    mgr = getattr(app_state, "provider_manager", None)
+    default_max_tokens, _ = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
 
     # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
     current_max_tokens = default_max_tokens
