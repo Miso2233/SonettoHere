@@ -22,38 +22,6 @@ from tools.network.tool_image_understand import load_image_bytes, get_mime_type
 from api.providers import FALLBACK_CTX
 
 
-async def _get_session_messages(session) -> list[dict]:
-    """从 LangGraph checkpointer 提取全量会话消息并映射为记忆 Agent 格式。"""
-    try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        if cpt is None:
-            return []
-        raw = cpt.checkpoint.get("channel_values", {}).get("messages", [])
-    except Exception:
-        return []
-
-    role_map = {"human": "user", "ai": "assistant", "tool": "tool"}
-    result = []
-    for m in raw:
-        role = role_map.get(m.type)
-        if role is None:
-            continue
-        content = m.content
-        if isinstance(content, list):
-            # 多模态消息：仅提取文本，丢弃 image_url 的 base64 数据
-            parts = [
-                b.get("text", "")
-                for b in content
-                if isinstance(b, dict) and b.get("type") == "text"
-            ]
-            content = " ".join(parts) if parts else "[图片]"
-        elif not isinstance(content, str):
-            content = str(content)
-        result.append({"role": role, "content": content})
-    return result
-
 
 def _get_final_answer(event) -> str:
     """
@@ -412,19 +380,11 @@ async def run_agent_turn(
         session.increment_messages()
     if not private_mode:
         # 传入全会话历史，让记忆 Agent 有更多上下文
-        messages_for_memory = await _get_session_messages(session)
-        if not messages_for_memory:
-            messages_for_memory = [
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": final_answer},
-            ]
-        await app_state.ltm.send_history(
-            messages_for_memory,
-            session_id=session.session_id,
+        await app_state.ltm.send_history_from_session(
+            session,
             turn_id=turn_id,
-        )
-        print(
-            f"[ltm] send_history enqueued session={session.session_id[:8]} turn_id={turn_id[:8]}"
+            user_message=user_message,
+            final_answer=final_answer,
         )
 
     # 4. [Const 会话] 自动持久化到磁盘 YAML

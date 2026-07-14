@@ -1,5 +1,7 @@
 """记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 memory.yaml。"""
 
+from __future__ import annotations
+
 import asyncio
 import json
 from datetime import datetime
@@ -12,6 +14,7 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
 
+from api.session_manager import SessionState
 from api.ws_registry import WebSocketRegistry
 
 from memory.memory_callback import MemoryToolCallback
@@ -345,7 +348,7 @@ class LongTermMemoryInterface:
 
     async def send_history(
         self,
-        turn_messages: list[dict],
+        turn_messages: list[dict[str, str]],
         session_id: str | None = None,
         turn_id: str | None = None,
     ) -> None:
@@ -362,6 +365,59 @@ class LongTermMemoryInterface:
             )
         else:
             print("[ltm] queue is None, dropping history")
+
+    @staticmethod
+    async def _extract_session_messages(session: SessionState) -> list[dict[str, str]]:
+        """从 LangGraph checkpointer 提取全量会话消息并映射为记忆 Agent 格式。"""
+        try:
+            cpt = await session.checkpointer.aget_tuple(
+                {"configurable": {"thread_id": session.session_id}}
+            )
+            if cpt is None:
+                return []
+            raw = cpt.checkpoint.get("channel_values", {}).get("messages", [])
+        except Exception:
+            return []
+
+        role_map = {"human": "user", "ai": "assistant", "tool": "tool"}
+        result: list[dict[str, str]] = []
+        for m in raw:
+            role = role_map.get(m.type)
+            if role is None:
+                continue
+            content = m.content
+            if isinstance(content, list):
+                # 多模态消息：仅提取文本，丢弃 image_url 的 base64 数据
+                parts = [
+                    b.get("text", "")
+                    for b in content
+                    if isinstance(b, dict) and b.get("type") == "text"
+                ]
+                content = " ".join(parts) if parts else "[图片]"
+            elif not isinstance(content, str):
+                content = str(content)
+            result.append({"role": role, "content": content})
+        return result
+
+    async def send_history_from_session(
+        self,
+        session: SessionState,
+        turn_id: str = "",
+        *,
+        user_message: str = "",
+        final_answer: str = "",
+    ) -> None:
+        """从 session 的 checkpointer 提取消息并投递到记忆队列。
+
+        若 checkpointer 中无有效消息（如首轮对话），降级使用 user_message + final_answer。
+        """
+        messages = await self._extract_session_messages(session)
+        if not messages and user_message and final_answer:
+            messages = [
+                {"role": "user", "content": user_message},
+                {"role": "assistant", "content": final_answer},
+            ]
+        await self.send_history(messages, session_id=session.session_id, turn_id=turn_id)
 
     async def stop_listening(self) -> None:
         """发送 None 哨兵并等待消费者排空队列。"""
