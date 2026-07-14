@@ -1,12 +1,13 @@
 """记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 memory.yaml。"""
 
 import asyncio
+import json
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
@@ -70,6 +71,11 @@ _UPDATE_PREFIX = """你是一位"记忆叙事师"。以下是当前记忆（每�
 
 COLD_START_SYSTEM = _COLD_PREFIX + _CORE_PRINCIPLES
 UPDATE_SYSTEM = _UPDATE_PREFIX + _CORE_PRINCIPLES
+
+FIND_RELATED_MEMORY = """
+你是一位记忆提取专家。接下来，你将会读取到一个带有索引的AI记忆库的全部文本，以及一个要求。
+你的任务是搜索找出所有关于这个要求的记忆条目，并以JSON数组形式返回它们的索引编号。
+"""
 
 
 # ── 模块级 MemoryManager 引用 ──────────────────────────────
@@ -294,6 +300,34 @@ class LongTermMemoryInterface:
             return ""
         mm = MemoryManager(yaml_file=str(self._memory_path))
         return _format_narrative(mm.show())
+
+    def get_related_memory_from(self, prompt: str) -> list[str]:
+        """根据查询要求从记忆库中找出语义相关的条目并返回其描述文本。"""
+        if self._llm is None:
+            return []
+        items = self._mm.show()
+        if not items:
+            return []
+
+        # 格式化为带列表序号（而非内部 hex ID）的编号列表，供 LLM 引用
+        lines = []
+        for i, item in enumerate(items):
+            lines.append(f"[{i}] ({item['theme']}) {item['description']}")
+        memory_text = "\n".join(lines)
+        user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
+
+        response = self._llm.invoke([
+            SystemMessage(content=FIND_RELATED_MEMORY.strip()),
+            HumanMessage(content=user_prompt),
+        ])
+
+        try:
+            indices = json.loads(response.content)
+            if isinstance(indices, list):
+                return [items[i]["description"] for i in indices if 0 <= i < len(items)]
+        except (json.JSONDecodeError, TypeError, IndexError):
+            pass
+        return []
 
     def start_listening(
         self, ws_registry: WebSocketRegistry | None = None
