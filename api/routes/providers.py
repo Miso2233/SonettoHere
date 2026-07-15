@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from api.providers import ProviderConfig
 from api.providers.enrich import enrich_provider_config
+from api.providers.manager import ProviderManager
 
 router = APIRouter()
 
@@ -41,7 +42,7 @@ class TestConnectionBody(BaseModel):
 # ── HELPERS ─────────────────────────────────────────────
 
 
-def _get_manager(request: Request):
+def _get_manager(request: Request) -> ProviderManager:
     return request.app.state.provider_manager
 
 

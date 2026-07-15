@@ -1,6 +1,7 @@
 """Provider 管理器 — 按 id 索引。"""
 
 from collections.abc import Iterator
+from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -68,7 +69,7 @@ class ProviderManager:
         return ctx, model
 
     def create_llm(
-        self, provider_id: str, model_name: str, **kwargs
+        self, provider_id: str, model_name: str, **kwargs: Any
     ) -> tuple[BaseChatModel, str, int] | None:
         """按指定 provider + model 创建 LLM，返回 (llm, model_name, max_tokens)。
         provider 不存在时返回 None。"""
@@ -80,7 +81,7 @@ class ProviderManager:
         max_tokens = provider.config.model_context_windows.get(model_name, FALLBACK_CTX)
         return llm, model_name, max_tokens
 
-    def get_default_llm(self, **kwargs) -> BaseChatModel | None:
+    def get_default_llm(self, **kwargs: Any) -> BaseChatModel | None:
         """获取默认 provider 的 LLM。无可用 provider 时返回 None。"""
         provider = self.get_default_provider()
         if provider is None:

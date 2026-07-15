@@ -20,6 +20,8 @@ from tools.base import format_error
 from tools.network.tool_image_understand import load_image_bytes, get_mime_type
 
 from api.providers import FALLBACK_CTX
+from api.providers.manager import ProviderManager
+from langchain_core.language_models.chat_models import BaseChatModel
 
 
 
@@ -200,10 +202,10 @@ async def run_agent_turn(
     ws_callback = WebSocketCallback(ws)  # WebUI 回调函数系统
 
     # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
-    mgr = getattr(app_state, "provider_manager", None)
-    llm = app_state.default_llm
-    current_model_name = None
-    current_max_tokens = FALLBACK_CTX
+    mgr: ProviderManager | None = getattr(app_state, "provider_manager", None)
+    llm: BaseChatModel | None = app_state.default_llm
+    current_model_name: str | None = None
+    current_max_tokens: int = FALLBACK_CTX
 
     if mgr and provider_id and model_name:
         result = mgr.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
