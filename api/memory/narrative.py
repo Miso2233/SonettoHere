@@ -25,7 +25,7 @@ def _sanitize(text: str) -> str:
     return text.replace("\n", " ").replace("\r", " ")
 
 
-PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
+PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
 MEMORY_PATH = PERSONAS_DIR / "memory.yaml"
 
 _CORE_PRINCIPLES = """核心原则：

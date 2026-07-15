@@ -3,8 +3,8 @@
 import shutil
 from pathlib import Path
 
-PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
 def _copy_if_missing(src: Path, dst: Path, description: str = "") -> None:
