@@ -90,7 +90,6 @@ async def _handle_chat(
             session,
             user_message,
             private_mode=payload.get("private", False),
-            auto_approve=auto_approve,
             provider_id=payload.get("provider_id"),
             model_name=payload.get("model_name"),
             image_recognition=payload.get("image_recognition", False),

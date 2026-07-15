@@ -179,7 +179,6 @@ async def run_agent_turn(
     session: SessionState,
     user_message: str,
     private_mode: bool = False,
-    auto_approve: bool = False,
     provider_id: str | None = None,
     model_name: str | None = None,
     image_recognition: bool = False,
@@ -198,27 +197,18 @@ async def run_agent_turn(
     """
     # 1. [准备环境] 从 WebSocket 获取应用状态
     app_state = ws.app.state
-    session.auto_approve = auto_approve
     ws_callback = WebSocketCallback(ws)  # WebUI 回调函数系统
 
-    # 获取默认上下文窗口大小
-    mgr = getattr(app_state, "provider_manager", None)
-    default_max_tokens, _ = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
-
     # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
-    current_max_tokens = default_max_tokens
-    if provider_id and model_name and hasattr(app_state, "provider_manager"):
-        try:
-            provider = app_state.provider_manager.get(provider_id)
-            llm = provider.create_llm(model_name, temperature=0.7, streaming=True)
-            current_model_name = model_name
-            current_max_tokens = provider.config.model_context_windows.get(model_name, FALLBACK_CTX)
-        except KeyError:
-            llm = app_state.llm
-            current_model_name = None
-    else:
-        llm = app_state.llm
-        current_model_name = None
+    mgr = getattr(app_state, "provider_manager", None)
+    llm = app_state.llm
+    current_model_name = None
+    current_max_tokens = FALLBACK_CTX
+
+    if mgr and provider_id and model_name:
+        result = mgr.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
+        if result:
+            llm, current_model_name, current_max_tokens = result
 
     if llm is None:
         await ws.send_json(

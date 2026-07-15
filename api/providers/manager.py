@@ -2,6 +2,8 @@
 
 from collections.abc import Iterator
 
+from langchain_core.language_models.chat_models import BaseChatModel
+
 from api.providers import FALLBACK_CTX, Provider, ProviderConfig
 from api.providers.store import ProviderConfigStore
 
@@ -64,6 +66,30 @@ class ProviderManager:
         model = provider.default_model
         ctx = provider.config.model_context_windows.get(model, FALLBACK_CTX)
         return ctx, model
+
+    def create_llm(
+        self, provider_id: str, model_name: str, **kwargs
+    ) -> tuple[BaseChatModel, str, int] | None:
+        """按指定 provider + model 创建 LLM，返回 (llm, model_name, max_tokens)。
+        provider 不存在时返回 None。"""
+        try:
+            provider = self.get(provider_id)
+        except KeyError:
+            return None
+        llm = provider.create_llm(model_name, **kwargs)
+        max_tokens = provider.config.model_context_windows.get(model_name, FALLBACK_CTX)
+        return llm, model_name, max_tokens
+
+    def get_default_llm(self, **kwargs) -> tuple[BaseChatModel, str, int] | None:
+        """从默认 provider 创建 LLM，返回 (llm, model_name, max_tokens)。
+        无可用 provider 时返回 None。"""
+        provider = self.get_default_provider()
+        if provider is None:
+            return None
+        model = provider.default_model
+        llm = provider.create_llm(model, **kwargs)
+        max_tokens = provider.config.model_context_windows.get(model, FALLBACK_CTX)
+        return llm, model, max_tokens
 
     # ── 配置 CRUD（委托 store 并同步缓存）────────────────
 
