@@ -90,6 +90,15 @@ def deserialize_messages(data: list[dict]) -> list:
 # ── 文件 I/O ──────────────────────────────────────────────────
 
 
+def _validate_session_id(session_id: str) -> str:
+    """校验 session_id 不含路径遍历字符，确保结果路径在 _CONST_DIR 内。"""
+    filepath = (_CONST_DIR / f"{session_id}.yaml").resolve()
+    const_dir = _CONST_DIR.resolve()
+    if not str(filepath).startswith(str(const_dir)):
+        raise ValueError(f"Invalid session_id: path traversal detected")
+    return str(filepath)
+
+
 def save_const_session(
     session_id: str,
     const_name: str,
@@ -109,7 +118,7 @@ def save_const_session(
         "metadata": metadata,
         "messages": messages,
     }
-    filepath = ensure_dir / f"{session_id}.yaml"
+    filepath = Path(_validate_session_id(session_id))
     with open(filepath, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, allow_unicode=True)
     return str(filepath)
@@ -137,7 +146,10 @@ def load_all_const_sessions() -> list[dict]:
 
 def delete_const_session(session_id: str) -> bool:
     """删除 const 会话文件。"""
-    filepath = _CONST_DIR / f"{session_id}.yaml"
+    try:
+        filepath = Path(_validate_session_id(session_id))
+    except ValueError:
+        return False
     if filepath.exists():
         filepath.unlink()
         return True
