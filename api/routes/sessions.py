@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from api.const_session_store import flatten_content
 from api.context_usage import estimate_context_usage_from_session
-from api.dependencies import get_llm
 from api.providers import FALLBACK_CTX
 
 router = APIRouter()
@@ -217,7 +216,7 @@ async def generate_session_title(session_id: str, request: Request):
         # 优先通过 provider_manager 动态获取 LLM（支持 Web UI 添加后的热更新）
         mgr = getattr(request.app.state, "provider_manager", None)
         if mgr is not None and mgr.count > 0:
-            llm = get_llm(mgr)
+            llm = mgr.get_default_llm(temperature=0.7, streaming=True)
         else:
             llm = request.app.state.default_llm
 

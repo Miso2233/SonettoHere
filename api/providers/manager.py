@@ -80,16 +80,12 @@ class ProviderManager:
         max_tokens = provider.config.model_context_windows.get(model_name, FALLBACK_CTX)
         return llm, model_name, max_tokens
 
-    def get_default_llm(self, **kwargs) -> tuple[BaseChatModel, str, int] | None:
-        """从默认 provider 创建 LLM，返回 (llm, model_name, max_tokens)。
-        无可用 provider 时返回 None。"""
+    def get_default_llm(self, **kwargs) -> BaseChatModel | None:
+        """获取默认 provider 的 LLM。无可用 provider 时返回 None。"""
         provider = self.get_default_provider()
         if provider is None:
             return None
-        model = provider.default_model
-        llm = provider.create_llm(model, **kwargs)
-        max_tokens = provider.config.model_context_windows.get(model, FALLBACK_CTX)
-        return llm, model, max_tokens
+        return provider.create_llm(provider.default_model, **kwargs)
 
     # ── 配置 CRUD（委托 store 并同步缓存）────────────────
 

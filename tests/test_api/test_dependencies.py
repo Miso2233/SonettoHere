@@ -1,47 +1,8 @@
-"""api/dependencies.py 测试 — LLM、系统提示、工具集的惰性单例。"""
+"""api/dependencies.py 测试 — 系统提示、工具集的惰性单例。"""
 
 from unittest.mock import MagicMock
 
 import api.dependencies as deps
-
-
-class TestGetLlm:
-    """get_llm 测试。"""
-
-    def test_get_llm_no_provider_raises(self):
-        """provider_manager 为 None → RuntimeError。"""
-        import pytest
-
-        with pytest.raises(RuntimeError, match="No enabled LLM provider"):
-            deps.get_llm(provider_manager=None)
-
-    def test_get_llm_empty_provider_raises(self):
-        """provider_manager 有 provider 但为 None → RuntimeError。"""
-        import pytest
-
-        pm = MagicMock()
-        pm.get_default_provider.return_value = None
-        with pytest.raises(RuntimeError, match="No enabled LLM provider"):
-            deps.get_llm(provider_manager=pm)
-
-    def test_get_llm_with_enabled_provider(self):
-        """有 enabled provider → 返回 LLM。"""
-        fake_llm = MagicMock()
-        fake_provider = MagicMock()
-        fake_provider.default_model = "gpt-4"
-        fake_provider.create_llm.return_value = fake_llm
-
-        pm = MagicMock()
-        pm.get_default_provider.return_value = fake_provider
-
-        result = deps.get_llm(provider_manager=pm)
-
-        assert result is fake_llm
-        fake_provider.create_llm.assert_called_once_with(
-            "gpt-4",
-            temperature=0.7,
-            streaming=True,
-        )
 
 
 class TestGetSystemPrompt:
