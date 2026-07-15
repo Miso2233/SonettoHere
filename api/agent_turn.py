@@ -230,20 +230,24 @@ async def _stream_turn(
 # ── 阶段 1：LLM 解析 ──────────────────────────────────────
 
 
-def _resolve_llm(app_state: Any, provider_id: str | None, model_name: str | None) -> _LlmConfig | None:
-    """从 ProviderManager 解析 LLM 实例及上下文窗口配置。
+def _resolve_llm(
+    provider_manager: ProviderManager | None,
+    default_llm: BaseChatModel | None,
+    provider_id: str | None,
+    model_name: str | None,
+) -> _LlmConfig | None:
+    """解析 LLM 实例及上下文窗口配置。
 
     优先使用指定的 provider_id + model_name 创建 LLM，
-    否则回退到 app_state.default_llm。
+    否则回退到 default_llm（全局 fallback）。
     返回 None 表示无可用的 LLM。
     """
-    mgr: ProviderManager | None = getattr(app_state, "provider_manager", None)
-    llm: BaseChatModel | None = app_state.default_llm
+    llm: BaseChatModel | None = default_llm
     resolved_model = model_name or ""
     max_tokens = FALLBACK_CTX
 
-    if mgr and provider_id and model_name:
-        result = mgr.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
+    if provider_manager and provider_id and model_name:
+        result = provider_manager.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
         if result:
             llm, resolved_model, max_tokens = result
 
@@ -254,7 +258,7 @@ def _resolve_llm(app_state: Any, provider_id: str | None, model_name: str | None
 
 
 async def _build_turn_context(
-    app_state: Any,
+    tools: list,
     session: SessionState,
     ws: WebSocket,
     llm_conf: _LlmConfig,
@@ -268,7 +272,7 @@ async def _build_turn_context(
 
     agent = build_agent(
         model=llm_conf.llm,
-        tools=app_state.tools,
+        tools=tools,
         system_prompt=system_prompt,
         checkpointer=session.checkpointer,
     )
@@ -361,7 +365,7 @@ async def _execute_agent_turn(
 
 
 async def _postprocess_turn(
-    app_state: Any,
+    ltm: Any,
     session: SessionState,
     result: _TurnResult,
     user_message: str,
@@ -372,7 +376,7 @@ async def _postprocess_turn(
         session.increment_messages()
 
     if not private_mode:
-        await app_state.ltm.send_history_from_session(
+        await ltm.send_history_from_session(
             session, turn_id=result.turn_id, user_message=user_message, final_answer=result.final_answer,
         )
 
@@ -430,7 +434,12 @@ async def run_agent_turn(
     app_state = ws.app.state
 
     # 1. 解析 LLM 配置
-    llm_conf = _resolve_llm(app_state, provider_id, model_name)
+    llm_conf: _LlmConfig = _resolve_llm(
+        provider_manager=getattr(app_state, "provider_manager", None),
+        default_llm=app_state.default_llm,
+        provider_id=provider_id,
+        model_name=model_name,
+    )
     if llm_conf is None:
         await ws.send_json({
             "type": "error",
@@ -442,10 +451,24 @@ async def run_agent_turn(
         return
 
     # 2. 构建执行上下文
-    ctx = await _build_turn_context(app_state, session, ws, llm_conf, user_message, image_recognition, image_refs)
+    ctx: _TurnContext = await _build_turn_context(
+        tools=app_state.tools,
+        session=session,
+        ws=ws,
+        llm_conf=llm_conf,
+        user_message=user_message,
+        image_recognition=image_recognition,
+        image_refs=image_refs,
+    )
 
     # 3. 执行轮次
-    result = await _execute_agent_turn(ctx, ws, session, llm_conf)
+    result: _TurnResult = await _execute_agent_turn(ctx, ws, session, llm_conf)
 
     # 4. 后处理
-    await _postprocess_turn(app_state, session, result, user_message, private_mode)
+    await _postprocess_turn(
+        ltm=app_state.ltm,
+        session=session,
+        result=result,
+        user_message=user_message,
+        private_mode=private_mode,
+    )
