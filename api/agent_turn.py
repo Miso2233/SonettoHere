@@ -5,6 +5,8 @@ import base64
 import sys
 import traceback
 import uuid
+from dataclasses import dataclass
+from typing import Any
 
 from fastapi import WebSocket
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -24,8 +26,38 @@ from api.providers.manager import ProviderManager
 from langchain_core.language_models.chat_models import BaseChatModel
 
 
+# ── 内部数据对象 ──────────────────────────────────────────
 
-def _get_final_answer(event) -> str:
+
+@dataclass
+class _LlmConfig:
+    """LLM 实例及上下文窗口配置。"""
+    llm: BaseChatModel
+    model_name: str
+    max_tokens: int
+
+
+@dataclass
+class _TurnContext:
+    """一轮 Agent 执行所需的全部上下文。"""
+    system_prompt: str
+    agent: Sonetto
+    inputs: dict[str, list[HumanMessage]]
+    config: dict[str, Any]
+
+
+@dataclass
+class _TurnResult:
+    """一轮 Agent 执行的结果。"""
+    final_answer: str
+    turn_id: str
+    error: str | None
+
+
+# ── 叶子辅助函数 ──────────────────────────────────────────
+
+
+def _get_final_answer(event: dict[str, Any]) -> str:
     """
     从 on_chain_end 事件提取原始 final_answer，
     返回 content。
@@ -43,48 +75,7 @@ def _get_final_answer(event) -> str:
     return final_answer
 
 
-async def _stream_turn(
-    graph,
-    inputs,
-    config,
-    ws,
-    session,
-    system_prompt,
-    model_name: str | None = None,
-    max_tokens: int = 256_000,
-) -> str:
-    """流式执行 Agent 图，返回最终回答。"""
-    final_answer = ""
-    async for event in graph.astream_events(inputs, config=config, version="v2"):
-        if event.get("event") == "on_chain_end" and event.get("name") == "agent":
-            final_answer = _get_final_answer(event)
-        # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
-        if event.get("event") == "on_chain_end" and event.get("name") == "tools":
-            usage = await estimate_context_usage_from_session(
-                session,
-                system_prompt,
-                max_tokens=max_tokens,
-                model_name=model_name or "",
-            )
-            await ws.send_json({"type": "context_usage", "payload": usage})
-
-    # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
-    if not final_answer:
-        try:
-            cpt = await session.checkpointer.aget_tuple(config)
-            if cpt is not None:
-                messages = cpt.checkpoint.get("channel_values", {}).get("messages", [])
-                if messages:
-                    last = messages[-1]
-                    candidate = last.content if hasattr(last, "content") else str(last)
-                    if candidate:
-                        final_answer = candidate
-        except Exception:
-            pass
-    return final_answer
-
-
-async def _inject_cancel_tool_messages(session, config, ws: WebSocket) -> None:
+async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, Any], ws: WebSocket) -> None:
     """为 checkpoint 中孤立的 tool_calls 注入统一格式的正常 ToolMessage，
     并通知前端使对应工具气泡进入错误状态。
 
@@ -176,64 +167,95 @@ async def _inject_cancel_tool_messages(session, config, ws: WebSocket) -> None:
         raise
 
 
-async def run_agent_turn(
+async def _stream_turn(
+    graph: Sonetto,
+    inputs: dict[str, list[HumanMessage]],
+    config: dict[str, Any],
     ws: WebSocket,
     session: SessionState,
-    user_message: str,
-    private_mode: bool = False,
-    provider_id: str | None = None,
+    system_prompt: str,
     model_name: str | None = None,
-    image_recognition: bool = False,
-    image_refs: list[str] | None = None,
-):
+    max_tokens: int = 256_000,
+) -> str:
+    """流式执行 Agent 图，返回最终回答。"""
+    final_answer = ""
+    async for event in graph.astream_events(inputs, config=config, version="v2"):
+        if event.get("event") == "on_chain_end" and event.get("name") == "agent":
+            final_answer = _get_final_answer(event)
+        # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
+        if event.get("event") == "on_chain_end" and event.get("name") == "tools":
+            usage = await estimate_context_usage_from_session(
+                session,
+                system_prompt,
+                max_tokens=max_tokens,
+                model_name=model_name or "",
+            )
+            await ws.send_json({"type": "context_usage", "payload": usage})
+
+    # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
+    if not final_answer:
+        try:
+            cpt = await session.checkpointer.aget_tuple(config)
+            if cpt is not None:
+                messages = cpt.checkpoint.get("channel_values", {}).get("messages", [])
+                if messages:
+                    last = messages[-1]
+                    candidate = last.content if hasattr(last, "content") else str(last)
+                    if candidate:
+                        final_answer = candidate
+        except Exception:
+            pass
+    return final_answer
+
+
+# ── 阶段 1：LLM 解析 ──────────────────────────────────────
+
+
+def _resolve_llm(app_state: Any, provider_id: str | None, model_name: str | None) -> _LlmConfig | None:
+    """从 ProviderManager 解析 LLM 实例及上下文窗口配置。
+
+    优先使用指定的 provider_id + model_name 创建 LLM，
+    否则回退到 app_state.default_llm。
+    返回 None 表示无可用的 LLM。
     """
-    在指定的session中编排一轮 Agent 对话。
-    无返回值。
-    以内置的 WebSocketCallback回调函数和前端通信系统作为副作用。
-
-    若指定了 provider_id + model_name，则从 ProviderManager 动态创建 LLM；
-    否则退化到 app_state.default_llm 全局 fallback。
-
-    若 image_recognition 为 True，则将 image_refs 中的图片文件 base64 编码后
-    以多模态内容注入 HumanMessage，使 LLM 能直接"看见"图片。
-    """
-    # 1. [准备环境] 从 WebSocket 获取应用状态
-    app_state = ws.app.state
-    ws_callback = WebSocketCallback(ws)  # WebUI 回调函数系统
-
-    # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
     mgr: ProviderManager | None = getattr(app_state, "provider_manager", None)
     llm: BaseChatModel | None = app_state.default_llm
-    current_model_name: str | None = None
-    current_max_tokens: int = FALLBACK_CTX
+    resolved_model = model_name or ""
+    max_tokens = FALLBACK_CTX
 
     if mgr and provider_id and model_name:
         result = mgr.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
         if result:
-            llm, current_model_name, current_max_tokens = result
+            llm, resolved_model, max_tokens = result
 
-    if llm is None:
-        await ws.send_json(
-            {
-                "type": "error",
-                "payload": {
-                    "code": "NO_LLM",
-                    "message": "No LLM provider configured. Add one in Model Settings first.",
-                },
-            }
-        )
-        return
+    return _LlmConfig(llm=llm, model_name=resolved_model, max_tokens=max_tokens) if llm else None
 
+
+# ── 阶段 2：构建 Agent 与输入 ──────────────────────────────
+
+
+async def _build_turn_context(
+    app_state: Any,
+    session: SessionState,
+    ws: WebSocket,
+    llm_conf: _LlmConfig,
+    user_message: str,
+    image_recognition: bool,
+    image_refs: list[str] | None,
+) -> _TurnContext:
+    """构建 Agent 图、输入消息和执行配置。"""
     system_prompt = build_system_prompt()
-    tools = app_state.tools
-    agent_sonetto: Sonetto = build_agent(
-        model=llm,
-        tools=tools,
+    ws_callback = WebSocketCallback(ws)
+
+    agent = build_agent(
+        model=llm_conf.llm,
+        tools=app_state.tools,
         system_prompt=system_prompt,
         checkpointer=session.checkpointer,
     )
-    session.set_graph(agent_sonetto)
-    # 构建输入消息 — 图像认知模式下发多模态 HumanMessage
+    session.set_graph(agent)
+
+    # 多模态输入
     if image_recognition and image_refs:
         content_parts: list[dict] = [{"type": "text", "text": user_message}]
         for img_path in image_refs:
@@ -252,144 +274,159 @@ async def run_agent_turn(
         inputs = {"messages": [HumanMessage(content=content_parts)]}
     else:
         inputs = {"messages": [HumanMessage(content=user_message)]}
+
     config = {
         "configurable": {"thread_id": session.session_id},
         "callbacks": [ws_callback],
         "recursion_limit": 120,
     }
 
-    # 2. [执行轮次] 流式执行 Agent 图，副作用推送最终回答，另有config回调副作用
+    return _TurnContext(system_prompt=system_prompt, agent=agent, inputs=inputs, config=config)
+
+
+# ── 阶段 3：执行轮次 ──────────────────────────────────────
+
+
+async def _execute_agent_turn(
+    ctx: _TurnContext,
+    ws: WebSocket,
+    session: SessionState,
+    llm_conf: _LlmConfig,
+) -> _TurnResult:
+    """流式执行 Agent 轮次，处理取消与异常，返回结果。"""
     final_answer = ""
-    _run_error: str | None = None
+    error: str | None = None
+    turn_id = ""
+
     try:
-        # turn 开始时推送当前上下文用量（含刚加入的 user message）
-        initial_turn_usage = await estimate_context_usage_from_session(
-            session,
-            system_prompt,
-            max_tokens=current_max_tokens,
-            model_name=current_model_name or "",
+        # 推送初始上下文用量（含刚加入的 user message）
+        initial_usage = await estimate_context_usage_from_session(
+            session, ctx.system_prompt,
+            max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
         )
-        await ws.send_json({"type": "context_usage", "payload": initial_turn_usage})
+        await ws.send_json({"type": "context_usage", "payload": initial_usage})
 
         final_answer = await _stream_turn(
-            agent_sonetto,
-            inputs,
-            config,
-            ws,
-            session,
-            system_prompt,
-            model_name=current_model_name,
-            max_tokens=current_max_tokens,
+            ctx.agent, ctx.inputs, ctx.config, ws, session,
+            ctx.system_prompt, model_name=llm_conf.model_name, max_tokens=llm_conf.max_tokens,
         )
-        await ws.send_json(
-            {  # [向前端通信] 1. 向客户端推送最终答案
-                "type": "answer",
-                "payload": {"content": final_answer},
-            }
-        )
-    except asyncio.CancelledError:
-        # 清理 interaction 挂起 Future
-        interaction.cancel_all()
+        await ws.send_json({"type": "answer", "payload": {"content": final_answer}})
 
-        # 修复 checkpoint：为孤立 tool_calls 注入取消 ToolMessage，并通知前端
+    except asyncio.CancelledError:
+        interaction.cancel_all()
         try:
-            await _inject_cancel_tool_messages(session, config, ws)
+            await _inject_cancel_tool_messages(session, ctx.config, ws)
         except Exception as e:
             print(f"[cancel] checkpoint cleanup error: {e}", file=sys.stderr)
+        await ws.send_json({"type": "error", "payload": {"code": "CANCELLED", "message": "生成已取消"}})
 
-        await ws.send_json(
-            {  # [向前端通信] 2. 通知客户端生成已被取消
-                "type": "error",
-                "payload": {"code": "CANCELLED", "message": "生成已取消"},
-            }
-        )
     except Exception as e:
-        _run_error = str(e)
-        print(
-            f"[sub-agent:{session.session_id[:8]}] run_agent_turn error: {e}",
-            file=sys.stderr,
-        )
+        error = str(e)
+        print(f"[sub-agent:{session.session_id[:8]}] run_agent_turn error: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        await ws.send_json(
-            {
-                "type": "error",
-                "payload": {"code": "AGENT_ERROR", "message": str(e)},
-            }
-        )
+        await ws.send_json({"type": "error", "payload": {"code": "AGENT_ERROR", "message": str(e)}})
+
     finally:
         session.clear_active_task()
         context_usage = await estimate_context_usage_from_session(
-            session,
-            system_prompt,
-            max_tokens=current_max_tokens,
-            model_name=current_model_name or "",
+            session, ctx.system_prompt,
+            max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
         )
         turn_id = uuid.uuid4().hex
-        await ws.send_json(
-            {  # [向前端通信] 3. 推送 turn 结束 + 上下文用量 + turn_id（用于记忆事件关联）
-                "type": "done",
-                "payload": {
-                    "turn_id": turn_id,
-                    "context_usage": context_usage,
-                },
-            }
-        )
+        await ws.send_json({"type": "done", "payload": {"turn_id": turn_id, "context_usage": context_usage}})
 
-    # 3. [后处理] 增加消息计数器，将对话记录入长期记忆
-    if final_answer:
+    return _TurnResult(final_answer=final_answer, turn_id=turn_id, error=error)
+
+
+# ── 阶段 4：后处理 ────────────────────────────────────────
+
+
+async def _postprocess_turn(
+    app_state: Any,
+    session: SessionState,
+    result: _TurnResult,
+    user_message: str,
+    private_mode: bool,
+) -> None:
+    """后处理：消息计数、长期记忆持久化、Const 会话保存、Sub-agent 结果回调。"""
+    if result.final_answer:
         session.increment_messages()
+
     if not private_mode:
-        # 传入全会话历史，让记忆 Agent 有更多上下文
         await app_state.ltm.send_history_from_session(
-            session,
-            turn_id=turn_id,
-            user_message=user_message,
-            final_answer=final_answer,
+            session, turn_id=result.turn_id, user_message=user_message, final_answer=result.final_answer,
         )
 
-    # 4. [Const 会话] 自动持久化到磁盘 YAML
-    if final_answer and session.is_const:
+    # Const 会话持久化
+    if result.final_answer and session.is_const:
         try:
             cpt = await session.checkpointer.aget_tuple(
                 {"configurable": {"thread_id": session.session_id}}
             )
-            raw_messages = (
-                cpt.checkpoint.get("channel_values", {}).get("messages", [])
-                if cpt
-                else []
-            )
+            raw_messages = cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
             metadata = {
                 "created_at": session.created_at,
                 "last_active": session.last_active,
                 "message_count": session.message_count,
             }
-            serialized = serialize_messages(raw_messages)
-            save_const_session(
-                session.session_id, session.const_name, metadata, serialized
-            )
+            save_const_session(session.session_id, session.const_name, metadata, serialize_messages(raw_messages))
         except Exception as e:
-            print(
-                f"[const] 自动保存会话 {session.session_id[:8]} 失败: {e}",
-                file=sys.stderr,
-            )
+            print(f"[const] 自动保存会话 {session.session_id[:8]} 失败: {e}", file=sys.stderr)
 
-    # 5. [Sub-agent] 如果有待处理的 pending_result，resolve 它
+    # Sub-agent pending 结果回调
     if session.has_pending_result():
-        if _run_error:
-            print(
-                f"[sub-agent:{session.session_id[:8]}] resolving pending_result with run error",
-                file=sys.stderr,
-            )
-            session.fail_pending(f"子 Agent 执行失败: {_run_error}")
-        elif final_answer:
-            print(
-                f"[sub-agent:{session.session_id[:8]}] resolving pending_result with answer",
-                file=sys.stderr,
-            )
-            session.resolve_pending(final_answer)
+        if result.error:
+            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with run error", file=sys.stderr)
+            session.fail_pending(f"子 Agent 执行失败: {result.error}")
+        elif result.final_answer:
+            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with answer", file=sys.stderr)
+            session.resolve_pending(result.final_answer)
         else:
-            print(
-                f"[sub-agent:{session.session_id[:8]}] resolving pending_result with exception (empty answer)",
-                file=sys.stderr,
-            )
             session.fail_pending("Sub-agent 未能产生有效回答")
+
+
+# ═══════════════════════════════════════════════════════════
+# 公共接口（最顶层：仅编排，不包含逻辑）
+# ═══════════════════════════════════════════════════════════
+
+
+async def run_agent_turn(
+    ws: WebSocket,
+    session: SessionState,
+    user_message: str,
+    private_mode: bool = False,
+    provider_id: str | None = None,
+    model_name: str | None = None,
+    image_recognition: bool = False,
+    image_refs: list[str] | None = None,
+):
+    """编排一轮 Agent 对话。
+
+    分 4 个阶段执行：
+      1. _resolve_llm        — 解析 LLM 与上下文窗口配置
+      2. _build_turn_context  — 构建 Agent 图、多模态输入与运行配置
+      3. _execute_agent_turn  — 流式执行、异常/取消处理
+      4. _postprocess_turn    — 消息计数、记忆持久化、Const 保存、Sub-agent 回调
+    """
+    app_state = ws.app.state
+
+    # 1. 解析 LLM 配置
+    llm_conf = _resolve_llm(app_state, provider_id, model_name)
+    if llm_conf is None:
+        await ws.send_json({
+            "type": "error",
+            "payload": {
+                "code": "NO_LLM",
+                "message": "No LLM provider configured. Add one in Model Settings first.",
+            },
+        })
+        return
+
+    # 2. 构建执行上下文
+    ctx = await _build_turn_context(app_state, session, ws, llm_conf, user_message, image_recognition, image_refs)
+
+    # 3. 执行轮次
+    result = await _execute_agent_turn(ctx, ws, session, llm_conf)
+
+    # 4. 后处理
+    await _postprocess_turn(app_state, session, result, user_message, private_mode)
