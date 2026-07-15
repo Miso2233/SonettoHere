@@ -1,4 +1,4 @@
-"""Turn-level WebSocket 事件发送器。
+"""一轮 Agent 轮次的 WebSocket 事件发送器 (WsEventSender)。
 
 封装一轮 Agent 对话中所有前端消息的格式化与发送。
 每种消息类型对应一个命名方法，统一消息结构为 {"type": ..., "payload": ...}。
@@ -7,8 +7,8 @@
 from fastapi import WebSocket
 
 
-class TurnSender:
-    """一轮 Agent 轮次的前端事件发送器。
+class WsEventSender:
+    """一轮 Agent 轮次的 WebSocket 事件发送器。
 
     Attributes:
         _ws: 底层 WebSocket 连接
