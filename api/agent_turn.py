@@ -31,7 +31,13 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 @dataclass
 class _LlmConfig:
-    """LLM 实例及上下文窗口配置。"""
+    """LLM 实例及上下文窗口配置。
+
+    Attributes:
+        llm:        LangChain 聊天模型实例
+        model_name: 当前使用的模型名称（如 gpt-4o、deepseek-chat）
+        max_tokens: 模型的最大上下文窗口大小（token 数）
+    """
     llm: BaseChatModel
     model_name: str
     max_tokens: int
@@ -39,7 +45,14 @@ class _LlmConfig:
 
 @dataclass
 class _TurnContext:
-    """一轮 Agent 执行所需的全部上下文。"""
+    """一轮 Agent 执行所需的全部上下文（构建后不可变）。
+
+    Attributes:
+        system_prompt: 当前会话的系统提示词
+        agent:         编译后的 LangGraph Agent (Sonetto)
+        inputs:        本轮输入消息字典（含 HumanMessage 列表）
+        config:        运行配置（thread_id、callbacks、recursion_limit）
+    """
     system_prompt: str
     agent: Sonetto
     inputs: dict[str, list[HumanMessage]]
@@ -48,7 +61,13 @@ class _TurnContext:
 
 @dataclass
 class _TurnResult:
-    """一轮 Agent 执行的结果。"""
+    """一轮 Agent 执行的结果。
+
+    Attributes:
+        final_answer: Agent 产出的最终文本回答（空串表示无回答）
+        turn_id:      本轮唯一标识（UUID hex），用于关联记忆事件
+        error:        执行过程中抛出的异常信息；成功时为 None
+    """
     final_answer: str
     turn_id: str
     error: str | None
