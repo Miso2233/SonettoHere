@@ -6,13 +6,16 @@ from langchain_core.tools import BaseTool
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.checkpoint.memory import MemorySaver
 
+# 彩蛋：Sonetto 就是这个 CompiledStateGraph ✨
+Sonetto = CompiledStateGraph
+
 
 def build_agent(
     model: BaseChatModel,
     tools: list[BaseTool],
     system_prompt: str,
     checkpointer: MemorySaver | None = None,
-) -> CompiledStateGraph:
+) -> Sonetto:
     """构建 ReAct Agent 图。
 
     若提供 checkpointer 则复用（跨轮次持久化状态），

@@ -9,7 +9,7 @@ import uuid
 from fastapi import WebSocket
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from agent.graph import build_agent
+from agent.graph import Sonetto, build_agent
 from agent.prompts import build_system_prompt
 from api import interaction
 from api.callbacks.websocket_callback import WebSocketCallback
@@ -226,7 +226,7 @@ async def run_agent_turn(
 
     system_prompt = build_system_prompt()
     tools = app_state.tools
-    agent_sonetto = build_agent(
+    agent_sonetto: Sonetto = build_agent(
         model=llm,
         tools=tools,
         system_prompt=system_prompt,
