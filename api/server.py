@@ -43,7 +43,7 @@ async def _load_const_sessions(app: FastAPI):
     if not const_list:
         return
 
-    if app.state.llm is None:
+    if app.state.default_llm is None:
         print(f"[const] Skipping {len(const_list)} const session(s) — no LLM available")
         return
 
@@ -65,7 +65,7 @@ async def _load_const_sessions(app: FastAPI):
             checkpointer = MemorySaver()
             if reconstructed:
                 agent = build_agent(
-                    model=app.state.llm,
+                    model=app.state.default_llm,
                     tools=app.state.tools,
                     system_prompt=app.state.system_prompt,
                     checkpointer=checkpointer,
@@ -120,23 +120,23 @@ async def lifespan(app: FastAPI):
 
     # 2. 其他共享资源（LLM 统一从 ProviderManager 获取）
     try:
-        app.state.llm = get_llm(provider_manager)
+        app.state.default_llm = get_llm(provider_manager)
     except RuntimeError as e:
         print(f"[llm] {e}")
         print(
             "[llm] No LLM configured — chat will be read-only until a provider is added"
         )
-        app.state.llm = None
+        app.state.default_llm = None
     app.state.system_prompt = get_system_prompt()
     app.state.native_tools = get_tools()
     app.state.session_manager = SessionManager()
     app.state.ws_registry = WebSocketRegistry()
     app.state.ltm = LongTermMemoryInterface(
         MEMORY_PATH,
-        llm=app.state.llm,
+        llm=app.state.default_llm,
         ws_registry=app.state.ws_registry,
     )
-    if app.state.llm is not None:
+    if app.state.default_llm is not None:
         app.state.ltm.start_listening()
     else:
         print("[ltm] Skipped (no LLM available)")

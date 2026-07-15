@@ -183,7 +183,7 @@ class CallSubAgentTool(ToolBase):
 
         system_prompt = build_system_prompt()
         agent = build_agent(
-            model=app_state.llm,
+            model=app_state.default_llm,
             tools=app_state.tools,
             system_prompt=system_prompt,
             checkpointer=sub.checkpointer,

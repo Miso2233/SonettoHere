@@ -219,7 +219,7 @@ async def generate_session_title(session_id: str, request: Request):
         if mgr is not None and mgr.count > 0:
             llm = get_llm(mgr)
         else:
-            llm = request.app.state.llm
+            llm = request.app.state.default_llm
 
         if llm is None:
             raise HTTPException(

@@ -190,7 +190,7 @@ async def run_agent_turn(
     以内置的 WebSocketCallback回调函数和前端通信系统作为副作用。
 
     若指定了 provider_id + model_name，则从 ProviderManager 动态创建 LLM；
-    否则退化到 app_state.llm 全局 fallback。
+    否则退化到 app_state.default_llm 全局 fallback。
 
     若 image_recognition 为 True，则将 image_refs 中的图片文件 base64 编码后
     以多模态内容注入 HumanMessage，使 LLM 能直接"看见"图片。
@@ -201,7 +201,7 @@ async def run_agent_turn(
 
     # 动态 LLM 选择（Phase 2：每次消息独立指定提供商/模型）
     mgr = getattr(app_state, "provider_manager", None)
-    llm = app_state.llm
+    llm = app_state.default_llm
     current_model_name = None
     current_max_tokens = FALLBACK_CTX
 
