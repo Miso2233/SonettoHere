@@ -40,7 +40,7 @@ class DeleteMemoryTool(ToolBase):
         if not reason:
             return format_error("reason 不能为空，请说明删除原因")
 
-        from memory.memory_manager import MemoryManager
+        from api.memory.manager import MemoryManager
 
         mm = MemoryManager(yaml_file=str(MEMORY_PATH))
         try:

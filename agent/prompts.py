@@ -3,8 +3,8 @@
 import re
 from pathlib import Path
 
-from memory.narrative import get_narrative
-from memory.user_init import ensure_user_md
+from api.memory.narrative import get_narrative
+from api.memory.user_init import ensure_user_md
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
 ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent / "anthropic_skills"

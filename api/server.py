@@ -8,13 +8,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import time
 
-from api.auth import load_or_create_token
-from api.const_session_store import (
+from api.core.auth import load_or_create_token
+from api.session.const_store import (
     deserialize_messages,
     load_all_const_sessions,
 )
-from api.dependencies import get_system_prompt, get_tools
-from api.health import get_health_report
+from api.core.dependencies import get_system_prompt, get_tools
+from api.core.health import get_health_report
 from api.providers.manager import ProviderManager
 from api.providers.store import ProviderConfigStore
 from api.routes import chat, files, images, memory, sessions, balance, providers
@@ -26,10 +26,10 @@ from api.routes import news as news_router
 from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
 from api.routes import env_vars as env_vars_router
-from api.session_manager import SessionManager, SessionState
-from api.ws_registry import WebSocketRegistry
+from api.session.manager import SessionManager, SessionState
+from api.session.ws_registry import WebSocketRegistry
 from agent.graph import build_agent
-from memory.narrative import MEMORY_PATH, LongTermMemoryInterface
+from api.memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from tools.mcp import init_mcp_tools, close_mcp
 from version import __version__
 

@@ -4,7 +4,7 @@ import asyncio
 
 from pydantic import BaseModel, Field
 
-from api import interaction
+from api.agent import interaction
 from tools.base import ToolBase, format_error, format_success
 
 

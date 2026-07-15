@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import memory.narrative as narrative
-from memory.memory_manager import MemoryManager
-from memory.narrative import LongTermMemoryInterface
+import api.memory.narrative as narrative
+from api.memory.manager import MemoryManager
+from api.memory.narrative import LongTermMemoryInterface
 
 
 # ── 测试辅助 ──────────────────────────────────────────────────

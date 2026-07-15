@@ -14,11 +14,10 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
 
-from api.session_manager import SessionState
-from api.ws_registry import WebSocketRegistry
-
-from memory.memory_callback import MemoryToolCallback
-from memory.memory_manager import MAX_DESC_LENGTH, MemoryManager
+from api.memory.callback import MemoryToolCallback
+from api.memory.manager import MAX_DESC_LENGTH, MemoryManager
+from api.session.manager import SessionState
+from api.session.ws_registry import WebSocketRegistry
 
 
 def _sanitize(text: str) -> str:

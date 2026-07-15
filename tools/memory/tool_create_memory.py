@@ -4,7 +4,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from memory.memory_manager import MAX_DESC_LENGTH
+from api.memory.manager import MAX_DESC_LENGTH
 from tools.base import ToolBase, format_error, format_success
 
 
@@ -49,7 +49,7 @@ class CreateMemoryTool(ToolBase):
         if not section:
             return format_error("section 不能为空，请指定记忆分区")
 
-        from memory.memory_manager import MemoryManager
+        from api.memory.manager import MemoryManager
 
         mm = MemoryManager(yaml_file=str(MEMORY_PATH))
         new_id = mm.add(description=content, theme=section)

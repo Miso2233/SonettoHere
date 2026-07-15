@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 
-import api.dependencies as deps
+import api.core.dependencies as deps
 
 
 class TestGetSystemPrompt:

@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import memory.narrative as narrative
-from memory.narrative import LongTermMemoryInterface
+import api.memory.narrative as narrative
+from api.memory.narrative import LongTermMemoryInterface
 
 
 def _make_fake_agent(entries_setup=None):

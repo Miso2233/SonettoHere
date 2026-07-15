@@ -5,7 +5,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
-from memory.memory_manager import MAX_DESC_LENGTH
+from api.memory.manager import MAX_DESC_LENGTH
 
 
 class UpdateMemoryInput(BaseModel):
@@ -51,7 +51,7 @@ class UpdateMemoryTool(ToolBase):
         if not reason:
             return format_error("reason 不能为空，请说明更新原因")
 
-        from memory.memory_manager import MemoryManager
+        from api.memory.manager import MemoryManager
 
         mm = MemoryManager(yaml_file=str(MEMORY_PATH))
         try:

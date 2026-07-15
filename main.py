@@ -6,13 +6,13 @@ import uvicorn
 from version import __version__
 
 from api.server import create_app
-from memory.user_init import ensure_all
+from api.memory.user_init import ensure_all
 
 
 def main():
     # CLI：轮换 Token
     if "--rotate-token" in sys.argv:
-        from api.auth import rotate_token
+        from api.core.auth import rotate_token
 
         rotated = rotate_token()
         print(f"[auth] Token rotated: {rotated}")

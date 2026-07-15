@@ -3,7 +3,7 @@
 import pytest
 import yaml
 
-import api.auth as auth
+import api.core.auth as auth
 
 
 class TestLoadOrCreateToken:

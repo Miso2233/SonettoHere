@@ -3,8 +3,8 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from api.const_session_store import flatten_content
-from api.context_usage import estimate_context_usage_from_session
+from api.agent.context_usage import estimate_context_usage_from_session
+from api.session.const_store import flatten_content
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from api.providers import FALLBACK_CTX
@@ -70,7 +70,7 @@ async def get_messages(session_id: str, request: Request):
 @router.post("/sessions/{session_id}/undo")
 async def undo_session_messages(session_id: str, request: Request, n: int = 1):
     """撤回最近 n 轮对话（默认撤回最后一轮）。"""
-    from api.time_traveler import undo_rounds
+    from api.agent.time_traveler import undo_rounds
 
     sm = request.app.state.session_manager
     session = sm.get(session_id)
@@ -113,7 +113,7 @@ async def delete_session(session_id: str, request: Request):
 
     # 若为 const 会话，先清理磁盘文件
     if session is not None and session.is_const:
-        from api.const_session_store import delete_const_session
+        from api.session.const_store import delete_const_session
 
         delete_const_session(session_id)
 
@@ -148,7 +148,7 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
     except Exception:
         raw_messages = []
 
-    from api.const_session_store import save_const_session, serialize_messages
+    from api.session.const_store import save_const_session, serialize_messages
 
     metadata = {
         "created_at": session.created_at,
@@ -250,7 +250,7 @@ async def generate_session_title(session_id: str, request: Request):
 @router.delete("/sessions/{session_id}/const")
 async def unconstify_session(session_id: str, request: Request):
     """取消固定，删除磁盘文件。"""
-    from api.const_session_store import delete_const_session
+    from api.session.const_store import delete_const_session
 
     delete_const_session(session_id)
 

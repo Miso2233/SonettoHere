@@ -67,7 +67,7 @@ class ListMemoriesTool(ToolBase):
         if not MEMORY_PATH.exists():
             return format_success({"items": [], "formatted": "（暂无记忆条目）"})
 
-        from memory.memory_manager import MemoryManager
+        from api.memory.manager import MemoryManager
 
         mm = MemoryManager(yaml_file=str(MEMORY_PATH))
         items = mm.show()

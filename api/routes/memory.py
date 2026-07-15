@@ -4,7 +4,7 @@ import random
 
 from fastapi import APIRouter, Request
 
-from memory.memory_manager import MemoryManager
+from api.memory.manager import MemoryManager
 
 router = APIRouter()
 

@@ -5,7 +5,7 @@ from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from api.ws_registry import WebSocketRegistry
+from api.session.ws_registry import WebSocketRegistry
 
 
 class MemoryToolCallback(BaseCallbackHandler):

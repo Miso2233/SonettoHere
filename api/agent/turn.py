@@ -13,18 +13,17 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agent.graph import Sonetto, build_agent
 from agent.prompts import build_system_prompt
-from api import interaction
+from api.agent import interaction
+from api.agent.context_usage import estimate_context_usage_from_session
+from api.agent.turn_sender import TurnSender
 from api.callbacks.websocket_callback import WebSocketCallback
-from api.const_session_store import save_const_session, serialize_messages
-from api.context_usage import estimate_context_usage_from_session
-from api.session_manager import SessionState
-from tools.base import format_error
-from tools.network.tool_image_understand import load_image_bytes, get_mime_type
-
 from api.providers import FALLBACK_CTX
 from api.providers.manager import ProviderManager
-from api.turn_sender import TurnSender
+from api.session.const_store import save_const_session, serialize_messages
+from api.session.manager import SessionState
 from langchain_core.language_models.chat_models import BaseChatModel
+from tools.base import format_error
+from tools.network.tool_image_understand import load_image_bytes, get_mime_type
 
 
 # ── 内部数据对象 ──────────────────────────────────────────

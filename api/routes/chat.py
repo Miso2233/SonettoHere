@@ -8,11 +8,11 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from api import interaction
-from api.agent_turn import run_agent_turn
-from api.context_usage import estimate_context_usage_from_session
+from api.agent import interaction
+from api.agent.context_usage import estimate_context_usage_from_session
+from api.agent.turn import run_agent_turn
 from api.providers import FALLBACK_CTX
-from api.session_manager import SessionState
+from api.session.manager import SessionState
 
 router = APIRouter()
 
