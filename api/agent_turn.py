@@ -23,6 +23,7 @@ from tools.network.tool_image_understand import load_image_bytes, get_mime_type
 
 from api.providers import FALLBACK_CTX
 from api.providers.manager import ProviderManager
+from api.turn_sender import TurnSender
 from langchain_core.language_models.chat_models import BaseChatModel
 
 
@@ -94,7 +95,7 @@ def _get_final_answer(event: dict[str, Any]) -> str:
     return final_answer
 
 
-async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, Any], ws: WebSocket) -> None:
+async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, Any], sender: TurnSender) -> None:
     """为 checkpoint 中孤立的 tool_calls 注入统一格式的正常 ToolMessage，
     并通知前端使对应工具气泡进入错误状态。
 
@@ -155,15 +156,7 @@ async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, 
     # 通知前端：使运行的工具体进入错误状态
     for tc in orphaned:
         try:
-            await ws.send_json(
-                {
-                    "type": "tool_error",
-                    "payload": {
-                        "tool_name": tc["name"],
-                        "error": "用户取消了该工具调用",
-                    },
-                }
-            )
+            await sender.tool_error(tc["name"], "用户取消了该工具调用")
         except Exception:
             pass  # WebSocket 已断开时静默忽略
 
@@ -190,7 +183,7 @@ async def _stream_turn(
     graph: Sonetto,
     inputs: dict[str, list[HumanMessage]],
     config: dict[str, Any],
-    ws: WebSocket,
+    sender: TurnSender,
     session: SessionState,
     system_prompt: str,
     model_name: str | None = None,
@@ -209,7 +202,7 @@ async def _stream_turn(
                 max_tokens=max_tokens,
                 model_name=model_name or "",
             )
-            await ws.send_json({"type": "context_usage", "payload": usage})
+            await sender.context_usage(usage)
 
     # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
     if not final_answer:
@@ -312,7 +305,7 @@ async def _build_turn_context(
 
 async def _execute_agent_turn(
     ctx: _TurnContext,
-    ws: WebSocket,
+    sender: TurnSender,
     session: SessionState,
     llm_conf: _LlmConfig,
 ) -> _TurnResult:
@@ -327,27 +320,27 @@ async def _execute_agent_turn(
             session, ctx.system_prompt,
             max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
         )
-        await ws.send_json({"type": "context_usage", "payload": initial_usage})
+        await sender.context_usage(initial_usage)
 
         final_answer = await _stream_turn(
-            ctx.agent, ctx.inputs, ctx.config, ws, session,
+            ctx.agent, ctx.inputs, ctx.config, sender, session,
             ctx.system_prompt, model_name=llm_conf.model_name, max_tokens=llm_conf.max_tokens,
         )
-        await ws.send_json({"type": "answer", "payload": {"content": final_answer}})
+        await sender.answer(final_answer)
 
     except asyncio.CancelledError:
         interaction.cancel_all()
         try:
-            await _inject_cancel_tool_messages(session, ctx.config, ws)
+            await _inject_cancel_tool_messages(session, ctx.config, sender)
         except Exception as e:
             print(f"[cancel] checkpoint cleanup error: {e}", file=sys.stderr)
-        await ws.send_json({"type": "error", "payload": {"code": "CANCELLED", "message": "生成已取消"}})
+        await sender.error("CANCELLED", "生成已取消")
 
     except Exception as e:
         error = str(e)
         print(f"[sub-agent:{session.session_id[:8]}] run_agent_turn error: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
-        await ws.send_json({"type": "error", "payload": {"code": "AGENT_ERROR", "message": str(e)}})
+        await sender.error("AGENT_ERROR", str(e))
 
     finally:
         session.clear_active_task()
@@ -356,7 +349,7 @@ async def _execute_agent_turn(
             max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
         )
         turn_id = uuid.uuid4().hex
-        await ws.send_json({"type": "done", "payload": {"turn_id": turn_id, "context_usage": context_usage}})
+        await sender.done(turn_id, context_usage)
 
     return _TurnResult(final_answer=final_answer, turn_id=turn_id, error=error)
 
@@ -432,6 +425,7 @@ async def run_agent_turn(
       4. _postprocess_turn    — 消息计数、记忆持久化、Const 保存、Sub-agent 回调
     """
     app_state = ws.app.state
+    sender = TurnSender(ws)
 
     # 1. 解析 LLM 配置
     llm_conf: _LlmConfig = _resolve_llm(
@@ -441,13 +435,10 @@ async def run_agent_turn(
         model_name=model_name,
     )
     if llm_conf is None:
-        await ws.send_json({
-            "type": "error",
-            "payload": {
-                "code": "NO_LLM",
-                "message": "No LLM provider configured. Add one in Model Settings first.",
-            },
-        })
+        await sender.error(
+            "NO_LLM",
+            "No LLM provider configured. Add one in Model Settings first.",
+        )
         return
 
     # 2. 构建执行上下文
@@ -462,7 +453,7 @@ async def run_agent_turn(
     )
 
     # 3. 执行轮次
-    result: _TurnResult = await _execute_agent_turn(ctx, ws, session, llm_conf)
+    result: _TurnResult = await _execute_agent_turn(ctx, sender, session, llm_conf)
 
     # 4. 后处理
     await _postprocess_turn(
