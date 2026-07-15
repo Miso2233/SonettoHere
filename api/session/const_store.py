@@ -3,6 +3,7 @@
 提供将会话状态（元数据 + 对话消息）序列化为 YAML 文件并重新加载的能力。
 """
 
+import re
 import time
 from pathlib import Path
 
@@ -90,8 +91,13 @@ def deserialize_messages(data: list[dict]) -> list:
 # ── 文件 I/O ──────────────────────────────────────────────────
 
 
+_SAFE_ID_RE = re.compile(r"^[\w-]+$")
+
+
 def _validate_session_id(session_id: str) -> str:
-    """校验 session_id 不含路径遍历字符，确保结果路径在 _CONST_DIR 内。"""
+    """校验 session_id 格式安全且结果路径在 _CONST_DIR 内。"""
+    if not _SAFE_ID_RE.match(session_id):
+        raise ValueError(f"Invalid session_id: contains unsafe characters")
     filepath = (_CONST_DIR / f"{session_id}.yaml").resolve()
     const_dir = _CONST_DIR.resolve()
     if not str(filepath).startswith(str(const_dir)):
