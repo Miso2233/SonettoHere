@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-# api/const_session_store.py → api/data/const-sessions/
+# api/session/const_store.py → api/data/const-sessions/
 _CONST_DIR = Path(__file__).resolve().parent.parent / "data" / "const-sessions"
 
 
