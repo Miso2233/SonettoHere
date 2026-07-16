@@ -12,7 +12,8 @@ from api.session.const_store import (
     deserialize_messages,
     load_all_const_sessions,
 )
-from api.core.dependencies import get_system_prompt, get_tools
+from api.core.dependencies import get_tools
+from agent.prompts import build_system_prompt
 from api.core.health import get_health_report
 from api.providers.manager import ProviderManager
 from api.providers.store import ProviderConfigStore
@@ -66,7 +67,7 @@ async def _load_const_sessions(app: FastAPI):
                 agent = build_agent(
                     model=app.state.default_llm,
                     tools=app.state.tool_manager.get_all(),
-                    system_prompt=app.state.system_prompt,
+                    system_prompt=build_system_prompt(),
                     checkpointer=checkpointer,
                 )
                 await agent.aupdate_state(
@@ -125,7 +126,6 @@ async def lifespan(app: FastAPI):
         print(
             "[llm] No LLM configured — chat will be read-only until a provider is added"
         )
-    app.state.system_prompt = get_system_prompt()
     app.state.tool_manager = ToolManager()
     await app.state.tool_manager.load_all()
     app.state.session_manager = SessionManager()

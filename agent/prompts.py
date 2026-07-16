@@ -1,6 +1,7 @@
 """系统提示词组装。"""
 
 import re
+from functools import lru_cache
 from pathlib import Path
 
 from api.memory.narrative import get_narrative
@@ -119,6 +120,7 @@ def get_system_prompt_parts() -> list[dict]:
     ]
 
 
+@lru_cache(maxsize=1)
 def build_system_prompt() -> str:
     """组装完整系统提示词，进程生命周期内只组装一次（LRU 缓存）。"""
     ensure_user_md()

@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from api.agent.context_usage import estimate_context_usage_from_session
+from agent.prompts import build_system_prompt
 from api.session.const_store import flatten_content
 from langchain_core.language_models.chat_models import BaseChatModel
 
@@ -98,7 +99,7 @@ async def get_context_usage(session_id: str, request: Request) -> dict:
 
     usage = await estimate_context_usage_from_session(
         session,
-        request.app.state.system_prompt,
+        build_system_prompt(),
         max_tokens=max_tokens,
         model_name=model_name,
     )
