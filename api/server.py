@@ -8,7 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import time
 
-from api.core.auth import load_or_create_token
 from api.session.const_store import (
     deserialize_messages,
     load_all_const_sessions,
@@ -146,10 +145,6 @@ async def lifespan(app: FastAPI):
 
     # 加载 const 固定会话（需要 tools 已就绪）
     await _load_const_sessions(app)
-
-    # 3. 初始化认证 Token
-    app.state.auth_token = load_or_create_token()
-    print(f"[auth] token: {app.state.auth_token}")
 
     yield
 

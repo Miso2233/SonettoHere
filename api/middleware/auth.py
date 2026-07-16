@@ -12,6 +12,8 @@ Token 来源：
 
 from starlette.responses import JSONResponse
 
+from api.core.auth import load_or_create_token
+
 
 class AuthMiddleware:
     """ASGI 中间件 — 在请求到达路由前完成鉴权，HTTP 和 WebSocket 统一处理。"""
@@ -32,8 +34,7 @@ class AuthMiddleware:
 
         # 提取并校验 Token
         token = self._extract_token(scope)
-        app = scope.get("app")
-        expected = app.state.auth_token if app is not None else None
+        expected = load_or_create_token()
 
         if not expected or token != expected:
             return await self._reject(scope, receive, send)
