@@ -10,6 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
+from agent.prompts import build_system_prompt
 from api.agent.turn import run_agent_turn
 from api.providers import FALLBACK_CTX
 from api.session.manager import SessionState
@@ -166,7 +167,7 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
     default_max_tokens, default_model = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
     initial_usage = await estimate_context_usage_from_session(
         session,
-        app_state.system_prompt,
+        build_system_prompt(),
         max_tokens=default_max_tokens,
         model_name=default_model,
     )
