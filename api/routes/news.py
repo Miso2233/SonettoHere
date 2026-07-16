@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from pathlib import Path
 import yaml
+from functools import lru_cache
 
 router = APIRouter()
 
@@ -32,6 +33,7 @@ class ListNewsResponse(BaseModel):
 # ── 读取 ──
 
 
+@lru_cache(maxsize=1)
 def _load_news() -> list[NewsEntry]:
     if not NEWS_PATH.exists():
         return []
