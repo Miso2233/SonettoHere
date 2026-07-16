@@ -2,7 +2,7 @@
 
 from langchain_core.tools import BaseTool
 
-from api.core.dependencies import get_tools
+from tools import get_all_tools
 from tools.mcp import init_mcp_tools, reload_mcp, close_mcp
 
 
@@ -20,7 +20,7 @@ class ToolManager:
 
     async def load_all(self):
         """初始化所有工具。native（同步）→ MCP（异步）。"""
-        self._native_tools = get_tools()
+        self._native_tools = get_all_tools()
         self._mcp_tools = await init_mcp_tools()
 
     @property

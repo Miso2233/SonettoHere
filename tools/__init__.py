@@ -1,5 +1,7 @@
 """工具（Tool）集中注册 — ALL_TOOLS 供 Agent 使用。"""
 
+from functools import lru_cache
+
 from langchain_core.tools import BaseTool
 
 from tools.base import SharedAPIClient
@@ -15,6 +17,7 @@ def _get_client() -> SharedAPIClient:
     return _client
 
 
+@lru_cache(maxsize=1)
 def get_all_tools() -> list[BaseTool]:
     """返回所有已注册的 Tool 实例。"""
     client = _get_client()

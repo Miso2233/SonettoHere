@@ -12,7 +12,6 @@ from api.session.const_store import (
     deserialize_messages,
     load_all_const_sessions,
 )
-from api.core.dependencies import get_tools
 from agent.prompts import build_system_prompt
 from api.core.health import get_health_report
 from api.providers.manager import ProviderManager
