@@ -97,5 +97,5 @@ async def list_macros() -> dict:
 @router.get("/tools")
 async def list_tools(request: Request) -> dict:
     """返回所有已加载的 Python 内置工具（native_tools + mcp_tools）。"""
-    tools = getattr(request.app.state, "tools", [])
+    tools = request.app.state.tool_manager.get_all()
     return {"tools": [{"name": t.name, "description": t.description} for t in tools]}

@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request
 
-from tools.mcp import get_mcp_error, get_mcp_servers_info, reload_mcp
+from tools.mcp import get_mcp_servers_info
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ router = APIRouter()
 async def list_mcp_servers(request: Request) -> dict:
     """返回所有已配置的 MCP 服务器（含 disabled）。"""
     servers = get_mcp_servers_info()
-    mcp_tools = getattr(request.app.state, "mcp_tools", [])
+    mcp_tools = request.app.state.tool_manager.mcp_tools
     return {
         "servers": servers,
         "tool_count": len(mcp_tools),
@@ -29,9 +29,7 @@ async def reload_mcp_servers(request: Request) -> dict:
     失败时保留旧工具列表不变。
     """
     try:
-        new_tools = await reload_mcp()
-        request.app.state.mcp_tools = new_tools
-        request.app.state.tools = request.app.state.native_tools + new_tools
+        new_tools = await request.app.state.tool_manager.reload_mcp()
         server_info = get_mcp_servers_info()
         return {
             "status": "ok",

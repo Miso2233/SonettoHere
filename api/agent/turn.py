@@ -442,7 +442,7 @@ async def run_agent_turn(
 
     # 2. 构建执行上下文
     ctx: _TurnContext = await _build_turn_context(
-        tools=app_state.tools,
+        tools=app_state.tool_manager.get_all(),
         session=session,
         ws=ws,
         llm_conf=llm_conf,

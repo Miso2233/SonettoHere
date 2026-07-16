@@ -98,7 +98,7 @@ async def check_memory(app: FastAPI) -> ComponentHealth:
 async def check_native_tools(app: FastAPI) -> ComponentHealth:
     start = time.monotonic()
     try:
-        tools = app.state.native_tools
+        tools = app.state.tool_manager.native_tools
         elapsed = (time.monotonic() - start) * 1000
         return ComponentHealth(
             status="ok",
@@ -115,7 +115,7 @@ async def check_native_tools(app: FastAPI) -> ComponentHealth:
 async def check_mcp_tools(app: FastAPI) -> ComponentHealth:
     start = time.monotonic()
     try:
-        tools = app.state.mcp_tools
+        tools = app.state.tool_manager.mcp_tools
         if not tools:
             elapsed = (time.monotonic() - start) * 1000
             return ComponentHealth(

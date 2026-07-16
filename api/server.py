@@ -29,7 +29,7 @@ from api.session.manager import SessionManager, SessionState
 from api.session.ws_registry import WebSocketRegistry
 from agent.graph import build_agent
 from api.memory.narrative import MEMORY_PATH, LongTermMemoryInterface
-from tools.mcp import init_mcp_tools, close_mcp
+from api.tools.manager import ToolManager
 from version import __version__
 
 from api.middleware.auth import AuthMiddleware
@@ -65,7 +65,7 @@ async def _load_const_sessions(app: FastAPI):
             if reconstructed:
                 agent = build_agent(
                     model=app.state.default_llm,
-                    tools=app.state.tools,
+                    tools=app.state.tool_manager.get_all(),
                     system_prompt=app.state.system_prompt,
                     checkpointer=checkpointer,
                 )
@@ -126,7 +126,8 @@ async def lifespan(app: FastAPI):
             "[llm] No LLM configured — chat will be read-only until a provider is added"
         )
     app.state.system_prompt = get_system_prompt()
-    app.state.native_tools = get_tools()
+    app.state.tool_manager = ToolManager()
+    await app.state.tool_manager.load_all()
     app.state.session_manager = SessionManager()
     app.state.ws_registry = WebSocketRegistry()
     app.state.ltm = LongTermMemoryInterface(
@@ -139,17 +140,13 @@ async def lifespan(app: FastAPI):
     else:
         print("[ltm] Skipped (no LLM available)")
 
-    # 从 YAML 配置加载 MCP 工具
-    app.state.mcp_tools = await init_mcp_tools()
-    app.state.tools = app.state.native_tools + app.state.mcp_tools
-
     # 加载 const 固定会话（需要 tools 已就绪）
     await _load_const_sessions(app)
 
     yield
 
     # 关闭：清理资源
-    await close_mcp()
+    await app.state.tool_manager.close()
     await app.state.ltm.stop_listening()
 
 
