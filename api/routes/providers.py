@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from api.providers import ProviderConfig
 from api.providers.enrich import enrich_provider_config
 from api.providers.default_llm import refresh_default_llm
-from api.providers.manager import ProviderManager
+from api.providers.manager import ProviderManager, get_manager
 from api.providers.openai_provider import OpenAIProvider
 
 router = APIRouter()
@@ -44,11 +44,14 @@ class TestConnectionBody(BaseModel):
 # ── HELPERS ─────────────────────────────────────────────
 
 
-def _get_manager(request: Request) -> ProviderManager:
-    return request.app.state.provider_manager
+def _require_manager() -> ProviderManager:
+    mgr = get_manager()
+    if mgr is None:
+        raise HTTPException(status_code=503, detail="Provider manager not initialized")
+    return mgr
 
 
-async def _refresh_app_llm(request: Request) -> None:
+async def _refresh_app_llm() -> None:
     """刷新默认 LLM 缓存。LTM 内部已通过 get_default_llm() 按需获取，无需同步。"""
     refresh_default_llm()
 
@@ -59,14 +62,14 @@ async def _refresh_app_llm(request: Request) -> None:
 @router.get("/providers")
 def list_providers(request: Request) -> dict:
     """返回所有已配置的提供商（含未启用的）。"""
-    configs = _get_manager(request).list_configs()
+    configs = _require_manager().list_configs()
     return {"providers": [c.to_dict() for c in configs]}
 
 
 @router.get("/providers/{provider_id}")
 def get_provider(provider_id: str, request: Request) -> dict:
     """获取单个提供商配置。"""
-    config = _get_manager(request).get_config(provider_id)
+    config = _require_manager().get_config(provider_id)
     if config is None:
         raise HTTPException(status_code=404, detail="Provider not found")
     return config.to_dict()
@@ -75,7 +78,7 @@ def get_provider(provider_id: str, request: Request) -> dict:
 @router.post("/providers")
 async def create_provider(body: ProviderCreateBody, request: Request) -> dict:
     """新增提供商，并自动对模型进行元数据测定与填充。"""
-    mgr = _get_manager(request)
+    mgr = _require_manager()
     if mgr.get_config(body.id) is not None:
         raise HTTPException(
             status_code=409, detail=f"Provider '{body.id}' already exists"
@@ -97,14 +100,14 @@ async def create_provider(body: ProviderCreateBody, request: Request) -> dict:
     # 统一写入 YAML（含 model_vision + model_context_windows）
     mgr.save_config(config)
 
-    await _refresh_app_llm(request)
+    await _refresh_app_llm()
     return config.to_dict()
 
 
 @router.put("/providers/{provider_id}")
 async def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request) -> dict:
     """更新提供商配置（部分字段），并重新对模型进行元数据测定与填充。"""
-    mgr = _get_manager(request)
+    mgr = _require_manager()
     config = mgr.get_config(provider_id)
     if config is None:
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -138,16 +141,16 @@ async def update_provider(provider_id: str, body: ProviderUpdateBody, request: R
     # 统一写入 YAML（含 model_vision + model_context_windows）
     mgr.save_config(config)
 
-    await _refresh_app_llm(request)
+    await _refresh_app_llm()
     return config.to_dict()
 
 
 @router.delete("/providers/{provider_id}")
 async def delete_provider(provider_id: str, request: Request) -> dict:
     """删除提供商配置。"""
-    if not _get_manager(request).delete_config(provider_id):
+    if not _require_manager().delete_config(provider_id):
         raise HTTPException(status_code=404, detail="Provider not found")
-    await _refresh_app_llm(request)
+    await _refresh_app_llm()
     return {"status": "deleted"}
 
 
@@ -182,7 +185,7 @@ async def test_connection(body: TestConnectionBody) -> dict:
 @router.post("/providers/{provider_id}/test")
 async def test_existing_provider(provider_id: str, request: Request) -> dict:
     """测试已保存提供商的连接。"""
-    mgr = _get_manager(request)
+    mgr = _require_manager()
     try:
         provider = mgr.get(provider_id)
     except KeyError:
@@ -226,7 +229,7 @@ async def discover_models_for_existing(provider_id: str, request: Request) -> di
     from openai import AsyncOpenAI
     from api.providers.model_context_windows import lookup_context_window
 
-    mgr = _get_manager(request)
+    mgr = _require_manager()
     config = mgr.get_config(provider_id)
     if config is None:
         raise HTTPException(status_code=404, detail="Provider not found")

@@ -14,7 +14,7 @@ from api.session.const_store import (
 )
 from agent.prompts import build_system_prompt
 from api.core.health import get_health_report
-from api.providers.manager import ProviderManager
+from api.providers.manager import init_manager
 from api.providers.store import ProviderConfigStore
 from api.routes import chat, files, images, memory, sessions, balance, providers
 from api.routes import path_whitelist as path_whitelist_router
@@ -100,9 +100,8 @@ async def lifespan(app: FastAPI):
         migrated = provider_store.migrate_from_env()
         if migrated:
             print(f"[provider] migrated {migrated.label} from .env → providers.yaml")
-    provider_manager = ProviderManager(provider_store)
+    provider_manager = init_manager(provider_store)
     provider_manager.load_all()
-    app.state.provider_manager = provider_manager
     init_provider_manager(provider_manager)
     print(f"[provider] loaded {provider_manager.count} provider(s)")
 

@@ -13,6 +13,7 @@ from api.agent.context_usage import estimate_context_usage_from_session
 from agent.prompts import build_system_prompt
 from api.agent.turn import run_agent_turn
 from api.providers import FALLBACK_CTX
+from api.providers.manager import get_manager
 from api.session.manager import SessionState, session_manager
 
 router = APIRouter()
@@ -155,12 +156,11 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
     await ws.accept()
 
     # ── 初始化会话 ────────────────────────────────────────
-    app_state = ws.app.state
     session = session_manager.get_or_create(session_id)
     session.ws = ws  # 供后台记忆 consumer 推送事件
 
     # ── 推送初始上下文用量 ─────────────────────────────────
-    mgr = getattr(app_state, "provider_manager", None)
+    mgr = get_manager()
     default_max_tokens, default_model = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
     initial_usage = await estimate_context_usage_from_session(
         session,

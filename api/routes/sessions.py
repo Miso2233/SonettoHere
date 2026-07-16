@@ -11,7 +11,7 @@ from api.session.manager import session_manager
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from api.providers import FALLBACK_CTX
-from api.providers.manager import ProviderManager
+from api.providers.manager import get_manager
 
 router = APIRouter()
 
@@ -96,7 +96,7 @@ async def get_context_usage(session_id: str, request: Request) -> dict:
     session = sm.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    mgr = getattr(request.app.state, "provider_manager", None)
+    mgr = get_manager()
     max_tokens, model_name = mgr.get_default_context() if mgr else (FALLBACK_CTX, "")
 
     usage = await estimate_context_usage_from_session(
@@ -220,7 +220,7 @@ async def generate_session_title(session_id: str, request: Request) -> dict:
 
     try:
         # 通过 provider_manager 动态获取 LLM（支持 Web UI 添加后的热更新）
-        mgr: ProviderManager | None = getattr(request.app.state, "provider_manager", None)
+        mgr = get_manager()
         llm: BaseChatModel | None = (
             mgr.get_default_llm(temperature=0.7, streaming=True)
             if mgr is not None and mgr.count > 0

@@ -120,3 +120,20 @@ class ProviderManager:
             return OpenAIProvider(config)
         msg = f"Unknown provider type: {config.provider_type}"
         raise ValueError(msg)
+
+
+# ── 模块级单例 ──────────────────────────────────────────────
+
+_manager: ProviderManager | None = None
+
+
+def init_manager(store: ProviderConfigStore) -> ProviderManager:
+    """初始化模块级 ProviderManager 实例（lifespan 中调用）。"""
+    global _manager
+    _manager = ProviderManager(store)
+    return _manager
+
+
+def get_manager() -> ProviderManager | None:
+    """获取模块级 ProviderManager 实例。"""
+    return _manager

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from api.memory.manager import MemoryManager
 from api.memory.narrative import MEMORY_PATH
+from api.providers.manager import get_manager
 
 ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "anthropic_skills"
 
@@ -35,9 +36,9 @@ class HealthResponse(BaseModel):
 # ── LLM 健康检查（通过 ProviderManager）──────────────
 
 
-async def check_llm(app: FastAPI) -> ComponentHealth:
+async def check_llm() -> ComponentHealth:
     """使用 ProviderManager 中第一个 enabled provider 检查 LLM 连通性。"""
-    mgr = getattr(app.state, "provider_manager", None)
+    mgr = get_manager()
     if mgr is None or mgr.count == 0:
         return ComponentHealth(
             status="error",
@@ -136,9 +137,9 @@ async def check_mcp_tools(app: FastAPI) -> ComponentHealth:
         )
 
 
-async def check_health_providers(app: FastAPI) -> dict[str, ComponentHealth]:
+async def check_health_providers() -> dict[str, ComponentHealth]:
     """遍历 ProviderManager 中所有 enabled provider 并行健康检查。"""
-    mgr = getattr(app.state, "provider_manager", None)
+    mgr = get_manager()
     if mgr is None or mgr.count == 0:
         return {}
 
@@ -161,11 +162,11 @@ async def check_health_providers(app: FastAPI) -> dict[str, ComponentHealth]:
 async def get_health_report(app: FastAPI) -> HealthResponse:
     from version import __version__
 
-    llm = await check_llm(app)
+    llm = await check_llm()
     memory = await check_memory(app)
     native_tools = await check_native_tools(app)
     mcp_tools = await check_mcp_tools(app)
-    providers = await check_health_providers(app)
+    providers = await check_health_providers()
 
     # 统计 anthropic_skills 下的 skill 数量
     skills_count = 0
