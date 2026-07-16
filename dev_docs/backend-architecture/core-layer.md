@@ -22,7 +22,7 @@
 | 文件 | 核心类型/函数 | 职责 |
 |---|---|---|
 | `auth.py` | `load_or_create_token()` / `rotate_token()` | Token 认证：从 YAML 加载或生成新 Token，支持安全轮换 |
-| `dependencies.py` | `get_system_prompt()` / `get_tools()` | 共享资源惰性单例：系统提示词 + 工具集的全局单例 |
+| _(已删除)_ | `dependencies.py`（`get_system_prompt` / `get_tools`） | 功能已迁移：`build_system_prompt` 使用 `@lru_cache`，`get_all_tools` 使用 `@lru_cache` |
 | `health.py` | `ComponentHealth` / `HealthResponse` / `get_health_report()` | 四部件健康自检：LLM / 记忆 / 原生工具 / MCP 工具 |
 
 ### auth.py — Token 认证
@@ -39,27 +39,6 @@ def load_or_create_token() -> str:
 def rotate_token() -> str:
     """轮换 Token，覆盖写入文件并返回新值。"""
     ...
-```
-
-### dependencies.py — 惰性单例
-
-```python
-_system_prompt: str | None = None
-_tools: list | None = None
-
-
-def get_system_prompt() -> str:
-    global _system_prompt
-    if _system_prompt is None:
-        _system_prompt = build_system_prompt()
-    return _system_prompt
-
-
-def get_tools() -> list:
-    global _tools
-    if _tools is None:
-        _tools = get_all_tools()
-    return _tools
 ```
 
 ### health.py — 健康自检
@@ -87,18 +66,18 @@ class HealthResponse(BaseModel):
 
 - **check_llm** — 遍历 ProviderManager 中所有 enabled provider，逐个调用 `provider.check_health()`，第一个成功的即返回 `ok`，全部失败则返回 `error`
 - **check_memory** — 检查记忆 YAML 文件是否存在，并验证后台消费者（ltm）是否在运行
-- **check_native_tools** — 从 `app.state.native_tools` 读取工具列表，验证其可访问性
-- **check_mcp_tools** — 从 `app.state.mcp_tools` 读取 MCP 工具列表，空列表视为 `ok`（未配置 MCP 服务器即正常状态）
+- **check_native_tools** — 从 `app.state.tool_manager.native_tools` 读取工具列表，验证其可访问性
+- **check_mcp_tools** — 从 `app.state.tool_manager.mcp_tools` 读取 MCP 工具列表，空列表视为 `ok`（未配置 MCP 服务器即正常状态）
 
 最终 `get_health_report()` 聚合四部件结果：
 
 ```python
 async def get_health_report(app: FastAPI) -> HealthResponse:
-    llm = await check_llm(app)
+    llm = await check_llm()
     memory = await check_memory(app)
     native_tools = await check_native_tools(app)
     mcp_tools = await check_mcp_tools(app)
-    providers = await check_health_providers(app)
+    providers = await check_health_providers()
 
     all_checks = [llm, memory, native_tools, mcp_tools] + list(providers.values())
     overall = "ok" if all(c.status == "ok" for c in all_checks) else "degraded"
@@ -139,18 +118,17 @@ def rotate_token() -> str:
 
 ## 设计要点
 
-### 1. 单例模式（dependencies.py）
+### 1. 模块级 LRU 缓存（替代原 dependencies.py）
 
-```python
-_system_prompt: str | None = None
-_tools: list | None = None
-```
+`dependencies.py` 已删除。原先的手动缓存逻辑被 `@lru_cache(maxsize=1)` 替代，分布在各自源模块：
 
-通过模块级全局变量 + 双重惰性初始化实现单例。`get_system_prompt()` 和 `get_tools()` 仅在首次调用时构建一次，后续直接返回缓存结果。该模式：
+- `agent.prompts.build_system_prompt()` 使用 `@lru_cache(maxsize=1)` 缓存系统提示词
+- `api.tools.manager.ToolManager.get_all_tools()` 使用 `@lru_cache(maxsize=1)` 缓存工具列表（随 ToolManager 生命周期刷新）
 
+该模式：
 - 避免了 FastAPI 启动时的冷启动开销
-- 线程安全（CPython GIL 保护全局变量赋值）
-- 不支持动态重新加载（如需更新需重启服务）
+- 线程安全（CPython GIL 保护）
+- 不支持动态重新加载（特定场景下通过 `cache_clear()` 手动刷新）
 
 ### 2. 无状态设计（auth.py / health.py）
 

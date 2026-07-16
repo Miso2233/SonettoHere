@@ -205,7 +205,7 @@ WebSocket 连接的生命周期管理核心文件。定义了 `websocket_chat` �
 
 ### 2. 调用下层服务
 
-- 通过 `request.app.state` 获取全局单例（session manager、provider manager、LTM 等）
+- 通过 `request.app.state` 获取生命周期托管全局单例（如 `tool_manager`、`ltm`），或直接导入模块级单例（如 `session_manager`、`get_manager()`）
 - 调用下层服务的公开方法执行业务逻辑
 - 路由函数本身不包含业务逻辑实现，仅作为编排入口
 
@@ -230,7 +230,7 @@ FastAPI Router ─── 路径匹配 → 路由处理函数
        │
        ▼
 路由函数:
-  1. 通过 request.app.state 获取下层服务
+  1. 获取下层服务（app.state 或模块级单例）
   2. 调用下层服务方法
   3. 返回 Pydantic 模型 / 字典
        │
@@ -250,7 +250,7 @@ AuthMiddleware ─── Token 校验 ─── 失败 → 4001 close
 chat.py: websocket_chat()
   1. ws.accept() — 接受连接
   2. 获取/创建 SessionState
-  3. 注册 ws_registry
+  3. 设置 session.ws（供后台记忆推送事件）
   4. 推送初始 context_usage
   5. 断线重连时恢复 sub-agent
        │
@@ -351,7 +351,7 @@ try:
 except WebSocketDisconnect:
     pass  # 客户端断开是正常行为
 finally:
-    app_state.ws_registry.unregister(session_id)
+    session.ws = None
     if agent_task is not None and not agent_task.done():
         agent_task.cancel()
     session.clear_active_task()
@@ -371,8 +371,8 @@ finally:
 ```python
 @router.post("/sessions")
 async def create_session(request: Request):
-    sm = request.app.state.session_manager
-    session = sm.create()
+    from api.session.manager import session_manager
+    session = session_manager.create()
     return {"session_id": session.session_id, "created_at": session.created_at}
 ```
 
@@ -381,8 +381,8 @@ async def create_session(request: Request):
 ```python
 @router.get("/sessions/{session_id}")
 async def get_session(session_id: str, request: Request):
-    sm = request.app.state.session_manager
-    session = sm.get(session_id)
+    from api.session.manager import session_manager
+    session = session_manager.get(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {
@@ -397,7 +397,7 @@ async def get_session(session_id: str, request: Request):
 
 模式总结：
 
-1. 通过 `request.app.state` 获取全局服务实例
+1. 获取全局服务实例（`app.state` 或模块级单例）
 2. 调用服务方法（`sm.get()`, `sm.create()` 等）
 3. 对 None 结果返回 404 HTTPException
 4. 返回字典或 Pydantic 模型作为响应

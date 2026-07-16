@@ -21,15 +21,14 @@
 
 | 文件 | 核心类型/函数 | 职责 |
 |---|---|---|
-| `manager.py` | `SessionState` / `SessionManager` | 会话状态管理：多会话隔离 + TTL 过期清理 |
+| `manager.py` | `SessionState` / `SessionManager` / `session_manager` | 会话状态管理：多会话隔离 + TTL 过期清理（模块级单例） |
 | `const_store.py` | `save_const_session` / `delete_const_session` / `serialize_messages` | Const 固定会话 YAML 持久化 |
-| `ws_registry.py` | `WebSocketRegistry` | WebSocket 连接注册表 |
 
 ## 职责描述
 
 - **会话生命周期管理**：创建、获取、删除运行时会话，维护 `SessionState` 中的 Agent 编译图、检查点、消息计数等运行时状态
 - **TTL 过期清理**：定期扫描并清理超过 TTL 阈值（默认 1800 秒）未活跃的会话
-- **WebSocket 连接跟踪**：维护 session_id 到 WebSocket 连接的映射，供回调层向指定会话推送事件
+- **WebSocket 引用管理**：`SessionState.ws` 字段存储当前会话的 WebSocket 连接，供回调层向指定会话推送事件
 - **固定会话持久化**：将会话元数据和对话消息序列化为 YAML 文件，支持保存、加载、删除
 
 ## 关键代码片段
@@ -103,54 +102,40 @@ class SessionState:
     _sub_agent_task: str | None
     _pending_result: asyncio.Future | None
 
+    # WebSocket 引用
+    ws: WebSocket | None                 # 当前 WebSocket 连接，供后台推送事件
+
     # Const 固定会话字段
     is_const: bool
     const_name: str
 ```
 
-### WebSocketRegistry 注册表（ws_registry.py）
+### SessionState.ws — WebSocket 引用
 
-```python
-class WebSocketRegistry:
-    """协程安全的 WebSocket 注册表。
+`ws_registry.py` 已删除。WebSocket 引用不再通过独立注册表管理，而是直接存入 `SessionState.ws` 字段：
 
-    在 websocket_chat() accept 后 register，断开时 unregister。
-    所有操作在单线程事件循环中执行，无需加锁。
-    """
-
-    def __init__(self) -> None:
-        self._sessions: dict[str, WebSocket] = {}
-
-    def register(self, session_id: str, ws: WebSocket) -> None:
-        """注册 session_id → WebSocket 映射。"""
-        self._sessions[session_id] = ws
-
-    def unregister(self, session_id: str) -> None:
-        """移除 session_id 的映射。"""
-        self._sessions.pop(session_id, None)
-
-    def get(self, session_id: str) -> WebSocket | None:
-        """获取指定 session_id 的 WebSocket，不存在时返回 None。"""
-        return self._sessions.get(session_id)
-```
+- **route 端**：`websocket_chat()` accept 后设置 `session.ws = ws`，断开时设 `session.ws = None`
+- **memory 端**：`LongTermMemoryInterface._consumer()` 和 `MemoryToolCallback._send()` 通过 `session_manager.get(sid).ws` 直接获取
+- **生命周期绑定**：ws 引用跟随 SessionState，无需独立的 register/unregister 注册表
 
 ## 被依赖关系
 
 | 上层模块 | 依赖内容 | 用途 |
 |---|---|---|
-| `api/server.py` | `SessionManager`、`WebSocketRegistry`、`const_store` 函数 | 应用启动时初始化会话管理器、注册表 |
-| `api/routes/chat.py` | `SessionState` | WebSocket 聊天端点获取/创建会话 |
-| `api/routes/sessions.py` | `const_store`（`flatten_content`、`save_const_session`、`delete_const_session`） | REST API：固定会话 CRUD |
+| `api/server.py` | `SessionState`、`session_manager`、`const_store` 函数 | 应用启动时 `_load_const_sessions` 重建固定会话 |
+| `api/routes/chat.py` | `SessionState`、`session_manager` | WebSocket 聊天端点获取/创建会话，设置 `session.ws` |
+| `api/routes/sessions.py` | `session_manager`、`const_store`（`flatten_content`、`save_const_session`、`delete_const_session`） | REST API：会话 CRUD + 固定会话 CRUD |
 | `api/agent/turn.py` | `SessionState`、`const_store`（`save_const_session`、`serialize_messages`） | Agent 轮次结束时持久化固定会话 |
 | `api/agent/context_usage.py` | `SessionState` | Agent 上下文用量追踪 |
-| `api/memory/callback.py` | `WebSocketRegistry` | LangChain 回调中通过注册表推送事件到前端 |
-| `api/memory/narrative.py` | `SessionState`、`WebSocketRegistry` | 叙事生成时广播事件 |
+| `api/memory/callback.py` | `session_manager`（通过 `session_manager.get(sid).ws`） | LangChain 回调中获取 ws 引用推送事件到前端 |
+| `api/memory/narrative.py` | `SessionState`、`session_manager`（通过 `session_manager.get(sid).ws`） | 叙事生成时广播事件 |
+| `tools/sub_agent/tool_call_sub_agent.py` | `session_manager` | 创建子会话 |
 
 ## 设计要点
 
 ### 1. 线程安全
 
-- `SessionManager` 和 `WebSocketRegistry` 均在单线程 asyncio 事件循环中运行，`dict` 操作天然协程安全，无需显式加锁
+- `SessionManager` 在单线程 asyncio 事件循环中运行，`dict` 操作天然协程安全，无需显式加锁
 - `SessionState` 使用 `dataclass` 不可变默认值，可变字段（`_active_task`、`_pending_result`等）通过封装方法访问，避免外部直接修改内部状态
 
 ### 2. TTL 过期策略
@@ -207,37 +192,27 @@ def delete_const_session(session_id: str) -> bool:
 - `_pending_result`：`asyncio.Future`，用于父会话等待子会话的异步结果
 - `_sub_agent_task`：存储子 Agent 任务描述，供消费
 
-## 设计约定评估
+### 6. 模块级单例
 
-### 违规 1：ws_registry.py 反向耦合 HTTP 传输对象
+`SessionManager` 不在 `app.state` 上挂载，而是以模块级实例 `session_manager` 的形式暴露：
 
 ```python
-from fastapi import WebSocket  # ws_registry.py 第 3 行
-
-
-class WebSocketRegistry:
-    def __init__(self) -> None:
-        self._sessions: dict[str, WebSocket] = {}  # 存储 FastAPI WebSocket 对象
+# api/session/manager.py — 文件末尾
+session_manager = SessionManager()
 ```
 
-**问题**：会话管理层（第⑥层）内部直接存储了 `fastapi.WebSocket` 对象。`WebSocket` 是 HTTP/WebSocket 传输层（框架级）的具体类型，将传输对象存储在状态管理层中，造成了以下后果：
+所有消费者直接 `from api.session.manager import session_manager` 使用，无需经过 `app.state`。这与 `ProviderManager`（`get_manager()`）、`default_llm`（`get_default_llm()`）采用相同的模块级单例模式。
 
-- 会话管理层与 FastAPI 框架耦合，难以替换或升级 Web 框架
-- 单元测试时需要 mock FastAPI WebSocket 对象
-- 该注册表的本质是"会话 ID → 推送通道"的抽象映射，不应暴露传输层细节
+**不通过 `app.state` 的原因**：`SessionManager` 无生命周期方法（无 `close()`/`stop()`/`start()`），是一个纯内存 dict 封装。无需应用生命周期管理。
 
-**改进建议**：
-
-1. **接口抽象**：在 `session/` 中定义抽象的 `EventPublisher` 协议（Protocol），只暴露 `send_json()` / `send_text()` 方法，在路由层实现 FastAPI `WebSocket` 适配器
-2. **泛型设计**：将 `WebSocketRegistry` 改造为泛型注册表 `Registry[SessionId, Connection]`，不关心具体连接类型
-3. **最小化方案**：在 `ws_registry.py` 中对 `WebSocket` 的使用限定为只调用 `send_json()` 等方法，避免直接操作底层 ASGI 接口
+## 设计约定评估
 
 ### 检查通过项
 
 | 检查项 | 结果 |
 |---|---|
-| `manager.py` 是否导入上层业务模块（routes / agent / providers）？ | 通过 — 仅依赖 `langgraph`、`asyncio`、标准库 |
+| `manager.py` 是否导入上层业务模块（routes / agent / providers）？ | 通过 — 仅依赖 `langgraph`、`fastapi`、`asyncio`、标准库 |
 | `const_store.py` 是否导入上层业务模块？ | 通过 — 仅依赖 `yaml`、`pathlib`、标准库 |
-| `ws_registry.py` 是否导入 `api.routes` 或 `api.agent`？ | 通过 — 仅导入 `fastapi.WebSocket`（属框架级别，非业务模块） |
+| `SessionState` 中的 `ws` 字段类型为 `WebSocket` 是否合理？ | 通过 — `WebSocket` 仅作为引用存储（不在此层创建或管理连接生命周期），且依赖方向为框架级（非业务模块） |
 | 会话层是否包含 HTTP 请求处理逻辑？ | 通过 — 无 `Request` / `Response` 处理逻辑 |
 | 会话层的 TTL 清理是否依赖定时器框架？ | 通过 — 纯惰性清理，无后台调度 |

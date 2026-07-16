@@ -45,7 +45,7 @@ routes/ → middleware/ → agent/ → providers/ → session/ + memory/ + core/
 | [callbacks/](callbacks-layer.md) | ④ | LangChain 回调，WebSocket 事件推送 |
 | [providers/](providers-layer.md) | ⑤ | 多 LLM 提供商抽象与动态发现 |
 | [memory/](memory-layer.md) | ⑥ | 长期记忆 CRUD 与 LLM 叙事 |
-| [session/](session-layer.md) | ⑥ | 会话状态、WebSocket 注册表 |
+| [session/](session-layer.md) | ⑥ | 会话状态管理、WebSocket 引用 |
 | [core/](core-layer.md) | ⑦ | 基础设施：Auth、Health、Dependencies |
 | [data/](data-layer.md) | ⑦ | 静态数据资源 |
 
