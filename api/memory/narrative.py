@@ -8,7 +8,6 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
-from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
@@ -16,6 +15,7 @@ from langchain.agents import create_agent
 
 from api.memory.callback import MemoryToolCallback
 from api.memory.manager import MAX_DESC_LENGTH, MemoryManager
+from api.providers.default_llm import get_default_llm
 from api.session.manager import SessionState
 from api.session.ws_registry import WebSocketRegistry
 
@@ -273,7 +273,7 @@ class LongTermMemoryInterface:
     用法::
 
         ltm = LongTermMemoryInterface("/path/to/memory.yaml")
-        ltm.start_listening(llm)          # 启动后台消费者
+        ltm.start_listening()              # 启动后台消费者
         await ltm.send_history(messages)  # 投放本轮对话（非阻塞）
         await ltm.stop_listening()        # 排空队列并停止
     """
@@ -281,12 +281,10 @@ class LongTermMemoryInterface:
     def __init__(
         self,
         memory_path: str | Path,
-        llm: BaseChatModel | None = None,
         ws_registry: WebSocketRegistry | None = None,
     ) -> None:
         self._memory_path = Path(memory_path)
         self._mm = MemoryManager(yaml_file=str(self._memory_path))
-        self._llm = llm
         self._ws_registry = ws_registry
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
@@ -305,7 +303,7 @@ class LongTermMemoryInterface:
 
     def get_related_memory_from(self, prompt: str) -> list[str]:
         """根据查询要求从记忆库中找出语义相关的条目并返回其描述文本。"""
-        if self._llm is None:
+        if get_default_llm() is None:
             return []
         items = self._mm.show()
         if not items:
@@ -318,7 +316,7 @@ class LongTermMemoryInterface:
         memory_text = "\n".join(lines)
         user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
 
-        response = self._llm.invoke([
+        response = get_default_llm().invoke([
             SystemMessage(content=FIND_RELATED_MEMORY.strip()),
             HumanMessage(content=user_prompt),
         ])
@@ -331,17 +329,12 @@ class LongTermMemoryInterface:
             pass
         return []
 
-    def start_listening(
-        self, ws_registry: WebSocketRegistry | None = None
-    ) -> None:
+    def start_listening(self) -> None:
         """创建 asyncio.Queue 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
+        内部通过 get_default_llm() 获取 LLM，无需外部传入。
         """
-        if self._llm is None:
-            raise RuntimeError("LLM not set — cannot start listening")
-        if ws_registry is not None:
-            self._ws_registry = ws_registry
         self._queue = asyncio.Queue()
         self._consumer_task = asyncio.create_task(self._consumer())
 
@@ -456,6 +449,10 @@ class LongTermMemoryInterface:
                     except Exception:
                         pass
 
+            if get_default_llm() is None:
+                print("[ltm] no LLM available — skipping memory update")
+                continue
+
             try:
                 _set_current_mm(self._mm)
                 items = self._mm.show()
@@ -492,7 +489,7 @@ class LongTermMemoryInterface:
                 ]
 
                 agent = create_agent(
-                    model=self._llm,
+                    model=get_default_llm(),
                     tools=crud_tools,
                     system_prompt=system_prompt,
                     checkpointer=MemorySaver(),

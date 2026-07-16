@@ -8,6 +8,7 @@ import traceback
 from pydantic import BaseModel, Field
 
 from api.agent import interaction
+from api.providers.default_llm import get_default_llm
 from tools.base import ToolBase, format_success, format_error
 
 
@@ -183,7 +184,7 @@ class CallSubAgentTool(ToolBase):
 
         system_prompt = build_system_prompt()
         agent = build_agent(
-            model=app_state.default_llm,
+            model=get_default_llm(),
             tools=app_state.tool_manager.get_all(),
             system_prompt=system_prompt,
             checkpointer=sub.checkpointer,

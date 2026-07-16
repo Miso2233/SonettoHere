@@ -30,6 +30,7 @@ from api.session.ws_registry import WebSocketRegistry
 from agent.graph import build_agent
 from api.memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from api.tools.manager import ToolManager
+from api.providers.default_llm import init_provider_manager, get_default_llm
 from version import __version__
 
 from api.middleware.auth import AuthMiddleware
@@ -42,7 +43,7 @@ async def _load_const_sessions(app: FastAPI):
     if not const_list:
         return
 
-    if app.state.default_llm is None:
+    if get_default_llm() is None:
         print(f"[const] Skipping {len(const_list)} const session(s) — no LLM available")
         return
 
@@ -64,7 +65,7 @@ async def _load_const_sessions(app: FastAPI):
             checkpointer = MemorySaver()
             if reconstructed:
                 agent = build_agent(
-                    model=app.state.default_llm,
+                    model=get_default_llm(),
                     tools=app.state.tool_manager.get_all(),
                     system_prompt=build_system_prompt(),
                     checkpointer=checkpointer,
@@ -103,6 +104,7 @@ async def lifespan(app: FastAPI):
     provider_manager = ProviderManager(provider_store)
     provider_manager.load_all()
     app.state.provider_manager = provider_manager
+    init_provider_manager(provider_manager)
     print(f"[provider] loaded {provider_manager.count} provider(s)")
 
     # 预加载 OpenRouter 上下文窗口数据，为已配置的模型补充信息
@@ -118,10 +120,7 @@ async def lifespan(app: FastAPI):
         print(f"[context-window] auto-filled {total_filled} model(s) from OpenRouter")
 
     # 2. 其他共享资源（LLM 统一从 ProviderManager 获取）
-    app.state.default_llm = provider_manager.get_default_llm(
-        temperature=0.7, streaming=True
-    )
-    if app.state.default_llm is None:
+    if get_default_llm() is None:
         print(
             "[llm] No LLM configured — chat will be read-only until a provider is added"
         )
@@ -131,13 +130,9 @@ async def lifespan(app: FastAPI):
     app.state.ws_registry = WebSocketRegistry()
     app.state.ltm = LongTermMemoryInterface(
         MEMORY_PATH,
-        llm=app.state.default_llm,
         ws_registry=app.state.ws_registry,
     )
-    if app.state.default_llm is not None:
-        app.state.ltm.start_listening()
-    else:
-        print("[ltm] Skipped (no LLM available)")
+    app.state.ltm.start_listening()
 
     # 加载 const 固定会话（需要 tools 已就绪）
     await _load_const_sessions(app)
