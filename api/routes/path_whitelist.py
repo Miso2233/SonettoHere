@@ -49,13 +49,13 @@ def _save(entries: list[dict]) -> None:
 
 
 @router.get("/path-whitelist", response_model=WhitelistResponse)
-async def list_whitelist():
+async def list_whitelist() -> WhitelistResponse:
     entries = _load()
     return WhitelistResponse(entries=[WhitelistEntry(**e) for e in entries])
 
 
 @router.post("/path-whitelist", response_model=WhitelistEntry)
-async def add_whitelist(entry: WhitelistEntry):
+async def add_whitelist(entry: WhitelistEntry) -> WhitelistEntry:
     entries = _load()
     data = entry.model_dump()
     data["path"] = os.path.normpath(data["path"])
@@ -65,7 +65,7 @@ async def add_whitelist(entry: WhitelistEntry):
 
 
 @router.put("/path-whitelist/{index}", response_model=WhitelistEntry)
-async def update_whitelist(index: int, entry: WhitelistEntry):
+async def update_whitelist(index: int, entry: WhitelistEntry) -> WhitelistEntry:
     entries = _load()
     if index < 0 or index >= len(entries):
         raise HTTPException(status_code=404, detail=f"索引 {index} 超出范围")
@@ -77,7 +77,7 @@ async def update_whitelist(index: int, entry: WhitelistEntry):
 
 
 @router.delete("/path-whitelist/{index}")
-async def delete_whitelist(index: int):
+async def delete_whitelist(index: int) -> dict:
     entries = _load()
     if index < 0 or index >= len(entries):
         raise HTTPException(status_code=404, detail=f"索引 {index} 超出范围")
@@ -90,7 +90,7 @@ async def delete_whitelist(index: int):
 
 
 @router.get("/check-path-blocked")
-async def check_path_blocked(path: str = Query(..., description="要检查的路径")):
+async def check_path_blocked(path: str = Query(..., description="要检查的路径")) -> dict:
     """检查路径是否被拒止锚或白名单阻挡。
 
     返回:

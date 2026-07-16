@@ -13,7 +13,7 @@ IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'}
 
 
 @router.get("/images/serve")
-async def serve_image(path: str = Query(...)):
+async def serve_image(path: str = Query(...)) -> FileResponse:
     """根据绝对路径返回图片文件。
 
     仅允许常见的图片扩展名，防止任意文件读取。

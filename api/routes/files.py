@@ -7,7 +7,7 @@ router = APIRouter()
 
 
 @router.get("/select-file")
-async def select_file(type: str = "file"):
+async def select_file(type: str = "file") -> dict:
     """打开系统原生文件选择对话框，返回所选文件或文件夹的绝对路径。
 
     仅在本地开发环境可用（对话框在服务器端弹出）。

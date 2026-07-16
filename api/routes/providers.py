@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from api.providers import ProviderConfig
 from api.providers.enrich import enrich_provider_config
 from api.providers.manager import ProviderManager
+from api.providers.openai_provider import OpenAIProvider
 
 router = APIRouter()
 
@@ -72,14 +73,14 @@ async def _refresh_app_llm(request: Request) -> None:
 
 
 @router.get("/providers")
-def list_providers(request: Request):
+def list_providers(request: Request) -> dict:
     """返回所有已配置的提供商（含未启用的）。"""
     configs = _get_manager(request).list_configs()
     return {"providers": [c.to_dict() for c in configs]}
 
 
 @router.get("/providers/{provider_id}")
-def get_provider(provider_id: str, request: Request):
+def get_provider(provider_id: str, request: Request) -> dict:
     """获取单个提供商配置。"""
     config = _get_manager(request).get_config(provider_id)
     if config is None:
@@ -88,7 +89,7 @@ def get_provider(provider_id: str, request: Request):
 
 
 @router.post("/providers")
-async def create_provider(body: ProviderCreateBody, request: Request):
+async def create_provider(body: ProviderCreateBody, request: Request) -> dict:
     """新增提供商，并自动对模型进行元数据测定与填充。"""
     mgr = _get_manager(request)
     if mgr.get_config(body.id) is not None:
@@ -117,7 +118,7 @@ async def create_provider(body: ProviderCreateBody, request: Request):
 
 
 @router.put("/providers/{provider_id}")
-async def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request):
+async def update_provider(provider_id: str, body: ProviderUpdateBody, request: Request) -> dict:
     """更新提供商配置（部分字段），并重新对模型进行元数据测定与填充。"""
     mgr = _get_manager(request)
     config = mgr.get_config(provider_id)
@@ -158,7 +159,7 @@ async def update_provider(provider_id: str, body: ProviderUpdateBody, request: R
 
 
 @router.delete("/providers/{provider_id}")
-async def delete_provider(provider_id: str, request: Request):
+async def delete_provider(provider_id: str, request: Request) -> dict:
     """删除提供商配置。"""
     if not _get_manager(request).delete_config(provider_id):
         raise HTTPException(status_code=404, detail="Provider not found")
@@ -169,10 +170,8 @@ async def delete_provider(provider_id: str, request: Request):
 # ── 连接测试与模型发现 ─────────────────────────────────
 
 
-def _build_temp_provider(body: TestConnectionBody):
+def _build_temp_provider(body: TestConnectionBody) -> OpenAIProvider:
     """根据请求体凭据临时创建 provider 用于测试。"""
-    from api.providers.openai_provider import OpenAIProvider
-
     return OpenAIProvider(
         ProviderConfig(
             id="_test_",
@@ -185,7 +184,7 @@ def _build_temp_provider(body: TestConnectionBody):
 
 
 @router.post("/providers/test")
-async def test_connection(body: TestConnectionBody):
+async def test_connection(body: TestConnectionBody) -> dict:
     """测试任意凭据的连接（前端向导填写凭据后调用）。"""
     provider = _build_temp_provider(body)
     result = await provider.check_health()
@@ -197,7 +196,7 @@ async def test_connection(body: TestConnectionBody):
 
 
 @router.post("/providers/{provider_id}/test")
-async def test_existing_provider(provider_id: str, request: Request):
+async def test_existing_provider(provider_id: str, request: Request) -> dict:
     """测试已保存提供商的连接。"""
     mgr = _get_manager(request)
     try:
@@ -213,7 +212,7 @@ async def test_existing_provider(provider_id: str, request: Request):
 
 
 @router.post("/providers/discover-models")
-async def discover_models(body: TestConnectionBody):
+async def discover_models(body: TestConnectionBody) -> dict:
     """根据凭据拉取模型列表（前端向导步骤 3）。"""
     from openai import AsyncOpenAI
 
@@ -235,7 +234,7 @@ async def discover_models(body: TestConnectionBody):
 
 
 @router.post("/providers/{provider_id}/discover-models")
-async def discover_models_for_existing(provider_id: str, request: Request):
+async def discover_models_for_existing(provider_id: str, request: Request) -> dict:
     """拉取已保存提供商的模型列表并更新缓存。
 
     重新拉取后，如果原来的 default_model 已不存在，自动置 None 并返回警告。

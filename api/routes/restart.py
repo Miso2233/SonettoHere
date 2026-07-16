@@ -13,7 +13,7 @@ _MAIN_PY = _PROJECT_ROOT / "main.py"
 
 
 @router.post("/restart")
-async def restart_server():
+async def restart_server() -> None:
     """重启后端进程。
 
     启动一个新后端进程后优雅退出当前进程。

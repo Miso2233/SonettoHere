@@ -46,7 +46,7 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
 
 
 @router.get("/skills")
-async def list_skills():
+async def list_skills() -> dict:
     """扫描 anthropic_skills/ 下所有 SKILL.md，返回结构化列表。"""
     if not ANTHROPIC_SKILLS_DIR.is_dir():
         return {"skills": []}
@@ -70,7 +70,7 @@ async def list_skills():
 
 
 @router.get("/macros")
-async def list_macros():
+async def list_macros() -> dict:
     """扫描 macros/ 下所有 MACRO.md，返回结构化列表。"""
     MACROS_DIR = Path(__file__).resolve().parent.parent.parent / "macros"
     if not MACROS_DIR.is_dir():
@@ -95,7 +95,7 @@ async def list_macros():
 
 
 @router.get("/tools")
-async def list_tools(request: Request):
+async def list_tools(request: Request) -> dict:
     """返回所有已加载的 Python 内置工具（native_tools + mcp_tools）。"""
     tools = getattr(request.app.state, "tools", [])
     return {"tools": [{"name": t.name, "description": t.description} for t in tools]}

@@ -72,7 +72,7 @@ class BatchUpdateEnvVarRequest(BaseModel):
 
 
 @router.get("/env-vars", response_model=ListEnvVarsResponse)
-async def list_env_vars():
+async def list_env_vars() -> ListEnvVarsResponse:
     """列出所有已知环境变量（值脱敏）。"""
     settings = get_settings()
     file_values = dotenv_values(ENV_PATH)
@@ -93,7 +93,7 @@ async def list_env_vars():
 
 
 @router.put("/env-vars")
-async def update_env_var(req: UpdateEnvVarRequest):
+async def update_env_var(req: UpdateEnvVarRequest) -> dict:
     """更新单个环境变量并持久化到 .env 文件。"""
     if req.key not in ENV_VAR_META:
         raise HTTPException(status_code=400, detail=f"未知环境变量: {req.key}")
@@ -120,7 +120,7 @@ async def update_env_var(req: UpdateEnvVarRequest):
 
 
 @router.put("/env-vars/batch")
-async def batch_update_env_vars(req: BatchUpdateEnvVarRequest):
+async def batch_update_env_vars(req: BatchUpdateEnvVarRequest) -> dict:
     """批量更新多个环境变量。"""
     updated: list[dict[str, str]] = []
     for item in req.env_vars:

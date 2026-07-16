@@ -18,20 +18,20 @@ class ConstifyRequest(BaseModel):
 
 
 @router.post("/sessions")
-async def create_session(request: Request):
+async def create_session(request: Request) -> dict:
     sm = request.app.state.session_manager
     session = sm.create()
     return {"session_id": session.session_id, "created_at": session.created_at}
 
 
 @router.get("/sessions")
-async def list_sessions(request: Request):
+async def list_sessions(request: Request) -> dict:
     sm = request.app.state.session_manager
     return {"sessions": sm.list_sessions()}
 
 
 @router.get("/sessions/{session_id}")
-async def get_session(session_id: str, request: Request):
+async def get_session(session_id: str, request: Request) -> dict:
     sm = request.app.state.session_manager
     session = sm.get(session_id)
     if session is None:
@@ -47,7 +47,7 @@ async def get_session(session_id: str, request: Request):
 
 
 @router.get("/sessions/{session_id}/messages")
-async def get_messages(session_id: str, request: Request):
+async def get_messages(session_id: str, request: Request) -> dict:
     sm = request.app.state.session_manager
     session = sm.get(session_id)
     if session is None:
@@ -68,7 +68,7 @@ async def get_messages(session_id: str, request: Request):
 
 
 @router.post("/sessions/{session_id}/undo")
-async def undo_session_messages(session_id: str, request: Request, n: int = 1):
+async def undo_session_messages(session_id: str, request: Request, n: int = 1) -> dict:
     """撤回最近 n 轮对话（默认撤回最后一轮）。"""
     from api.agent.time_traveler import undo_rounds
 
@@ -88,7 +88,7 @@ async def undo_session_messages(session_id: str, request: Request, n: int = 1):
 
 
 @router.get("/sessions/{session_id}/context-usage")
-async def get_context_usage(session_id: str, request: Request):
+async def get_context_usage(session_id: str, request: Request) -> dict:
     sm = request.app.state.session_manager
     session = sm.get(session_id)
     if session is None:
@@ -107,7 +107,7 @@ async def get_context_usage(session_id: str, request: Request):
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str, request: Request):
+async def delete_session(session_id: str, request: Request) -> dict:
     sm = request.app.state.session_manager
     session = sm.get(session_id)
 
@@ -126,7 +126,7 @@ async def delete_session(session_id: str, request: Request):
 
 
 @router.post("/sessions/{session_id}/const")
-async def constify_session(session_id: str, body: ConstifyRequest, request: Request):
+async def constify_session(session_id: str, body: ConstifyRequest, request: Request) -> dict:
     """将当前会话固定为 const 持久化保存。"""
     sm = request.app.state.session_manager
     session = sm.get(session_id)
@@ -169,7 +169,7 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
 
 
 @router.post("/sessions/{session_id}/generate-title")
-async def generate_session_title(session_id: str, request: Request):
+async def generate_session_title(session_id: str, request: Request) -> dict:
     """根据会话内容使用 LLM 生成简洁标题。"""
     sm = request.app.state.session_manager
     session = sm.get(session_id)
@@ -248,7 +248,7 @@ async def generate_session_title(session_id: str, request: Request):
 
 
 @router.delete("/sessions/{session_id}/const")
-async def unconstify_session(session_id: str, request: Request):
+async def unconstify_session(session_id: str, request: Request) -> dict:
     """取消固定，删除磁盘文件。"""
     from api.session.const_store import delete_const_session
 

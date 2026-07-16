@@ -66,13 +66,13 @@ def _remove_marker(dir_path: str) -> None:
 
 
 @router.get("/sonetto-blocker", response_model=BlockerResponse)
-async def list_blockers():
+async def list_blockers() -> BlockerResponse:
     entries = _load()
     return BlockerResponse(entries=[BlockerEntry(**e) for e in entries])
 
 
 @router.post("/sonetto-blocker", response_model=BlockerEntry, status_code=201)
-async def add_blocker(entry: BlockerEntry):
+async def add_blocker(entry: BlockerEntry) -> BlockerEntry:
     if not entry.path or not Path(entry.path).is_dir():
         raise HTTPException(status_code=400, detail="无效目录路径")
     _create_marker(entry.path)
@@ -83,7 +83,7 @@ async def add_blocker(entry: BlockerEntry):
 
 
 @router.delete("/sonetto-blocker/{index}")
-async def delete_blocker(index: int):
+async def delete_blocker(index: int) -> dict:
     entries = _load()
     if index < 0 or index >= len(entries):
         raise HTTPException(status_code=404, detail=f"索引 {index} 超出范围")

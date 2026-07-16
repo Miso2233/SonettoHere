@@ -32,7 +32,7 @@ def _find_deepseek_api_key(request: Request) -> str:
 
 
 @router.get("/deepseek-balance")
-async def get_deepseek_balance(request: Request):
+async def get_deepseek_balance(request: Request) -> dict:
     api_key = _find_deepseek_api_key(request)
     headers = {
         "Accept": "application/json",

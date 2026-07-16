@@ -22,7 +22,7 @@ class PersonaUpdateRequest(BaseModel):
 
 
 @router.get("/persona", response_model=PersonaResponse)
-async def get_persona(type: str = Query(..., description="soul 或 user")):
+async def get_persona(type: str = Query(..., description="soul 或 user")) -> PersonaResponse:
     t = type.lower()
     if t not in VALID_TYPES:
         raise HTTPException(
@@ -37,7 +37,7 @@ async def get_persona(type: str = Query(..., description="soul 或 user")):
 async def update_persona(
     type: str = Query(..., description="soul 或 user"),
     body: PersonaUpdateRequest = None,
-):
+) -> PersonaResponse:
     t = type.lower()
     if t not in VALID_TYPES:
         raise HTTPException(

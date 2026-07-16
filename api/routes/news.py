@@ -47,6 +47,6 @@ def _load_news() -> list[NewsEntry]:
 
 
 @router.get("/news", response_model=ListNewsResponse)
-def list_news():
+def list_news() -> ListNewsResponse:
     """返回所有更新动态，按日期降序排列。"""
     return ListNewsResponse(news=_load_news())

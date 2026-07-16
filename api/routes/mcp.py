@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/mcp/servers")
-async def list_mcp_servers(request: Request):
+async def list_mcp_servers(request: Request) -> dict:
     """返回所有已配置的 MCP 服务器（含 disabled）。"""
     servers = get_mcp_servers_info()
     mcp_tools = getattr(request.app.state, "mcp_tools", [])
@@ -23,7 +23,7 @@ async def list_mcp_servers(request: Request):
 
 
 @router.post("/mcp/reload")
-async def reload_mcp_servers(request: Request):
+async def reload_mcp_servers(request: Request) -> dict:
     """热加载：重新解析 YAML → 重建连接 → 替换 app.state。
 
     失败时保留旧工具列表不变。

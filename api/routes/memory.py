@@ -10,20 +10,20 @@ router = APIRouter()
 
 
 @router.get("/narrative")
-async def get_narrative(request: Request):
+async def get_narrative(request: Request) -> dict:
     ltm = request.app.state.ltm
     return {"narrative": ltm.get_narrative()}
 
 
 @router.get("/memories")
-async def get_memories(request: Request):
+async def get_memories(request: Request) -> dict:
     ltm = request.app.state.ltm
     mm = MemoryManager(yaml_file=str(ltm._memory_path))
     return mm.get_memories_grouped()
 
 
 @router.get("/moment")
-async def get_moment(request: Request):
+async def get_moment(request: Request) -> dict:
     ltm = request.app.state.ltm
     mm = MemoryManager(yaml_file=str(ltm._memory_path))
     items = mm.show()
