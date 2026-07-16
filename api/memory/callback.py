@@ -5,7 +5,7 @@ from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from api.session.ws_registry import WebSocketRegistry
+from api.session.manager import session_manager
 
 
 class MemoryToolCallback(BaseCallbackHandler):
@@ -13,19 +13,18 @@ class MemoryToolCallback(BaseCallbackHandler):
 
     def __init__(
         self,
-        ws_registry: WebSocketRegistry,
         session_id: str,
         turn_id: str,
     ) -> None:
         super().__init__()
-        self._ws_registry = ws_registry
         self._session_id = session_id
         self._turn_id = turn_id
         self._tool_start_time: dict[str, float] = {}
         self._tool_names: dict[str, str] = {}
 
     async def _send(self, event_type: str, payload: dict) -> None:
-        ws = self._ws_registry.get(self._session_id)
+        session_obj = session_manager.get(self._session_id)
+        ws = session_obj.ws if session_obj else None
         if ws is None:
             print(f"[ltm-cb] _send skipped: no WS for session={self._session_id[:8]}")
             return  # WebSocket 已断开，静默跳过

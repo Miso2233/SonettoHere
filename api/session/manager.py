@@ -5,6 +5,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 
+from fastapi import WebSocket
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
@@ -25,6 +26,9 @@ class SessionState:
     parent_session_id: str | None = None
     _sub_agent_task: str | None = field(default=None, repr=False)
     _pending_result: asyncio.Future | None = field(default=None, repr=False)
+
+    # ── WebSocket 引用 ──────────────────────────────────────
+    ws: WebSocket | None = field(default=None, repr=False)
 
     # ── Const 固定会话字段 ──────────────────────────────────
     is_const: bool = False
@@ -183,6 +187,14 @@ class SessionManager:
         result.sort(key=lambda x: x["last_active"], reverse=True)
         return result
 
+    def exists(self, session_id: str) -> bool:
+        """session_id 是否已存在。"""
+        return session_id in self._sessions
+
+    def put(self, session_id: str, session: SessionState) -> None:
+        """直接插入会话（用于 const 重建等内部场景）。"""
+        self._sessions[session_id] = session
+
     def cleanup_expired(self) -> int:
         now = time.time()
         expired = [
@@ -191,3 +203,8 @@ class SessionManager:
         for sid in expired:
             del self._sessions[sid]
         return len(expired)
+
+
+# ── 模块级单例 ──────────────────────────────────────────────
+
+session_manager = SessionManager()

@@ -13,7 +13,7 @@ from api.agent.context_usage import estimate_context_usage_from_session
 from agent.prompts import build_system_prompt
 from api.agent.turn import run_agent_turn
 from api.providers import FALLBACK_CTX
-from api.session.manager import SessionState
+from api.session.manager import SessionState, session_manager
 
 router = APIRouter()
 
@@ -156,10 +156,8 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
 
     # ── 初始化会话 ────────────────────────────────────────
     app_state = ws.app.state
-    session = app_state.session_manager.get_or_create(session_id)
-
-    # 注册 WebSocket 到注册表，供后台记忆 consumer 推送事件
-    app_state.ws_registry.register(session_id, ws)
+    session = session_manager.get_or_create(session_id)
+    session.ws = ws  # 供后台记忆 consumer 推送事件
 
     # ── 推送初始上下文用量 ─────────────────────────────────
     mgr = getattr(app_state, "provider_manager", None)
@@ -190,7 +188,7 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
     except WebSocketDisconnect:
         pass  # 客户端断开是正常行为
     finally:
-        app_state.ws_registry.unregister(session_id)
+        session.ws = None
         if agent_task is not None and not agent_task.done():
             agent_task.cancel()
         session.clear_active_task()

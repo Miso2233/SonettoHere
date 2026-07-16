@@ -16,8 +16,7 @@ from langchain.agents import create_agent
 from api.memory.callback import MemoryToolCallback
 from api.memory.manager import MAX_DESC_LENGTH, MemoryManager
 from api.providers.default_llm import get_default_llm
-from api.session.manager import SessionState
-from api.session.ws_registry import WebSocketRegistry
+from api.session.manager import SessionState, session_manager
 
 
 def _sanitize(text: str) -> str:
@@ -281,11 +280,9 @@ class LongTermMemoryInterface:
     def __init__(
         self,
         memory_path: str | Path,
-        ws_registry: WebSocketRegistry | None = None,
     ) -> None:
         self._memory_path = Path(memory_path)
         self._mm = MemoryManager(yaml_file=str(self._memory_path))
-        self._ws_registry = ws_registry
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
 
@@ -433,8 +430,9 @@ class LongTermMemoryInterface:
 
             # 无论后续成功与否，先通知前端「开始处理」
             _sent_done = False
-            if self._ws_registry is not None and session_id:
-                ws = self._ws_registry.get(session_id)
+            if session_id:
+                session_obj = session_manager.get(session_id)
+                ws = session_obj.ws if session_obj else None
                 if ws is not None:
                     try:
                         await ws.send_json(
@@ -497,18 +495,17 @@ class LongTermMemoryInterface:
 
                 # 创建回调：推送 CRUD 工具调用到前端对应轮次
                 callbacks = []
-                if self._ws_registry is not None and session_id:
+                if session_id:
                     print(
                         f"[ltm] creating MemoryToolCallback session={session_id[:8]} turn_id={turn_id[:8]}"
                     )
                     memory_cb = MemoryToolCallback(
-                        self._ws_registry,
                         session_id,
                         turn_id or "",
                     )
                     callbacks.append(memory_cb)
                 else:
-                    print("[ltm] NO ws_registry or session_id — skip callbacks")
+                    print("[ltm] NO session_id — skip callbacks")
 
                 print("[ltm] invoking CRUD agent...")
                 await agent.ainvoke(
@@ -524,8 +521,9 @@ class LongTermMemoryInterface:
                 print(f"[ltm] CRUD agent error: {e}")
             finally:
                 # 无论异常与否，都通知前端本轮记忆处理完成
-                if self._ws_registry is not None and session_id:
-                    ws = self._ws_registry.get(session_id)
+                if session_id:
+                    session_obj = session_manager.get(session_id)
+                    ws = session_obj.ws if session_obj else None
                     if ws is not None:
                         try:
                             await ws.send_json(
@@ -541,7 +539,7 @@ class LongTermMemoryInterface:
                             print(f"[ltm] memory_done send error: {e}")
                     else:
                         print(
-                            f"[ltm] ws_registry.get returned None for session={session_id[:8]}"
+                            f"[ltm] session.ws is None for session={session_id[:8]}"
                         )
                 else:
-                    print("[ltm] NO ws_registry or session_id — skip memory_done")
+                    print("[ltm] NO session_id — skip memory_done")

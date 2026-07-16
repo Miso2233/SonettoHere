@@ -25,8 +25,7 @@ from api.routes import news as news_router
 from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
 from api.routes import env_vars as env_vars_router
-from api.session.manager import SessionManager, SessionState
-from api.session.ws_registry import WebSocketRegistry
+from api.session.manager import SessionState, session_manager
 from agent.graph import build_agent
 from api.memory.narrative import MEMORY_PATH, LongTermMemoryInterface
 from api.tools.manager import ToolManager
@@ -38,7 +37,7 @@ from api.middleware.auth import AuthMiddleware
 
 async def _load_const_sessions(app: FastAPI):
     """从 YAML 重建所有 const 固定会话到内存 SessionManager。"""
-    sm = app.state.session_manager
+    sm = session_manager
     const_list = load_all_const_sessions()
     if not const_list:
         return
@@ -52,7 +51,7 @@ async def _load_const_sessions(app: FastAPI):
     loaded = 0
     for const_data in const_list:
         sid = const_data.get("session_id")
-        if not sid or sid in sm._sessions:
+        if not sid or sm.exists(sid):
             continue
 
         metadata = const_data.get("metadata", {})
@@ -87,7 +86,7 @@ async def _load_const_sessions(app: FastAPI):
             is_const=True,
             const_name=const_name,
         )
-        sm._sessions[sid] = session
+        sm.put(sid, session)
         loaded += 1
 
     print(f"[const] 已加载 {loaded}/{len(const_list)} 个固定会话")
@@ -126,12 +125,7 @@ async def lifespan(app: FastAPI):
         )
     app.state.tool_manager = ToolManager()
     await app.state.tool_manager.load_all()
-    app.state.session_manager = SessionManager()
-    app.state.ws_registry = WebSocketRegistry()
-    app.state.ltm = LongTermMemoryInterface(
-        MEMORY_PATH,
-        ws_registry=app.state.ws_registry,
-    )
+    app.state.ltm = LongTermMemoryInterface(MEMORY_PATH)
     app.state.ltm.start_listening()
 
     # 加载 const 固定会话（需要 tools 已就绪）

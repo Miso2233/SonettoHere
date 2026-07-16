@@ -82,9 +82,9 @@ class CallSubAgentTool(ToolBase):
             )
             return format_error(f"内部错误: current_ws 异常: {e}")
 
+        from api.session.manager import session_manager as sm
         app_state = ws.app.state
-        sm = app_state.session_manager
-        print("[call_sub_agent] app_state / session_manager OK", file=sys.stderr)
+        print("[call_sub_agent] session_manager OK", file=sys.stderr)
 
         # 确定 parent_session_id
         # 从 WebSocket 路径推断：ws/chat/{session_id}
