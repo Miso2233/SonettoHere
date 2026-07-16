@@ -17,7 +17,7 @@ from api.session.manager import SessionState
 
 router = APIRouter()
 
-Handler = Callable[[WebSocket, str, SessionState, asyncio.Task | None, dict, object], Awaitable[asyncio.Task | None]]
+Handler = Callable[[WebSocket, str, SessionState, asyncio.Task | None, dict], Awaitable[asyncio.Task | None]]
 
 
 def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | None:
@@ -55,7 +55,6 @@ async def _handle_ping(
     session: SessionState,
     agent_task: asyncio.Task | None,
     msg: dict,
-    app_state: object,
 ) -> asyncio.Task | None:
     """处理 ping 心跳。"""
     await ws.send_json({"type": "pong", "payload": {}})
@@ -69,7 +68,7 @@ async def _handle_chat(
     session: SessionState,
     agent_task: asyncio.Task | None,
     msg: dict,
-    app_state: object,
+
 ) -> asyncio.Task | None:
     """处理聊天消息：创建 Agent 轮次。"""
     if agent_task is not None and not agent_task.done():
@@ -108,7 +107,7 @@ async def _handle_user_response(
     session: SessionState,
     agent_task: asyncio.Task | None,
     msg: dict,
-    app_state: object,
+
 ) -> asyncio.Task | None:
     """处理用户交互响应。"""
     payload = msg.get("payload", {})
@@ -126,7 +125,7 @@ async def _handle_cancel(
     session: SessionState,
     agent_task: asyncio.Task | None,
     msg: dict,
-    app_state: object,
+
 ) -> asyncio.Task | None:
     """处理取消请求。"""
     if agent_task is not None and not agent_task.done():
@@ -141,7 +140,7 @@ async def _handle_update_auto_approve(
     session: SessionState,
     agent_task: asyncio.Task | None,
     msg: dict,
-    app_state: object,
+
 ) -> asyncio.Task | None:
     """更新自动批准设置。"""
     interaction.set_session_auto_approve(
@@ -185,7 +184,7 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
             handler = _HANDLERS.get(msg.get("type", ""))
             if handler is not None:
                 agent_task = await handler(
-                    ws, session_id, session, agent_task, msg, app_state
+                    ws, session_id, session, agent_task, msg
                 )
 
     except WebSocketDisconnect:
