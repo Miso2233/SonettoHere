@@ -1,13 +1,17 @@
 """Tool: verify_image — 本地图片校验与处理。
 
-接收本地图片路径，校验文件存在且为有效图片，返回成功确认。
+接收本地图片路径，校验文件存在且为有效图片，将图片数据以多模态
+HumanMessage 形式注入 checkpoint（供下一轮 Agent 读取），返回确认结果。
 """
 
-from pathlib import Path
+import base64
 
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_success
+from api.agent import interaction
+from tools.base import ToolBase, format_success
+from tools.network.tool_image_understand import load_image_bytes
 
 
 class VerifyImageInput(BaseModel):
@@ -33,15 +37,19 @@ class VerifyImageTool(ToolBase):
         if not image_path:
             return format_success({"status": "跳过", "reason": "未提供图片路径"})
 
-        # 安全校验
-        err = check_path_access(image_path)
-        if err is not None:
-            raise PermissionError(err)
+        # 加载图片（内部含安全校验 + 文件存在性检查）
+        image_bytes, mime = load_image_bytes(f"local:{image_path}")
 
-        file_path = Path(image_path)
-        if not file_path.exists():
-            raise FileNotFoundError(f"文件不存在: {image_path}")
-        if not file_path.is_file():
-            raise IsADirectoryError(f"路径不是文件: {image_path}")
+        # 构造多模态 HumanMessage（含 base64 图片数据）注入 checkpoint
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        data_url = f"data:{mime};base64,{image_b64}"
+        hm = HumanMessage(content=[
+            {"type": "text", "text": "用户验证了以下本地图片："},
+            {"type": "image_url", "image_url": {"url": data_url}},
+        ])
+
+        session_id = interaction.current_session_id.get()
+        if session_id:
+            interaction.queue_human_message(session_id, hm)
 
         return format_success({"status": "成功", "message": "成功（而不是图片信息）"})
