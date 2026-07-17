@@ -1,8 +1,9 @@
 import { nextTick } from 'vue'
-import type { SessionChannel } from './useChat'
+import type { SessionChannel } from '@/stores/chatStore'
+import { findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction } from '@/stores/chatStore'
+import { useChatStore } from '@/stores/chatStore'
+import { useSessionStore } from '@/stores/sessionStore'
 import type { ServerEvent, ChatTurn, TokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent } from '@/types'
-import { refreshSessions, switchSession } from '@/composables/useSession'
-import { findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction, persistTurns } from './useChat'
 
 /** 事件路由处理器签名（turn 已由调用方守卫保证存在）。 */
 type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
@@ -117,7 +118,7 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
         ch.turns.push(turnToFinalize)
         ch.currentTurn = null
         ch.isStreaming = false
-        if (!ch.privateMode) { persistTurns(sid) }
+        if (!ch.privateMode) { useChatStore().persistTurns(sid) }
       }, 420)
     })
   } else {
@@ -125,12 +126,13 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
     ch.turns.push(turn)
     ch.currentTurn = null
     ch.isStreaming = false
-    if (!ch.privateMode) { persistTurns(sid) }
+    if (!ch.privateMode) { useChatStore().persistTurns(sid) }
   }
-  void refreshSessions()  // 轮次结束，刷新会话列表以更新 message_count
+  // 轮次结束，刷新会话列表以更新 message_count
+  void useSessionStore().refreshSessions()
   // 子 Agent 完成 → 自动切回主会话
   if (ch.parentSessionId) {
-    setTimeout(() => switchSession(ch.parentSessionId!), 500)
+    setTimeout(() => useSessionStore().switchSession(ch.parentSessionId!), 500)
   }
 }
 

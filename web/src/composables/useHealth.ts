@@ -1,32 +1,33 @@
-import { ref, onUnmounted } from 'vue'
-import { api } from '@/api'
+import { computed, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useHealthStore } from '@/stores/healthStore'
 import type { HealthResponse } from '@/types'
 
-export const health = ref<HealthResponse | null>(null)
-let _timer: ReturnType<typeof setInterval> | null = null
-
-export async function refreshHealth() {
-  try {
-    health.value = await api.health()
-  } catch {
-    health.value = null
-  }
+// 模块级导出（向后兼容）
+function getStore() {
+  return useHealthStore()
 }
 
-export function startPolling(intervalMs = 30000) {
-  stopPolling()
-  refreshHealth()
-  _timer = setInterval(refreshHealth, intervalMs)
-}
+/** @deprecated 直接使用 useHealthStore() */
+export const health = computed<HealthResponse | null>(() => getStore().health)
+export const refreshHealth = () => getStore().refresh()
+export const startPolling = (ms?: number) => getStore().startPolling(ms)
+export const stopPolling = () => getStore().stopPolling()
 
-export function stopPolling() {
-  if (_timer !== null) {
-    clearInterval(_timer)
-    _timer = null
-  }
-}
-
+/**
+ * Composable 封装 — 委托到 Pinia store。
+ * 使用 storeToRefs 保持响应式绑定。
+ */
 export function useHealth() {
-  onUnmounted(stopPolling)
-  return { health, refreshHealth, startPolling, stopPolling }
+  const store = getStore()
+  const { health } = storeToRefs(store)
+
+  onUnmounted(() => store.stopPolling())
+
+  return {
+    health,
+    refreshHealth: store.refresh,
+    startPolling: store.startPolling,
+    stopPolling: store.stopPolling,
+  }
 }

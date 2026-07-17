@@ -1,6 +1,7 @@
-import type { SessionChannel } from './useChat'
+import type { SessionChannel } from '@/stores/chatStore'
+import { findTurnByBackendId, findRunningMemoryTool } from '@/stores/chatStore'
+import { useChatStore } from '@/stores/chatStore'
 import type { ServerEvent, MemoryStartEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryDoneEvent, MemoryToolEvent, ChatTurn } from '@/types'
-import { findTurnByBackendId, findRunningMemoryTool, persistTurns } from './useChat'
 
 /** read_memories 是纯读取操作，前端无需显示其执行状态。 */
 function skipReadMemories(payload: { tool_name: string }): boolean {
@@ -47,7 +48,7 @@ function handleMemoryToolEnd(ch: SessionChannel, sid: string, event: ServerEvent
   if (!targetTurn) { console.log(`[ltm-fe] NO turn`); return }
   const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
   if (mt) { mt.output = me.payload.output; mt.elapsed = me.payload.elapsed; mt.status = 'done' }
-  if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+  if (ch.turns.includes(targetTurn as ChatTurn)) useChatStore().persistTurns(sid)
 }
 
 /** 后台记忆 consumer 的 CRUD 工具出错：更新匹配事件为 error。 */
@@ -58,7 +59,7 @@ function handleMemoryToolError(ch: SessionChannel, sid: string, event: ServerEve
   if (!targetTurn) return
   const mt = findRunningMemoryTool(targetTurn.memoryEvents ?? [], me.payload.tool_name)
   if (mt) mt.status = 'error'
-  if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+  if (ch.turns.includes(targetTurn as ChatTurn)) useChatStore().persistTurns(sid)
 }
 
 /** 后台记忆 consumer 处理完毕：移除「处理中」占位，无实际工具事件时渲染 memory_review。 */
@@ -76,7 +77,7 @@ function handleMemoryDone(ch: SessionChannel, sid: string, event: ServerEvent): 
     }]
     console.log(`[ltm-fe] added memory_review`)
   }
-  if (ch.turns.includes(targetTurn as ChatTurn)) persistTurns(sid)
+  if (ch.turns.includes(targetTurn as ChatTurn)) useChatStore().persistTurns(sid)
 }
 
 /** 记忆事件处理器注册表。新增记忆事件类型只需在此注册，调用方守卫自动覆盖。 */

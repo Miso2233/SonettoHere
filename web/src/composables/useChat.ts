@@ -1,427 +1,87 @@
-import { reactive, computed, watch, type Ref } from 'vue'
-import type { ClientMessage, ServerEvent, ChatTurn, ToolCall, ThinkingBlock, TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent } from '@/types'
-import { refreshSessions, switchSession } from '@/composables/useSession'
-import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
+import { computed, watch, type Ref } from 'vue'
+import { useChatStore, findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction, findTurnByBackendId, findRunningMemoryTool } from '@/stores/chatStore'
 import type { ParsedRef } from '@/utils/references'
-import { getToken } from '@/api'
-import { memoryHandlers, type MemoryEventType } from './useChat.memory'
-import { turnHandlers } from './useChat.handlers'
-/** 匹配旧格式尾缀（用于 localStorage 迁移） */
-const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
 
+// 向后兼容导出
+export { findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction, findTurnByBackendId, findRunningMemoryTool }
 export const TURNS_KEY_PREFIX = 'sonetto_turns_'
 
-/** 将旧格式 turn（userMessage 含 __refs__ 和时间尾缀）迁移为新格式 */
-function migrateLegacyTurn(turn: any): ChatTurn {
-  if (Array.isArray(turn.refs)) {
-    return { memoryEvents: [], ...turn } as ChatTurn
-  }
-  // 旧格式：从 userMessage 中提取 refs 和时间尾缀
-  const prevMsg = (turn.userMessage ?? '') as string
-  const { cleanText, refs } = parseReferences(prevMsg || '')
-  const text = refs.length > 0 ? cleanText : prevMsg.replace(TIME_SUFFIX_RE, '')
-  return { ...turn, userMessage: text, refs, memoryEvents: [] }
-}
-
-// 从 localStorage 恢复所有会话的消息缓存（页面刷新后仍保留）
-function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
-  const map = new Map<string, ChatTurn[]>()
-  const keysFound: string[] = []
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key && key.startsWith(TURNS_KEY_PREFIX)) {
-      keysFound.push(key)
-      const sid = key.slice(TURNS_KEY_PREFIX.length)
-      try {
-        const raw = localStorage.getItem(key) || '[]'
-        const data = JSON.parse(raw)
-        if (Array.isArray(data)) {
-          const migrated = data.map(migrateLegacyTurn)
-          console.log(`[useChat:load] 从 localStorage 加载会话 ${sid}: ${data.length} 条 turn (迁移 ${migrated.length}), 序列化长度 ${raw.length}`)
-          map.set(sid, migrated)
-        } else {
-          console.warn(`[useChat:load] 键 ${key} 的数据不是数组，跳过`)
-        }
-      } catch (e) {
-        console.error(`[useChat:load] 解析 localStorage 键 ${key} 失败:`, e)
-      }
-    }
-  }
-  console.log(`[useChat:load] localStorage 中共 ${keysFound.length} 个 ${TURNS_KEY_PREFIX}* 键, 恢复 ${map.size} 个会话的缓存`)
-  return map
-}
-
-function saveTurnsToStorage(sid: string, data: ChatTurn[]) {
-  const key = TURNS_KEY_PREFIX + sid
-  try {
-    const serialized = JSON.stringify(data)
-    const size = new Blob([serialized]).size
-    console.log(`[useChat:save] 保存会话 ${sid} 到 localStorage: ${data.length} 条 turn, 约 ${(size / 1024).toFixed(1)} KB, key=${key}`)
-    localStorage.setItem(key, serialized)
-  } catch (e) {
-    console.error(`[useChat:save] 保存会话 ${sid} 到 localStorage 失败 (key=${key}):`, e)
-    // 尝试估算 localStorage 用量
-    let total = 0
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (k) total += k.length + (localStorage.getItem(k) || '').length
-    }
-    console.warn(`[useChat:save] localStorage 当前总估算用量: ${(total * 2 / 1024).toFixed(1)} KB`)
-  }
-}
-
-export function removeTurnsFromStorage(sid: string) {
-  localStorage.removeItem(TURNS_KEY_PREFIX + sid)
-}
-
+/** @deprecated 使用 useChatStore().disconnectChannel() */
 export function disconnectSession(sid: string) {
-  const ch = channels.get(sid)
-  if (!ch) return
-  if (ch.reconnectTimer) {
-    clearTimeout(ch.reconnectTimer)
-    ch.reconnectTimer = null
-  }
-  // 先清除 onclose，再手动关闭 WS — 防止 onclose 触发意外重连
-  if (ch.ws) {
-    ch.ws.onclose = null
-    ch.ws.close()
-    ch.ws = null
-  }
-  ch.connected = false
-  ch.initialized = false
-  channels.delete(sid)
+  useChatStore().disconnectChannel(sid)
 }
 
-const turnsCache = loadAllTurnsFromStorage()
-
-// ── 多会话通道 ─────────────────────────────────────────────
-
-export interface SessionChannel {
-  ws: WebSocket | null
-  connected: boolean
-  isStreaming: boolean
-  isAwaitingUser: boolean
-  turns: ChatTurn[]
-  currentTurn: ChatTurn | null
-  error: string | null
-  contextUsage: ContextUsage | null
-  taskTrackerData: Record<string, unknown> | null
-  reconnectTimer: ReturnType<typeof setTimeout> | null
-  initialized: boolean
-  _awaitingToolName: string | null
-  parentSessionId: string | null  // sub-agent 用：完成时切回主会话
-  privateMode: boolean
-  autoApprove: boolean
+/** @deprecated 使用 useChatStore().removeTurnsFromStorage() */
+export function removeTurnsFromStorage(sid: string) {
+  useChatStore().removeTurnsFromStorage(sid)
 }
 
-const channels = reactive(new Map<string, SessionChannel>())
-
-// 所有 Session 的连接/流式状态（模块级，供 sidebar 使用）
-export const allSessionStatuses = computed(() => {
-  const map: Record<string, { connected: boolean; isStreaming: boolean; isAwaitingUser: boolean }> = {}
-  for (const [sid, ch] of channels) {
-    map[sid] = { connected: ch.connected, isStreaming: ch.isStreaming, isAwaitingUser: ch.isAwaitingUser }
-  }
-  return map
-})
-
-function getOrCreateChannel(sid: string): SessionChannel {
-  if (!channels.has(sid)) {
-    console.log(`[useChat:channel] 创建新通道 sid="${sid}"`)
-    channels.set(sid, {
-      ws: null,
-      connected: false,
-      isStreaming: false,
-      isAwaitingUser: false,
-      turns: [] as ChatTurn[],
-      currentTurn: null,
-      error: null,
-      contextUsage: null,
-      taskTrackerData: null,
-      reconnectTimer: null,
-      initialized: false,
-      _awaitingToolName: null,
-      parentSessionId: null,
-      privateMode: false,
-      autoApprove: false,
-    })
-  }
-  return channels.get(sid)!
-}
-
+/** @deprecated 使用 useChatStore().persistTurns() */
 export function persistTurns(sid: string) {
-  const ch = channels.get(sid)
-  if (!ch) {
-    console.warn(`[useChat:persist] 跳过保存 sid="${sid}": 通道不存在`)
-    return
-  }
-  const snapshot = [...ch.turns]
-  console.log(`[useChat:persist] 持久化会话 ${sid}: ${snapshot.length} 条 turn`)
-  turnsCache.set(sid, snapshot)
-  saveTurnsToStorage(sid, snapshot)
+  useChatStore().persistTurns(sid)
 }
 
-// ── WebSocket 生命周期（每 Session 独立管理） ──────────────
+/** @deprecated 使用 useChatStore().allSessionStatuses */
+export const allSessionStatuses = computed(() => useChatStore().allSessionStatuses)
 
-/** 会话 ID 格式验证：由后端 uuid.uuid4().hex 生成（32 位 hex） */
-const SID_RE = /^[0-9a-f]{32}$/i
-
-function isValidSessionId(sid: string): boolean {
-  return SID_RE.test(sid)
-}
-
-function connectSession(sid: string) {
-  if (!isValidSessionId(sid)) {
-    console.error(`[useChat] 拒绝连接：非法的 sessionId "${sid}"`)
-    return
-  }
-  const ch = getOrCreateChannel(sid)
-  if (ch.ws?.readyState === WebSocket.OPEN) return
-
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const token = getToken()
-  const url = `${protocol}//${location.host}/ws/chat/${sid}`
-  ch.ws = new WebSocket(url, [token])
-
-  ch.ws.onopen = () => {
-    ch.connected = true
-    if (ch.reconnectTimer) {
-      clearTimeout(ch.reconnectTimer)
-      ch.reconnectTimer = null
-    }
-  }
-
-  ch.ws.onclose = () => {
-    ch.connected = false
-    ch.reconnectTimer = setTimeout(() => connectSession(sid), 3000)
-  }
-
-  ch.ws.onmessage = (event) => {
-    try {
-      const msg: ServerEvent = JSON.parse(event.data)
-      console.log('[useChat] WS event received:', msg.type, 'session:', sid, msg.type === 'ask_user' ? {
-        tool_name: (msg as AskUserEvent).payload.tool_name,
-        interaction_id: (msg as AskUserEvent).payload.interaction_id,
-      } : '')
-      handleEventForChannel(sid, msg)
-    } catch (e) {
-      console.error('[useChat] WS message parse/handle error:', e)
-    }
-  }
-}
-
-export function ensureConnected(sid: string) {
-  if (!sid) {
-    console.warn(`[useChat:ensureConnected] 跳过空 sid`)
-    return
-  }
-  if (!isValidSessionId(sid)) {
-    console.error(`[useChat:ensureConnected] 拒绝连接：非法的 sessionId "${sid}"`)
-    return
-  }
-  const ch = getOrCreateChannel(sid)
-  if (ch.initialized) {
-    console.log(`[useChat:ensureConnected] 会话 ${sid} 已初始化, 跳过`)
-    return
-  }
-  console.log(`[useChat:ensureConnected] 初始化会话 ${sid} 的 WebSocket 连接`)
-  ch.initialized = true
-  connectSession(sid)
-}
-
-// ── 事件路由 ──────────────────────────────────────────────
-
-function handleEventForChannel(sid: string, event: ServerEvent) {
-  const ch = channels.get(sid)
-  if (!ch) return
-
-  // context_usage 可以在无活跃轮次时接收（如连接初始化）
-  if (event.type === 'context_usage') {
-    ch.contextUsage = event.payload
-    return
-  }
-
-  // sub_session_created 可能在任何时候到达（主 Agent 调用 call_sub_agent）
-  if (event.type === 'sub_session_created') {
-    const subId = event.payload.sub_session_id
-    const parentId = event.payload.parent_session_id
-    void refreshSessions()
-    ensureConnected(subId)
-
-    // 初始化子会话的 currentTurn，否则子 Agent 推送的所有事件都被丢弃
-    const subCh = getOrCreateChannel(subId)
-    subCh.parentSessionId = parentId
-    subCh.isStreaming = true
-    subCh.currentTurn = {
-      id: crypto.randomUUID(),
-      userMessage: event.payload.task || '(子 Agent 任务)',
-      refs: [],
-      events: [],
-      memoryEvents: [],
-      finalAnswer: null,
-    }
-
-    void switchSession(subId)
-    return
-  }
-
-  // 后台记忆 consumer 事件可能在 done 事件之后到达（currentTurn 已清空），
-  // 必须在 const turn = ch.currentTurn 守卫之前处理，通过 turn_id 自行查找目标。
-  const memoryHandler = memoryHandlers.get(event.type as MemoryEventType)
-  if (typeof memoryHandler === 'function') {
-    memoryHandler(ch, sid, event)
-    return
-  }
-
-  const turn = ch.currentTurn
-  if (!turn) return
-
-  const turnHandler = turnHandlers.get(event.type)
-  if (typeof turnHandler === 'function') {
-    turnHandler(ch, sid, turn, event)
-  }
-}
-
-// ── useChat composable ─────────────────────────────────────
-
+/**
+ * useChat composable — 委托到 Pinia store。
+ *
+ * 保持现有 API 接口不变：
+ *   connected, isStreaming, turns, currentTurn, error,
+ *   contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns,
+ *   privateMode, setPrivateMode, autoApprove, setAutoApprove
+ */
 export function useChat(sessionId: Ref<string>) {
-  const activeChannel = computed(() => getOrCreateChannel(sessionId.value))
+  const store = useChatStore()
 
-  // 暴露给 ChatView 的响应式属性（指向当前 Session 通道）
-  const connected = computed(() => activeChannel.value.connected)
-  const isStreaming = computed(() => activeChannel.value.isStreaming)
-  const turns = computed(() => activeChannel.value.turns)
-  const currentTurn = computed(() => activeChannel.value.currentTurn)
-  const error = computed(() => activeChannel.value.error)
-  const contextUsage = computed(() => activeChannel.value.contextUsage)
-  const taskTrackerData = computed(() => activeChannel.value.taskTrackerData)
+  // 根据当前 sessionId 获取通道状态
+  const activeChannelRef = computed(() => store.getOrCreateChannel(sessionId.value))
 
-  const privateMode = computed(() => activeChannel.value.privateMode)
-  const autoApprove = computed(() => activeChannel.value.autoApprove)
+  const connected = computed(() => activeChannelRef.value.connected)
+  const isStreaming = computed(() => activeChannelRef.value.isStreaming)
+  const turns = computed(() => activeChannelRef.value.turns)
+  const currentTurn = computed(() => activeChannelRef.value.currentTurn)
+  const error = computed(() => activeChannelRef.value.error)
+  const contextUsage = computed(() => activeChannelRef.value.contextUsage)
+  const taskTrackerData = computed(() => activeChannelRef.value.taskTrackerData)
+  const privateMode = computed(() => activeChannelRef.value.privateMode)
+  const autoApprove = computed(() => activeChannelRef.value.autoApprove)
 
   function setPrivateMode(val: boolean) {
-    activeChannel.value.privateMode = val
+    const ch = activeChannelRef.value
+    ch.privateMode = val
   }
 
   function setAutoApprove(val: boolean) {
-    activeChannel.value.autoApprove = val
-    const ch = activeChannel.value
-    if (ch.ws && ch.ws.readyState === WebSocket.OPEN) {
-      ch.ws.send(JSON.stringify({
-        type: 'update_auto_approve',
-        payload: { auto_approve: val }
-      }))
-    }
+    store.updateAutoApprove(sessionId.value, val)
   }
 
-  // Session 切换：只确保新 Session 的 WS 连接，不断开旧的
+  // Session 切换：持久化旧会话、恢复新会话缓存、确保 WS 连接
+  // getOrCreateChannel 在 store 内部已自动从 localStorage 恢复缓存
   watch(
     sessionId,
     (newId, oldId) => {
-      console.log(`[useChat:watch] sessionId 变化: "${oldId}" → "${newId}"`)
-      if (oldId) {
-        console.log(`[useChat:watch] 在切换前持久化旧会话 "${oldId}"`)
-        persistTurns(oldId)
-      }
-      ensureConnected(newId)
-      // 恢复新会话的消息缓存（页面刷新场景）
-      const cached = turnsCache.get(newId)
-      const ch = getOrCreateChannel(newId)
-      if (cached) {
-        console.log(`[useChat:watch] 找到会话 ${newId} 的缓存: ${cached.length} 条 turn, 通道已有 ${ch.turns.length} 条`)
-        if (ch.turns.length === 0) {
-          console.log(`[useChat:watch] 恢复缓存: 将 ${cached.length} 条 turn 推入通道`)
-          ch.turns.push(...cached)
-          console.log(`[useChat:watch] 恢复后通道 turns.length = ${ch.turns.length}`)
-        } else {
-          console.log(`[useChat:watch] 跳过恢复: 通道已有数据`)
-        }
-      } else {
-        console.log(`[useChat:watch] 未找到会话 ${newId} 的缓存, sessionId="${sessionId.value}"`)
-        // 调试：列出 turnsCache 中所有可用的 key
-        const available = Array.from(turnsCache.keys())
-        console.log(`[useChat:watch] turnsCache 可用键:`, available.length ? available : '(空)')
-      }
+      if (oldId) store.persistTurns(oldId)
+      store.ensureConnected(newId)
     },
-    { immediate: true }
+    { immediate: true },
   )
 
   function send(text: string, refs: ParsedRef[] = [], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]) {
-    const ch = activeChannel.value
-    if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) {
-      console.warn(`[useChat:send] WebSocket 未就绪, readyState=${ch.ws?.readyState}, session=${sessionId.value}`)
-      return
-    }
-    ch.isStreaming = true
-    ch.error = null
-
-    const timestamp = buildTimestamp()
-    const flatMsg = buildFlatMessage(text, timestamp, refs)
-
-    const turn: ChatTurn = {
-      id: crypto.randomUUID(),
-      userMessage: text,
-      refs,
-      imageRefs: imageRecognition && imagePaths?.length
-        ? imagePaths.map(p => ({ type: 'file' as const, path: p, label: p.split(/[/\\]/).pop() || p }))
-        : undefined,
-      events: [],
-      memoryEvents: [],
-      finalAnswer: null,
-    }
-    ch.currentTurn = turn
-
-    const payload: ClientMessage = {
-      type: 'chat',
-      payload: {
-        message: flatMsg,
-        private: ch.privateMode,
-        auto_approve: ch.autoApprove,
-        provider_id: providerId,
-        model_name: modelName,
-        ...(imageRecognition && imagePaths?.length ? { image_recognition: true, image_refs: imagePaths } : {}),
-      },
-    }
-    ch.ws.send(JSON.stringify(payload))
+    store.send(sessionId.value, text, refs, providerId, modelName, imageRecognition, imagePaths)
   }
 
   function cancel() {
-    const ch = activeChannel.value
-    if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) return
-    const payload: ClientMessage = { type: 'cancel', payload: {} }
-    ch.ws.send(JSON.stringify(payload))
+    store.cancel(sessionId.value)
   }
 
   function sendUserResponse(interactionId: string, response: string | string[]) {
-    const ch = activeChannel.value
-    if (!ch.ws || ch.ws.readyState !== WebSocket.OPEN) return
-    // 标记对应 ToolCall 的 interaction 为已提交，便于 findBestMatchingTool 后续精确匹配
-    const turn = ch.currentTurn
-    if (turn) {
-      for (const ev of turn.events) {
-        if (ev.kind === 'tool' && ev.interaction?.interactionId === interactionId) {
-          ev.interaction.submitted = true
-          break
-        }
-      }
-    }
-    const payload: ClientMessage = {
-      type: 'user_response',
-      payload: { interaction_id: interactionId, response },
-    }
-    ch.ws.send(JSON.stringify(payload))
+    store.sendUserResponse(sessionId.value, interactionId, response)
   }
 
-  /** 从当前会话的 turns 列表中移除最后 count 条轮次（撤回后的前端同步）。 */
   function removeTurns(count: number) {
-    const ch = getOrCreateChannel(sessionId.value)
-    if (ch.turns.length === 0) return
-    const actual = Math.min(count, ch.turns.length)
-    ch.turns.splice(ch.turns.length - actual, actual)
-    if (!ch.privateMode) {
-      persistTurns(sessionId.value)
-    }
-    void refreshSessions()
+    store.removeTurns(sessionId.value, count)
   }
 
   return {
@@ -430,88 +90,4 @@ export function useChat(sessionId: Ref<string>) {
     privateMode, setPrivateMode,
     autoApprove, setAutoApprove,
   }
-}
-
-
-
-export function findLastThinking(events: TurnEvent[]): ThinkingBlock | undefined {
-  for (let i = events.length - 1; i >= 0; i--) {
-    if (events[i].kind === 'thinking') {
-      return events[i] as ThinkingBlock
-    }
-  }
-  return undefined
-}
-
-/**
- * 通过 call_id 精确查找 ToolCall（当多个同名工具并行运行时用于精准匹配）。
- */
-export function findToolByCallId(events: TurnEvent[], callId: string): ToolCall | undefined {
-  for (const e of events) {
-    if (e.kind === 'tool' && e.callId === callId) {
-      return e as ToolCall
-    }
-  }
-  return undefined
-}
-
-/**
- * 为 ask_user 事件查找合适的 ToolCall：
- * 从前往后找第一个 running 且尚未分配 interaction 的工具。
- * 当多个同名工具并行运行时，确保每个 ask_user 事件绑定到正确的实例。
- */
-export function findFirstRunningToolForInteraction(events: TurnEvent[], toolName: string): ToolCall | undefined {
-  for (let i = 0; i < events.length; i++) {
-    const e = events[i]
-    if (e.kind === 'tool' && e.name === toolName && e.status === 'running' && !e.interaction) {
-      return e as ToolCall
-    }
-  }
-  return undefined
-}
-
-/**
- * 降级匹配：为 tool_end / tool_error 查找匹配的 ToolCall（当 call_id 匹配失败时使用）。
- * 1. 优先找 interaction.submitted === true 的工具（用户已响应）
- * 2. 其次找有 interaction 的工具
- * 3. 最后退化为旧行为：从后往前找最后一个 running 的工具
- */
-export function findBestMatchingTool(events: TurnEvent[], toolName: string): ToolCall | undefined {
-  // 第一遍：优先匹配用户已提交响应的工具
-  for (let i = 0; i < events.length; i++) {
-    const e = events[i]
-    if (e.kind === 'tool' && e.name === toolName && e.status === 'running' && e.interaction?.submitted) {
-      return e as ToolCall
-    }
-  }
-  // 第二遍：匹配有 interaction 的工具（未标记 submitted，可能不完美，但比旧行为好）
-  for (let i = 0; i < events.length; i++) {
-    const e = events[i]
-    if (e.kind === 'tool' && e.name === toolName && e.status === 'running' && e.interaction) {
-      return e as ToolCall
-    }
-  }
-  // 第三遍（降级）：旧行为——最后一个 running 的同名工具
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i]
-    if (e.kind === 'tool' && e.name === toolName && e.status === 'running') {
-      return e as ToolCall
-    }
-  }
-  return undefined
-}
-
-/** 通过后端 turn_id 查找 turn（先在 currentTurn 中找，再在 turns 中找）。 */
-export function findTurnByBackendId(ch: SessionChannel, turnId: string): ChatTurn | undefined {
-  if (ch.currentTurn?.turnId === turnId) return ch.currentTurn
-  return ch.turns.find(t => t.turnId === turnId)
-}
-
-/** 在 memoryEvents 中查找指定工具名的 running 状态事件。 */
-export function findRunningMemoryTool(events: MemoryToolEvent[], toolName: string): MemoryToolEvent | undefined {
-  for (let i = events.length - 1; i >= 0; i--) {
-    const e = events[i]
-    if (e.name === toolName && e.status === 'running') return e
-  }
-  return undefined
 }
