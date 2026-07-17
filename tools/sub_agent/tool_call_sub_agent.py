@@ -8,6 +8,7 @@ import traceback
 from pydantic import BaseModel, Field
 
 from api.agent import interaction
+from api.events import ToolSender
 from api.providers.default_llm import get_default_llm
 from tools.base import ToolBase, format_success, format_error
 
@@ -107,17 +108,14 @@ class CallSubAgentTool(ToolBase):
 
         # 2. 通知前端（通过主 WS）
         print("[call_sub_agent] sending sub_session_created via WS", file=sys.stderr)
-        await ws.send_json(
-            {
-                "type": "sub_session_created",
-                "payload": {
-                    "sub_session_id": sub.session_id,
-                    "parent_session_id": parent_session_id,
-                    "task": task,
-                    "name": name[:100] if name else "",
-                },
-            }
-        )
+        sender = ToolSender.from_context()
+        if sender is not None:
+            await sender.sub_session_created(
+                sub_session_id=sub.session_id,
+                parent_session_id=parent_session_id,
+                task=task,
+                name=name[:100] if name else "",
+            )
         print(
             "[call_sub_agent] sub_session_created sent, awaiting pending_result...",
             file=sys.stderr,

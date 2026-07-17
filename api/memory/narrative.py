@@ -13,6 +13,7 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
 
+from api.events import MemorySender
 from api.memory.callback import MemoryToolCallback
 from api.memory.manager import MAX_DESC_LENGTH, MemoryManager
 from api.providers.default_llm import get_default_llm
@@ -431,21 +432,12 @@ class LongTermMemoryInterface:
             # 无论后续成功与否，先通知前端「开始处理」
             _sent_done = False
             if session_id:
-                session_obj = session_manager.get(session_id)
-                ws = session_obj.ws if session_obj else None
-                if ws is not None:
-                    try:
-                        await ws.send_json(
-                            {
-                                "type": "memory_start",
-                                "payload": {"turn_id": turn_id or ""},
-                            }
-                        )
-                        print(
-                            f"[ltm] memory_start sent session={session_id[:8]} turn_id={turn_id[:8]}"
-                        )
-                    except Exception:
-                        pass
+                sender = MemorySender.from_session_id(session_id)
+                if sender is not None:
+                    await sender.memory_start(turn_id or "")
+                    print(
+                        f"[ltm] memory_start sent session={session_id[:8]} turn_id={turn_id[:8]}"
+                    )
 
             if get_default_llm() is None:
                 print("[ltm] no LLM available — skipping memory update")
@@ -522,21 +514,12 @@ class LongTermMemoryInterface:
             finally:
                 # 无论异常与否，都通知前端本轮记忆处理完成
                 if session_id:
-                    session_obj = session_manager.get(session_id)
-                    ws = session_obj.ws if session_obj else None
-                    if ws is not None:
-                        try:
-                            await ws.send_json(
-                                {
-                                    "type": "memory_done",
-                                    "payload": {"turn_id": turn_id or ""},
-                                }
-                            )
-                            print(
-                                f"[ltm] memory_done sent session={session_id[:8]} turn_id={turn_id[:8]}"
-                            )
-                        except Exception as e:
-                            print(f"[ltm] memory_done send error: {e}")
+                    sender = MemorySender.from_session_id(session_id)
+                    if sender is not None:
+                        await sender.memory_done(turn_id or "")
+                        print(
+                            f"[ltm] memory_done sent session={session_id[:8]} turn_id={turn_id[:8]}"
+                        )
                     else:
                         print(
                             f"[ltm] session.ws is None for session={session_id[:8]}"

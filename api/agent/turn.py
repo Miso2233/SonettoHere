@@ -15,7 +15,7 @@ from agent.graph import Sonetto, build_agent
 from agent.prompts import build_system_prompt
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
-from api.agent.turn_sender import WsEventSender
+from api.events import CallbackSender, TurnSender
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
@@ -96,7 +96,7 @@ def _get_final_answer(event: dict[str, Any]) -> str:
     return final_answer
 
 
-async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, Any], sender: WsEventSender) -> None:
+async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, Any], sender: TurnSender) -> None:
     """为 checkpoint 中孤立的 tool_calls 注入统一格式的正常 ToolMessage，
     并通知前端使对应工具气泡进入错误状态。
 
@@ -184,7 +184,7 @@ async def _stream_turn(
     graph: Sonetto,
     inputs: dict[str, list[HumanMessage]],
     config: dict[str, Any],
-    sender: WsEventSender,
+    sender: TurnSender,
     session: SessionState,
     system_prompt: str,
     model_name: str | None = None,
@@ -262,7 +262,8 @@ async def _build_turn_context(
 ) -> _TurnContext:
     """构建 Agent 图、输入消息和执行配置。"""
     system_prompt = build_system_prompt()
-    ws_callback = WebSocketCallback(ws)
+    cb_sender = CallbackSender.from_ws(ws)
+    ws_callback = WebSocketCallback(cb_sender)
 
     agent = build_agent(
         model=llm_conf.llm,
@@ -306,7 +307,7 @@ async def _build_turn_context(
 
 async def _execute_agent_turn(
     ctx: _TurnContext,
-    sender: WsEventSender,
+    sender: TurnSender,
     session: SessionState,
     llm_conf: _LlmConfig,
 ) -> _TurnResult:
@@ -426,7 +427,7 @@ async def run_agent_turn(
       4. _postprocess_turn    — 消息计数、记忆持久化、Const 保存、Sub-agent 回调
     """
     app_state = ws.app.state
-    sender = WsEventSender(ws)
+    sender = TurnSender(ws)
 
     # 1. 解析 LLM 配置
     llm_conf: _LlmConfig = _resolve_llm(

@@ -12,6 +12,7 @@ from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from agent.prompts import build_system_prompt
 from api.agent.turn import run_agent_turn
+from api.events import ChatSender
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
 from api.session.manager import SessionState, session_manager
@@ -58,7 +59,7 @@ async def _handle_ping(
     msg: dict,
 ) -> asyncio.Task | None:
     """处理 ping 心跳。"""
-    await ws.send_json({"type": "pong", "payload": {}})
+    await ChatSender.from_ws(ws).pong()
     return agent_task
 
 
@@ -168,7 +169,7 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
         max_tokens=default_max_tokens,
         model_name=default_model,
     )
-    await ws.send_json({"type": "context_usage", "payload": initial_usage})
+    await ChatSender.from_ws(ws).context_usage(initial_usage)
 
     # ── 断线重连时恢复 sub-agent ──────────────────────────
     agent_task = _resume_sub_agent(ws, session)

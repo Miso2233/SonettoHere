@@ -5,6 +5,7 @@ import asyncio
 from pydantic import BaseModel, Field
 
 from api.agent import interaction
+from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success
 
 
@@ -43,22 +44,13 @@ class AskUserSingleChoiceTool(ToolBase):
         if not options:
             return format_error("options 不能为空")
 
-        ws = interaction.current_ws.get()
+        sender = ToolSender.from_context()
+        if sender is None:
+            return format_error("WebSocket 连接不可用")
 
         interaction_id, future = interaction.register()
 
-        await ws.send_json(
-            {
-                "type": "ask_user",
-                "payload": {
-                    "tool_name": self.name,
-                    "question": question,
-                    "mode": "single_choice",
-                    "options": options,
-                    "interaction_id": interaction_id,
-                },
-            }
-        )
+        await sender.ask_user(self.name, question, "single_choice", options, interaction_id)
 
         try:
             answer = await future

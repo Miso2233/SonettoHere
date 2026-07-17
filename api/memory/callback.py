@@ -5,7 +5,7 @@ from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from api.session.manager import session_manager
+from api.events import MemorySender
 
 
 class MemoryToolCallback(BaseCallbackHandler):
@@ -17,24 +17,10 @@ class MemoryToolCallback(BaseCallbackHandler):
         turn_id: str,
     ) -> None:
         super().__init__()
-        self._session_id = session_id
+        self._sender = MemorySender.from_session_id(session_id)
         self._turn_id = turn_id
         self._tool_start_time: dict[str, float] = {}
         self._tool_names: dict[str, str] = {}
-
-    async def _send(self, event_type: str, payload: dict) -> None:
-        session_obj = session_manager.get(self._session_id)
-        ws = session_obj.ws if session_obj else None
-        if ws is None:
-            print(f"[ltm-cb] _send skipped: no WS for session={self._session_id[:8]}")
-            return  # WebSocket 已断开，静默跳过
-        try:
-            await ws.send_json({"type": event_type, "payload": payload})
-            print(
-                f"[ltm-cb] {event_type} sent to session={self._session_id[:8]} tool={payload.get('tool_name', '?')}"
-            )
-        except Exception as e:
-            print(f"[ltm-cb] _send error: {e}")
 
     async def on_tool_start(
         self, serialized: dict[str, Any], input_str: str, **kwargs: Any
@@ -46,13 +32,9 @@ class MemoryToolCallback(BaseCallbackHandler):
 
         # 截断过长输入
         truncated = input_str[:300] if len(input_str) > 300 else input_str
-        await self._send(
-            "memory_tool_start",
-            {
-                "turn_id": self._turn_id,
-                "tool_name": tool_name,
-                "input": truncated,
-            },
+        await self._sender.memory_tool_start(self._turn_id, tool_name, truncated)
+        print(
+            f"[ltm-cb] memory_tool_start sent tool={tool_name} turn_id={self._turn_id[:8]}"
         )
 
     async def on_tool_end(self, output: str, **kwargs: Any) -> None:
@@ -65,25 +47,16 @@ class MemoryToolCallback(BaseCallbackHandler):
         if len(out_str) > 300:
             out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
 
-        await self._send(
-            "memory_tool_end",
-            {
-                "turn_id": self._turn_id,
-                "tool_name": tool_name,
-                "output": out_str,
-                "elapsed": round(elapsed, 2),
-            },
+        await self._sender.memory_tool_end(self._turn_id, tool_name, out_str, round(elapsed, 2))
+        print(
+            f"[ltm-cb] memory_tool_end sent tool={tool_name} turn_id={self._turn_id[:8]} elapsed={elapsed:.2f}"
         )
 
     async def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
         self._tool_start_time.pop(run_id, None)
         tool_name = self._tool_names.pop(run_id, "unknown")
-        await self._send(
-            "memory_tool_error",
-            {
-                "turn_id": self._turn_id,
-                "tool_name": tool_name,
-                "error": str(error),
-            },
+        await self._sender.memory_tool_error(self._turn_id, tool_name, str(error))
+        print(
+            f"[ltm-cb] memory_tool_error sent tool={tool_name} turn_id={self._turn_id[:8]}"
         )

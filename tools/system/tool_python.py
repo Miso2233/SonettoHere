@@ -7,6 +7,7 @@ import sys
 from pydantic import BaseModel, Field
 
 from api.agent import interaction
+from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success, get_safe_builtins
 
 # 模块级常量：安全 builtins 只构造一次
@@ -58,21 +59,18 @@ class RunPythonTool(ToolBase):
             except Exception as e:
                 return format_error(str(e))
 
-        ws = interaction.current_ws.get()
+        sender = ToolSender.from_context()
+        if sender is None:
+            return format_error("WebSocket 连接不可用")
         interaction_id, future = interaction.register()
 
-        await ws.send_json(
-            {
-                "type": "ask_user",
-                "payload": {
-                    "tool_name": self.name,
-                    "question": "即将执行以下 Python 代码，是否确认执行？",
-                    "mode": "confirm",
-                    "options": ["执行", "取消"],
-                    "interaction_id": interaction_id,
-                    "code": code,
-                },
-            }
+        await sender.ask_user(
+            tool_name=self.name,
+            question="即将执行以下 Python 代码，是否确认执行？",
+            mode="confirm",
+            options=["执行", "取消"],
+            interaction_id=interaction_id,
+            code=code,
         )
 
         try:

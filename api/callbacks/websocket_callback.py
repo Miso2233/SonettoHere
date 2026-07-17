@@ -4,10 +4,10 @@ import json
 import time
 from typing import Any
 
-from fastapi import WebSocket
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.outputs import LLMResult
 
+from api.events import CallbackSender
 from .tool_extractors import _dispatch
 
 
@@ -25,9 +25,9 @@ def _extract_content(output: Any) -> str:
 
 
 class WebSocketCallback(BaseCallbackHandler):
-    def __init__(self, ws: WebSocket):
+    def __init__(self, sender: CallbackSender):
         super().__init__()
-        self._ws = ws
+        self._sender = sender
         self._thinking_started = False
         self._tool_start_time: dict[str, float] = {}
         self._tool_names: dict[str, str] = {}
@@ -49,30 +49,15 @@ class WebSocketCallback(BaseCallbackHandler):
         self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any
     ) -> None:
         self._thinking_started = True
-        await self._ws.send_json(
-            {
-                "type": "thinking_start",
-                "payload": {"timestamp": time.time()},
-            }
-        )
+        await self._sender.thinking_start(time.time())
 
     async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        await self._ws.send_json(
-            {
-                "type": "token",
-                "payload": {"token": token},
-            }
-        )
+        await self._sender.token(token)
 
     async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         if self._thinking_started:
             self._thinking_started = False
-            await self._ws.send_json(
-                {
-                    "type": "thinking_end",
-                    "payload": {"timestamp": time.time()},
-                }
-            )
+            await self._sender.thinking_end(time.time())
 
     async def on_tool_start(
         self, serialized: dict[str, Any], input_str: str, **kwargs: Any
@@ -83,16 +68,8 @@ class WebSocketCallback(BaseCallbackHandler):
         self._tool_names[run_id] = tool_name
         self._tool_inputs[run_id] = input_str
 
-        await self._ws.send_json(
-            {
-                "type": "tool_start",
-                "payload": {
-                    "call_id": run_id,
-                    "tool_name": tool_name,
-                    "input": input_str[:500] if len(input_str) > 500 else input_str,
-                },
-            }
-        )
+        truncated_input = input_str[:500] if len(input_str) > 500 else input_str
+        await self._sender.tool_start(run_id, tool_name, truncated_input)
 
     async def on_tool_end(self, output: str, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
@@ -107,16 +84,7 @@ class WebSocketCallback(BaseCallbackHandler):
             parsed = json.loads(out_str)
             if isinstance(parsed, dict) and parsed.get("success") is False:
                 error_msg = parsed.get("error", "操作执行失败")
-                await self._ws.send_json(
-                    {
-                        "type": "tool_error",
-                        "payload": {
-                            "call_id": run_id,
-                            "tool_name": tool_name,
-                            "error": error_msg,
-                        },
-                    }
-                )
+                await self._sender.tool_error(run_id, tool_name, error_msg)
                 return
         except (json.JSONDecodeError, TypeError):
             pass
@@ -128,31 +96,11 @@ class WebSocketCallback(BaseCallbackHandler):
         if len(out_str) > 300:
             out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
 
-        await self._ws.send_json(
-            {
-                "type": "tool_end",
-                "payload": {
-                    "call_id": run_id,
-                    "tool_name": tool_name,
-                    "output": out_str,
-                    "elapsed": round(elapsed, 2),
-                    "tool_data": tool_data,
-                },
-            }
-        )
+        await self._sender.tool_end(run_id, tool_name, out_str, round(elapsed, 2), tool_data)
 
     async def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
         self._tool_start_time.pop(run_id, None)
         self._tool_inputs.pop(run_id, None)
         tool_name = self._tool_names.pop(run_id, "unknown")
-        await self._ws.send_json(
-            {
-                "type": "tool_error",
-                "payload": {
-                    "call_id": run_id,
-                    "tool_name": tool_name,
-                    "error": str(error),
-                },
-            }
-        )
+        await self._sender.tool_error(run_id, tool_name, str(error))
