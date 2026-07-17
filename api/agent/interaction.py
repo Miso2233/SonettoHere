@@ -9,8 +9,6 @@ import asyncio
 import contextvars
 import uuid
 
-from langchain_core.messages import HumanMessage
-
 from tools.base import format_error
 
 # 当前连接对应的 WebSocket 实例（在 chat.py 中设置）
@@ -40,30 +38,6 @@ def get_session_auto_approve(session_id: str) -> bool:
 def clear_session_settings(session_id: str) -> None:
     """WebSocket 断开时清理会话设置，防止内存泄漏。"""
     _settings.pop(session_id, None)
-    _pending_human_messages.pop(session_id, None)
-
-# ── 待注入 HumanMessage 队列 ─────────────────────────────────
-# 工具在 _arun() 中预约，_stream_turn 在 tools checkpoint 后注入
-
-_pending_human_messages: dict[str, list[HumanMessage]] = {}  # session_id → [messages...]
-
-
-def queue_human_message(session_id: str, message: HumanMessage) -> None:
-    """工具调用：预约一条 HumanMessage，在 ToolMessage checkpoint 后注入。
-
-    工具在 _arun() 中构造好完整的 HumanMessage（含多模态内容）后
-    调用此方法存入队列。当前轮次的 _stream_turn 在接收到
-    on_chain_end("tools") 事件后，会消费队列并注入到 checkpoint。
-    """
-    if session_id not in _pending_human_messages:
-        _pending_human_messages[session_id] = []
-    _pending_human_messages[session_id].append(message)
-
-
-def consume_queued_human_messages(session_id: str) -> list[HumanMessage]:
-    """轮次事件处理器调用：取出并清空待注入消息列表。"""
-    return _pending_human_messages.pop(session_id, [])
-
 
 # 全局待处理交互表：interaction_id → Future
 _pending: dict[str, asyncio.Future] = {}

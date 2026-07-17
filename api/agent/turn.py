@@ -13,7 +13,6 @@ from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from agent.graph import Sonetto, build_agent
 from agent.prompts import build_system_prompt
 from api.agent import interaction
-from api.agent.add_human_message import add_human_message
 from api.agent.context_usage import estimate_context_usage_from_session
 from api.events import CallbackSender, TurnSender
 from api.callbacks.websocket_callback import WebSocketCallback
@@ -195,18 +194,8 @@ async def _stream_turn(
     async for event in graph.astream_events(inputs, config=config, version="v2"):
         if event.get("event") == "on_chain_end" and event.get("name") == "agent":
             final_answer = _get_final_answer(event)
-        # 一轮工具执行完毕，ToolMessage 已写入 checkpoint
+        # 一轮工具执行完毕，ToolMessage 已写入 checkpoint，推送上下文用量
         if event.get("event") == "on_chain_end" and event.get("name") == "tools":
-            # 注入工具预约的 HumanMessage（不影响主流程的异常吞掉）
-            for hm in interaction.consume_queued_human_messages(session.session_id):
-                try:
-                    await add_human_message(session, hm)
-                except Exception as e:
-                    print(
-                        f"[inject] HumanMessage 注入失败 ({session.session_id[:8]}): {e}",
-                        file=sys.stderr,
-                    )
-            # 推送上下文用量
             usage = await estimate_context_usage_from_session(
                 session,
                 system_prompt,
