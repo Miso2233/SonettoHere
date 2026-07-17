@@ -19,11 +19,8 @@ class SessionState:
     _active_task: asyncio.Task | None = field(default=None, repr=False)
     checkpointer: MemorySaver = field(default_factory=MemorySaver)
     _graph: CompiledStateGraph | None = field(default=None, repr=False)
-    auto_approve: bool = False
-
     # ── Sub-agent 字段 ─────────────────────────────────────
     is_subagent: bool = False
-    parent_session_id: str | None = None
     _sub_agent_task: str | None = field(default=None, repr=False)
     _pending_result: asyncio.Future | None = field(default=None, repr=False)
 
@@ -135,14 +132,12 @@ class SessionManager:
     def create_sub_session(
         self,
         task: str,
-        parent_session_id: str | None = None,
     ) -> SessionState:
         """创建 sub-agent 会话，携带任务文本和 pending future。"""
         session_id = uuid.uuid4().hex
         session = SessionState(
             session_id=session_id,
             is_subagent=True,
-            parent_session_id=parent_session_id,
             _sub_agent_task=task,
             _pending_result=asyncio.Future(),
         )

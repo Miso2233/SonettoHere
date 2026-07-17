@@ -147,7 +147,6 @@ async def _handle_update_auto_approve(
     interaction.set_session_auto_approve(
         session_id, msg["payload"]["auto_approve"]
     )
-    session.auto_approve = msg["payload"]["auto_approve"]
     return agent_task
 
 @router.websocket("/ws/chat/{session_id}")

@@ -98,10 +98,7 @@ class CallSubAgentTool(ToolBase):
             pass
 
         # 1. 创建 sub-session
-        sub = sm.create_sub_session(
-            task=task,
-            parent_session_id=parent_session_id,
-        )
+        sub = sm.create_sub_session(task=task)
         print(
             f"[call_sub_agent] sub-session created: {sub.session_id}", file=sys.stderr
         )
