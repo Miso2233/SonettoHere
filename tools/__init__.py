@@ -48,6 +48,7 @@ def get_all_tools() -> list[BaseTool]:
     from tools.network.tool_weather import WeatherTool
     from tools.network.tool_holiday import HolidayCalendarTool
     from tools.network.tool_image_understand import ImageUnderstandTool
+    from tools.network.tool_verify_image import VerifyImageTool
     from tools.network.tavily import TavilySearchTool, TavilyExtractTool
 
     # Files
@@ -103,6 +104,7 @@ def get_all_tools() -> list[BaseTool]:
         WeatherTool(client=client),
         HolidayCalendarTool(client=client),
         ImageUnderstandTool(client=client),
+        VerifyImageTool(client=client),
         TavilySearchTool(client=client),
         TavilyExtractTool(client=client),
         # Files
