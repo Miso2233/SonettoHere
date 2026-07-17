@@ -70,16 +70,42 @@ class ProviderManager:
 
     def create_llm(
         self, provider_id: str, model_name: str, **kwargs: Any
-    ) -> tuple[BaseChatModel, str, int] | None:
-        """按指定 provider + model 创建 LLM，返回 (llm, model_name, max_tokens)。
+    ) -> BaseChatModel | None:
+        """按指定 provider + model 创建 LLM。
         provider 不存在时返回 None。"""
         try:
             provider = self.get(provider_id)
         except KeyError:
             return None
-        llm = provider.create_llm(model_name, **kwargs)
-        max_tokens = provider.config.model_context_windows.get(model_name, FALLBACK_CTX)
-        return llm, model_name, max_tokens
+        return provider.create_llm(model_name, **kwargs)
+
+    def get_model_metadata(
+        self, provider_id: str | None, model_name: str
+    ) -> dict[str, int | bool]:
+        """返回指定模型的元数据 dict。
+
+        dict 包含:
+          - max_tokens: 模型上下文窗口大小（int）
+          - multimodal: 是否支持多模态（bool）
+
+        当 provider_id 为 None 或不存在时，回退到 default provider 查询。
+        """
+        max_tokens = FALLBACK_CTX
+        multimodal = False
+
+        eff_id = provider_id
+        if not eff_id:
+            default = self.get_default_provider()
+            if default:
+                eff_id = default.config.id
+
+        if eff_id:
+            cfg = self.get_config(eff_id)
+            if cfg:
+                max_tokens = cfg.model_context_windows.get(model_name, FALLBACK_CTX)
+                multimodal = cfg.model_vision.get(model_name, False)
+
+        return {"max_tokens": max_tokens, "multimodal": multimodal}
 
     def get_default_llm(self, **kwargs: Any) -> BaseChatModel | None:
         """获取默认 provider 的 LLM。无可用 provider 时返回 None。"""

@@ -35,9 +35,19 @@ class ToolManager:
         assert self._mcp_tools is not None, "load_all() 未调用"
         return self._mcp_tools
 
-    def get_all(self) -> list[BaseTool]:
-        """返回合并后的完整工具列表（消费方主要用这个）。"""
-        return self.native_tools + self.mcp_tools
+    def get_all(self, multimodal: bool = False) -> list[BaseTool]:
+        """返回合并后的完整工具列表（消费方主要用这个）。
+
+        Args:
+            multimodal: 当前 LLM 是否支持多模态。
+                        True → 保留 read_image，过滤 analyze_image；
+                        False → 保留 analyze_image，过滤 read_image。
+        """
+        tools = self.native_tools + self.mcp_tools
+        if multimodal:
+            return [t for t in tools if t.name != "analyze_image"]
+        else:
+            return [t for t in tools if t.name != "read_image"]
 
     async def reload_mcp(self) -> list[BaseTool]:
         """热加载 MCP 工具，返回新的 MCP 工具列表。"""

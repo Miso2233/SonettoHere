@@ -38,10 +38,12 @@ class _LlmConfig:
         llm:        LangChain 聊天模型实例
         model_name: 当前使用的模型名称（如 gpt-4o、deepseek-chat）
         max_tokens: 模型的最大上下文窗口大小（token 数）
+        multimodal: 当前 LLM 是否支持多模态（视觉能力）
     """
     llm: BaseChatModel
     model_name: str
     max_tokens: int
+    multimodal: bool = False
 
 
 @dataclass
@@ -238,13 +240,20 @@ def _resolve_llm(
     llm: BaseChatModel | None = default_llm
     resolved_model = model_name or ""
     max_tokens = FALLBACK_CTX
+    multimodal = False
 
     if provider_manager and provider_id and model_name:
-        result = provider_manager.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
-        if result:
-            llm, resolved_model, max_tokens = result
+        custom_llm = provider_manager.create_llm(provider_id, model_name, temperature=0.7, streaming=True)
+        if custom_llm:
+            llm = custom_llm
 
-    return _LlmConfig(llm=llm, model_name=resolved_model, max_tokens=max_tokens) if llm else None
+    # 查询当前 LLM 元数据（上下文窗口、多模态能力等）
+    if provider_manager and resolved_model:
+        meta = provider_manager.get_model_metadata(provider_id, resolved_model)
+        max_tokens = meta["max_tokens"]  # type: ignore[assignment]
+        multimodal = meta["multimodal"]  # type: ignore[assignment]
+
+    return _LlmConfig(llm=llm, model_name=resolved_model, max_tokens=max_tokens, multimodal=multimodal) if llm else None
 
 
 # ── 阶段 2：构建 Agent 与输入 ──────────────────────────────
@@ -443,7 +452,7 @@ async def run_agent_turn(
 
     # 2. 构建执行上下文
     ctx: _TurnContext = await _build_turn_context(
-        tools=app_state.tool_manager.get_all(),
+        tools=app_state.tool_manager.get_all(multimodal=llm_conf.multimodal),
         session=session,
         llm_conf=llm_conf,
         user_message=user_message,
