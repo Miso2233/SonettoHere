@@ -783,6 +783,25 @@ def _extract_analyze_image(
         "response": data.get("response", ""),
     }
 
+# ── 本地图片读取 ────────────────────────────────────────────────────────
+
+@register("read_image")
+def _extract_read_image(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 tool_type, file_name, file_size, mime_type。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "tool_type": "read_image",
+        "file_name": data.get("file_name", ""),
+        "file_size": data.get("file_size", 0),
+        "mime_type": data.get("mime_type", ""),
+    }
+
 # ── 节假日查询 ─────────────────────────────────────────────────────────
 
 @register("holiday_calendar")

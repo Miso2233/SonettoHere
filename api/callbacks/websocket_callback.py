@@ -5,6 +5,7 @@ import time
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
+from langchain_core.messages import ToolMessage
 from langchain_core.outputs import LLMResult
 
 from api.events import CallbackSender
@@ -37,7 +38,24 @@ class WebSocketCallback(BaseCallbackHandler):
     def _extract_tool_data(
         tool_name: str, output: Any, tool_input: str | None = None
     ) -> dict[str, Any] | None:
-        """从工具输出中提取前端专属气泡所需的结构化数据。"""
+        """从工具输出中提取前端专属气泡所需的结构化数据。
+
+        支持两种输出格式：
+        1. Command 对象 — 从 update.messages 中提取首条 ToolMessage 的 JSON content。
+        2. 普通字符串 — 直接 JSON 解析。
+        """
+        # Command 路径：提取 update.messages 中的 ToolMessage 内容
+        if type(output).__name__ == "Command" and hasattr(output, "update"):
+            msgs = (output.update or {}).get("messages", [])
+            for msg in msgs:
+                if hasattr(msg, "content") and isinstance(msg.content, str):
+                    try:
+                        parsed = json.loads(msg.content)
+                        return _dispatch(tool_name, parsed, tool_input)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+
+        # 普通字符串路径
         out_str = _extract_content(output)
         try:
             parsed = json.loads(out_str)
@@ -76,6 +94,14 @@ class WebSocketCallback(BaseCallbackHandler):
         elapsed = time.time() - self._tool_start_time.pop(run_id, time.time())
         tool_name = self._tool_names.pop(run_id, "unknown")
         tool_input = self._tool_inputs.pop(run_id, None)
+
+        # Command 对象：提取首条 ToolMessage 的 content 作为可读输出
+        if type(output).__name__ == "Command" and hasattr(output, "update"):
+            msgs = (output.update or {}).get("messages", [])
+            for msg in msgs:
+                if isinstance(msg, ToolMessage):
+                    output = msg.content
+                    break
 
         out_str = _extract_content(output)
 

@@ -9,6 +9,7 @@ import MapBubble from './MapBubble.vue'
 import WeatherBubble from './WeatherBubble.vue'
 import HolidayBubble from './HolidayBubble.vue'
 import ImageBubble from './ImageBubble.vue'
+import ReadImageBubble from './ReadImageBubble.vue'
 import TavilySearchBubble from './TavilySearchBubble.vue'
 import TavilyExtractBubble from './TavilyExtractBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
@@ -43,6 +44,7 @@ const registry: Record<string, Component> = {
   'get_current_weather': WeatherBubble,
   'holiday_calendar': HolidayBubble,
   'analyze_image': ImageBubble,
+  'read_image': ReadImageBubble,
   'tavily_search': TavilySearchBubble,
   'tavily_extract': TavilyExtractBubble,
   'ask_user_for_info': AskUserBubble,

@@ -14,7 +14,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from tools.base import ToolBase, check_path_access, format_error
+from tools.base import ToolBase, check_path_access, format_error, format_success
 
 
 class ReadImageInput(BaseModel):
@@ -146,7 +146,11 @@ class ReadImageTool(ToolBase):
             update={
                 "messages": [
                     ToolMessage(
-                        content=f"已读取图片（{path.name}，{len(image_bytes)} 字节）",
+                        content=format_success({
+                            "file_name": path.name,
+                            "file_size": len(image_bytes),
+                            "mime_type": mime,
+                        }),
                         tool_call_id=tool_call_id,
                     ),
                     HumanMessage(content=[
