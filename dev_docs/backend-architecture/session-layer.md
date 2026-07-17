@@ -21,7 +21,7 @@
 
 | 文件 | 核心类型/函数 | 职责 |
 |---|---|---|
-| `manager.py` | `SessionState` / `SessionManager` / `session_manager` | 会话状态管理：多会话隔离 + TTL 过期清理（模块级单例） |
+| `manager.py` | `SessionMeta` / `AgentRuntime` / `SubAgentData` / `ConstSession` / `SessionState` / `SessionManager` / `session_manager` | 会话状态管理：多会话隔离 + TTL 过期清理（模块级单例）。`SessionState` 组合四个子数据类，通过属性/方法转发保持对外接口不变 |
 | `const_store.py` | `save_const_session` / `delete_const_session` / `serialize_messages` | Const 固定会话 YAML 持久化 |
 
 ## 职责描述
@@ -84,30 +84,44 @@ class SessionManager:
 
 #### SessionState 数据结构
 
+SessionState 由四个子数据类组合而成：
+
 ```python
 @dataclass
-class SessionState:
+class SessionMeta:
+    """会话基础元信息"""
     session_id: str
     created_at: float
     last_active: float
     message_count: int
-    _active_task: asyncio.Task | None         # 当前正在运行的 Agent 任务
-    checkpointer: MemorySaver                  # LangGraph 检查点（支持 undo/重放）
-    _graph: CompiledStateGraph | None          # 缓存的 Agent 编译图
-    auto_approve: bool
 
-    # Sub-agent 字段
+@dataclass
+class AgentRuntime:
+    """Agent 运行时状态"""
+    _active_task: asyncio.Task | None    # 当前正在运行的 Agent 任务
+    checkpointer: MemorySaver             # LangGraph 检查点（支持 undo/重放）
+    _graph: CompiledStateGraph | None     # 缓存的 Agent 编译图
+
+@dataclass
+class SubAgentData:
+    """Sub-agent 会话状态"""
     is_subagent: bool
-    parent_session_id: str | None
     _sub_agent_task: str | None
     _pending_result: asyncio.Future | None
 
-    # WebSocket 引用
-    ws: WebSocket | None                 # 当前 WebSocket 连接，供后台推送事件
-
-    # Const 固定会话字段
+@dataclass
+class ConstSession:
+    """固定会话标记"""
     is_const: bool
     const_name: str
+
+class SessionState:
+    """组合层 — 转发子数据类的字段与方法"""
+    meta: SessionMeta
+    runtime: AgentRuntime
+    sub_agent: SubAgentData
+    const: ConstSession
+    ws: WebSocket | None                 # 当前 WebSocket 连接，供后台推送事件
 ```
 
 ### SessionState.ws — WebSocket 引用
@@ -136,7 +150,7 @@ class SessionState:
 ### 1. 线程安全
 
 - `SessionManager` 在单线程 asyncio 事件循环中运行，`dict` 操作天然协程安全，无需显式加锁
-- `SessionState` 使用 `dataclass` 不可变默认值，可变字段（`_active_task`、`_pending_result`等）通过封装方法访问，避免外部直接修改内部状态
+- `SessionState` 通过组合多个子数据类（`SessionMeta`、`AgentRuntime`、`SubAgentData`、`ConstSession`）组织会话状态。私有字段（`_active_task`、`_pending_result` 等）封装在子数据类中通过方法访问，避免外部直接修改内部状态
 
 ### 2. TTL 过期策略
 
@@ -186,9 +200,9 @@ def delete_const_session(session_id: str) -> bool:
 
 ### 5. Sub-agent 机制
 
-`SessionState` 内建对子 Agent 的支持：
+`SubAgentData` 内建对子 Agent 的支持（通过 `SessionState.sub_agent` 访问）：
 
-- `is_subagent` / `parent_session_id`：标识子会话及其父会话
+- `is_subagent`：标识子会话
 - `_pending_result`：`asyncio.Future`，用于父会话等待子会话的异步结果
 - `_sub_agent_task`：存储子 Agent 任务描述，供消费
 
