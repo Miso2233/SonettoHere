@@ -46,7 +46,7 @@ async def _load_const_sessions(app: FastAPI):
         print(f"[const] Skipping {len(const_list)} const session(s) — no LLM available")
         return
 
-    from langgraph.checkpoint.memory import MemorySaver
+    from api.memory.short_term import get_checkpointer
 
     loaded = 0
     for const_data in const_list:
@@ -58,10 +58,10 @@ async def _load_const_sessions(app: FastAPI):
         const_name = const_data.get("const_name", "")
         messages = const_data.get("messages", [])
 
-        # 重建 checkpointer
+        # 用全局单例 checkpointer 重建
         try:
             reconstructed = deserialize_messages(messages)
-            checkpointer = MemorySaver()
+            checkpointer = get_checkpointer()
             if reconstructed:
                 agent = build_agent(
                     model=get_default_llm(),
@@ -82,7 +82,6 @@ async def _load_const_sessions(app: FastAPI):
             created_at=metadata.get("created_at", time.time()),
             last_active=metadata.get("last_active", time.time()),
             message_count=metadata.get("message_count", 0),
-            checkpointer=checkpointer,
             is_const=True,
             const_name=const_name,
         )

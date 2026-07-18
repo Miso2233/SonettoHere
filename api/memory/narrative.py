@@ -358,14 +358,11 @@ class LongTermMemoryInterface:
 
     @staticmethod
     async def _extract_session_messages(session: SessionState) -> list[dict[str, str]]:
-        """从 LangGraph checkpointer 提取全量会话消息并映射为记忆 Agent 格式。"""
+        """从短期记忆提取全量会话消息并映射为记忆 Agent 格式。"""
         try:
-            cpt = await session.checkpointer.aget_tuple(
-                {"configurable": {"thread_id": session.session_id}}
-            )
-            if cpt is None:
+            raw = await session.get_messages()
+            if not raw:
                 return []
-            raw = cpt.checkpoint.get("channel_values", {}).get("messages", [])
         except Exception:
             return []
 

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from api.agent import interaction
 from api.events import ToolSender
+from api.memory.short_term import get_checkpointer
 from api.providers.default_llm import get_default_llm
 from tools.base import ToolBase, format_success, format_error
 
@@ -182,7 +183,7 @@ class CallSubAgentTool(ToolBase):
             model=get_default_llm(),
             tools=app_state.tool_manager.get_all(),
             system_prompt=system_prompt,
-            checkpointer=sub.checkpointer,
+            checkpointer=get_checkpointer(),
         )
         inputs = {"messages": [HumanMessage(content=task)]}
         config = {"configurable": {"thread_id": sub.session_id}, "recursion_limit": 72}
@@ -207,18 +208,14 @@ class CallSubAgentTool(ToolBase):
             # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
             if not final_answer:
                 try:
-                    cpt = await sub.checkpointer.aget_tuple(config)
-                    if cpt is not None:
-                        messages = cpt.checkpoint.get("channel_values", {}).get(
-                            "messages", []
+                    messages = await sub.get_messages()
+                    if messages:
+                        last = messages[-1]
+                        candidate = (
+                            last.content if hasattr(last, "content") else str(last)
                         )
-                        if messages:
-                            last = messages[-1]
-                            candidate = (
-                                last.content if hasattr(last, "content") else str(last)
-                            )
-                            if candidate:
-                                final_answer = candidate
+                        if candidate:
+                            final_answer = candidate
                 except Exception:
                     pass
         except Exception as e:

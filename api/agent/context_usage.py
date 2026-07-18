@@ -167,19 +167,12 @@ async def estimate_context_usage_from_session(
     max_tokens: int,
     model_name: str = "",
 ) -> dict:
-    """从 session checkpointer 拉取消息列表，估算上下文用量。
+    """从会话短期记忆拉取消息列表，估算上下文用量。
 
     返回字典，包括现用量、最大用量、占比、模型名称。
     """
     try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        if cpt is not None:
-            channel_values = cpt.checkpoint.get("channel_values", {})
-            counting_messages = channel_values.get("messages", [])
-        else:
-            counting_messages = []
+        counting_messages = await session.get_messages()
     except Exception:
         counting_messages = []
 

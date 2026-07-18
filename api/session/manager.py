@@ -6,8 +6,11 @@ import uuid
 from dataclasses import dataclass, field
 
 from fastapi import WebSocket
+from langchain_core.messages import BaseMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.state import CompiledStateGraph
+
+from api.memory.short_term import get_checkpointer, delete_thread as _delete_memory_thread
 
 
 # ── 子数据类：会话元信息 ──────────────────────────────────────────
@@ -27,7 +30,7 @@ class SessionMeta:
 class AgentRuntime:
     """Agent 运行时状态：活动任务、检查点、编译图。"""
     _active_task: asyncio.Task | None = field(default=None, repr=False)
-    checkpointer: MemorySaver = field(default_factory=MemorySaver)
+    checkpointer: MemorySaver | None = field(default=None, repr=False)
     _graph: CompiledStateGraph | None = field(default=None, repr=False)
 
     # ── _graph 封装 ─────────────────────────────────────────
@@ -141,7 +144,7 @@ class SessionState:
         )
         self.runtime = AgentRuntime(
             _active_task=kwargs.pop("_active_task", None),
-            checkpointer=kwargs.pop("checkpointer", MemorySaver()),
+            checkpointer=kwargs.pop("checkpointer", None),
             _graph=kwargs.pop("_graph", None),
         )
         self.sub_agent = SubAgentData(
@@ -181,9 +184,14 @@ class SessionState:
     def message_count(self) -> int:
         return self.meta.message_count
 
-    @property
-    def checkpointer(self) -> MemorySaver:
-        return self.runtime.checkpointer
+    async def get_messages(self) -> list[BaseMessage]:
+        """获取当前会话的对话消息列表（从全局 checkpointer 按 thread_id 查询）。"""
+        cpt = await get_checkpointer().aget_tuple(
+            {"configurable": {"thread_id": self.session_id}}
+        )
+        if cpt is not None:
+            return cpt.checkpoint.get("channel_values", {}).get("messages", [])
+        return []
 
     @property
     def is_subagent(self) -> bool:
@@ -331,6 +339,7 @@ class SessionManager:
     def delete(self, session_id: str) -> bool:
         if session_id in self._sessions:
             del self._sessions[session_id]
+            _delete_memory_thread(session_id)
             return True
         return False
 
@@ -368,6 +377,7 @@ class SessionManager:
         ]
         for sid in expired:
             del self._sessions[sid]
+            _delete_memory_thread(sid)
         return len(expired)
 
 

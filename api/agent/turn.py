@@ -22,6 +22,7 @@ from api.providers.default_llm import get_default_llm
 from api.providers.manager import ProviderManager
 from api.session.const_store import save_const_session, serialize_messages
 from api.session.manager import SessionState
+from api.memory.short_term import get_checkpointer
 from langchain_core.language_models.chat_models import BaseChatModel
 from tools.base import format_error
 from tools.network.tool_image_understand import load_image_bytes, get_mime_type
@@ -209,14 +210,12 @@ async def _stream_turn(
     # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
     if not final_answer:
         try:
-            cpt = await session.checkpointer.aget_tuple(config)
-            if cpt is not None:
-                messages = cpt.checkpoint.get("channel_values", {}).get("messages", [])
-                if messages:
-                    last = messages[-1]
-                    candidate = last.content if hasattr(last, "content") else str(last)
-                    if candidate:
-                        final_answer = candidate
+            messages = await session.get_messages()
+            if messages:
+                last = messages[-1]
+                candidate = last.content if hasattr(last, "content") else str(last)
+                if candidate:
+                    final_answer = candidate
         except Exception:
             pass
     return final_answer
@@ -276,7 +275,7 @@ async def _build_turn_context(
         model=llm_conf.llm,
         tools=tools,
         system_prompt=system_prompt,
-        checkpointer=session.checkpointer,
+        checkpointer=get_checkpointer(),
     )
     session.set_graph(agent)
 
@@ -385,10 +384,7 @@ async def _postprocess_turn(
     # Const 会话持久化
     if result.final_answer and session.is_const:
         try:
-            cpt = await session.checkpointer.aget_tuple(
-                {"configurable": {"thread_id": session.session_id}}
-            )
-            raw_messages = cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
+            raw_messages = await session.get_messages()
             metadata = {
                 "created_at": session.created_at,
                 "last_active": session.last_active,

@@ -56,12 +56,7 @@ async def get_messages(session_id: str, request: Request) -> dict:
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        msgs = (
-            cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
-        )
+        msgs = await session.get_messages()
     except Exception:
         msgs = []
     return {
@@ -140,14 +135,9 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
     if session.has_active_task():
         raise HTTPException(status_code=409, detail="Agent 仍在运行中，无法固定会话")
 
-    # 从 checkpointer 提取消息
+    # 从短期记忆提取消息
     try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        raw_messages = (
-            cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
-        )
+        raw_messages = await session.get_messages()
     except Exception:
         raw_messages = []
 
@@ -179,14 +169,9 @@ async def generate_session_title(session_id: str, request: Request) -> dict:
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # 从 checkpointer 提取消息
+    # 从短期记忆提取消息
     try:
-        cpt = await session.checkpointer.aget_tuple(
-            {"configurable": {"thread_id": session.session_id}}
-        )
-        messages = (
-            cpt.checkpoint.get("channel_values", {}).get("messages", []) if cpt else []
-        )
+        messages = await session.get_messages()
     except Exception:
         messages = []
 
