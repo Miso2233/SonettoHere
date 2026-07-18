@@ -32,12 +32,14 @@
 | `model_name` | `str` | 当前使用的模型名称（如 `gpt-4o`、`deepseek-chat`） |
 | `max_tokens` | `int` | 模型最大上下文窗口大小（token 数） |
 
+> `_LlmConfig` 通过 `_resolve_llm()` 构建，内部调用 `provider_manager.get_model_metadata()` 统一查询模型上下文窗口、视觉能力等元数据，替代了之前分散在各处的内联 `model_vision` 检测。
+
 **`_TurnContext`** — 一轮 Agent 执行所需的全部上下文（构建后不可变）：
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `system_prompt` | `str` | 当前会话的系统提示词 |
-| `agent` | `Sonetto` | 编译后的 LangGraph Agent |
+| `agent` | `Sonetto` | 编译后的 LangGraph Agent（绑定全局 MemorySaver 单例） |
 | `inputs` | `dict[str, list[HumanMessage]]` | 本轮输入消息 |
 | `config` | `dict[str, Any]` | 运行配置（`thread_id`、`callbacks`、`recursion_limit`） |
 
@@ -53,8 +55,8 @@
 
 ### 1. 编排 LLM 对话轮次
 
-- 解析 LLM 配置（模型选择、上下文窗口参数）
-- 构建 LangGraph Agent 图（`Sonetto`），注入工具、系统提示、checkpointer
+- 解析 LLM 配置（模型选择、上下文窗口参数）：通过 `provider_manager.get_model_metadata()` 统一查询模型上下文窗口和多模态能力
+- 构建 LangGraph Agent 图（`Sonetto`），注入工具、系统提示、全局 checkpointer
 - 流式执行 Agent 图，收集最终回答
 - 后处理：消息计数、LTM 持久化、Const 会话保存、Sub-agent 回调
 
@@ -84,7 +86,6 @@
 async def _build_turn_context(
     tools: list,
     session: SessionState,
-    ws: WebSocket,
     llm_conf: _LlmConfig,
     user_message: str,
     image_recognition: bool,
@@ -92,14 +93,14 @@ async def _build_turn_context(
 ) -> _TurnContext:
     """构建 Agent 图、输入消息和执行配置。"""
     system_prompt = build_system_prompt()
-    cb_sender = CallbackSender.from_ws(ws)
+    cb_sender = CallbackSender.from_context()
     ws_callback = WebSocketCallback(cb_sender)
 
     agent = build_agent(
         model=llm_conf.llm,
         tools=tools,
         system_prompt=system_prompt,
-        checkpointer=session.checkpointer,
+        checkpointer=get_checkpointer(),   # 全局 MemorySaver 单例
     )
     session.set_graph(agent)
 
@@ -120,6 +121,10 @@ async def _build_turn_context(
 
     return _TurnContext(system_prompt, agent, inputs, config)
 ```
+
+**关键变更**：
+- `checkpointer=session.checkpointer` → `checkpointer=get_checkpointer()`：所有会话共享同一个 MemorySaver 全局单例，通过 `thread_id = session.session_id` 区分隔离
+- `CallbackSender.from_ws(ws)` → `CallbackSender.from_context()`：回调发送器不再从参数接收 `ws`，改为从 `contextvars` 自动获取当前轮次的 WebSocket
 
 ### 流式执行（`turn.py`）
 
@@ -227,14 +232,17 @@ async def undo_rounds(graph, config, n: int = 1) -> int:
 run_agent_turn()                    ← 顶层编排入口
     │
     ├── 阶段 1: _resolve_llm()
+    │   │  provider_manager.get_model_metadata()  ← 统一查询上下文窗口 + 多模态
     │   │  provider_manager.create_llm() / 回退 default_llm
     │   │  返回 _LlmConfig (llm + model_name + max_tokens)
     │   ▼
     ├── 阶段 2: _build_turn_context()
     │   │  build_system_prompt() → system_prompt
     │   │  CallbackSender.from_context() → WebSocketCallback → 注入 LangChain 事件链路
-    │   │  build_agent() → graph (LangGraph CompiledStateGraph)
+    │   │  build_agent(checkpointer=get_checkpointer()) → graph
+    │   │      │ 全局 MemorySaver 单例，thread_id = session.session_id 隔离
     │   │  处理多模态输入（图片 base64 编码）
+    │   │  ToolManager.get_all(multimodal=image_recognition)  ← 按需过滤工具集
     │   │  返回 _TurnContext (system_prompt, agent, inputs, config)
     │   ▼
     ├── 阶段 3: _execute_agent_turn()
@@ -300,6 +308,37 @@ run_agent_turn()                    ← 顶层编排入口
 - `run_agent_turn()` 为唯一公共入口，内部按 4 个阶段分步执行
 - 各阶段独立为私有函数（`_resolve_llm`, `_build_turn_context`, `_execute_agent_turn`, `_postprocess_turn`），职责单一
 - 数据对象（`_LlmConfig`, `_TurnContext`, `_TurnResult`）在各阶段之间传递，避免共享可变状态
+
+### 模型元数据统一查询（PR #248）
+
+`ProviderManager.get_model_metadata(model_name)` 将之前分散在各处的模型元数据查询集中管理：
+
+```python
+# api/providers/manager.py
+def get_model_metadata(self, model_name: str) -> dict:
+    """返回模型上下文窗口、视觉能力等元数据。"""
+    return {
+        "context_window": ...,
+        "vision": ...,
+    }
+```
+
+- `_resolve_llm()` 通过此方法统一获取上下文窗口和多模态信息，替代了之前 `create_llm()` 返回三元组的内联检测
+- `create_llm()` 简化，仅返回 `BaseChatModel | None`
+
+### 工具集按需过滤（PR #248）
+
+`ToolManager.get_all(multimodal: bool | None = None)` 支持根据当前会话是否需要多模态能力来过滤工具集：
+
+```python
+# api/tools/manager.py
+def get_all(self, multimodal: bool | None = None) -> list[BaseTool]:
+    """获取工具列表，multimodal=True 时仅保留多模态工具，False 时排除。"""
+```
+
+- `multimodal=True`：仅保留需要视觉输入的工具（如 `read_image`），配合图片理解场景
+- `multimodal=False`：排除多模态工具（非图片会话不暴露图片相关工具）
+- `multimodal=None`（默认）：返回全部工具，保持向后兼容
 
 ## 设计约定评估
 

@@ -17,7 +17,10 @@
 | `manager.py` | MemoryManager + MemoryItem — YAML 持久化 CRUD，文件锁并发安全 |
 | `narrative.py` | LongTermMemoryInterface — 后台 LLM 增量总结管线 + 5 个模块级 `@tool` |
 | `callback.py` | MemoryToolCallback — CRUD 工具事件 → WebSocket 前端推送 |
+| `short_term.py` | **短期记忆管理器** — 全局 MemorySaver 单例，所有会话的 LangGraph 检查点共享此实例，通过 `thread_id = session.session_id` 区分隔离 |
 | `user_init.py` | 首次运行初始化：USER.md / SOUL.md / .env 文件复制 |
+
+> **长期记忆 vs 短期记忆**：`memory/` 层管理两种不同生命周期的记忆。长期记忆（`manager.py` + `narrative.py`）通过 LLM 总结写入 YAML，跨会话持久化。短期记忆（`short_term.py`）管理运行时对话上下文（MemorySaver 检查点），跟随会话生命周期，过期即清理。
 
 ## 职责描述
 
@@ -194,9 +197,11 @@ _consumer()                      — 后台协程，逐条消费
 |----------|----------|------|
 | `narrative.py →` | `manager.py` | MemoryManager + MemoryItem |
 | `narrative.py →` | `callback.py` | MemoryToolCallback |
-| `narrative.py →` | `api.session.manager` | SessionState（用于提取 checkpointer 消息） |
+| `narrative.py →` | `api.session.manager` | SessionState（`session.get_messages()` 提取消息） |
 | `narrative.py →` | `api.session.manager` | session_manager（通过 `session_manager.get(sid).ws` 获取 WebSocket） |
 | `callback.py →` | `api.session.manager` | session_manager（通过 `session_manager.get(sid).ws` 获取 WebSocket） |
+| `short_term.py →` | `langgraph.checkpoint.memory` | MemorySaver 全局单例 |
+| `api.session.manager →` | `short_term.py` | `get_checkpointer()` / `delete_thread()` — 会话层倒依赖短期记忆模块 |
 | `narrative.py →` | `api.providers` | 通过 `create_agent` 间接调用（LLM 由外部注入） |
 
 ### 设计约定评估
@@ -205,7 +210,7 @@ _consumer()                      — 后台协程，逐条消费
 
 1. **模块级全局变量**：`narrative.py` 中的 `_current_mm` 是模块级可变全局状态，通过 `_set_current_mm()` 注入。这种设计在单消费者场景下工作正常，但若并发存在多个 `LongTermMemoryInterface` 实例（如多租户），全局状态会互相覆盖。建议改为实例级别的依赖注入，使 `@tool` 函数与具体的 `MemoryManager` 实例绑定。
 
-2. **Session 依赖方向**：`narrative.py` 和 `callback.py` 都通过 `api.session.manager.session_manager` 访问会话状态。这属于同一层级（第⑥层）内的模块间依赖，不违反分层规则。但应注意：`session/` 与 `memory/` 同层，彼此引入时需要避免循环依赖。
+2. **Session 依赖方向**：`narrative.py` 和 `callback.py` 都通过 `api.session.manager.session_manager` 访问会话状态。`api.session.manager` 也反向依赖 `memory/short_term.py` 获取全局 checkpointer。这属于同一层级（第⑥层）内的模块间依赖，不违反分层规则。但应注意：`session/` 与 `memory/` 同层，彼此引入时需要避免循环依赖（当前 `short_term.py` 不依赖 `session/`，所以无风险）。
 
 3. **模块级 @tool 的测试性**：`@tool` 函数是模块级函数而非类方法，无法在单元测试中轻松替换 `_current_mm`。当前通过 `lru_cache` 的 `get_narrative()` 也存在静态文件路径的硬编码（`MEMORY_PATH` 在第 29 行硬编码为 `config/personas/memory.yaml`）。
 
