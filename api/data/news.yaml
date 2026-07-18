@@ -30,7 +30,7 @@ news:
     date: "2026-07-11"
     tags: ["发布", "版本"]
     version: "v3.1.0"
-    pr_number: 0
+    pr_number: 232
   - id: "default-provider-model"
     title: "默认供应商/模型选择功能"
     description: "提供商管理新增默认供应商标记，顶栏自动联动展示当前默认模型。编辑表单内可为每个提供商设定默认模型，模型列表中星标直观标识。无缝切换默认模型后顶部栏与上下文用量同步更新。"
