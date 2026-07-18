@@ -1,4 +1,28 @@
 news:
+  - id: "v3.2.0-release"
+    title: "发布 v3.2.0 版本"
+    description: "v3.2.0 带来主动视觉工具集与自动微调工具集两大核心升级。主动视觉工具使 Sonetto 支持多模态主动感知，能直接从图像中读取信息；自动微调工具集根据模型能力智能过滤工具清单，提升工具调用精准度。另有 Pinia 状态管理层全面替换模块级单例、SessionState 数据类拆分、事件 Sender 语义封装等多项重构。"
+    type: "feat"
+    date: "2026-07-18"
+    tags: ["发布", "版本", "视觉", "工具"]
+    version: "v3.2.0"
+    pr_number: 251
+  - id: "proactive-vision-toolset"
+    title: "主动视觉工具集上线"
+    description: "Sonetto 现在支持多模态主动感知。模型具备视觉能力时自动暴露 read_image 工具，可直接从图像中提取文字、识别物体、分析布局；不具备视觉能力时自动过滤，避免无效工具暴露。新增前端图像气泡支持图片缩略图展示。"
+    type: "feat"
+    date: "2026-07-18"
+    tags: ["视觉", "多模态", "工具过滤", "UI"]
+    version: "v3.2.0"
+    pr_number: 248
+  - id: "auto-tuning-toolset"
+    title: "自动微调工具集"
+    description: "工具系统新增模型能力感知层，根据当前模型的视觉/多模态能力自动调整工具暴露清单。ToolManager 通过 multimodal 元数据过滤工具，Agent 能从工具清单中自感知多模态能力，工具调用更精准高效。"
+    type: "feat"
+    date: "2026-07-18"
+    tags: ["工具", "微调", "多模态", "自动"]
+    version: "v3.2.0"
+    pr_number: 248
   - id: "v3.1.0-release"
     title: "发布 v3.1.0 版本"
     description: "v3.1.0 带来默认供应商与模型选择系统，提供商页新增默认标记与默认模型设定位；升级器重构为迁移 ID 驱动机制，支持更健壮的版本间配置迁移；修复并行工具调用 call_id 匹配和 tool_name 字符串注入漏洞。"
