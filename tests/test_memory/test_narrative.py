@@ -369,8 +369,9 @@ class TestLongTermMemoryInterface:
 
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.stop_listening()
@@ -388,7 +389,7 @@ class TestLongTermMemoryInterface:
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([])
         await ltm.stop_listening()
@@ -408,7 +409,8 @@ class TestLongTermMemoryInterface:
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
         await ltm.stop_listening()
@@ -429,7 +431,8 @@ class TestLongTermMemoryInterface:
 
         monkeypatch.setattr(narrative, "create_agent", capture_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "你好"}])
         await ltm.stop_listening()
@@ -461,7 +464,8 @@ class TestLongTermMemoryInterface:
 
         monkeypatch.setattr(narrative, "create_agent", capture_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "新消息"}])
         await ltm.stop_listening()
@@ -500,7 +504,8 @@ class TestLongTermMemoryInterface:
 
         monkeypatch.setattr(narrative, "create_agent", capture_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
 
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
@@ -526,7 +531,8 @@ class TestLongTermMemoryInterface:
         fake_agent.ainvoke = AsyncMock(side_effect=failing_ainvoke)
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -547,7 +553,8 @@ class TestLongTermMemoryInterface:
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -566,7 +573,8 @@ class TestLongTermMemoryInterface:
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -587,7 +595,8 @@ class TestLongTermMemoryInterface:
         )
         monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path, llm=MagicMock())
+        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemoryInterface(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.send_history([{"role": "user", "content": "msg2"}])

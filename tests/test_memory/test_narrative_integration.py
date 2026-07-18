@@ -73,9 +73,10 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
             return _make_fake_agent(entries_setup=setup3)
 
     monkeypatch.setattr(narrative, "create_agent", agent_factory)
+    monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
 
     # ── 初始化管线 ──
-    ltm = LongTermMemoryInterface(path, llm=MagicMock())
+    ltm = LongTermMemoryInterface(path)
     ltm.start_listening()
 
     # ── 第一轮对话 ──
@@ -141,8 +142,9 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
         return _make_fake_agent(entries_setup=setup)
 
     monkeypatch.setattr(narrative, "create_agent", agent_factory)
+    monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
 
-    ltm = LongTermMemoryInterface(path, llm=MagicMock())
+    ltm = LongTermMemoryInterface(path)
     ltm.start_listening()
 
     # 快速连续投放 5 轮对话
@@ -175,8 +177,9 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
     fake_agent = MagicMock()
     fake_agent.ainvoke = AsyncMock(side_effect=slow_ainvoke)
     monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+    monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
 
-    ltm = LongTermMemoryInterface(path, llm=MagicMock())
+    ltm = LongTermMemoryInterface(path)
     ltm.start_listening()
 
     import time

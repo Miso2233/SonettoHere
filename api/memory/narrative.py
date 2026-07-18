@@ -427,7 +427,6 @@ class LongTermMemoryInterface:
             )
 
             # 无论后续成功与否，先通知前端「开始处理」
-            _sent_done = False
             if session_id:
                 sender = MemorySender.from_session_id(session_id)
                 if sender is not None:
@@ -438,6 +437,11 @@ class LongTermMemoryInterface:
 
             if get_default_llm() is None:
                 print("[ltm] no LLM available — skipping memory update")
+                # 发送 memory_done 避免前端一直显示「处理中…」
+                if session_id:
+                    sender = MemorySender.from_session_id(session_id)
+                    if sender is not None:
+                        await sender.memory_done(turn_id or "")
                 continue
 
             try:
