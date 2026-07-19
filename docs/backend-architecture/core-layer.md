@@ -147,11 +147,11 @@ def rotate_token() -> str:
 `api/core/health.py` 中存在对上层模块的引用：
 
 ```python
-from api.memory.manager import MemoryManager        # 依赖 memory/（第⑥层）
+from api.memory.manager import YamlMemoryManager        # 依赖 memory/（第⑥层）
 from api.memory.narrative import MEMORY_PATH         # 依赖 memory/（第⑥层）
 ```
 
-**问题**：第⑦层（core）不应依赖第⑥层（memory）。根据"下层不依赖上层"的约定，`health.py` 中对 `MemoryManager` 的调用构成了自底向上的反向依赖。
+**问题**：第⑦层（core）不应依赖第⑥层（memory）。根据"下层不依赖上层"的约定，`health.py` 中对 `YamlMemoryManager` 的调用构成了自底向上的反向依赖。
 
 **影响**：该依赖使 `core/` 无法在脱离 `memory/` 模块的环境下独立测试或复用。
 
@@ -159,4 +159,4 @@ from api.memory.narrative import MEMORY_PATH         # 依赖 memory/（第⑥�
 
 1. **接口抽象**：在 `core/` 内定义健康检查接口（Protocol），将 `check_memory` 的具体实现注入（如通过 FastAPI `app.state` 传递），而不是直接 import memory 模块
 2. **挪动位置**：将 `check_memory` 函数移至 `memory/` 模块，由 health 端点通过依赖注入聚合结果
-3. **当前权宜方案**：若短期内不改，可通过 `app.state.memory_manager` 注入 MemoryManager 实例，避免硬导入
+3. **当前权宜方案**：若短期内不改，可通过 `app.state.ltm._mm` 注入 MemoryManager 实例，避免硬导入

@@ -142,7 +142,7 @@ class SessionState:
 `ws_registry.py` 已删除。WebSocket 引用不再通过独立注册表管理，而是直接存入 `SessionState.ws` 字段：
 
 - **route 端**：`websocket_chat()` accept 后设置 `session.ws = ws`，断开时设 `session.ws = None`
-- **memory 端**：`LongTermMemoryInterface._consumer()` 和 `MemoryToolCallback._send()` 通过 `session_manager.get(sid).ws` 直接获取
+- **memory 端**：`LongTermMemory._consumer()` 和 `MemoryToolCallback._send()` 通过 `session_manager.get(sid).ws` 直接获取
 - **生命周期绑定**：ws 引用跟随 SessionState，无需独立的 register/unregister 注册表
 
 ## 被依赖关系
@@ -155,7 +155,7 @@ class SessionState:
 | `api/agent/turn.py` | `SessionState`、`const_store`（`save_const_session`、`serialize_messages`）、`api.memory.short_term.get_checkpointer` | Agent 轮次编排：`session.get_messages()` 读取消息，`get_checkpointer()` 构建图 |
 | `api/agent/context_usage.py` | `SessionState` | Agent 上下文用量追踪（通过 `session.get_messages()`） |
 | `api/memory/callback.py` | `session_manager`（通过 `session_manager.get(sid).ws`） | LangChain 回调中获取 ws 引用推送事件到前端 |
-| `api/memory/narrative.py` | `SessionState`（`session.get_messages()`）、`session_manager` | 叙事生成：提取会话消息并广播事件 |
+| `api/memory/long_term.py` | `SessionState`（`session.get_messages()`）、`session_manager` | 叙事生成：提取会话消息并广播事件 |
 | `tools/sub_agent/tool_call_sub_agent.py` | `session_manager` | 创建子会话 |
 
 ## 设计要点

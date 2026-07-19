@@ -103,7 +103,7 @@ class WsTransport:
 | `memory_tool_error(turn_id, tool_name, error)` | `memory_tool_error` |
 | `memory_done(turn_id)` | `memory_done` |
 
-供 `narrative.py` 的 `_consumer` 和 `MemoryToolCallback` 使用。因 `_consumer` 是独立后台任务（不从 WebSocket handler 继承 ContextVar），通过 `MemorySender.from_session_id(session_id)` 获取实例，使用 `session_manager` 查找当前会话的 WebSocket 引用。
+供 `long_term.py` 的 `_consumer` 和 `MemoryToolCallback` 使用。因 `_consumer` 是独立后台任务（不从 WebSocket handler 继承 ContextVar），通过 `MemorySender.from_session_id(session_id)` 获取实例，使用 `session_manager` 查找当前会话的 WebSocket 引用。
 
 ### ToolSender (`tool.py`) — 工具交互事件
 

@@ -99,7 +99,7 @@ WebSocket 连接的生命周期管理核心文件。定义了 `websocket_chat` �
 
 | 端点 | 方法 | 功能 |
 |------|------|------|
-| `/narrative` | GET | 获取当前叙事文本 |
+| `/long-term` | GET | 获取当前叙事文本 |
 | `/memories` | GET | 获取按主题分组的记忆列表 |
 | `/moment` | GET | 随机获取一条记忆 moment（含描述历史） |
 
