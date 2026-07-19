@@ -1,5 +1,4 @@
 import datetime
-import re
 import secrets
 from pathlib import Path
 
@@ -73,10 +72,6 @@ class MemoryManager:
         self._yaml_file = yaml_file
         self._ensure_file_exists()
 
-    _UUID_PATTERN = re.compile(
-        r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-    )
-
     def _ensure_file_exists(self) -> None:
         yaml_path = Path(self._yaml_file)
         dir_path = yaml_path.parent
@@ -86,30 +81,8 @@ class MemoryManager:
             with yaml_path.open("w", encoding="utf-8") as f:
                 yaml.dump({}, f, default_flow_style=False, allow_unicode=True)
 
-    def _maybe_migrate_old_ids(self) -> None:
-        """将 YAML 中旧版 UUID key 原地迁移为短十六进制 ID。调用方必须已持有文件锁。"""
-        yaml_path = Path(self._yaml_file)
-        with yaml_path.open(encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        old_keys = [k for k in data if self._UUID_PATTERN.match(k)]
-        if not old_keys:
-            return
-        new_data = {}
-        for old_key in old_keys:
-            new_key = self._generate_id()
-            while new_key in new_data:
-                new_key = self._generate_id()
-            new_data[new_key] = data[old_key]
-        for k, v in data.items():
-            if k not in old_keys:
-                new_data[k] = v
-        with yaml_path.open("w", encoding="utf-8") as f:
-            yaml.dump(new_data, f, default_flow_style=False, allow_unicode=True)
-        print(f"[memory] migrated {len(old_keys)} UUID keys to short hex IDs")
-
     def _read_all(self) -> dict[str, "MemoryItem"]:
         """读取完整文件。调用方必须已持有文件锁。"""
-        self._maybe_migrate_old_ids()
         yaml_path = Path(self._yaml_file)
         with yaml_path.open(encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
