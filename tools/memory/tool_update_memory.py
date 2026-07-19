@@ -1,7 +1,5 @@
 """Tool: update_memory — 更新已有记忆条目。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
@@ -15,14 +13,6 @@ class UpdateMemoryInput(BaseModel):
     )
     content: str = Field(default="", description="更新后的完整记忆内容")
     reason: str = Field(default="", description="修改原因，说明为什么要更新这条记忆")
-
-
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
 
 
 class UpdateMemoryTool(ToolBase):
@@ -51,9 +41,9 @@ class UpdateMemoryTool(ToolBase):
         if not reason:
             return format_error("reason 不能为空，请说明更新原因")
 
-        from api.memory.manager import MemoryManager
+        from tools.memory import get_memory_manager
 
-        mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+        mm = get_memory_manager()
         try:
             mm.update(id, reason=reason, new_description=content)
         except ValueError:

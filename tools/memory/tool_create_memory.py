@@ -1,7 +1,5 @@
 """Tool: create_memory — 添加一条新记忆条目。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 from api.memory.manager import MAX_DESC_LENGTH
@@ -17,14 +15,6 @@ class CreateMemoryInput(BaseModel):
         default="",
         description="记忆分区，如「身份」「音乐」「品味」「地点与路径」「瞬间」「时效待办」，也可创建新分区（1-4字中文名词）",
     )
-
-
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
 
 
 class CreateMemoryTool(ToolBase):
@@ -49,9 +39,9 @@ class CreateMemoryTool(ToolBase):
         if not section:
             return format_error("section 不能为空，请指定记忆分区")
 
-        from api.memory.manager import MemoryManager
+        from tools.memory import get_memory_manager
 
-        mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+        mm = get_memory_manager()
         new_id = mm.add(description=content, theme=section)
         return format_success(
             {

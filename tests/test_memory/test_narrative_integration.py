@@ -10,6 +10,7 @@ import pytest
 
 import api.memory.long_term as long_term
 from api.memory.long_term import LongTermMemory
+from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 
 
 def _make_fake_agent(entries_setup=None):
@@ -76,7 +77,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
     monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
     # ── 初始化管线 ──
-    ltm = LongTermMemory(path)
+    ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
     ltm.start_listening()
 
     # ── 第一轮对话 ──
@@ -144,7 +145,7 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
     monkeypatch.setattr(long_term, "create_agent", agent_factory)
     monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
-    ltm = LongTermMemory(path)
+    ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
     ltm.start_listening()
 
     # 快速连续投放 5 轮对话
@@ -179,7 +180,7 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
     monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
     monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
-    ltm = LongTermMemory(path)
+    ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
     ltm.start_listening()
 
     import time

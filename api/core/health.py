@@ -8,7 +8,7 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-from api.memory.manager import MemoryManager
+from api.memory.manager import YamlMemoryManager
 from api.memory.long_term import MEMORY_PATH
 from api.providers.manager import get_manager
 
@@ -74,7 +74,7 @@ async def check_memory(app: FastAPI) -> ComponentHealth:
                 status="error", latency_ms=round(elapsed, 1), detail="记忆文件不存在"
             )
 
-        mm = MemoryManager(yaml_file=str(memory_path))
+        mm = YamlMemoryManager(yaml_file=str(memory_path))
         items = mm.show()
 
         ltm = app.state.ltm

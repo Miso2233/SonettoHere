@@ -15,7 +15,8 @@ from langchain.agents import create_agent
 
 from api.events import MemorySender
 from api.memory.callback import MemoryToolCallback
-from api.memory.manager import MAX_DESC_LENGTH, MemoryManager
+from api.memory.manager import BaseMemoryManager
+from api.memory.manager import MAX_DESC_LENGTH
 from api.providers.default_llm import get_default_llm
 from api.session.manager import SessionState, session_manager
 
@@ -82,10 +83,10 @@ FIND_RELATED_MEMORY = """
 
 # ── 模块级 MemoryManager 引用 ──────────────────────────────
 
-_current_mm: MemoryManager | None = None
+_current_mm: BaseMemoryManager | None = None
 
 
-def _set_current_mm(mm: MemoryManager | None) -> None:
+def _set_current_mm(mm: BaseMemoryManager | None) -> None:
     global _current_mm
     _current_mm = mm
 
@@ -141,7 +142,9 @@ def get_narrative() -> str:
     """读取当前记忆叙事，不存在则返回空字符串。"""
     if not MEMORY_PATH.exists():
         return ""
-    mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+    from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager  # noqa: PLC0415 — 避免循环导入
+
+    mm = MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(MEMORY_PATH)).build()
     return _format_narrative(mm.show())
 
 
@@ -268,11 +271,15 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
 
 
 class LongTermMemory:
-    """异步管线：逐轮对话消息 → asyncio.Queue → 后台 LLM 总结 → memory.yaml 写入。
+    """异步管线：逐轮对话消息 → asyncio.Queue → 后台 LLM 总结 → 写入记忆后端。
 
     用法::
 
-        ltm = LongTermMemory("/path/to/memory.yaml")
+        from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
+
+        ltm = LongTermMemory(MemoryManagerBuilder()
+            .with_backend(YamlMemoryManager, yaml_file="path/to/memory.yaml")
+            .build())
         ltm.start_listening()              # 启动后台消费者
         await ltm.send_history(messages)  # 投放本轮对话（非阻塞）
         await ltm.stop_listening()        # 排空队列并停止
@@ -280,10 +287,9 @@ class LongTermMemory:
 
     def __init__(
         self,
-        memory_path: str | Path,
+        memory_manager: BaseMemoryManager,
     ) -> None:
-        self._memory_path = Path(memory_path)
-        self._mm = MemoryManager(yaml_file=str(self._memory_path))
+        self._mm = memory_manager
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
 
@@ -294,10 +300,10 @@ class LongTermMemory:
 
     def get_narrative(self) -> str:
         """读取当前记忆叙事，不存在则返回空字符串。"""
-        if not self._memory_path.exists():
+        items = self._mm.show()
+        if not items:
             return ""
-        mm = MemoryManager(yaml_file=str(self._memory_path))
-        return _format_narrative(mm.show())
+        return _format_narrative(items)
 
     def get_related_memory_from(self, prompt: str) -> list[str]:
         """根据查询要求从记忆库中找出语义相关的条目并返回其描述文本。"""
@@ -326,6 +332,16 @@ class LongTermMemory:
         except (json.JSONDecodeError, TypeError, IndexError):
             pass
         return []
+
+    def inject_tools(self) -> None:
+        """向所有记忆工具注入当前 MemoryManager 实例。
+
+        应在 start_listening() 之后调用，确保工具启动后
+        直接使用 LongTermMemory 持有的管理器，而非自建。
+        """
+        from tools.memory import inject_memory_manager
+
+        inject_memory_manager(self._mm)
 
     def start_listening(self) -> None:
         """创建 asyncio.Queue 并启动后台消费者协程。

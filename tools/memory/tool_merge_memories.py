@@ -1,7 +1,5 @@
 """Tool: merge_memories — 合并两条相似记忆。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
@@ -19,14 +17,6 @@ class MergeMemoriesInput(BaseModel):
     reason: str = Field(
         default="", description="合并原因，说明为什么这两条记忆需要合并"
     )
-
-
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
 
 
 class MergeMemoriesTool(ToolBase):
@@ -66,9 +56,9 @@ class MergeMemoriesTool(ToolBase):
         if not reason:
             return format_error("reason 不能为空，请说明合并原因")
 
-        from api.memory.manager import MemoryManager
+        from tools.memory import get_memory_manager
 
-        mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+        mm = get_memory_manager()
         try:
             mm.merge(id1, id2, content, section, reason)
         except ValueError:

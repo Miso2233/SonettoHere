@@ -1,10 +1,10 @@
-"""memory/memory_manager.py 测试 — MemoryManager 直接测试。"""
+"""memory/memory_manager.py 测试 — YamlMemoryManager 直接测试。"""
 
 import re
 
 import pytest
 
-from api.memory.manager import MemoryManager, MemoryItem
+from api.memory.manager import YamlMemoryManager, MemoryItem
 
 
 class TestMemoryItem:
@@ -50,13 +50,13 @@ class TestMemoryItem:
         assert history[2]["description"] == "initial"
 
 
-class TestMemoryManager:
-    """MemoryManager CRUD 测试。"""
+class TestYamlMemoryManager:
+    """YamlMemoryManager CRUD 测试。"""
 
     def test_init_creates_yaml_file(self, tmp_path):
         """初始化时创建 yaml 文件。"""
         path = tmp_path / "test_memory.yaml"
-        MemoryManager(yaml_file=str(path))
+        YamlMemoryManager(yaml_file=str(path))
         assert path.exists()
         # 文件内容应为有效 yaml
         import yaml
@@ -67,13 +67,13 @@ class TestMemoryManager:
     def test_init_creates_parent_dir(self, tmp_path):
         """初始化时创建父目录。"""
         path = tmp_path / "subdir" / "memory.yaml"
-        MemoryManager(yaml_file=str(path))
+        YamlMemoryManager(yaml_file=str(path))
         assert path.exists()
 
     def test_add_returns_id(self, tmp_path):
         """add 返回非空字符串。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         item_id = mm.add(description="测试", theme="身份")
         assert isinstance(item_id, str)
         assert len(item_id) > 0
@@ -81,7 +81,7 @@ class TestMemoryManager:
     def test_add_and_show(self, tmp_path):
         """add 后 show 能查到。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         mm.add(description="测试描述", theme="测试主题")
         items = mm.show()
         assert len(items) == 1
@@ -93,7 +93,7 @@ class TestMemoryManager:
     def test_delete_removes_item(self, tmp_path):
         """delete 后 show 为空。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         item_id = mm.add(description="待删除", theme="身份")
         mm.delete(item_id)
         assert mm.show() == []
@@ -101,14 +101,14 @@ class TestMemoryManager:
     def test_delete_nonexistent_raises(self, tmp_path):
         """删除不存在的 ID → ValueError。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         with pytest.raises(ValueError, match="not found"):
             mm.delete("nonexistent-id")
 
     def test_update_changes_description(self, tmp_path):
         """update 后描述变更。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         item_id = mm.add(description="旧描述", theme="身份")
         mm.update(id=item_id, reason="更新", new_description="新描述")
         items = mm.show()
@@ -117,14 +117,14 @@ class TestMemoryManager:
     def test_update_nonexistent_raises(self, tmp_path):
         """更新不存在的 ID → ValueError。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         with pytest.raises(ValueError, match="not found"):
             mm.update(id="nonexistent-id", reason="测试")
 
     def test_merge_combines_and_removes(self, tmp_path):
         """merge 合并两个条目，删除第二个。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         id1 = mm.add(description="条目A", theme="身份")
         id2 = mm.add(description="条目B", theme="身份")
         mm.merge(id1, id2, "合并后描述", "身份", "重复")
@@ -136,19 +136,19 @@ class TestMemoryManager:
     def test_merge_nonexistent_raises(self, tmp_path):
         """合并包含不存在 ID → ValueError。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         id1 = mm.add(description="A", theme="身份")
         with pytest.raises(ValueError, match="not found"):
             mm.merge(id1, "bad-id", "desc", "主题", "原因")
 
 
-class TestMemoryManagerGrouping:
+class TestYamlMemoryManagerGrouping:
     """get_memories_grouped 测试。"""
 
     def test_memories_grouped_by_theme(self, tmp_path):
         """get_memories_grouped() 按 theme 分组。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         mm.add(description="学生", theme="身份")
         mm.add(description="网络安全", theme="身份")
         mm.add(description="洛天依", theme="音乐")
@@ -163,14 +163,14 @@ class TestMemoryManagerGrouping:
     def test_memories_grouped_empty(self, tmp_path):
         """空文件时返回空 sections。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         result = mm.get_memories_grouped()
         assert result == {"sections": []}
 
     def test_description_history(self, tmp_path):
         """show_description_history 返回正确顺序。"""
         path = tmp_path / "memory.yaml"
-        mm = MemoryManager(yaml_file=str(path))
+        mm = YamlMemoryManager(yaml_file=str(path))
         item_id = mm.add(description="初始", theme="身份")
         mm.update(item_id, "第一次更新", new_description="第一次")
         mm.update(item_id, "第二次更新", new_description="第二次")

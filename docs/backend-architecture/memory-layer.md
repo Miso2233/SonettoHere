@@ -41,7 +41,7 @@
 ### MemoryManager 核心 CRUD + 文件锁
 
 ```python
-# api/memory/manager.py
+# api/memory/manager/yaml.py
 
 class MemoryManager:
     def __init__(self, yaml_file: str):

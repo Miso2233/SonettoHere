@@ -1,7 +1,5 @@
 """Tool: read_memories — 按 ID 读取单条记忆的完整内容。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
@@ -12,14 +10,6 @@ class ReadMemoriesInput(BaseModel):
     id: str = Field(
         default="", description="要读取的记忆 ID（来自 list_memories 的输出）"
     )
-
-
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
 
 
 class ReadMemoriesTool(ToolBase):
@@ -38,13 +28,12 @@ class ReadMemoriesTool(ToolBase):
         if not id:
             return format_error("请提供要读取的记忆 ID")
 
-        if not MEMORY_PATH.exists():
-            return format_error("记忆文件不存在")
+        from tools.memory import get_memory_manager
 
-        from api.memory.manager import MemoryManager
-
-        mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+        mm = get_memory_manager()
         items = mm.show()
+        if not items:
+            return format_error("暂无记忆条目")
 
         # 查找匹配 ID 的条目
         target = None

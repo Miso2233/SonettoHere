@@ -28,6 +28,7 @@ from api.routes import env_vars as env_vars_router
 from api.session.manager import SessionState, session_manager
 from agent.graph import build_agent
 from api.memory.long_term import MEMORY_PATH, LongTermMemory
+from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 from api.tools.manager import ToolManager
 from api.providers.default_llm import init_provider_manager, get_default_llm
 from version import __version__
@@ -123,8 +124,9 @@ async def lifespan(app: FastAPI):
         )
     app.state.tool_manager = ToolManager()
     await app.state.tool_manager.load_all()
-    app.state.ltm = LongTermMemory(MEMORY_PATH)
+    app.state.ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(MEMORY_PATH)).build())
     app.state.ltm.start_listening()
+    app.state.ltm.inject_tools()
 
     # 加载 const 固定会话（需要 tools 已就绪）
     await _load_const_sessions(app)

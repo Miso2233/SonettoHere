@@ -1,7 +1,5 @@
 """Tool: list_memories — 列出所有记忆条目（每条截断以节省上下文）。"""
 
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_success
@@ -10,13 +8,6 @@ from tools.base import ToolBase, format_success
 class ListMemoriesInput(BaseModel):
     get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
 
-
-MEMORY_PATH = (
-    Path(__file__).resolve().parent.parent.parent
-    / "config"
-    / "personas"
-    / "memory.yaml"
-)
 
 # 描述截断长度（字符数），取自现有 memory.yaml 描述长度分布分析
 # 大部分描述在 100-300 字符，200 字能覆盖关键信息，节省约 40% 上下文
@@ -64,13 +55,12 @@ class ListMemoriesTool(ToolBase):
         if get_doc:
             return self._load_doc()
 
-        if not MEMORY_PATH.exists():
-            return format_success({"items": [], "formatted": "（暂无记忆条目）"})
+        from tools.memory import get_memory_manager
 
-        from api.memory.manager import MemoryManager
-
-        mm = MemoryManager(yaml_file=str(MEMORY_PATH))
+        mm = get_memory_manager()
         items = mm.show()
+        if not items:
+            return format_success({"items": [], "formatted": "（暂无记忆条目）"})
 
         # 返回 items 时同样截断，供前端气泡使用
         truncated_items = [
