@@ -333,12 +333,16 @@ class LongTermMemory:
             pass
         return []
 
-    def inject_tools(self) -> None:
-        """向所有记忆工具注入当前 MemoryManager 实例。
+    def inject_all(self) -> None:
+        """向所有需要 mm 的地方注入当前 MemoryManager 实例。
 
-        应在 start_listening() 之后调用，确保工具启动后
-        直接使用 LongTermMemory 持有的管理器，而非自建。
+        包括：
+        - long_term.py 模块级 @tool 函数（通过 _set_current_mm）
+        - tools/memory/ 中 6 个 ToolBase 子类（通过 inject_memory_manager）
+
+        应在 start_listening() 之后调用一次。
         """
+        _set_current_mm(self._mm)
         from tools.memory import inject_memory_manager
 
         inject_memory_manager(self._mm)
