@@ -14,7 +14,7 @@ class ProviderConfig:
     """单个 LLM 提供商的配置，对应 providers.yaml 中的一项。"""
 
     id: str
-    provider_type: str  # "openai" — 目前仅此一种
+    provider_type: str  # 如 "openai"、"openrouter"、"deepseek" 等 OpenAI 兼容 API
     label: str
     api_key: str
     base_url: str

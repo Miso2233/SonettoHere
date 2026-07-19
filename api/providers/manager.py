@@ -140,12 +140,9 @@ class ProviderManager:
 
     @staticmethod
     def _build_provider(config: ProviderConfig) -> Provider:
-        if config.provider_type == "openai":
-            from api.providers.openai_provider import OpenAIProvider
+        from api.providers.openai_provider import OpenAIProvider
 
-            return OpenAIProvider(config)
-        msg = f"Unknown provider type: {config.provider_type}"
-        raise ValueError(msg)
+        return OpenAIProvider(config)
 
 
 # ── 模块级单例 ──────────────────────────────────────────────
