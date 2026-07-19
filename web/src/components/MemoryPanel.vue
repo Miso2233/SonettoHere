@@ -67,7 +67,7 @@ async function refresh() {
       sections.value = res.sections
     } else {
       const res = await api.getNarrative()
-      narrative.value = res.narrative
+      narrative.value = res.long_term
     }
   } catch {
     sections.value = []

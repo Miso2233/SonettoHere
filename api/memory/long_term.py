@@ -264,15 +264,15 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
     return f"已合并 [{id2}] → [{id1}] ({section}): {content}"
 
 
-# ── LongTermMemoryInterface ───────────────────────────────────
+# ── LongTermMemory ──────────────────────────────────────────────
 
 
-class LongTermMemoryInterface:
+class LongTermMemory:
     """异步管线：逐轮对话消息 → asyncio.Queue → 后台 LLM 总结 → memory.yaml 写入。
 
     用法::
 
-        ltm = LongTermMemoryInterface("/path/to/memory.yaml")
+        ltm = LongTermMemory("/path/to/memory.yaml")
         ltm.start_listening()              # 启动后台消费者
         await ltm.send_history(messages)  # 投放本轮对话（非阻塞）
         await ltm.stop_listening()        # 排空队列并停止

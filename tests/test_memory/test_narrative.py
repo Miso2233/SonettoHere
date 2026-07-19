@@ -1,4 +1,4 @@
-"""memory/narrative.py 测试。"""
+"""memory/long_term.py 测试。"""
 
 import asyncio
 import re
@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import api.memory.narrative as narrative
+import api.memory.long_term as long_term
 from api.memory.manager import MemoryManager
-from api.memory.narrative import LongTermMemoryInterface
+from api.memory.long_term import LongTermMemory
 
 
 # ── 测试辅助 ──────────────────────────────────────────────────
@@ -57,12 +57,12 @@ class TestFormatMessages:
     """_format_messages 单元测试。"""
 
     def test_empty_list(self):
-        result = narrative._format_messages([])
+        result = long_term._format_messages([])
         assert result == ""
 
     def test_single_message(self):
         msgs = [{"role": "user", "content": "你好"}]
-        result = narrative._format_messages(msgs)
+        result = long_term._format_messages(msgs)
         assert result == "[user]: 你好"
 
     def test_multiple_messages(self):
@@ -70,13 +70,13 @@ class TestFormatMessages:
             {"role": "user", "content": "查天气"},
             {"role": "assistant", "content": "今天晴"},
         ]
-        result = narrative._format_messages(msgs)
+        result = long_term._format_messages(msgs)
         expected = "[user]: 查天气\n[assistant]: 今天晴"
         assert result == expected
 
     def test_missing_role_defaults_to_unknown(self):
         msgs = [{"content": "hello"}]
-        result = narrative._format_messages(msgs)
+        result = long_term._format_messages(msgs)
         assert result == "[unknown]: hello"
 
     def test_tool_messages_filtered_out(self):
@@ -86,14 +86,14 @@ class TestFormatMessages:
             {"role": "tool", "content": "天气数据..."},
             {"role": "assistant", "content": "回复"},
         ]
-        result = narrative._format_messages(msgs)
+        result = long_term._format_messages(msgs)
         assert "[tool]" not in result
         assert "[user]: 你好" in result
         assert "[assistant]: 回复" in result
 
     def test_non_string_content(self):
         msgs = [{"role": "user", "content": 42}]
-        result = narrative._format_messages(msgs)
+        result = long_term._format_messages(msgs)
         assert result == "[user]: 42"
 
 
@@ -104,11 +104,11 @@ class TestFormatNarrative:
     """_format_narrative 格式化测试。"""
 
     def test_empty_items(self):
-        assert narrative._format_narrative([]) == ""
+        assert long_term._format_narrative([]) == ""
 
     def test_single_item(self):
         items = [{"id": "abc", "description": "用户叫Miso。", "theme": "身份"}]
-        result = narrative._format_narrative(items)
+        result = long_term._format_narrative(items)
         assert "# 长期记忆索引" in result
         assert "- [身份](#身份)" in result
         assert "---" in result
@@ -120,7 +120,7 @@ class TestFormatNarrative:
             {"id": "a", "description": "用户叫Miso。", "theme": "身份"},
             {"id": "b", "description": "用户喜欢洛天依。", "theme": "音乐"},
         ]
-        result = narrative._format_narrative(items)
+        result = long_term._format_narrative(items)
         assert "## 身份" in result
         assert "- 用户叫Miso。" in result
         assert "## 音乐" in result
@@ -134,14 +134,14 @@ class TestFormatEntriesForTool:
     """_format_entries_for_tool 格式化测试。"""
 
     def test_empty(self):
-        assert narrative._format_entries_for_tool([]) == "（暂无记忆条目）"
+        assert long_term._format_entries_for_tool([]) == "（暂无记忆条目）"
 
     def test_with_entries(self):
         items = [
             {"id": "uuid-1", "description": "A", "theme": "身份"},
             {"id": "uuid-2", "description": "B", "theme": "音乐"},
         ]
-        result = narrative._format_entries_for_tool(items)
+        result = long_term._format_entries_for_tool(items)
         assert "## 身份" in result
         assert "  [uuid-1] A" in result
         assert "## 音乐" in result
@@ -151,7 +151,7 @@ class TestFormatEntriesForTool:
         items = [
             {"id": "x", "description": "A", "theme": "健康"},
         ]
-        result = narrative._format_entries_for_tool(items)
+        result = long_term._format_entries_for_tool(items)
         assert "## 健康" in result
         assert "  [x] A" in result
 
@@ -164,12 +164,12 @@ class TestCrudTools:
 
     def _make_mm(self, tmp_path: Path) -> MemoryManager:
         mm = MemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
-        narrative._set_current_mm(mm)
+        long_term._set_current_mm(mm)
         return mm
 
     def test_create_memory(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        result = narrative.create_memory.invoke(
+        result = long_term.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "身份"}
         )
         assert "已创建 [" in result
@@ -181,7 +181,7 @@ class TestCrudTools:
 
     def test_create_memory_custom_section_preserved(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        result = narrative.create_memory.invoke(
+        result = long_term.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "健康"}
         )
         assert "已创建 [" in result
@@ -191,7 +191,7 @@ class TestCrudTools:
 
     def test_create_memory_empty_section_fallback(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        result = narrative.create_memory.invoke(
+        result = long_term.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "   "}
         )
         assert "已创建 [" in result
@@ -200,7 +200,7 @@ class TestCrudTools:
 
     def test_create_memory_id_is_hex(self, tmp_path):
         self._make_mm(tmp_path)
-        result = narrative.create_memory.invoke(
+        result = long_term.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "身份"}
         )
         # Extract ID from result string
@@ -211,22 +211,22 @@ class TestCrudTools:
 
     def test_read_memories_empty(self, tmp_path):
         mm = MemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
-        narrative._set_current_mm(mm)
-        result = narrative.read_memories.invoke({})
+        long_term._set_current_mm(mm)
+        result = long_term.read_memories.invoke({})
         assert "暂无记忆条目" in result
 
     def test_read_memories_with_entries(self, tmp_path):
         mm = self._make_mm(tmp_path)
         mm.add(description="A", theme="身份")
         mm.add(description="B", theme="音乐")
-        result = narrative.read_memories.invoke({})
+        result = long_term.read_memories.invoke({})
         assert "## 身份" in result
         assert "## 音乐" in result
 
     def test_update_memory_success(self, tmp_path):
         mm = self._make_mm(tmp_path)
         item_id = mm.add(description="旧内容", theme="身份")
-        result = narrative.update_memory.invoke(
+        result = long_term.update_memory.invoke(
             {
                 "id": item_id,
                 "content": "新内容",
@@ -240,7 +240,7 @@ class TestCrudTools:
 
     def test_update_memory_not_found(self, tmp_path):
         self._make_mm(tmp_path)
-        result = narrative.update_memory.invoke(
+        result = long_term.update_memory.invoke(
             {
                 "id": "nonexistent-id",
                 "content": "x",
@@ -253,7 +253,7 @@ class TestCrudTools:
     def test_delete_memory_success(self, tmp_path):
         mm = self._make_mm(tmp_path)
         item_id = mm.add(description="删除我", theme="身份")
-        result = narrative.delete_memory.invoke(
+        result = long_term.delete_memory.invoke(
             {
                 "id": item_id,
                 "reason": "信息已过时",
@@ -265,7 +265,7 @@ class TestCrudTools:
 
     def test_delete_memory_not_found(self, tmp_path):
         self._make_mm(tmp_path)
-        result = narrative.delete_memory.invoke(
+        result = long_term.delete_memory.invoke(
             {
                 "id": "nonexistent-id",
                 "reason": "测试",
@@ -283,26 +283,26 @@ class TestGetNarrative:
 
     def setup_method(self):
         """每个测试前清除 LRU 缓存，防止 monkeypatch 的 MEMORY_PATH 被缓存污染。"""
-        narrative.get_narrative.cache_clear()
+        long_term.get_narrative.cache_clear()
 
     def test_file_not_exists(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
-        monkeypatch.setattr(narrative, "MEMORY_PATH", p)
-        assert narrative.get_narrative() == ""
+        monkeypatch.setattr(long_term, "MEMORY_PATH", p)
+        assert long_term.get_narrative() == ""
 
     def test_file_exists(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
         _populate_mm(p, [("Miso 是学生。", "身份")])
-        monkeypatch.setattr(narrative, "MEMORY_PATH", p)
-        result = narrative.get_narrative()
+        monkeypatch.setattr(long_term, "MEMORY_PATH", p)
+        result = long_term.get_narrative()
         assert "Miso 是学生。" in result
         assert "## 身份" in result
 
     def test_file_empty(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
         MemoryManager(yaml_file=str(p))  # creates empty file
-        monkeypatch.setattr(narrative, "MEMORY_PATH", p)
-        assert narrative.get_narrative() == ""
+        monkeypatch.setattr(long_term, "MEMORY_PATH", p)
+        assert long_term.get_narrative() == ""
 
     def test_multiple_themes(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
@@ -313,8 +313,8 @@ class TestGetNarrative:
                 ("用户喜欢洛天依。", "音乐"),
             ],
         )
-        monkeypatch.setattr(narrative, "MEMORY_PATH", p)
-        result = narrative.get_narrative()
+        monkeypatch.setattr(long_term, "MEMORY_PATH", p)
+        result = long_term.get_narrative()
         assert "用户叫Miso。" in result
         assert "用户喜欢洛天依。" in result
         assert "# 长期记忆索引" in result
@@ -322,36 +322,36 @@ class TestGetNarrative:
         assert "- [音乐](#音乐)" in result
 
 
-# ── TestLongTermMemoryInterface ────────────────────────────────
+# ── TestLongTermMemory ────────────────────────────────
 
 
-class TestLongTermMemoryInterface:
-    """LongTermMemoryInterface 异步单元测试。"""
+class TestLongTermMemory:
+    """LongTermMemory 异步单元测试。"""
 
     def setup_method(self):
-        narrative._set_current_mm(None)
+        long_term._set_current_mm(None)
 
     def teardown_method(self):
-        narrative._set_current_mm(None)
+        long_term._set_current_mm(None)
 
     # ── get_narrative（实例方法） ──────────────────────────────
 
     def test_get_narrative_file_not_exists(self, tmp_path):
         path = tmp_path / "memory.yaml"
-        ltm = LongTermMemoryInterface(path)
+        ltm = LongTermMemory(path)
         assert ltm.get_narrative() == ""
 
     def test_get_narrative_file_exists(self, tmp_path):
         path = tmp_path / "memory.yaml"
         _populate_mm(path, [("Miso 是学生。", "身份")])
-        ltm = LongTermMemoryInterface(path)
+        ltm = LongTermMemory(path)
         result = ltm.get_narrative()
         assert "Miso 是学生。" in result
 
     def test_get_narrative_file_empty(self, tmp_path):
         path = tmp_path / "memory.yaml"
         MemoryManager(yaml_file=str(path))
-        ltm = LongTermMemoryInterface(path)
+        ltm = LongTermMemory(path)
         assert ltm.get_narrative() == ""
 
     # ── 生命周期安全 ──────────────────────────────────────────
@@ -359,7 +359,7 @@ class TestLongTermMemoryInterface:
     @pytest.mark.asyncio
     async def test_send_history_before_start_is_noop(self, tmp_path):
         """未 start_listening 时 send_history 不抛异常。"""
-        ltm = LongTermMemoryInterface(tmp_path / "memory.yaml")
+        ltm = LongTermMemory(tmp_path / "memory.yaml")
         await ltm.send_history([{"role": "user", "content": "你好"}])
 
     @pytest.mark.asyncio
@@ -368,10 +368,10 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
-        ltm = LongTermMemoryInterface(path)
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.stop_listening()
@@ -387,9 +387,9 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemoryInterface(path)
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([])
         await ltm.stop_listening()
@@ -404,13 +404,13 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "memory.yaml"
 
         def agent_populates_entries():
-            narrative._current_mm.add(description="Miso 是一名学生。", theme="身份")
+            long_term._current_mm.add(description="Miso 是一名学生。", theme="身份")
 
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
         await ltm.stop_listening()
@@ -429,10 +429,10 @@ class TestLongTermMemoryInterface:
             captured_prompt.append(kwargs.get("system_prompt", ""))
             return _fake_agent_factory()
 
-        monkeypatch.setattr(narrative, "create_agent", capture_agent)
+        monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "你好"}])
         await ltm.stop_listening()
@@ -455,17 +455,17 @@ class TestLongTermMemoryInterface:
             captured_prompt.append(kwargs.get("system_prompt", ""))
 
             def update_entries():
-                mm = narrative._current_mm
+                mm = long_term._current_mm
                 for item in mm.show():
                     mm.delete(item["id"])
                 mm.add(description="更新后的记忆内容。", theme="身份")
 
             return _fake_agent_factory(entries_setup=update_entries)
 
-        monkeypatch.setattr(narrative, "create_agent", capture_agent)
+        monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "新消息"}])
         await ltm.stop_listening()
@@ -490,22 +490,22 @@ class TestLongTermMemoryInterface:
             if call_count[0] == 1:
 
                 def setup1():
-                    narrative._current_mm.add(description="第一轮记忆。", theme="身份")
+                    long_term._current_mm.add(description="第一轮记忆。", theme="身份")
 
                 return _fake_agent_factory(entries_setup=setup1)
             else:
 
                 def setup2():
-                    mm = narrative._current_mm
+                    mm = long_term._current_mm
                     mm.add(description="第一轮记忆。", theme="身份")
                     mm.add(description="第二轮补充。", theme="身份")
 
                 return _fake_agent_factory(entries_setup=setup2)
 
-        monkeypatch.setattr(narrative, "create_agent", capture_agent)
+        monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
 
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
@@ -529,10 +529,10 @@ class TestLongTermMemoryInterface:
 
         fake_agent = MagicMock()
         fake_agent.ainvoke = AsyncMock(side_effect=failing_ainvoke)
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -551,10 +551,10 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -571,10 +571,10 @@ class TestLongTermMemoryInterface:
         _populate_mm(path, [("原始记忆。", "身份")])
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -589,14 +589,14 @@ class TestLongTermMemoryInterface:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory(
-            entries_setup=lambda: narrative._current_mm.add(
+            entries_setup=lambda: long_term._current_mm.add(
                 description="记忆。", theme="身份"
             )
         )
-        monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemoryInterface(path)
+        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        ltm = LongTermMemory(path)
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.send_history([{"role": "user", "content": "msg2"}])

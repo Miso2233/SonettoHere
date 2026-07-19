@@ -281,7 +281,7 @@ export interface ListSessionsResponse {
 }
 
 export interface NarrativeResponse {
-  narrative: string
+  long_term: string
 }
 
 export interface MomentItem {

@@ -1,4 +1,4 @@
-"""LongTermMemoryInterface 集成测试 — 模拟 CLI 完整流程。
+"""LongTermMemory 集成测试 — 模拟 CLI 完整流程。
 
 验证: 对话历史 → CRUD Agent → memory.yaml 写入 的端到端路径。
 """
@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import api.memory.narrative as narrative
-from api.memory.narrative import LongTermMemoryInterface
+import api.memory.long_term as long_term
+from api.memory.long_term import LongTermMemory
 
 
 def _make_fake_agent(entries_setup=None):
@@ -46,7 +46,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
         if call_count[0] == 1:
 
             def setup1():
-                narrative._current_mm.add(
+                long_term._current_mm.add(
                     description="第1轮记忆：用户打了招呼。", theme="身份"
                 )
 
@@ -54,7 +54,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
         elif call_count[0] == 2:
 
             def setup2():
-                mm = narrative._current_mm
+                mm = long_term._current_mm
                 mm.add(description="第1轮记忆：用户打了招呼。", theme="身份")
                 mm.add(
                     description="第2轮补充：用户叫Miso，在北京学习网络安全。",
@@ -65,18 +65,18 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
         else:
 
             def setup3():
-                mm = narrative._current_mm
+                mm = long_term._current_mm
                 for item in mm.show():
                     mm.delete(item["id"])
                 mm.add(description=f"第{call_count[0]}轮记忆：已更新。", theme="身份")
 
             return _make_fake_agent(entries_setup=setup3)
 
-    monkeypatch.setattr(narrative, "create_agent", agent_factory)
-    monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+    monkeypatch.setattr(long_term, "create_agent", agent_factory)
+    monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
     # ── 初始化管线 ──
-    ltm = LongTermMemoryInterface(path)
+    ltm = LongTermMemory(path)
     ltm.start_listening()
 
     # ── 第一轮对话 ──
@@ -134,17 +134,17 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
     def agent_factory(**kwargs):
         def setup():
             processed_count[0] += 1
-            narrative._current_mm.add(
+            long_term._current_mm.add(
                 description=f"记忆{processed_count[0]}。",
                 theme="身份",
             )
 
         return _make_fake_agent(entries_setup=setup)
 
-    monkeypatch.setattr(narrative, "create_agent", agent_factory)
-    monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+    monkeypatch.setattr(long_term, "create_agent", agent_factory)
+    monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
-    ltm = LongTermMemoryInterface(path)
+    ltm = LongTermMemory(path)
     ltm.start_listening()
 
     # 快速连续投放 5 轮对话
@@ -171,15 +171,15 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
 
     async def slow_ainvoke(_input, config=None):
         await asyncio.sleep(0.1)
-        narrative._current_mm.add(description="慢慢来。", theme="身份")
+        long_term._current_mm.add(description="慢慢来。", theme="身份")
         return {"messages": []}
 
     fake_agent = MagicMock()
     fake_agent.ainvoke = AsyncMock(side_effect=slow_ainvoke)
-    monkeypatch.setattr(narrative, "create_agent", lambda **kw: fake_agent)
-    monkeypatch.setattr(narrative, "get_default_llm", lambda: MagicMock())
+    monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+    monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
-    ltm = LongTermMemoryInterface(path)
+    ltm = LongTermMemory(path)
     ltm.start_listening()
 
     import time

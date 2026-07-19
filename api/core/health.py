@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from api.memory.manager import MemoryManager
-from api.memory.narrative import MEMORY_PATH
+from api.memory.long_term import MEMORY_PATH
 from api.providers.manager import get_manager
 
 ANTHROPIC_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "anthropic_skills"

@@ -61,7 +61,7 @@ paths:
 
   - path: "config/personas/memory.yaml"
     description: "AI 长期记忆存储（对话中学习的用户信息）"
-    created_by: "memory/narrative.py LongTermMemoryInterface 消费者"
+    created_by: "memory/long_term.py LongTermMemory 消费者"
     source_template: null
     required_for: "AI 记忆功能"
     gitignored: true

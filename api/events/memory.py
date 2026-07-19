@@ -1,6 +1,6 @@
 """MemorySender — 记忆层事件发送封装。
 
-供 narrative.py 和 MemoryToolCallback 使用。
+供 long_term.py 和 MemoryToolCallback 使用。
 """
 
 from __future__ import annotations

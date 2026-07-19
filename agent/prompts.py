@@ -4,7 +4,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-from api.memory.narrative import get_narrative
+from api.memory.long_term import get_narrative
 from api.memory.user_init import ensure_user_md
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"

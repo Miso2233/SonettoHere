@@ -9,10 +9,10 @@ from api.memory.manager import MemoryManager
 router = APIRouter()
 
 
-@router.get("/narrative")
-async def get_narrative(request: Request) -> dict:
+@router.get("/long-term")
+async def get_long_term(request: Request) -> dict:
     ltm = request.app.state.ltm
-    return {"narrative": ltm.get_narrative()}
+    return {"long_term": ltm.get_narrative()}
 
 
 @router.get("/memories")

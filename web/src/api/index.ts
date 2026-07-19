@@ -72,7 +72,7 @@ export const api = {
     request<{ status: string }>(`/sessions/${id}`, { method: 'DELETE' }),
 
   getNarrative: () =>
-    request<NarrativeResponse>('/narrative'),
+    request<NarrativeResponse>('/long-term'),
 
   getMoment: () =>
     request<MomentResponse>('/moment'),
