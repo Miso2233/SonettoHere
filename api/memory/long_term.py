@@ -267,7 +267,25 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
     return f"已合并 [{id2}] → [{id1}] ({section}): {content}"
 
 
-# ── LongTermMemory ──────────────────────────────────────────────
+@tool
+def hit_memory(id: str) -> str:
+    """标记一条记忆被引用/点击一次，增加其 hit 计数。
+
+    当记忆被引用（如被用于回答用户问题或被关联到对话）时调用此工具标记。
+
+    Args:
+        id: 要标记的记忆 ID（来自 read_memories 的输出）。
+    """
+    if _current_mm is None:
+        return "错误：记忆管理器未初始化。"
+    try:
+        new_count = _current_mm.hit(id)
+    except ValueError:
+        return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
+    return f"已标记记忆 [{id}]，累计点击 {new_count} 次"
+
+
+# ── LongTermMemory ──────────────────────────────────────────
 
 
 class LongTermMemory:
@@ -497,6 +515,7 @@ class LongTermMemory:
                     update_memory,
                     delete_memory,
                     merge_memories,
+                    hit_memory,
                 ]
 
                 agent = create_agent(

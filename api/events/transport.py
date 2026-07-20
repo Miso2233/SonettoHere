@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Self
 
@@ -32,6 +33,7 @@ class WsTransport:
 
     def __init__(self, ws: WebSocket | None) -> None:
         self._ws = ws
+        self._write_lock = asyncio.Lock()
 
     # ── 工厂方法 ─────────────────────────────────────────────
 
@@ -87,7 +89,8 @@ class WsTransport:
         if self._ws is None:
             return
 
-        try:
-            await self._ws.send_json({"type": event_type, "payload": payload})
-        except WebSocketDisconnect:
-            self._ws = None
+        async with self._write_lock:
+            try:
+                await self._ws.send_json({"type": event_type, "payload": payload})
+            except WebSocketDisconnect:
+                self._ws = None
