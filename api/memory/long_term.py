@@ -209,7 +209,7 @@ def read_memories() -> str:
 @tool
 @_require_mm
 def update_memory(id: str, content: str, reason: str) -> str:
-    """根据 ID 更新一条已有记忆。
+    """根据 ID 更新一条已有记忆。更新成功后会自动增加该记忆的引用计数（hit），表示该记忆被重新关注。
 
     Args:
         id: 要更新的记忆 ID（来自 read_memories 的输出）。
@@ -224,9 +224,10 @@ def update_memory(id: str, content: str, reason: str) -> str:
         )
     try:
         _current_mm.update(id, reason=reason, new_description=content)
+        new_hit = _current_mm.hit(id)
     except ValueError:
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    return f"已更新 [{id}]: {content}"
+    return f"已更新 [{id}]: {content}（hit {new_hit}）"
 
 
 @tool
@@ -277,7 +278,7 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
 def hit_memory(id: str) -> str:
     """标记一条记忆被引用/点击一次，增加其 hit 计数。
 
-    当记忆被引用（如被用于回答用户问题或被关联到对话）时调用此工具标记。
+    当记忆被引用（如被用于回答用户问题或被关联到对话）且没有对被引用记忆进行Update时调用此工具标记。
 
     Args:
         id: 要标记的记忆 ID（来自 read_memories 的输出）。
