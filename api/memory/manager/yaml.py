@@ -94,6 +94,10 @@ class YamlMemoryManager(BaseMemoryManager):
                     )
                     repaired.append(f"条目 {id}: latest_update_time 无效，已重置")
 
+                if not isinstance(item.hit, int) or item.hit < 0:
+                    item.hit = 0
+                    repaired.append(f"条目 {id}: hit 无效，已重置为 0")
+
             # 4. 有修复则写回
             if repaired:
                 self._save_all(items)
@@ -155,6 +159,15 @@ class YamlMemoryManager(BaseMemoryManager):
                 raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
             items[id].update(reason, new_description, new_theme)
             self._save_all(items)
+
+    def hit(self, id: str) -> int:
+        with portalocker.Lock(self._lock_path, timeout=5):
+            items = self._load_all()
+            if id not in items:
+                raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
+            items[id].hit += 1
+            self._save_all(items)
+            return items[id].hit
 
 
 class MemoryManagerBuilder:

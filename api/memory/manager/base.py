@@ -20,11 +20,13 @@ class MemoryItem:
         theme: str,
         history: list[dict] | None = None,
         latest_update_time: str | None = None,
+        hit: int = 0,
     ) -> None:
         self.description = description
         self.theme = theme
         self.history = history if history is not None else []
         self.latest_update_time = latest_update_time if latest_update_time is not None else _now()
+        self.hit = hit
 
     def update(
         self,
@@ -114,7 +116,7 @@ class BaseMemoryManager(ABC):
 
         子类应检查：
         - 后端存储介质是否可达、可读写
-        - 所有数据条目字段是否完整（description / theme / history / latest_update_time）
+        - 所有数据条目字段是否完整（description / theme / history / latest_update_time / hit）
         - 必要时自动修复可修复的问题（如空字符串、类型异常）
 
         Returns:
@@ -209,4 +211,9 @@ class BaseMemoryManager(ABC):
         new_description: str | None = None,
         new_theme: str | None = None,
     ) -> None:
+        ...
+
+    @abstractmethod
+    def hit(self, id: str) -> int:
+        """将指定记忆的 hit 计数加一，返回新的计数。"""
         ...
