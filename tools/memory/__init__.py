@@ -35,6 +35,6 @@ def get_memory_manager() -> BaseMemoryManager:
 
     return (
         MemoryManagerBuilder()
-        .with_backend(YamlMemoryManager, yaml_file=str(_FALLBACK_PATH))
+        .with_backend(YamlMemoryManager).with_args(yaml_file=str(_FALLBACK_PATH))
         .build()
     )

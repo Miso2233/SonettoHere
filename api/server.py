@@ -124,7 +124,7 @@ async def lifespan(app: FastAPI):
         )
     app.state.tool_manager = ToolManager()
     await app.state.tool_manager.load_all()
-    app.state.ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(MEMORY_PATH)).build())
+    app.state.ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(MEMORY_PATH)).build())
     app.state.ltm.start_listening()
     app.state.ltm.inject_all()
 

@@ -338,20 +338,20 @@ class TestLongTermMemory:
 
     def test_get_narrative_file_not_exists(self, tmp_path):
         path = tmp_path / "memory.yaml"
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         assert ltm.get_narrative() == ""
 
     def test_get_narrative_file_exists(self, tmp_path):
         path = tmp_path / "memory.yaml"
         _populate_mm(path, [("Miso 是学生。", "身份")])
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         result = ltm.get_narrative()
         assert "Miso 是学生。" in result
 
     def test_get_narrative_file_empty(self, tmp_path):
         path = tmp_path / "memory.yaml"
         YamlMemoryManager(yaml_file=str(path))
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         assert ltm.get_narrative() == ""
 
     # ── 生命周期安全 ──────────────────────────────────────────
@@ -359,7 +359,7 @@ class TestLongTermMemory:
     @pytest.mark.asyncio
     async def test_send_history_before_start_is_noop(self, tmp_path):
         """未 start_listening 时 send_history 不抛异常。"""
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(tmp_path / "memory.yaml")).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(tmp_path / "memory.yaml")).build())
         await ltm.send_history([{"role": "user", "content": "你好"}])
 
     @pytest.mark.asyncio
@@ -371,7 +371,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.stop_listening()
@@ -389,7 +389,7 @@ class TestLongTermMemory:
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([])
         await ltm.stop_listening()
@@ -410,7 +410,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
         await ltm.stop_listening()
@@ -432,7 +432,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "你好"}])
         await ltm.stop_listening()
@@ -465,7 +465,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "新消息"}])
         await ltm.stop_listening()
@@ -505,7 +505,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
 
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
@@ -532,7 +532,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -554,7 +554,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -574,7 +574,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "测试"}])
         await ltm.stop_listening()
@@ -596,7 +596,7 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
-        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(path)).build())
+        ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start_listening()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.send_history([{"role": "user", "content": "msg2"}])

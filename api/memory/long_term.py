@@ -144,7 +144,7 @@ def get_narrative() -> str:
         return ""
     from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager  # noqa: PLC0415 — 避免循环导入
 
-    mm = MemoryManagerBuilder().with_backend(YamlMemoryManager, yaml_file=str(MEMORY_PATH)).build()
+    mm = MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(MEMORY_PATH)).build()
     return _format_narrative(mm.show())
 
 
@@ -296,7 +296,7 @@ class LongTermMemory:
         from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 
         ltm = LongTermMemory(MemoryManagerBuilder()
-            .with_backend(YamlMemoryManager, yaml_file="path/to/memory.yaml")
+            .with_backend(YamlMemoryManager).with_args(yaml_file="path/to/memory.yaml")
             .build())
         ltm.start_listening()              # 启动后台消费者
         await ltm.send_history(messages)  # 投放本轮对话（非阻塞）
