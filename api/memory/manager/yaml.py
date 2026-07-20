@@ -1,11 +1,12 @@
 """YAML 文件后端的记忆管理器实现。"""
 
+import datetime
 from pathlib import Path
 
 import portalocker
 import yaml
 
-from api.memory.manager.base import BaseMemoryManager, MemoryItem
+from api.memory.manager.base import BaseMemoryManager, MemoryItem, SelfCheckReport
 
 MAX_DESC_LENGTH = 75
 """记忆描述最大字数限制，超过此长度的创建/更新/合并请求将被驳回。"""
@@ -42,6 +43,69 @@ class YamlMemoryManager(BaseMemoryManager):
     @property
     def _lock_path(self) -> str:
         return self._yaml_file + ".lock"
+
+    def self_check(self) -> SelfCheckReport:
+        with portalocker.Lock(self._lock_path, timeout=5):
+            issues: list[str] = []
+            repaired: list[str] = []
+
+            yaml_path = Path(self._yaml_file)
+
+            # 1. 文件是否可达
+            if not yaml_path.exists():
+                return SelfCheckReport(
+                    status="FAIL",
+                    issues=[f"YAML 文件不存在: {self._yaml_file}"],
+                    repaired=[],
+                    item_count=0,
+                )
+
+            # 2. 加载全部条目（含 YAML 解析校验）
+            try:
+                items = self._load_all()
+            except Exception as e:
+                return SelfCheckReport(
+                    status="FAIL",
+                    issues=[f"YAML 加载失败: {e}"],
+                    repaired=[],
+                    item_count=0,
+                )
+
+            # 3. 逐条校验字段完整性
+            for id, item in items.items():
+                if not isinstance(item.description, str) or not item.description.strip():
+                    item.description = "(空)"
+                    repaired.append(f"条目 {id}: description 为空，已重置")
+
+                if not isinstance(item.theme, str) or not item.theme.strip():
+                    item.theme = "(未分类)"
+                    repaired.append(f"条目 {id}: theme 为空，已重置")
+
+                if not isinstance(item.history, list):
+                    item.history = []
+                    repaired.append(f"条目 {id}: history 非列表，已重置")
+
+                if (
+                    not isinstance(item.latest_update_time, str)
+                    or not item.latest_update_time.strip()
+                ):
+                    item.latest_update_time = datetime.datetime.now().strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    repaired.append(f"条目 {id}: latest_update_time 无效，已重置")
+
+            # 4. 有修复则写回
+            if repaired:
+                self._save_all(items)
+
+            status = "FAIL" if issues else ("WARN" if repaired else "OK")
+
+            return SelfCheckReport(
+                status=status,
+                issues=issues,
+                repaired=repaired,
+                item_count=len(items),
+            )
 
     def add(self, description: str, theme: str) -> str:
         with portalocker.Lock(self._lock_path, timeout=5):

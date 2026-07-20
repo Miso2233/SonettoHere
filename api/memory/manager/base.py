@@ -3,7 +3,7 @@
 import datetime
 import secrets
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TypedDict
 
 
 def _now() -> str:
@@ -67,6 +67,19 @@ class MemoryItem:
         self.update(reason, merged_description, merged_theme)
 
 
+class SelfCheckReport(TypedDict):
+    """``self_check()`` 的返回类型。"""
+
+    status: str
+    """``"OK"`` | ``"WARN"`` | ``"FAIL"``"""
+    issues: list[str]
+    """不可自动修复的问题列表。"""
+    repaired: list[str]
+    """已自动修复的问题描述列表。"""
+    item_count: int
+    """有效条目总数。"""
+
+
 class BaseMemoryManager(ABC):
     """记忆管理器抽象接口。
 
@@ -85,6 +98,23 @@ class BaseMemoryManager(ABC):
     @abstractmethod
     def _save_all(self, items: dict[str, MemoryItem]) -> None:
         """覆写全部条目。子类须自行保证并发安全。"""
+        ...
+
+    # ── 启动自检 ────────────────────────────────────────────
+
+    @abstractmethod
+    def self_check(self) -> SelfCheckReport:
+        """启动自检，验证存储后端状态正常。
+
+        子类应检查：
+        - 后端存储介质是否可达、可读写
+        - 所有数据条目字段是否完整（description / theme / history / latest_update_time）
+        - 必要时自动修复可修复的问题（如空字符串、类型异常）
+
+        Returns:
+            SelfCheckReport 包含 status（"OK" / "WARN" / "FAIL"）、
+            issues（不可修复问题）、repaired（已修复问题）、item_count（有效条目数）。
+        """
         ...
 
     # ── 默认 ID 生成 ────────────────────────────────────────
