@@ -18,7 +18,6 @@ class MemoryItem:
         self,
         description: str,
         theme: str,
-        *,
         history: list[dict] | None = None,
         latest_update_time: str | None = None,
     ) -> None:
