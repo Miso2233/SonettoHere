@@ -14,11 +14,18 @@ def _now() -> str:
 class MemoryItem:
     """单条记忆的数据模型。不依赖具体存储后端。"""
 
-    def __init__(self, description: str, theme: str, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        description: str,
+        theme: str,
+        *,
+        history: list[dict] | None = None,
+        latest_update_time: str | None = None,
+    ) -> None:
         self.description = description
         self.theme = theme
-        self.history: list[dict] = kwargs.get("history", [])
-        self.latest_update_time: str = kwargs.get("latest_update_time", _now())
+        self.history = history if history is not None else []
+        self.latest_update_time = latest_update_time if latest_update_time is not None else _now()
 
     def update(
         self,
