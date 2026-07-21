@@ -107,7 +107,6 @@
           v-for="(section, si) in filteredSections"
           :key="'sec-' + si"
           class="widget section-widget"
-          :style="{ gridRow: 'span ' + sectionRowSpan(section) }"
         >
           <div class="widget-header">
             <span class="widget-title">
@@ -225,13 +224,6 @@ const THEME_COLORS = ['#000', '#444', '#666', '#888', '#aaa', '#bbb', '#ccc']
 
 function themeColor(index: number): string {
   return THEME_COLORS[index % THEME_COLORS.length]
-}
-
-function sectionRowSpan(section: VignetteSection): number {
-  const len = section.items.length
-  if (len <= 2) return 1
-  if (len <= 4) return 2
-  return 3
 }
 
 function toggleHistory(id: string) {
@@ -395,6 +387,7 @@ onMounted(loadMemories)
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
+  align-items: start;
 }
 
 /* ── 通用组件 ── */
