@@ -26,6 +26,55 @@
 
 每次创建 git commit 前，必须先阅读 `dev_docs/conventions/git-conventions.md`，确保 commit message 和分支命名符合规范。
 
+## 编码规范
+
+### 类型提示
+
+每个函数和方法必须为所有形参和返回值添加类型提示。对于 `dict`、`list`、`tuple` 等容器类型，必须精细到内含元素的类型，禁止仅写 `dict` 或 `list` 而不标注元素类型。
+
+**正确示例：**
+```python
+def get_users_by_role(role: str) -> list[User]:
+    ...
+
+def update_config(config: dict[str, Any]) -> dict[str, bool]:
+    ...
+
+def process_events(events: list[Event | ErrorEvent]) -> tuple[int, list[str]]:
+    ...
+```
+
+**错误示例：**
+```python
+def get_users_by_role(role):        # 缺少返回值类型提示
+    ...
+
+def update_config(config: dict):    # dict 未标注键值类型
+    ...
+
+def process_events(events: list):   # list 未标注元素类型
+    ...
+```
+
+### 包导出
+
+每个软件包必须在 `__init__.py` 中显式写出要导出的组件（通过 `__all__` 或显式导入），禁止依赖 `_` 开头的命名约定来隐式控制可见性。
+
+**正确示例：**
+```python
+# api/some_package/__init__.py
+from .module_a import ClassA, function_b
+from .module_c import UtilClass
+
+__all__ = ["ClassA", "function_b", "UtilClass"]
+```
+
+**错误示例：**
+```python
+# 仅在模块中定义 _InternalClass 然后依赖 _ 前缀来“隐藏”
+# 而不在 __init__.py 中明确定义公开 API 边界
+```
+
 ## Git PR 工作流（Skill）
 
 完整流程：开分支 → commit → push → PR → merge → 回 main。
