@@ -245,20 +245,16 @@ async def discover_models_for_existing(provider_id: str, request: Request) -> di
             ctx = lookup_context_window(m.id)
             if ctx:
                 model_context_windows[m.id] = ctx
-        config.model_context_windows = model_context_windows
 
-        # 默认模型联动：检查 default_model 是否还在新列表中
+        # 检查 default_model 是否还在新列表中（仅提示，不做保存）
         warning = None
         if config.default_model is not None and config.default_model not in model_names:
             warning = f"Default model '{config.default_model}' is no longer available and has been reset"
-            config.default_model = None
 
-        config.models = model_names
-        mgr.save_config(config)
-
-        result: dict = {"models": model_names, "model_context_windows": model_context_windows}
-        if warning:
-            result["default_model_warning"] = warning
-        return result
+        return {
+            "models": model_names,
+            "model_context_windows": model_context_windows,
+            "default_model_warning": warning,
+        }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))

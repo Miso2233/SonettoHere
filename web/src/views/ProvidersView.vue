@@ -66,12 +66,13 @@
     <!-- ── 表单模式（添加/编辑） ── -->
     <form v-else class="wizard-form" @submit.prevent="handleSave">
       <div class="form-section">
-        <label class="form-label">提供商</label>
+        <label class="form-label">提供商适配器</label>
         <select v-model="form.provider_type" class="input" :disabled="isEditing">
           <option v-for="preset in presets" :key="preset.id" :value="preset.id">
             {{ preset.label }}
           </option>
         </select>
+        <div class="form-hint">目前仅支持 OpenAI 兼容适配器</div>
       </div>
 
       <div class="form-section">
@@ -115,11 +116,12 @@
       <!-- 模型列表 -->
       <div v-if="discoveredModels.length > 0" class="form-section">
         <label class="form-label">选择模型（{{ selectedModels.length }}/{{ discoveredModels.length }}）</label>
+        <input v-model="modelSearch" class="input model-search-input" placeholder="搜索模型…" />
         <div class="model-list">
-          <div v-for="m in discoveredModels" :key="m" class="model-item" :class="{ 'default-model-item': form.defaultModel === m }">
+          <div v-for="m in filteredModels" :key="m" class="model-item" :class="{ 'default-model-item': form.defaultModel === m }">
             <label class="model-checkbox-label">
               <input type="checkbox" :value="m" :checked="selectedModels.includes(m)" @change="toggleModel(m)" />
-              <span class="model-name-text">{{ m }}<span v-if="modelContextWindows[m]" class="ctx-badge">{{ fmtCtx(modelContextWindows[m]) }}</span></span>
+              <span class="model-name-text"><span v-html="highlightName(m)"></span><span v-if="modelContextWindows[m]" class="ctx-badge">{{ fmtCtx(modelContextWindows[m]) }}</span></span>
               <span v-if="editingModelVision[m] === true" class="vision-badge">视觉</span>
               <span v-else-if="editingModelVision[m] === false" class="vision-badge no-vision">无视觉</span>
             </label>
@@ -158,13 +160,6 @@ import Icon from '@/components/Icon.vue'
 // ── 预设提供商列表 ──
 const presets = [
   { id: 'openai', label: 'OpenAI Compatible', base_url: '' },
-  { id: 'deepseek', label: 'DeepSeek', base_url: 'https://api.deepseek.com' },
-  { id: 'qwen', label: 'Qwen', base_url: 'https://dashscope.aliyuncs.com/compatible-mode/v1' },
-  { id: 'kimi', label: 'Kimi', base_url: 'https://api.moonshot.cn/v1' },
-  { id: 'minimax', label: 'MiniMax', base_url: 'https://api.minimax.chat/v1' },
-  { id: 'openrouter', label: 'OpenRouter', base_url: 'https://openrouter.ai/api/v1' },
-  { id: 'mimo', label: 'Mimo', base_url: 'https://api.xiaomimimo.com/v1' },
-  { id: 'custom', label: 'Custom', base_url: '' },
 ]
 
 // ── 模式 ──
@@ -173,7 +168,7 @@ const providers = ref<ProviderConfig[]>([])
 const loading = ref(false)
 
 // ── 表单 ──
-const form = ref({ id: '', provider_type: 'deepseek', label: '', api_key: '', base_url: '', isDefaultProvider: false, defaultModel: null as string | null })
+const form = ref({ id: '', provider_type: 'openai', label: '', api_key: '', base_url: '', isDefaultProvider: false, defaultModel: null as string | null })
 const isEditing = computed(() => mode.value === 'edit')
 const editingId = ref('')
 const defaultModelWarning = ref('')
@@ -195,6 +190,14 @@ watch(() => form.value.provider_type, onPresetChange)
 function fmtCtx(ctx: number): string {
   if (ctx >= 1_000_000) return (ctx / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M'
   return Math.round(ctx / 1000).toLocaleString() + 'K'
+}
+
+function highlightName(name: string): string {
+  const q = modelSearch.value.trim()
+  if (!q) return name
+  const idx = name.toLowerCase().indexOf(q.toLowerCase())
+  if (idx === -1) return name
+  return name.slice(0, idx) + '<strong>' + name.slice(idx, idx + q.length) + '</strong>' + name.slice(idx + q.length)
 }
 
 // ── 测试连接 ──
@@ -229,6 +232,12 @@ async function handleTest() {
 const discovering = ref(false)
 const discoveredModels = ref<string[]>([])
 const selectedModels = ref<string[]>([])
+const modelSearch = ref('')
+const filteredModels = computed(() => {
+  const q = modelSearch.value.trim().toLowerCase()
+  if (!q) return discoveredModels.value
+  return discoveredModels.value.filter(m => m.toLowerCase().includes(q))
+})
 
 // ── 视觉能力 ──
 const editingModelVision = ref<Record<string, boolean>>({})
@@ -240,11 +249,13 @@ async function handleDiscover() {
   discovering.value = true
   formError.value = ''
   defaultModelWarning.value = ''
+  // 记住拉取前的选择，拉取后尽量恢复
+  const prevSelected = [...selectedModels.value]
   try {
     if (isEditing.value && !form.value.api_key) {
       const res = await api.discoverModelsForExisting(editingId.value)
       discoveredModels.value = res.models
-      selectedModels.value = [...res.models]
+      selectedModels.value = res.models.filter(m => prevSelected.includes(m))
       modelContextWindows.value = res.model_context_windows ?? {}
       if (res.default_model_warning) {
         defaultModelWarning.value = res.default_model_warning
@@ -256,7 +267,7 @@ async function handleDiscover() {
         base_url: form.value.base_url,
       })
       discoveredModels.value = res.models
-      selectedModels.value = [...res.models]
+      selectedModels.value = res.models.filter(m => prevSelected.includes(m))
       modelContextWindows.value = res.model_context_windows ?? {}
     }
   } catch (e: any) {
@@ -297,7 +308,7 @@ async function loadProviders() {
 
 function startAdd() {
   mode.value = 'add'
-  form.value = { id: '', provider_type: 'deepseek', label: '', api_key: '', base_url: presetBaseUrl('deepseek'), isDefaultProvider: false, defaultModel: null }
+  form.value = { id: '', provider_type: 'openai', label: '', api_key: '', base_url: presetBaseUrl('openai'), isDefaultProvider: false, defaultModel: null }
   discoveredModels.value = []
   selectedModels.value = []
   editingModelVision.value = {}
@@ -657,6 +668,10 @@ onMounted(loadProviders)
 .input.mono { font-family: 'SF Mono', 'Consolas', monospace; font-size: 13px; }
 select.input { cursor: pointer; }
 .form-hint { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.model-search-input {
+  margin-bottom: 4px;
+  font-size: 13px;
+}
 
 .form-row {
   display: flex;
