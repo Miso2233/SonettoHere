@@ -1,5 +1,20 @@
 news:
-  - id: "upgrade-auto-install-deps"
+  - id: "memory-grid-dashboard"
+    title: "二维网格记忆看板上线"
+    description: "记忆展示页焕新为二维网格布局，统计栏环形图 + 品牌标题，热门记忆排行、最近活动时间线、主题分区卡片一目了然。支持搜索高亮、条目删除、展开收起。"
+    type: "feat"
+    date: "2026-07-21"
+    tags: ["记忆", "UI", "重设计"]
+    version: "v3.3.0"
+    pr_number: 258
+  - id: "v3.3.0-release"
+    title: "发布 v3.3.0 版本"
+    description: "v3.3.0 带来记忆展示页面的全面重设计。全新的二维网格看板替代单条轮播模式，环形图统计栏、热门排行、时间线、主题分区卡片。后端新增 DELETE /api/memories/{id} 单条记忆删除接口。修复拉取模型取消时数据被意外保存的 bug。"
+    type: "feat"
+    date: "2026-07-21"
+    tags: ["发布", "版本"]
+    version: "v3.3.0"
+    pr_number: 258
     title: "升级器自动安装新增依赖"
     description: "upgrade.py 在 git pull 后自动检测依赖文件变更并安装对应依赖，不再需要手动执行 npm install 或 pip install -e ."
     type: "feat"
