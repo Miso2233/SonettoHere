@@ -32,7 +32,7 @@
       <div class="stats-bar">
         <div class="stats-brand">
           <span class="stats-title">Memory</span>
-          <span class="stats-subtitle">remembered for you</span>
+          <span class="stats-subtitle">Remembered For You</span>
         </div>
         <div class="stats-metrics">
           <div class="stats-donut">
