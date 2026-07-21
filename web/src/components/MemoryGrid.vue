@@ -28,27 +28,27 @@
         <span class="search-count">{{ filteredSections.reduce((s, sec) => s + sec.items.length, 0) }}/{{ sections.reduce((s, sec) => s + sec.items.length, 0) }}</span>
       </div>
 
-      <!-- 统计栏：左环形图 + 右标题与数字 -->
+      <!-- 统计栏：左标题 + 右环形图与数字 -->
       <div class="stats-bar">
-        <div class="stats-donut">
-          <svg viewBox="0 0 120 120" width="120" height="120" class="donut-svg">
-            <circle cx="60" cy="60" r="42" fill="none" stroke="var(--border)" stroke-width="12" />
-            <circle
-              cx="60" cy="60" r="42" fill="none"
-              stroke="var(--accent)" stroke-width="12"
-              :stroke-dasharray="avgDash"
-              transform="rotate(-90 60 60)"
-            />
-          </svg>
-          <div class="donut-text">
-            <span class="donut-value">{{ avgHits }}</span>
-            <span class="donut-unit">均引用</span>
-          </div>
+        <div class="stats-brand">
+          <span class="stats-title">Memory</span>
+          <span class="stats-subtitle">remembered for you</span>
         </div>
-        <div class="stats-right">
-          <div class="stats-brand">
-            <span class="stats-title">Memory</span>
-            <span class="stats-subtitle">remembered for you</span>
+        <div class="stats-metrics">
+          <div class="stats-donut">
+            <svg viewBox="0 0 120 120" width="104" height="104" class="donut-svg">
+              <circle cx="60" cy="60" r="42" fill="none" stroke="var(--border)" stroke-width="12" />
+              <circle
+                cx="60" cy="60" r="42" fill="none"
+                stroke="var(--accent)" stroke-width="12"
+                :stroke-dasharray="avgDash"
+                transform="rotate(-90 60 60)"
+              />
+            </svg>
+            <div class="donut-text">
+              <span class="donut-value">{{ avgHits }}</span>
+              <span class="donut-unit">均引用</span>
+            </div>
           </div>
           <div class="stats-figures">
             <div class="stat-figure">
@@ -315,11 +315,35 @@ onMounted(loadMemories)
   border-radius: var(--radius);
   padding: 20px 24px;
 }
+.stats-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stats-title {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.8px;
+  line-height: 1.05;
+}
+.stats-subtitle {
+  font-size: 14px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  letter-spacing: 0.4px;
+}
+.stats-metrics {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-left: auto;
+}
 .stats-donut {
   flex-shrink: 0;
   position: relative;
-  width: 120px;
-  height: 120px;
+  width: 104px;
+  height: 104px;
 }
 .donut-svg {
   display: block;
@@ -334,7 +358,7 @@ onMounted(loadMemories)
   pointer-events: none;
 }
 .donut-value {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.2;
@@ -344,33 +368,10 @@ onMounted(loadMemories)
   color: var(--text-tertiary);
   line-height: 1;
 }
-.stats-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.stats-brand {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.stats-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--text-primary);
-  letter-spacing: -0.5px;
-  line-height: 1.1;
-}
-.stats-subtitle {
-  font-size: 13px;
-  color: var(--text-tertiary);
-  font-weight: 400;
-  letter-spacing: 0.2px;
-}
 .stats-figures {
   display: flex;
-  gap: 24px;
+  flex-direction: column;
+  gap: 6px;
 }
 .stat-figure {
   display: flex;
@@ -378,10 +379,11 @@ onMounted(loadMemories)
   gap: 8px;
 }
 .figure-num {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: -0.3px;
+  min-width: 3ch;
 }
 .figure-label {
   font-size: 13px;
@@ -529,6 +531,6 @@ onMounted(loadMemories)
   .recent-widget,
   .section-widget { grid-column: 1; }
   .stats-bar { flex-direction: column; align-items: flex-start; gap: 16px; }
-  .stats-figures { flex-wrap: wrap; gap: 16px; }
+  .stats-metrics { margin-left: 0; }
 }
 </style>
