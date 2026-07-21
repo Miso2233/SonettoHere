@@ -127,6 +127,7 @@
                     class="item-history-toggle"
                     @click="toggleHistory(item.id)"
                   >📜</span>
+                  <span class="item-delete" @click="handleDelete(item.id, $event)">✕</span>
                 </div>
                 <div class="item-desc" v-html="highlight(item.description)"></div>
                 <div
@@ -153,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api } from '@/api'
 import type { VignetteSection } from '@/types'
 
@@ -241,6 +242,18 @@ function toggleHistory(id: string) {
 function visibleItems(section: VignetteSection, index: number) {
   if (expandedSections.value.includes(index)) return section.items
   return section.items.slice(0, MAX_VISIBLE)
+}
+
+async function handleDelete(id: string, event: MouseEvent) {
+  event.stopPropagation()
+  if (!confirm(`确定删除记忆「${id}」？`)) return
+  try {
+    await api.deleteMemory(id)
+    const res = await api.getMemories()
+    sections.value = res.sections || []
+  } catch (e: any) {
+    alert('删除失败: ' + (e.message || e))
+  }
 }
 
 function toggleSection(index: number) {
@@ -506,6 +519,21 @@ onMounted(loadMemories)
   opacity: 0.5; transition: opacity 0.12s;
 }
 .item-history-toggle:hover { opacity: 1; }
+.item-delete {
+  cursor: pointer;
+  opacity: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  transition: opacity 0.12s, color 0.12s;
+  padding: 0 4px;
+}
+.memory-item:hover .item-delete {
+  opacity: 0.5;
+}
+.item-delete:hover {
+  color: var(--status-error) !important;
+  opacity: 1 !important;
+}
 .item-desc {
   font-size: 13px; line-height: 1.6; color: var(--text-primary);
 }
