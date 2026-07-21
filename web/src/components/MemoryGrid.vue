@@ -31,7 +31,7 @@
       <!-- 统计栏：左环形图 + 右数字 -->
       <div class="stats-bar">
         <div class="stats-donut">
-          <svg viewBox="0 0 120 120" width="120" height="120">
+          <svg viewBox="0 0 120 120" width="120" height="120" class="donut-svg">
             <circle cx="60" cy="60" r="42" fill="none" stroke="var(--border)" stroke-width="12" />
             <circle
               cx="60" cy="60" r="42" fill="none"
@@ -39,11 +39,11 @@
               :stroke-dasharray="avgDash"
               transform="rotate(-90 60 60)"
             />
-            <text x="60" y="58" text-anchor="middle" fill="var(--text-primary)"
-              font-size="26" font-weight="700" dominant-baseline="central">{{ avgHits }}</text>
-            <text x="60" y="84" text-anchor="middle" fill="var(--text-tertiary)"
-              font-size="11">均引用</text>
           </svg>
+          <div class="donut-text">
+            <span class="donut-value">{{ avgHits }}</span>
+            <span class="donut-unit">均引用</span>
+          </div>
         </div>
         <div class="stats-list">
           <div class="stats-item">
@@ -311,7 +311,32 @@ onMounted(loadMemories)
 }
 .stats-donut {
   flex-shrink: 0;
-  line-height: 0;
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+.donut-svg {
+  display: block;
+}
+.donut-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.donut-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.donut-unit {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  line-height: 1;
 }
 .stats-list {
   display: flex;
