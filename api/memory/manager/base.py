@@ -18,7 +18,7 @@ class MemoryItem:
         self,
         description: str,
         theme: str,
-        history: list[dict] | None = None,
+        history: list[dict[str, str]] | None = None,
         latest_update_time: str | None = None,
         hit: int = 0,
     ) -> None:
@@ -152,7 +152,7 @@ class BaseMemoryManager(ABC):
             raise ValueError(f"Memory item with ID {id} not found")
         return items[id].show_description_history()
 
-    def get_memories_grouped(self) -> dict:
+    def get_memories_grouped(self) -> dict[str, Any]:
         """按 theme 分组返回记忆数据，用于 Vignette 前端瀑布流展示。"""
         items = self._load_all()
         groups: dict[str, list[dict]] = {}

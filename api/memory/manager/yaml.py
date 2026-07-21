@@ -13,7 +13,7 @@ MAX_DESC_LENGTH = 75
 
 
 class YamlMemoryManager(BaseMemoryManager):
-    def __init__(self, yaml_file: str):
+    def __init__(self, yaml_file: str) -> None:
         self._yaml_file = yaml_file
         self._ensure_file_exists()
 
@@ -135,7 +135,7 @@ class YamlMemoryManager(BaseMemoryManager):
         merged_description: str,
         merged_theme: str,
         reason: str,
-    ):
+    ) -> None:
         with portalocker.Lock(self._lock_path, timeout=5):
             items = self._load_all()
             if id1 not in items or id2 not in items:
@@ -152,7 +152,7 @@ class YamlMemoryManager(BaseMemoryManager):
         reason: str,
         new_description: str | None = None,
         new_theme: str | None = None,
-    ):
+    ) -> None:
         with portalocker.Lock(self._lock_path, timeout=5):
             items = self._load_all()
             if id not in items:

@@ -1,5 +1,7 @@
 """记忆管理器构造器 — 独立于具体后端。"""
 
+from typing import Any
+
 from api.memory.manager.base import BaseMemoryManager
 from api.memory.manager.yaml import YamlMemoryManager
 
@@ -34,7 +36,7 @@ class MemoryManagerBuilder:
 
     def __init__(self) -> None:
         self._cls: type[BaseMemoryManager] = YamlMemoryManager
-        self._kwargs: dict = {}
+        self._kwargs: dict[str, Any] = {}
 
     def with_backend(
         self, cls: type[BaseMemoryManager]

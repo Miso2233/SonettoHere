@@ -94,7 +94,7 @@ def _set_current_mm(mm: BaseMemoryManager | None) -> None:
 # ── 格式化辅助 ──────────────────────────────────────────────
 
 
-def _format_narrative(items: list[dict]) -> str:
+def _format_narrative(items: list[dict[str, str]]) -> str:
     """将 MemoryManager.show() 的输出格式化为人类可读的长记忆叙事文本。"""
     if not items:
         return ""
@@ -117,7 +117,7 @@ def _format_narrative(items: list[dict]) -> str:
     return "\n".join(lines).strip() + "\n"
 
 
-def _format_entries_for_tool(items: list[dict]) -> str:
+def _format_entries_for_tool(items: list[dict[str, str]]) -> str:
     """为 read_memories 工具格式化条目（按 theme 分组，带 ID）。"""
     if not items:
         return "（暂无记忆条目）"
@@ -148,7 +148,7 @@ def get_narrative() -> str:
     return _format_narrative(mm.show())
 
 
-def _format_messages(messages: list[dict]) -> str:
+def _format_messages(messages: list[dict[str, str]]) -> str:
     """将消息列表格式化为可读文本，过滤掉工具输出避免幻觉。"""
     lines = []
     for m in messages:
