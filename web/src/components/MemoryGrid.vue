@@ -117,7 +117,7 @@
           </div>
           <div class="widget-body">
             <div class="memory-list">
-              <div v-for="item in section.items" :key="item.id" class="memory-item">
+              <div v-for="item in visibleItems(section, si)" :key="item.id" class="memory-item">
                 <div class="item-meta">
                   <span class="item-tag">{{ item.id }}</span>
                   <span class="item-hit">📌 <strong>{{ item.hit }}</strong></span>
@@ -140,6 +140,11 @@
                 </div>
               </div>
             </div>
+            <button
+              v-if="section.items.length > MAX_VISIBLE"
+              class="expand-btn"
+              @click="toggleSection(si)"
+            >{{ expandedSections.has(si) ? '收起' : `展开全部 ${section.items.length} 条` }}</button>
           </div>
         </div>
       </div>
@@ -158,6 +163,9 @@ const sections = ref<VignetteSection[]>([])
 const searchQuery = ref('')
 const expandedHistory = ref<string | null>(null)
 const searchRef = ref<HTMLInputElement>()
+const expandedSections = ref<Set<number>>(new Set())
+
+const MAX_VISIBLE = 20
 
 // ── 数据加载 ──
 async function loadMemories() {
@@ -228,6 +236,17 @@ function themeColor(index: number): string {
 
 function toggleHistory(id: string) {
   expandedHistory.value = expandedHistory.value === id ? null : id
+}
+
+function visibleItems(section: VignetteSection, index: number) {
+  if (expandedSections.value.has(index)) return section.items
+  return section.items.slice(0, MAX_VISIBLE)
+}
+
+function toggleSection(index: number) {
+  const s = new Set(expandedSections.value)
+  if (s.has(index)) s.delete(index) else s.add(index)
+  expandedSections.value = s
 }
 
 function highlight(text: string): string {
@@ -402,7 +421,7 @@ onMounted(loadMemories)
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 }
 .hot-widget { grid-column: span 2; grid-row: span 2; }
-.recent-widget { grid-column: span 2; grid-row: span 1; }
+.recent-widget { grid-column: span 2; grid-row: span 2; }
 .section-widget { grid-column: span 1; }
 
 .widget-header {
@@ -504,6 +523,26 @@ onMounted(loadMemories)
 }
 .h-row:last-child { border-bottom: none; }
 .h-time { font-size: 10px; color: var(--text-tertiary); margin-left: 6px; }
+
+/* ── 展开按钮 ── */
+.expand-btn {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.expand-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
 
 /* ── 圆点 ── */
 .theme-dot {
