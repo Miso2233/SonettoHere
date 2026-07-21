@@ -39,9 +39,9 @@
               :stroke-dasharray="avgDash"
               transform="rotate(-90 60 60)"
             />
-            <text x="60" y="52" text-anchor="middle" fill="var(--text-primary)"
-              font-size="26" font-weight="700">{{ avgHits }}</text>
-            <text x="60" y="70" text-anchor="middle" fill="var(--text-tertiary)"
+            <text x="60" y="58" text-anchor="middle" fill="var(--text-primary)"
+              font-size="26" font-weight="700" dominant-baseline="central">{{ avgHits }}</text>
+            <text x="60" y="84" text-anchor="middle" fill="var(--text-tertiary)"
               font-size="11">均引用</text>
           </svg>
         </div>
