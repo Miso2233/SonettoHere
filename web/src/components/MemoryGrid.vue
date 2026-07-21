@@ -232,6 +232,7 @@ onMounted(loadMemories)
 <style scoped>
 .memory-grid {
   max-width: 1200px;
+  margin: 0 auto;
 }
 
 /* ── 加载态 ── */
