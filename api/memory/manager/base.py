@@ -1,4 +1,9 @@
-"""记忆管理器抽象基类。"""
+"""记忆管理器抽象基类 — 基于三个原语的泛化 CRUD 框架。
+
+所有记忆存储后端均应继承 BaseMemoryManager，
+仅需实现 _load_all / _save_all / _write_lock 三个抽象原语，
+即可免费获得完整的 CRUD、字段校验和查询方法。
+"""
 
 import datetime
 import secrets
@@ -6,74 +11,7 @@ from abc import ABC, abstractmethod
 from contextlib import AbstractContextManager
 from typing import Any, TypedDict
 
-
-def _now() -> str:
-    """返回当前时间的格式化字符串。"""
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-class MemoryItem:
-    """单条记忆的数据模型。不依赖具体存储后端。"""
-
-    def __init__(
-        self,
-        description: str,
-        theme: str,
-        history: list[dict[str, str]] | None = None,
-        latest_update_time: str | None = None,
-        hit: int = 0,
-    ) -> None:
-        self.description = description
-        self.theme = theme
-        self.history = history if history is not None else []
-        self.latest_update_time = latest_update_time if latest_update_time is not None else _now()
-        self.hit = hit
-
-    def update(
-        self,
-        reason: str,
-        new_description: str | None = None,
-        new_theme: str | None = None,
-    ) -> None:
-        """更新记忆内容并记录历史。"""
-        new_history: dict[str, str] = {"reason": reason}
-        if new_description is not None:
-            new_history["new_description"] = new_description
-            new_history["old_description"] = self.description
-            self.description = new_description
-        if new_theme is not None:
-            new_history["new_theme"] = new_theme
-            new_history["old_theme"] = self.theme
-            self.theme = new_theme
-        new_history["old_time"] = self.latest_update_time
-        self.latest_update_time = _now()
-        self.history.append(new_history)
-
-    def show_description_history(self) -> list[dict[str, str]]:
-        """返回描述变更历史（从当前到最早）。"""
-        result: list[dict[str, str]] = [
-            {"description": self.description, "time": self.latest_update_time}
-        ]
-        for entry in reversed(self.history):
-            if "old_description" in entry:
-                result.append(
-                    {
-                        "description": entry["old_description"],
-                        "time": entry["old_time"],
-                    }
-                )
-        return result
-
-    def merge(
-        self,
-        another: "MemoryItem",
-        reason: str,
-        merged_description: str,
-        merged_theme: str,
-    ) -> None:
-        """合并另一条记忆的历史到本条。"""
-        self.history += another.history
-        self.update(reason, merged_description, merged_theme)
+from api.memory.manager.item import MemoryItem
 
 
 class SelfCheckReport(TypedDict):
@@ -90,11 +28,58 @@ class SelfCheckReport(TypedDict):
 
 
 class BaseMemoryManager(ABC):
-    """记忆管理器抽象接口。
+    """记忆管理器抽象接口 — 基于三个原语的泛化 CRUD 框架。
 
     所有记忆存储后端（YAML、数据库等）均应继承此类。
-    子类只需实现 _load_all()、_save_all()、_write_lock() 三个原语，
-    即可继承 add / delete / update / merge 等公共方法。
+
+    ## 子类需实现的最小原语集
+
+    必须实现以下三个抽象方法，即可免费获得完整的 CRUD、字段校验和查询能力：
+
+    - ``_load_all() -> dict[str, MemoryItem]`` — **全量读取**。返回当前所有条目的 ID→对象映射。
+      默认 CRUD 的每次写操作都会调用此方法获取最新快照。
+
+    - ``_save_all(items) -> None`` — **全量覆写**。将整个条目字典持久化到后端。
+      YAML 后端使用 ``yaml.dump`` 写整个文件；数据库后端可保存单个快照表。
+
+    - ``_write_lock() -> AbstractContextManager[None]`` — **写操作锁上下文**。
+      所有 CRUD 方法在锁内执行 ``_load_all → 修改 → _save_all`` 序列。
+      YAML 后端以 ``portalocker.Lock`` 实现；数据库后端可使用事务。
+
+    ## 覆写 CRUD 以获得超越全量更新的性能
+
+    默认 CRUD 的模式是「加锁 → **_load_all 全量加载** → 修改 → **_save_all 全量覆写」。
+    这对 YAML 等文件后端合理，但对支持定点读写的后端（SQL、Redis 等）效率低下。
+    子类可直接覆写 CRUD 方法，利用后端的原生操作避免全量读写：
+
+    .. code-block:: python
+
+        class DbManager(BaseMemoryManager):
+            def update(self, id, reason, new_description=None, new_theme=None):
+                with self._write_lock():
+                    item = self._db.fetch_one(id)    # 定点读取
+                    item.update(reason, ...)
+                    self._db.update_one(id, item)     # 定点写入
+                    # 无需 _load_all / _save_all
+
+    注意：即使覆写了部分 CRUD，仍建议通过 ``_write_lock`` 保持并发语义一致性。
+
+    ## 基类提供的默认工具方法
+
+    ===  ================================
+    类别  方法                               说明
+    ===  ================================
+    查询  ``show()``                        返回 ``[{id, description, theme}]`` 列表
+    查询  ``show_description_history(id)``  追溯指定条目的描述变更史
+    查询  ``get_memories_grouped()``        按 theme 分组，供前端瀑布流展示
+    ID    ``_generate_id()``                默认 `secrets.token_hex(4)`，子类可覆写
+    校验  ``_validate_all_items(items)``    遍历检查字段完整性，返回 (issues, repaired)
+    CRUD  ``add(description, theme)``       添加条目
+    CRUD  ``delete(id)``                    删除条目
+    CRUD  ``update(id, reason, ...)``       更新条目（可改描述和/或主题）
+    CRUD  ``merge(id1, id2, ...)``          合并两条记忆，保留双方历史
+    CRUD  ``hit(id)``                       增加引用计数
+    ===  ================================
     """
 
     # ── 抽象存储原语 ────────────────────────────────────────

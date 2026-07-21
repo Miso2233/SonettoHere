@@ -1,12 +1,14 @@
 """YAML 文件后端的记忆管理器实现。"""
 
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
 import portalocker
 import yaml
 
-from api.memory.manager.base import BaseMemoryManager, MemoryItem, SelfCheckReport
+from api.memory.manager.base import BaseMemoryManager, SelfCheckReport
+from api.memory.manager.item import MemoryItem
 
 MAX_DESC_LENGTH = 75
 """记忆描述最大字数限制，超过此长度的创建/更新/合并请求将被驳回。"""
@@ -45,7 +47,7 @@ class YamlMemoryManager(BaseMemoryManager):
         return self._yaml_file + ".lock"
 
     @contextmanager
-    def _write_lock(self) -> None:
+    def _write_lock(self) -> Generator[None, None, None]:
         with portalocker.Lock(self._lock_path, timeout=5):
             yield
 
