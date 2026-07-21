@@ -24,7 +24,7 @@ async def delete_memory(memory_id: str, request: Request) -> dict:
     """删除指定 ID 的单条记忆。"""
     ltm = request.app.state.ltm
     try:
-        description = ltm.delete_memory(memory_id)
+        description = ltm._mm.delete(memory_id)
         return {"status": "deleted", "id": memory_id, "description": description}
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found")
