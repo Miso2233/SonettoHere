@@ -1,11 +1,11 @@
 <template>
   <div class="memory-view">
-    <MemoryPanel />
+    <MemoryGrid />
   </div>
 </template>
 
 <script setup lang="ts">
-import MemoryPanel from '@/components/MemoryPanel.vue'
+import MemoryGrid from '@/components/MemoryGrid.vue'
 </script>
 
 <style scoped>

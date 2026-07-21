@@ -194,13 +194,12 @@ class BaseMemoryManager(ABC):
                     "description": item.description,
                     "history": item.show_description_history(),
                     "_sort_time": item.latest_update_time,
+                    "hit": item.hit,
                 }
             )
         # 每组内按更新时间倒序
         for theme in groups:
             groups[theme].sort(key=lambda x: x["_sort_time"], reverse=True)
-            for entry in groups[theme]:
-                del entry["_sort_time"]
         # 分区间按条目数降序
         sections = [
             {"theme": theme, "items": items}

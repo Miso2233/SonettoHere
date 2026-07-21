@@ -306,6 +306,8 @@ export interface VignetteMemoryItem {
   id: string
   description: string
   history: MemoryHistoryEntry[]
+  hit: number
+  _sort_time: string
 }
 
 export interface VignetteSection {
