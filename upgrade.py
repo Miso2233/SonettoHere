@@ -4,9 +4,10 @@
 工作流程：
   1. 读取已应用的迁移 ID 列表（scripts/migrations/.applied）
   2. git pull 拉取最新代码
-  3. 扫描 scripts/migrations/，找出尚未应用的迁移脚本
-  4. 按文件名字母序依次执行
-  5. 每成功一个，将迁移 ID 追加到 .applied
+  3. 若拉取后检测到依赖文件变更（web/package.json、pyproject.toml 等），自动安装
+  4. 扫描 scripts/migrations/，找出尚未应用的迁移脚本
+  5. 按文件名字母序依次执行
+  6. 每成功一个，将迁移 ID 追加到 .applied
 
 用法:
   python upgrade.py
@@ -117,6 +118,107 @@ def run_script(script: Path) -> None:
     print(f"[upgrade] ✔ {mig_id} 已记录")
 
 
+def _get_head_hash() -> str | None:
+    """获取当前 HEAD commit hash。非 git 仓库或出错时返回 None。"""
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return result.stdout.strip()
+
+
+def _get_changed_files(old_head: str) -> list[str]:
+    """获取 old_head 到当前 HEAD 之间有变更的文件列表。"""
+    result = subprocess.run(
+        ["git", "diff", "--name-only", old_head, "HEAD"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return []
+    return result.stdout.strip().splitlines() if result.stdout.strip() else []
+
+
+def _install_npm_dependencies() -> None:
+    """检测到 web/package.json 变更后，自动安装前端 npm 依赖。"""
+    web_dir = PROJECT_ROOT / "web"
+    if not (web_dir / "package.json").exists():
+        print("[upgrade] ⚠ web/package.json 不存在，跳过前端依赖安装")
+        return
+    print("[upgrade] 检测到前端依赖变更，正在安装 ...")
+    try:
+        result = subprocess.run(
+            ["npm", "install"],
+            cwd=web_dir, capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            print("[upgrade] ✔ 前端依赖安装完成")
+        else:
+            print(f"[upgrade] ⚠ npm install 失败:\n{result.stderr}")
+    except FileNotFoundError:
+        print("[upgrade] ⚠ 未检测到 npm，请手动执行: cd web && npm install")
+    except subprocess.TimeoutExpired:
+        print("[upgrade] ⚠ npm install 超时，请手动执行: cd web && npm install")
+
+
+def _install_python_dependencies() -> None:
+    """检测到 pyproject.toml 变更后，自动安装后端 Python 依赖。"""
+    if not (PROJECT_ROOT / "pyproject.toml").exists():
+        print("[upgrade] ⚠ pyproject.toml 不存在，跳过后端依赖安装")
+        return
+    print("[upgrade] 检测到后端依赖变更，正在安装 ...")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "-e", "."],
+            cwd=PROJECT_ROOT, capture_output=True, text=True, timeout=300,
+        )
+        if result.returncode == 0:
+            print("[upgrade] ✔ 后端依赖安装完成")
+        else:
+            print(f"[upgrade] ⚠ pip install 失败:\n{result.stderr}")
+    except FileNotFoundError:
+        print("[upgrade] ⚠ 未检测到 pip，请手动执行: pip install -e .")
+    except subprocess.TimeoutExpired:
+        print("[upgrade] ⚠ pip install 超时，请手动执行: pip install -e .")
+
+
+def _check_node_version() -> None:
+    """检查 Node.js 版本是否满足项目最低要求（>=18）。"""
+    try:
+        result = subprocess.run(
+            ["node", "--version"], capture_output=True, text=True, timeout=10,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        print("[upgrade] ⚠ 未检测到 Node.js，前端可能无法正常构建")
+        return
+    if result.returncode != 0:
+        print("[upgrade] ⚠ 未检测到 Node.js，前端可能无法正常构建")
+        return
+    version = result.stdout.strip().lstrip("v")
+    try:
+        major = int(version.split(".")[0])
+        if major < 18:
+            print(f"[upgrade] ⚠ Node.js 版本 ({version}) 过低，需要 >= 18，前端可能无法正常构建")
+    except (ValueError, IndexError):
+        pass
+
+
+def _handle_dependency_changes(changed_files: list[str]) -> None:
+    """根据 pull 拉取的变更文件列表，自动安装对应依赖。"""
+    changed_set = {f.replace("\\", "/") for f in changed_files}
+
+    npm_changed = bool(changed_set & {"web/package.json", "web/package-lock.json"})
+    python_changed = bool(changed_set & {"pyproject.toml", "requirements.txt"})
+
+    if npm_changed:
+        _install_npm_dependencies()
+    if python_changed:
+        _install_python_dependencies()
+
+    _check_node_version()
+
+
 def main():
     print("=" * 48)
     print("  SonettoHere — 配置升级")
@@ -126,7 +228,17 @@ def main():
     applied = read_applied_migrations()
     print(f"[upgrade] 已应用 {len(applied)} 个迁移")
 
+    # 记录 pull 前的 HEAD，用于检测依赖文件变更
+    head_before = _get_head_hash()
+
     git_pull()
+
+    # 若 HEAD 发生变更，检查依赖文件并自动安装
+    head_after = _get_head_hash()
+    if head_before and head_after and head_before != head_after:
+        changed = _get_changed_files(head_before)
+        if changed:
+            _handle_dependency_changes(changed)
 
     pending = discover_pending_migrations(applied)
     if not pending:
