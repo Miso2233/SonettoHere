@@ -79,4 +79,5 @@ class MemoryItem:
     ) -> None:
         """合并另一条记忆的历史到本条。"""
         self.history += another.history
+        self.hit = max(self.hit, another.hit)
         self.update(reason, merged_description, merged_theme)
