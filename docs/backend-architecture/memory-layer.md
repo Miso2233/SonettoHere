@@ -14,8 +14,9 @@
 
 | 文件/目录 | 职责 |
 |-----------|------|
-| `manager/base.py` | **BaseMemoryManager** — 抽象基类，定义 _load_all / _save_all 原语 + show / get_memories_grouped / _generate_id 默认实现 |
-| `manager/yaml.py` | **YamlMemoryManager(BaseMemoryManager)** — YAML 文件持久化 CRUD，portalocker 文件锁并发安全；**MemoryManagerBuilder** — 构造器，统一建造形式 |
+| `manager/base.py` | **BaseMemoryManager** — 抽象基类，定义 _load_all / _save_all / _write_lock 三个原语 + 完整 CRUD 默认实现 + show / get_memories_grouped / _validate_all_items / _generate_id |
+| `manager/yaml.py` | **YamlMemoryManager(BaseMemoryManager)** — YAML 文件持久化，仅实现 _load_all / _save_all / _write_lock + 介质相关 self_check |
+| `manager/builder.py` | **MemoryManagerBuilder** — 构造器，统一建造形式，与后端解耦 |
 | `long_term.py` | **LongTermMemory** — 后台 LLM 增量总结管线 + 5 个模块级 `@tool`；Builder → inject_all() 统一注入管理器到所有消费方 |
 | `callback.py` | MemoryToolCallback — CRUD 工具事件 → WebSocket 前端推送 |
 | `short_term.py` | **短期记忆管理器** — 全局 MemorySaver 单例，所有会话的 LangGraph 检查点共享此实例，通过 `thread_id = session.session_id` 区分隔离 |
@@ -27,13 +28,14 @@
 
 ### 1. 记忆的 CRUD 存储
 
-`BaseMemoryManager` 是抽象接口，定义 `_load_all()` / `_save_all()` 两个原语，并在其上实现 `show()`、`get_memories_grouped()`、`show_description_history()` 等通用方法。`YamlMemoryManager` 是 YAML 后端的实现，提供增（add）、删（delete）、改（update）、合并（merge）方法，使用 `portalocker` 文件锁保证多进程并发安全。
+`BaseMemoryManager` 是抽象接口，定义 `_load_all()` / `_save_all()` / `_write_lock()` 三个原语，并在其上实现 `add()`、`delete()`、`update()`、`merge()`、`hit()` 等 CRUD 方法，以及 `show()`、`get_memories_grouped()`、`_validate_all_items()`、`show_description_history()` 等通用方法。`YamlMemoryManager` 是 YAML 后端的实现，仅需实现三个原语即可免费继承所有 CRUD 和校验逻辑，使用 `portalocker` 文件锁保证多进程并发安全。
 
 构造方式通过 `MemoryManagerBuilder` 统一：
 
 ```python
 mm = MemoryManagerBuilder() \
-    .with_backend(YamlMemoryManager, yaml_file="config/personas/memory.yaml") \
+    .with_backend(YamlMemoryManager) \
+    .with_args(yaml_file="config/personas/memory.yaml") \
     .build()
 ```
 
@@ -59,33 +61,45 @@ ltm.inject_all()   # → _set_current_mm() + tools/memory inject_memory_manager(
 
 ```
 BaseMemoryManager (抽象基类)
-├── _load_all()          ← 抽象原语
-├── _save_all()          ← 抽象原语
-├── _generate_id()       ← 默认实现：secrets.token_hex(4)
-├── show()               ← 遍历 _load_all → [{id, description, theme}]
+├── _load_all()            ← 抽象原语
+├── _save_all()            ← 抽象原语
+├── _write_lock()          ← 抽象原语（锁上下文）
+├── _generate_id()         ← 默认实现：secrets.token_hex(4)
+├── add / delete / update / merge / hit  ← 基于三个原语的完整 CRUD
+├── _validate_all_items()  ← 字段完整性校验（介质无关）
+├── show()                 ← 遍历 _load_all → [{id, description, theme}]
 ├── show_description_history()  ← 查找 → MemoryItem.show_description_history()
 ├── get_memories_grouped()      ← 分组 + 排序
 │
 └── YamlMemoryManager (YAML 后端)
-    ├── _load_all()      ← yaml.safe_load
-    ├── _save_all()      ← yaml.dump
-    ├── add / delete / update / merge  ← portalocker 事务
-    └── MemoryItem        ← 数据模型，在 base.py 中定义
+    ├── _load_all()        ← yaml.safe_load
+    ├── _save_all()        ← yaml.dump
+    ├── _write_lock()      ← portalocker.Lock 上下文
+    └── self_check()       ← 文件存在性 + YAML 解析 + _validate_all_items()
+
+Data Model: MemoryItem (在 base.py 中定义)
 ```
 
-### YamlMemoryManager 核心 CRUD + 文件锁
+### BaseMemoryManager 泛化 CRUD + _write_lock 原语
+
+CRUD 方法在基类中基于三个原语实现，任何后端仅需覆写原语即可免费继承：
 
 ```python
-# api/memory/manager/yaml.py
+# api/memory/manager/base.py
 
-class YamlMemoryManager(BaseMemoryManager):
-    def __init__(self, yaml_file: str):
-        self._yaml_file = yaml_file
-        self._ensure_file_exists()
+class BaseMemoryManager(ABC):
 
+    # ── 三个抽象原语（子类必须实现） ──
+    @abstractmethod
+    def _load_all(self) -> dict[str, MemoryItem]: ...
+    @abstractmethod
+    def _save_all(self, items: dict[str, MemoryItem]) -> None: ...
+    @abstractmethod
+    def _write_lock(self) -> AbstractContextManager[None]: ...
+
+    # ── 泛化 CRUD（基于原语，子类无偿继承） ──
     def add(self, description: str, theme: str) -> str:
-        """新增记忆条目。使用 portalocker 文件锁保证并发安全。"""
-        with portalocker.Lock(self._lock_path, timeout=5):
+        with self._write_lock():
             items = self._load_all()
             new_id = self._generate_id()
             items[new_id] = MemoryItem(description, theme)
@@ -93,36 +107,68 @@ class YamlMemoryManager(BaseMemoryManager):
         return new_id
 
     def delete(self, id: str) -> str:
-        """删除条目，返回删除的描述文本。"""
-        with portalocker.Lock(self._lock_path, timeout=5):
+        with self._write_lock():
             items = self._load_all()
             if id not in items:
-                raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
+                raise ValueError(f"Memory item with ID {id} not found")
             removed = items.pop(id)
             self._save_all(items)
         return removed.description
 
     def update(self, id: str, reason: str,
                new_description: str | None = None,
-               new_theme: str | None = None):
-        """更新条目，记录变更原因和历史。"""
-        with portalocker.Lock(self._lock_path, timeout=5):
+               new_theme: str | None = None) -> None:
+        with self._write_lock():
             items = self._load_all()
             if id not in items:
-                raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
+                raise ValueError(f"Memory item with ID {id} not found")
             items[id].update(reason, new_description, new_theme)
             self._save_all(items)
 
     def merge(self, id1: str, id2: str,
-              merged_description: str, merged_theme: str, reason: str):
-        """合并两条记忆，保留完整修改历史。"""
-        with portalocker.Lock(self._lock_path, timeout=5):
+              merged_description: str, merged_theme: str, reason: str) -> None:
+        with self._write_lock():
             items = self._load_all()
             if id1 not in items or id2 not in items:
                 raise ValueError(...)
             items[id1].merge(items[id2], reason, merged_description, merged_theme)
             items.pop(id2)
             self._save_all(items)
+
+    def hit(self, id: str) -> int:
+        with self._write_lock():
+            items = self._load_all()
+            if id not in items:
+                raise ValueError(f"Memory item with ID {id} not found")
+            items[id].hit += 1
+            self._save_all(items)
+            return items[id].hit
+```
+
+### YamlMemoryManager 仅需三个原语
+
+```python
+# api/memory/manager/yaml.py
+
+class YamlMemoryManager(BaseMemoryManager):
+    def __init__(self, yaml_file: str) -> None:
+        self._yaml_file = yaml_file
+        self._ensure_file_exists()
+
+    def _load_all(self) -> dict[str, MemoryItem]:
+        with yaml_path.open(encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        return {id: MemoryItem(**data[id]) for id in data}
+
+    def _save_all(self, items: dict[str, MemoryItem]) -> None:
+        data_dict = {id: item.__dict__ for id, item in items.items()}
+        with yaml_path.open("w", encoding="utf-8") as f:
+            yaml.dump(data_dict, f, default_flow_style=False, allow_unicode=True)
+
+    @contextmanager
+    def _write_lock(self) -> None:
+        with portalocker.Lock(self._lock_path, timeout=5):
+            yield
 ```
 
 文件锁机制：
@@ -196,7 +242,7 @@ LongTermMemory.inject_all()
 
 ### 文件锁保证并发安全
 
-所有 `YamlMemoryManager` 的写操作（add / delete / update / merge）都通过 `portalocker.Lock` 保护，读操作（show / show_description_history / get_memories_grouped）基于 `_load_all()` 实现，锁由 CRUD 方法自行管理。锁文件 (`.lock`) 与数据文件 (.yaml) 同路径，超时 5 秒。
+所有写操作（add / delete / update / merge / hit）都通过 `_write_lock()` 保护。YAML 后端以 `portalocker.Lock` 实现该原语；数据库后端可替换为事务或行级锁等。读操作（show / show_description_history / get_memories_grouped）基于 `_load_all()` 实现，默认无锁。锁文件 (`.lock`) 与数据文件 (.yaml) 同路径，超时 5 秒。
 
 ```python
 @property
@@ -207,9 +253,10 @@ def _lock_path(self) -> str:
 ### YAML 持久化
 
 - 数据以 `dict[id → MemoryItem.__dict__]` 的格式写入 YAML
-- `_load_all` / `_save_all` 是对 YAML 文件的唯二读写入口
+- `_load_all` / `_save_all` / `_write_lock` 是对后端的唯三抽象原语，CRUD 基于此在基类泛化实现
 - ID 生成：`secrets.token_hex(4)` → 8 字符十六进制（旧版 UUID 格式由迁移脚本 `scripts/migrations/uuid-to-hex-id.py` 一次性转换）
 - `MemoryItem` 在 `base.py` 中定义，提供 `show_description_history()` 历史追溯
+- `_validate_all_items()` 在基类提供介质无关的字段完整性校验，`self_check` 可直接调用
 
 ### 后台总结不阻塞聊天
 

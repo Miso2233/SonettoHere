@@ -1,6 +1,6 @@
 """YAML 文件后端的记忆管理器实现。"""
 
-import datetime
+from contextlib import contextmanager
 from pathlib import Path
 
 import portalocker
@@ -44,11 +44,13 @@ class YamlMemoryManager(BaseMemoryManager):
     def _lock_path(self) -> str:
         return self._yaml_file + ".lock"
 
+    @contextmanager
+    def _write_lock(self) -> None:
+        with portalocker.Lock(self._lock_path, timeout=5):
+            yield
+
     def self_check(self) -> SelfCheckReport:
         with portalocker.Lock(self._lock_path, timeout=5):
-            issues: list[str] = []
-            repaired: list[str] = []
-
             yaml_path = Path(self._yaml_file)
 
             # 1. 文件是否可达
@@ -71,32 +73,8 @@ class YamlMemoryManager(BaseMemoryManager):
                     item_count=0,
                 )
 
-            # 3. 逐条校验字段完整性
-            for id, item in items.items():
-                if not isinstance(item.description, str) or not item.description.strip():
-                    item.description = "(空)"
-                    repaired.append(f"条目 {id}: description 为空，已重置")
-
-                if not isinstance(item.theme, str) or not item.theme.strip():
-                    item.theme = "(未分类)"
-                    repaired.append(f"条目 {id}: theme 为空，已重置")
-
-                if not isinstance(item.history, list):
-                    item.history = []
-                    repaired.append(f"条目 {id}: history 非列表，已重置")
-
-                if (
-                    not isinstance(item.latest_update_time, str)
-                    or not item.latest_update_time.strip()
-                ):
-                    item.latest_update_time = datetime.datetime.now().strftime(
-                        "%Y-%m-%d %H:%M:%S"
-                    )
-                    repaired.append(f"条目 {id}: latest_update_time 无效，已重置")
-
-                if not isinstance(item.hit, int) or item.hit < 0:
-                    item.hit = 0
-                    repaired.append(f"条目 {id}: hit 无效，已重置为 0")
+            # 3. 逐条校验字段完整性（介质无关）
+            issues, repaired = self._validate_all_items(items)
 
             # 4. 有修复则写回
             if repaired:
@@ -111,61 +89,4 @@ class YamlMemoryManager(BaseMemoryManager):
                 item_count=len(items),
             )
 
-    def add(self, description: str, theme: str) -> str:
-        with portalocker.Lock(self._lock_path, timeout=5):
-            items = self._load_all()
-            new_id = self._generate_id()
-            items[new_id] = MemoryItem(description, theme)
-            self._save_all(items)
-        return new_id
-
-    def delete(self, id: str) -> str:
-        with portalocker.Lock(self._lock_path, timeout=5):
-            items = self._load_all()
-            if id not in items:
-                raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
-            removed = items.pop(id)
-            self._save_all(items)
-        return removed.description
-
-    def merge(
-        self,
-        id1: str,
-        id2: str,
-        merged_description: str,
-        merged_theme: str,
-        reason: str,
-    ) -> None:
-        with portalocker.Lock(self._lock_path, timeout=5):
-            items = self._load_all()
-            if id1 not in items or id2 not in items:
-                raise ValueError(
-                    f"YamlMemoryManager: Memory items with IDs {id1} and {id2} not found"
-                )
-            items[id1].merge(items[id2], reason, merged_description, merged_theme)
-            items.pop(id2)
-            self._save_all(items)
-
-    def update(
-        self,
-        id: str,
-        reason: str,
-        new_description: str | None = None,
-        new_theme: str | None = None,
-    ) -> None:
-        with portalocker.Lock(self._lock_path, timeout=5):
-            items = self._load_all()
-            if id not in items:
-                raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
-            items[id].update(reason, new_description, new_theme)
-            self._save_all(items)
-
-    def hit(self, id: str) -> int:
-        with portalocker.Lock(self._lock_path, timeout=5):
-            items = self._load_all()
-            if id not in items:
-                raise ValueError(f"YamlMemoryManager: Memory item with ID {id} not found")
-            items[id].hit += 1
-            self._save_all(items)
-            return items[id].hit
 
