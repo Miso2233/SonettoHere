@@ -28,7 +28,7 @@
         <span class="search-count">{{ filteredSections.reduce((s, sec) => s + sec.items.length, 0) }}/{{ sections.reduce((s, sec) => s + sec.items.length, 0) }}</span>
       </div>
 
-      <!-- 统计栏：左环形图 + 右数字 -->
+      <!-- 统计栏：左环形图 + 右标题与数字 -->
       <div class="stats-bar">
         <div class="stats-donut">
           <svg viewBox="0 0 120 120" width="120" height="120" class="donut-svg">
@@ -45,18 +45,24 @@
             <span class="donut-unit">均引用</span>
           </div>
         </div>
-        <div class="stats-list">
-          <div class="stats-item">
-            <span class="stats-item-num">{{ totalItems }}</span>
-            <span class="stats-item-label">记忆条目</span>
+        <div class="stats-right">
+          <div class="stats-brand">
+            <span class="stats-title">Memory</span>
+            <span class="stats-subtitle">remembered for you</span>
           </div>
-          <div class="stats-item">
-            <span class="stats-item-num">{{ sections.length }}</span>
-            <span class="stats-item-label">分区</span>
-          </div>
-          <div class="stats-item">
-            <span class="stats-item-num">{{ totalHits }}</span>
-            <span class="stats-item-label">总引用</span>
+          <div class="stats-figures">
+            <div class="stat-figure">
+              <span class="figure-num">{{ totalItems }}</span>
+              <span class="figure-label">记忆条目</span>
+            </div>
+            <div class="stat-figure">
+              <span class="figure-num">{{ sections.length }}</span>
+              <span class="figure-label">分区</span>
+            </div>
+            <div class="stat-figure">
+              <span class="figure-num">{{ totalHits }}</span>
+              <span class="figure-label">总引用</span>
+            </div>
           </div>
         </div>
       </div>
@@ -338,24 +344,46 @@ onMounted(loadMemories)
   color: var(--text-tertiary);
   line-height: 1;
 }
-.stats-list {
+.stats-right {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
-.stats-item {
+.stats-brand {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.stats-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.stats-subtitle {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 400;
+  letter-spacing: 0.2px;
+}
+.stats-figures {
+  display: flex;
+  gap: 24px;
+}
+.stat-figure {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
 }
-.stats-item-num {
-  font-size: 22px;
+.figure-num {
+  font-size: 20px;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: -0.3px;
-  min-width: 3ch;
 }
-.stats-item-label {
+.figure-label {
   font-size: 13px;
   color: var(--text-tertiary);
 }
@@ -501,5 +529,6 @@ onMounted(loadMemories)
   .recent-widget,
   .section-widget { grid-column: 1; }
   .stats-bar { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .stats-figures { flex-wrap: wrap; gap: 16px; }
 }
 </style>
