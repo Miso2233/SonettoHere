@@ -28,23 +28,23 @@
         <span class="search-count">{{ filteredSections.reduce((s, sec) => s + sec.items.length, 0) }}/{{ sections.reduce((s, sec) => s + sec.items.length, 0) }}</span>
       </div>
 
-      <!-- 统计条 -->
-      <div class="stat-grid">
-        <div class="stat-cell">
-          <div class="stat-num">{{ totalItems }}</div>
-          <div class="stat-label">记忆条目</div>
-        </div>
-        <div class="stat-cell">
-          <div class="stat-num">{{ sections.length }}</div>
-          <div class="stat-label">分区</div>
-        </div>
-        <div class="stat-cell">
-          <div class="stat-num">{{ totalHits }}</div>
-          <div class="stat-label">总引用</div>
-        </div>
-        <div class="stat-cell">
-          <div class="stat-num">{{ avgHits }}</div>
-          <div class="stat-label">均引用</div>
+      <!-- 统计环形图 -->
+      <div class="donut-row">
+        <div class="donut-cell" v-for="s in stats" :key="s.label">
+          <svg viewBox="0 0 80 80" width="80" height="80">
+            <circle cx="40" cy="40" r="28" fill="none" stroke="var(--border)" stroke-width="5" />
+            <circle
+              cx="40" cy="40" r="28" fill="none"
+              stroke="var(--accent)" stroke-width="5" stroke-linecap="round"
+              :stroke-dasharray="s.dashArray"
+              transform="rotate(-90 40 40)"
+            />
+            <text x="40" y="36" text-anchor="middle" fill="var(--text-primary)"
+              font-size="16" font-weight="700">{{ s.value }}</text>
+            <text x="40" y="50" text-anchor="middle" fill="var(--text-tertiary)"
+              font-size="9">{{ s.unit }}</text>
+          </svg>
+          <div class="donut-label">{{ s.label }}</div>
         </div>
       </div>
 
@@ -163,6 +163,21 @@ const avgHits = computed(() => {
   return n ? (totalHits.value / n).toFixed(1) : '0'
 })
 
+const R = 28
+const CIRCUM = 2 * Math.PI * R
+
+function dash(ratio: number): string {
+  const clamped = Math.min(ratio, 1)
+  return `${clamped * CIRCUM} ${(1 - clamped) * CIRCUM}`
+}
+
+const stats = computed(() => [
+  { value: totalItems.value, unit: '条', label: '记忆条目', dashArray: dash(totalItems.value / 50) },
+  { value: sections.value.length, unit: '个', label: '分区', dashArray: dash(sections.value.length / 10) },
+  { value: totalHits.value, unit: '次', label: '总引用', dashArray: dash(totalHits.value / 100) },
+  { value: parseFloat(avgHits.value), unit: '次', label: '均引用', dashArray: dash(parseFloat(avgHits.value) / 10) },
+])
+
 // ── 搜索 ──
 const filteredSections = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -277,26 +292,26 @@ onMounted(loadMemories)
   border-radius: 999px;
 }
 
-/* ── 统计条 ── */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
+/* ── 统计环形图 ── */
+.donut-row {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
   margin-bottom: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  padding: 16px 8px;
 }
-.stat-cell {
-  text-align: center; padding: 16px 8px;
-  border-right: 1px solid var(--border);
+.donut-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
 }
-.stat-cell:last-child { border-right: none; }
-.stat-num {
-  font-size: 26px; font-weight: 700; color: var(--accent);
-  line-height: 1.2; letter-spacing: -0.5px;
-}
-.stat-label {
-  font-size: 12px; color: var(--text-tertiary); margin-top: 2px;
+.donut-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
 }
 
 /* ── 网格 ── */
@@ -439,7 +454,7 @@ onMounted(loadMemories)
   .hot-widget,
   .recent-widget,
   .section-widget { grid-column: 1; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat-cell:nth-child(2) { border-right: none; }
+  .donut-row { gap: 12px; flex-wrap: wrap; }
+  .donut-cell { width: 80px; }
 }
 </style>
