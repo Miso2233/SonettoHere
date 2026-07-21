@@ -28,23 +28,36 @@
         <span class="search-count">{{ filteredSections.reduce((s, sec) => s + sec.items.length, 0) }}/{{ sections.reduce((s, sec) => s + sec.items.length, 0) }}</span>
       </div>
 
-      <!-- 统计环形图 -->
-      <div class="donut-row">
-        <div class="donut-cell" v-for="s in stats" :key="s.label">
-          <svg viewBox="0 0 80 80" width="80" height="80">
-            <circle cx="40" cy="40" r="28" fill="none" stroke="var(--border)" stroke-width="5" />
+      <!-- 统计栏：左环形图 + 右数字 -->
+      <div class="stats-bar">
+        <div class="stats-donut">
+          <svg viewBox="0 0 120 120" width="120" height="120">
+            <circle cx="60" cy="60" r="42" fill="none" stroke="var(--border)" stroke-width="12" />
             <circle
-              cx="40" cy="40" r="28" fill="none"
-              stroke="var(--accent)" stroke-width="5" stroke-linecap="round"
-              :stroke-dasharray="s.dashArray"
-              transform="rotate(-90 40 40)"
+              cx="60" cy="60" r="42" fill="none"
+              stroke="var(--accent)" stroke-width="12"
+              :stroke-dasharray="avgDash"
+              transform="rotate(-90 60 60)"
             />
-            <text x="40" y="36" text-anchor="middle" fill="var(--text-primary)"
-              font-size="16" font-weight="700">{{ s.value }}</text>
-            <text x="40" y="50" text-anchor="middle" fill="var(--text-tertiary)"
-              font-size="9">{{ s.unit }}</text>
+            <text x="60" y="52" text-anchor="middle" fill="var(--text-primary)"
+              font-size="26" font-weight="700">{{ avgHits }}</text>
+            <text x="60" y="70" text-anchor="middle" fill="var(--text-tertiary)"
+              font-size="11">均引用</text>
           </svg>
-          <div class="donut-label">{{ s.label }}</div>
+        </div>
+        <div class="stats-list">
+          <div class="stats-item">
+            <span class="stats-item-num">{{ totalItems }}</span>
+            <span class="stats-item-label">记忆条目</span>
+          </div>
+          <div class="stats-item">
+            <span class="stats-item-num">{{ sections.length }}</span>
+            <span class="stats-item-label">分区</span>
+          </div>
+          <div class="stats-item">
+            <span class="stats-item-num">{{ totalHits }}</span>
+            <span class="stats-item-label">总引用</span>
+          </div>
         </div>
       </div>
 
@@ -163,20 +176,13 @@ const avgHits = computed(() => {
   return n ? (totalHits.value / n).toFixed(1) : '0'
 })
 
-const R = 28
-const CIRCUM = 2 * Math.PI * R
-
-function dash(ratio: number): string {
-  const clamped = Math.min(ratio, 1)
-  return `${clamped * CIRCUM} ${(1 - clamped) * CIRCUM}`
-}
-
-const stats = computed(() => [
-  { value: totalItems.value, unit: '条', label: '记忆条目', dashArray: dash(totalItems.value / 50) },
-  { value: sections.value.length, unit: '个', label: '分区', dashArray: dash(sections.value.length / 10) },
-  { value: totalHits.value, unit: '次', label: '总引用', dashArray: dash(totalHits.value / 100) },
-  { value: parseFloat(avgHits.value), unit: '次', label: '均引用', dashArray: dash(parseFloat(avgHits.value) / 10) },
-])
+const avgR = 42
+const avgCircum = 2 * Math.PI * avgR
+const avgDash = computed(() => {
+  const val = parseFloat(avgHits.value)
+  const r = Math.min(val / 10, 1)
+  return `${r * avgCircum} ${(1 - r) * avgCircum}`
+})
 
 // ── 搜索 ──
 const filteredSections = computed(() => {
@@ -292,25 +298,40 @@ onMounted(loadMemories)
   border-radius: 999px;
 }
 
-/* ── 统计环形图 ── */
-.donut-row {
+/* ── 统计栏：左环形图 + 右数字 ── */
+.stats-bar {
   display: flex;
-  justify-content: center;
-  gap: 32px;
+  align-items: center;
+  gap: 24px;
   margin-bottom: 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 16px 8px;
+  padding: 20px 24px;
 }
-.donut-cell {
+.stats-donut {
+  flex-shrink: 0;
+  line-height: 0;
+}
+.stats-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  gap: 10px;
 }
-.donut-label {
-  font-size: 11px;
+.stats-item {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.stats-item-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+  min-width: 3ch;
+}
+.stats-item-label {
+  font-size: 13px;
   color: var(--text-tertiary);
 }
 
@@ -454,7 +475,6 @@ onMounted(loadMemories)
   .hot-widget,
   .recent-widget,
   .section-widget { grid-column: 1; }
-  .donut-row { gap: 12px; flex-wrap: wrap; }
-  .donut-cell { width: 80px; }
+  .stats-bar { flex-direction: column; align-items: flex-start; gap: 16px; }
 }
 </style>
