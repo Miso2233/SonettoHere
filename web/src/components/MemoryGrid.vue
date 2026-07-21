@@ -144,7 +144,7 @@
               v-if="section.items.length > MAX_VISIBLE"
               class="expand-btn"
               @click="toggleSection(si)"
-            >{{ expandedSections.has(si) ? '收起' : `展开全部 ${section.items.length} 条` }}</button>
+            >{{ expandedSections.includes(si) ? '收起' : `展开全部 ${section.items.length} 条` }}</button>
           </div>
         </div>
       </div>
@@ -163,7 +163,7 @@ const sections = ref<VignetteSection[]>([])
 const searchQuery = ref('')
 const expandedHistory = ref<string | null>(null)
 const searchRef = ref<HTMLInputElement>()
-const expandedSections = ref<Set<number>>(new Set())
+const expandedSections = ref<number[]>([])
 
 const MAX_VISIBLE = 20
 
@@ -239,14 +239,16 @@ function toggleHistory(id: string) {
 }
 
 function visibleItems(section: VignetteSection, index: number) {
-  if (expandedSections.value.has(index)) return section.items
+  if (expandedSections.value.includes(index)) return section.items
   return section.items.slice(0, MAX_VISIBLE)
 }
 
 function toggleSection(index: number) {
-  const s = new Set(expandedSections.value)
-  if (s.has(index)) s.delete(index) else s.add(index)
-  expandedSections.value = s
+  if (expandedSections.value.includes(index)) {
+    expandedSections.value = expandedSections.value.filter(i => i !== index)
+  } else {
+    expandedSections.value = [...expandedSections.value, index]
+  }
 }
 
 function highlight(text: string): string {
