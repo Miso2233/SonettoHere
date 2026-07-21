@@ -2,7 +2,7 @@
 
 import random
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
 router = APIRouter()
 
@@ -17,6 +17,17 @@ async def get_long_term(request: Request) -> dict:
 async def get_memories(request: Request) -> dict:
     ltm = request.app.state.ltm
     return ltm._mm.get_memories_grouped()
+
+
+@router.delete("/memories/{memory_id}")
+async def delete_memory(memory_id: str, request: Request) -> dict:
+    """删除指定 ID 的单条记忆。"""
+    ltm = request.app.state.ltm
+    try:
+        description = ltm.delete_memory(memory_id)
+        return {"status": "deleted", "id": memory_id, "description": description}
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Memory '{memory_id}' not found")
 
 
 @router.get("/moment")

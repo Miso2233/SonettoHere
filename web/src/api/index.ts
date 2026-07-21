@@ -80,6 +80,9 @@ export const api = {
   getMemories: () =>
     request<VignetteResponse>('/memories'),
 
+  deleteMemory: (id: string) =>
+    request<{ status: string; id: string; description: string }>(`/memories/${id}`, { method: 'DELETE' }),
+
   getContextUsage: (sessionId: string) =>
     request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),
 

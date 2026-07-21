@@ -356,6 +356,10 @@ class LongTermMemory:
             pass
         return []
 
+    def delete_memory(self, id: str) -> str:
+        """删除指定 ID 的单条记忆，返回被删除条目的描述。"""
+        return self._mm.delete(id)
+
     def inject_all(self) -> None:
         """向所有需要 mm 的地方注入当前 MemoryManager 实例。
 
