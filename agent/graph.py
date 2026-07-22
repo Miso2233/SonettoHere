@@ -23,7 +23,6 @@ from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
 from langgraph.graph.message import MessagesState
@@ -57,7 +56,7 @@ def build_agent(
     model: BaseChatModel,
     tools: list[BaseTool],
     system_prompt: str,
-    checkpointer: BaseCheckpointSaver | None = None,
+    checkpointer: BaseCheckpointSaver,
 ) -> Sonetto:
     """构建 ReAct Agent 图。
 
@@ -68,15 +67,13 @@ def build_agent(
         model: LangChain 聊天模型实例（如 ChatOpenAI）。
         tools: 工具列表，传给 ToolNode 统一调度。
         system_prompt: 系统提示词，作为 SystemMessage 注入每次模型调用。
-        checkpointer: 检查点存储器；默认新建 MemorySaver。
+        checkpointer: 检查点存储器（必填，由调用方提供）。
 
     Returns:
         编译后的 ``CompiledStateGraph``（即 ``Sonetto``），
         支持 ``astream_events``、``aget_state``、``aupdate_state`` 等
         所有下游依赖的方法。
     """
-    if checkpointer is None:
-        checkpointer = MemorySaver()
 
     # ── 将外部依赖转换为图内可运行对象 ────────────────
     system_message = SystemMessage(content=system_prompt)
