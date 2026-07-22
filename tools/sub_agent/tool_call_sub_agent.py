@@ -174,8 +174,7 @@ class CallSubAgentTool(ToolBase):
             f"[call_sub_agent] _run_background starting for {sub.session_id}",
             file=sys.stderr,
         )
-        from agent.graph import build_agent
-        from agent.prompts import build_system_prompt
+        from agent import build_agent, build_system_prompt
         from langchain_core.messages import HumanMessage
 
         system_prompt = build_system_prompt()

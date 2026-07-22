@@ -10,7 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
-from agent.prompts import build_system_prompt
+from agent import build_system_prompt
 from api.agent.turn import run_agent_turn
 from api.events import ChatSender
 from api.providers import FALLBACK_CTX

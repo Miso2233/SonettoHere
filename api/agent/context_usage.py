@@ -9,7 +9,7 @@ import math
 import tiktoken
 from PIL import Image
 
-from agent.prompts import get_system_prompt_parts
+from agent import get_system_prompt_parts
 from api.session.manager import SessionState
 
 _ENCODING = None

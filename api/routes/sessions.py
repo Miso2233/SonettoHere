@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 from api.agent.context_usage import estimate_context_usage_from_session
-from agent.prompts import build_system_prompt
+from agent import build_system_prompt
 from api.providers.default_llm import get_default_llm
 from api.session.const_store import flatten_content
 from api.session.manager import session_manager

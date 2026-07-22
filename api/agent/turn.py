@@ -10,8 +10,7 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
-from agent.graph import Sonetto, build_agent
-from agent.prompts import build_system_prompt
+from agent import Sonetto, build_agent, build_system_prompt
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from api.events import CallbackSender, TurnSender

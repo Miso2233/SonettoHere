@@ -12,7 +12,7 @@ from api.session.const_store import (
     deserialize_messages,
     load_all_const_sessions,
 )
-from agent.prompts import build_system_prompt
+from agent import build_agent, build_system_prompt
 from api.core.health import get_health_report
 from api.providers.manager import init_manager
 from api.providers.store import ProviderConfigStore
@@ -26,7 +26,6 @@ from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
 from api.routes import env_vars as env_vars_router
 from api.session.manager import SessionState, session_manager
-from agent.graph import build_agent
 from api.memory.long_term import MEMORY_PATH, LongTermMemory
 from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 from api.tools.manager import ToolManager
