@@ -21,6 +21,7 @@ from typing import Any, Literal
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
+from langgraph._internal._runnable import RunnableCallable
 from langchain_core.tools import BaseTool
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.constants import END, START
@@ -96,7 +97,7 @@ def build_agent(
     # ── 组装图 ────────────────────────────────────────
     builder = StateGraph(MessagesState)
 
-    builder.add_node("agent", call_agent)
+    builder.add_node("agent", RunnableCallable(None, call_agent, name="agent", trace=False))
     builder.add_node("tools", tool_node)
 
     builder.add_edge(START, "agent")
