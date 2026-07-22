@@ -95,7 +95,7 @@ def build_agent(
         return {"messages": [response]}
 
     # ── 组装图 ────────────────────────────────────────
-    builder = StateGraph(MessagesState)
+    builder = StateGraph(MessagesState)  # type: ignore[type-arg]
 
     builder.add_node("agent", RunnableCallable(None, call_agent, name="agent", trace=False))
     builder.add_node("tools", tool_node)
