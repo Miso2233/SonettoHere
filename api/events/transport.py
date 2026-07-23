@@ -33,7 +33,9 @@ class WsTransport:
 
     def __init__(self, ws: WebSocket | None) -> None:
         self._ws = ws
-        self._write_lock = asyncio.Lock()
+        # 延迟初始化锁，确保锁在 _send() 调用的事件循环中创建，
+        # 避免 LTM 后台 consumer 等场景下锁绑定到错误的事件循环。
+        self._write_lock: asyncio.Lock | None = None
 
     # ── 工厂方法 ─────────────────────────────────────────────
 
@@ -88,6 +90,10 @@ class WsTransport:
         """
         if self._ws is None:
             return
+
+        # 延迟创建锁，确保绑定到 _send 调用时的事件循环
+        if self._write_lock is None:
+            self._write_lock = asyncio.Lock()
 
         async with self._write_lock:
             try:
