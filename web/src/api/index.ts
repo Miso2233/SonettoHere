@@ -1,269 +1,39 @@
-import type {
-  CreateSessionResponse,
-  ListSessionsResponse,
-  SessionInfo,
-  NarrativeResponse,
-  MomentResponse,
-  VignetteResponse,
-  ContextUsage,
-  DeepSeekBalanceResponse,
-  HealthResponse,
-  ListProvidersResponse,
-  ListNewsResponse,
-  ListSkillsResponse,
-  ListToolsResponse,
-  ListMacrosResponse,
-  ProviderConfig,
-  TestConnectionResponse,
-  DiscoverModelsResponse,
-  ConstifyResponse,
-  WhitelistEntry,
-  ListWhitelistResponse,
-  BlockerEntry,
-  ListBlockerResponse,
-  ListEnvVarsResponse,
-  UpdateEnvVarResponse,
-} from '@/types'
+/**
+ * API 客户端 — 统一导出
+ *
+ * 各领域模块按职责拆分到独立文件：
+ *   client.ts     — 基础 request 函数、token、共用类型
+ *   sessions.ts   — 会话管理
+ *   providers.ts  — 供应商管理
+ *   memories.ts   — 记忆/叙事
+ *   personas.ts   — 人设
+ *   settings.ts   — 白名单、拒止锚、环境变量
+ *   system.ts     — 健康检查、系统动态、DeepSeek 余额
+ *   anthropic.ts  — Skills / Tools / Macros
+ *   files.ts      — 文件选择、图片服务
+ */
 
-declare const __API_TOKEN__: string
+import { sessionsApi } from './sessions'
+import { providersApi } from './providers'
+import { memoriesApi } from './memories'
+import { personasApi } from './personas'
+import { settingsApi } from './settings'
+import { systemApi } from './system'
+import { anthropicApi } from './anthropic'
+import { filesApi } from './files'
+import { getToken, setToken } from './client'
 
-const BASE = '/api'
+export { getToken, setToken }
 
-/** 从 Vite 编译期注入的 Token */
-let token: string = typeof __API_TOKEN__ !== 'undefined' ? __API_TOKEN__ : ''
-
-export function getToken(): string {
-  return token
-}
-
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  if (token) {
-    headers['X-Sonetto-Token'] = token
-  }
-  const res = await fetch(`${BASE}${url}`, {
-    headers,
-    ...options,
-  })
-  if (!res.ok) {
-    let detail = `API ${url} 返回 ${res.status}`
-    try {
-      const body = await res.json()
-      if (body.detail) detail += `: ${body.detail}`
-    } catch { /* ignore parse errors */ }
-    throw new Error(detail)
-  }
-  return res.json()
-}
-
+/** 扁平 API 对象，保持与消费者（组件/stores）的兼容 */
 export const api = {
-  createSession: () =>
-    request<CreateSessionResponse>('/sessions', { method: 'POST' }),
-
-  listSessions: () =>
-    request<ListSessionsResponse>('/sessions'),
-
-  getSession: (id: string) =>
-    request<SessionInfo>(`/sessions/${id}`),
-
-  deleteSession: (id: string) =>
-    request<{ status: string }>(`/sessions/${id}`, { method: 'DELETE' }),
-
-  getNarrative: () =>
-    request<NarrativeResponse>('/long-term'),
-
-  getMoment: () =>
-    request<MomentResponse>('/moment'),
-
-  getMemories: () =>
-    request<VignetteResponse>('/memories'),
-
-  deleteMemory: (id: string) =>
-    request<{ status: string; id: string; description: string }>(`/memories/${id}`, { method: 'DELETE' }),
-
-  getContextUsage: (sessionId: string) =>
-    request<ContextUsage & { session_id: string }>(`/sessions/${sessionId}/context-usage`),
-
-  undoMessages: (sessionId: string, n: number = 1) =>
-    request<{ deleted_count: number }>(`/sessions/${sessionId}/undo?n=${n}`, { method: 'POST' }),
-
-  getDeepSeekBalance: () =>
-    request<DeepSeekBalanceResponse>('/deepseek-balance'),
-
-  health: () =>
-    request<HealthResponse>('/health'),
-
-  restart: async () => {
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (token) headers['X-Sonetto-Token'] = token
-    try {
-      await fetch(`${BASE}/restart`, { method: 'POST', headers })
-    } catch { /* server will close connection, expected */ }
-  },
-
-  // ── Provider ──
-
-  listProviders: () =>
-    request<ListProvidersResponse>('/providers'),
-
-  getProvider: (id: string) =>
-    request<ProviderConfig>(`/providers/${id}`),
-
-  createProvider: (body: Partial<ProviderConfig>) =>
-    request<ProviderConfig>('/providers', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
-  updateProvider: (id: string, body: Partial<ProviderConfig>) =>
-    request<ProviderConfig>(`/providers/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    }),
-
-  deleteProvider: (id: string) =>
-    request<{ status: string }>(`/providers/${id}`, { method: 'DELETE' }),
-
-  testConnection: (body: { api_key: string; base_url: string; provider_type?: string }) =>
-    request<TestConnectionResponse>('/providers/test', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
-  discoverModels: (body: { api_key: string; base_url: string; provider_type?: string }) =>
-    request<DiscoverModelsResponse>('/providers/discover-models', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    }),
-
-  discoverModelsForExisting: (id: string) =>
-    request<DiscoverModelsResponse>(`/providers/${id}/discover-models`, {
-      method: 'POST',
-    }),
-
-  testExistingProvider: (id: string) =>
-    request<TestConnectionResponse>(`/providers/${id}/test`, {
-      method: 'POST',
-    }),
-
-  // ── News ──
-
-  listNews: () =>
-    request<ListNewsResponse>('/news'),
-
-  // ── Anthropic Skills ──
-
-  listSkills: () =>
-    request<ListSkillsResponse>('/skills'),
-
-  listTools: () =>
-    request<ListToolsResponse>('/tools'),
-
-  listMacros: () =>
-    request<ListMacrosResponse>('/macros'),
-
-  // ── Const 固定会话 ──
-
-  constifySession: (id: string, name: string) =>
-    request<ConstifyResponse>(`/sessions/${id}/const`, {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    }),
-
-  unconstifySession: (id: string) =>
-    request<{ status: string }>(`/sessions/${id}/const`, { method: 'DELETE' }),
-
-  generateSessionTitle: (id: string) =>
-    request<{ title: string }>(`/sessions/${id}/generate-title`, { method: 'POST' }),
-
-  // ── Persona 人设 ──
-
-  getPersona: (type: 'soul' | 'user') =>
-    request<{ content: string; type: string }>(`/persona?type=${type}`),
-
-  updatePersona: (type: 'soul' | 'user', content: string) =>
-    request<{ content: string; type: string }>(`/persona?type=${type}`, {
-      method: 'PUT',
-      body: JSON.stringify({ content }),
-    }),
-
-  // ── Path Whitelist 路径白名单 ──
-
-  listWhitelist: () =>
-    request<ListWhitelistResponse>('/path-whitelist'),
-
-  addWhitelistEntry: (entry: { path: string; description: string }) =>
-    request<WhitelistEntry>('/path-whitelist', {
-      method: 'POST',
-      body: JSON.stringify(entry),
-    }),
-
-  updateWhitelistEntry: (index: number, entry: { path: string; description: string }) =>
-    request<WhitelistEntry>(`/path-whitelist/${index}`, {
-      method: 'PUT',
-      body: JSON.stringify(entry),
-    }),
-
-  deleteWhitelistEntry: (index: number) =>
-    request<{ status: string }>(`/path-whitelist/${index}`, { method: 'DELETE' }),
-
-  // ── 文件选择器 ──
-
-  selectFile: (type: 'file' | 'folder') =>
-    request<{ path: string | null }>(`/select-file?type=${type}`),
-
-  selectFolder: () =>
-    request<{ path: string | null }>('/select-file?type=folder'),
-
-  // ── 路径安全检查 ──
-
-  checkPathBlocked: (path: string) =>
-    request<{ blocked: boolean; reason: string | null; blocker_path: string | null }>(
-      `/check-path-blocked?path=${encodeURIComponent(path)}`
-    ),
-
-  // ── 图片服务（用于缩略图渲染）──
-
-  /** 将本地图片路径转为 blob URL，供 <img> 展示。返回的 URL 需在适当时机 revoke。 */
-  getImageBlobUrl: async (path: string): Promise<string> => {
-    const headers: Record<string, string> = {}
-    if (token) headers['X-Sonetto-Token'] = token
-    const res = await fetch(`${BASE}/images/serve?path=${encodeURIComponent(path)}`, { headers })
-    if (!res.ok) throw new Error(`加载图片失败: ${res.status}`)
-    const blob = await res.blob()
-    return URL.createObjectURL(blob)
-  },
-
-  // ── SonettoBlocker 拒止锚 ──
-
-  listBlockers: () =>
-    request<ListBlockerResponse>('/sonetto-blocker'),
-
-  addBlocker: (entry: { path: string; description: string }) =>
-    request<BlockerEntry>('/sonetto-blocker', {
-      method: 'POST',
-      body: JSON.stringify(entry),
-    }),
-
-  deleteBlocker: (index: number) =>
-    request<{ status: string }>(`/sonetto-blocker/${index}`, { method: 'DELETE' }),
-
-  // ── 工具环境变量 ──
-
-  listEnvVars: () =>
-    request<ListEnvVarsResponse>('/env-vars'),
-
-  updateEnvVar: (key: string, value: string) =>
-    request<UpdateEnvVarResponse>('/env-vars', {
-      method: 'PUT',
-      body: JSON.stringify({ key, value }),
-    }),
-
-  batchUpdateEnvVars: (env_vars: { key: string; value: string }[]) =>
-    request<{ status: string; updated: { key: string; masked_value: string }[] }>('/env-vars/batch', {
-      method: 'PUT',
-      body: JSON.stringify({ env_vars }),
-    }),
+  ...sessionsApi,
+  ...providersApi,
+  ...memoriesApi,
+  ...personasApi,
+  ...settingsApi,
+  ...systemApi,
+  ...anthropicApi,
+  ...filesApi,
 }
+
