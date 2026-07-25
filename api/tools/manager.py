@@ -35,6 +35,14 @@ class ToolManager:
         assert self._mcp_tools is not None, "load_all() 未调用"
         return self._mcp_tools
 
+    # 主 Agent 不再需要长期记忆管理工具（已由 retrieve_memory / ltm_write
+    # 图节点替代），此处从 get_all 排除，但保留工具文件本身及 LTM 后台
+    # consumer 中的 @tool CRUD 函数不受影响。
+    _MEMORY_TOOL_NAMES = frozenset({
+        "list_memories", "read_memories", "create_memory",
+        "update_memory", "delete_memory", "merge_memories",
+    })
+
     def get_all(self, multimodal: bool = False) -> list[BaseTool]:
         """返回合并后的完整工具列表（消费方主要用这个）。
 
@@ -45,9 +53,10 @@ class ToolManager:
         """
         tools = self.native_tools + self.mcp_tools
         if multimodal:
-            return [t for t in tools if t.name != "analyze_image"]
+            tools = [t for t in tools if t.name != "analyze_image"]
         else:
-            return [t for t in tools if t.name != "read_image"]
+            tools = [t for t in tools if t.name != "read_image"]
+        return [t for t in tools if t.name not in self._MEMORY_TOOL_NAMES]
 
     async def reload_mcp(self) -> list[BaseTool]:
         """热加载 MCP 工具，返回新的 MCP 工具列表。"""
