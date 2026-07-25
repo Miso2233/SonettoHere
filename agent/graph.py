@@ -52,7 +52,9 @@ def _route_after_agent(state: MessagesState) -> Literal["tools", "ltm_write"]:
 
 def _build_memory_message(results: list[dict[str, str]]) -> HumanMessage:
     """将记忆检索结果格式化为一条 HumanMessage。"""
-    lines = ["【相关记忆】"]
+    from api.memory.long_term import MEMORY_INJECTION_MARKER  # noqa: PLC0415
+
+    lines = [MEMORY_INJECTION_MARKER]
     for r in results:
         lines.append(f"- [{r['theme']}] {r['description']}")
     return HumanMessage(content="\n".join(lines))

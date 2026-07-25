@@ -27,6 +27,10 @@ def _sanitize(text: str) -> str:
     return text.replace("\n", " ").replace("\r", " ")
 
 
+# 记忆注入标记 — retrieve_memory 节点注入的 HumanMessage 以此开头
+MEMORY_INJECTION_MARKER = "【相关记忆】"
+
+
 PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
 MEMORY_PATH = PERSONAS_DIR / "memory.yaml"
 
@@ -439,7 +443,12 @@ class LongTermMemory:
 
     @staticmethod
     async def _extract_session_messages(session: SessionState) -> list[dict[str, str]]:
-        """从短期记忆提取全量会话消息并映射为记忆 Agent 格式。"""
+        """从短期记忆提取全量会话消息并映射为记忆 Agent 格式。
+
+        自动跳过以 :data:`MEMORY_INJECTION_MARKER` 开头的 HumanMessage
+        （即 retrieve_memory 节点注入的【相关记忆】），避免 LTM consumer
+        将记忆注入内容当作真实用户对话写入 memory.yaml。
+        """
         try:
             raw = await session.get_messages()
             if not raw:
@@ -450,6 +459,13 @@ class LongTermMemory:
         role_map = {"human": "user", "ai": "assistant", "tool": "tool"}
         result: list[dict[str, str]] = []
         for m in raw:
+            # 跳过注入的记忆 HumanMessage
+            if (
+                m.type == "human"
+                and isinstance(m.content, str)
+                and m.content.startswith(MEMORY_INJECTION_MARKER)
+            ):
+                continue
             role = role_map.get(m.type)
             if role is None:
                 continue
