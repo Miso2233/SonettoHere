@@ -186,7 +186,8 @@ def build_agent(
         if session is None:
             return {}
 
-        await ltm.send_history_from_session(session)
+        turn_id = config["configurable"].get("turn_id", "")
+        await ltm.send_history_from_session(session, turn_id=turn_id)
         return {}
 
     # ── 组装图 ────────────────────────────────────────

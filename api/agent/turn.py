@@ -55,11 +55,13 @@ class _TurnContext:
         agent:         编译后的 LangGraph Agent (Sonetto)
         inputs:        本轮输入消息字典（含 HumanMessage 列表）
         config:        运行配置（thread_id、callbacks、recursion_limit）
+        turn_id:       本轮唯一标识（UUID hex），用于关联记忆事件
     """
     system_prompt: str
     agent: Sonetto
     inputs: dict[str, list[HumanMessage]]
     config: dict[str, Any]
+    turn_id: str
 
 
 @dataclass
@@ -68,11 +70,9 @@ class _TurnResult:
 
     Attributes:
         final_answer: Agent 产出的最终文本回答（空串表示无回答）
-        turn_id:      本轮唯一标识（UUID hex），用于关联记忆事件
         error:        执行过程中抛出的异常信息；成功时为 None
     """
     final_answer: str
-    turn_id: str
     error: str | None
 
 
@@ -301,16 +301,22 @@ async def _build_turn_context(
     else:
         inputs = {"messages": [HumanMessage(content=user_message)]}
 
+    turn_id = uuid.uuid4().hex
+
     config = {
         "configurable": {
             "thread_id": session.session_id,
             "private_mode": private_mode,
+            "turn_id": turn_id,
         },
         "callbacks": [ws_callback],
         "recursion_limit": 120,
     }
 
-    return _TurnContext(system_prompt=system_prompt, agent=agent, inputs=inputs, config=config)
+    return _TurnContext(
+        system_prompt=system_prompt, agent=agent,
+        inputs=inputs, config=config, turn_id=turn_id,
+    )
 
 
 # ── 阶段 3：执行轮次 ──────────────────────────────────────
@@ -325,7 +331,6 @@ async def _execute_agent_turn(
     """流式执行 Agent 轮次，处理取消与异常，返回结果。"""
     final_answer = ""
     error: str | None = None
-    turn_id = ""
 
     try:
         # 推送初始上下文用量（含刚加入的 user message）
@@ -361,10 +366,9 @@ async def _execute_agent_turn(
             session, ctx.system_prompt,
             max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
         )
-        turn_id = uuid.uuid4().hex
-        await sender.done(turn_id, context_usage)
+        await sender.done(ctx.turn_id, context_usage)
 
-    return _TurnResult(final_answer=final_answer, turn_id=turn_id, error=error)
+    return _TurnResult(final_answer=final_answer, error=error)
 
 
 # ── 阶段 4：后处理 ────────────────────────────────────────
