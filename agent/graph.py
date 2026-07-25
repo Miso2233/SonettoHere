@@ -12,7 +12,8 @@
 用户消息之后。旧轮次的记忆消息随历史保留，不会主动清除。
 """
 
-import asyncio
+from __future__ import annotations
+
 from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
@@ -134,16 +135,15 @@ def build_agent(
 
         # 延迟导入避免循环依赖
         from api.events.memory import MemorySender  # noqa: PLC0415
+        from api.memory import RetrievalMode  # noqa: PLC0415
 
         # 通知前端开始搜索
         ws_sender = MemorySender.from_context()
         if ws_sender:
             await ws_sender.memory_search_start()
 
-        # ltm.get_related_memory_from 是同步 LLM 调用，通过 run_in_executor
-        # 避免阻塞事件循环
-        loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(None, ltm.get_related_memory_from, query)
+        # BM25 机械检索（~2ms），直接同步调用
+        results = ltm.get_related_memory_from(query, mode=RetrievalMode.MECHANICAL)
 
         # 通知前端搜索完成
         if ws_sender:
