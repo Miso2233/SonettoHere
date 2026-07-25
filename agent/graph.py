@@ -34,12 +34,16 @@ Sonetto = CompiledStateGraph
 # ── 条件路由 ──────────────────────────────────────────
 
 
-def _route_after_agent(state: MessagesState) -> Literal["tools", "__end__"]:
-    """模型节点后的条件边路由器。"""
+def _route_after_agent(state: MessagesState) -> Literal["tools", "ltm_write"]:
+    """模型节点后的条件边路由器。
+
+    带 tool_calls → tools 节点执行工具；
+    无 tool_calls → ltm_write 节点持久化本轮对话至长期记忆后结束。
+    """
     last = state["messages"][-1]
     if isinstance(last, AIMessage) and last.tool_calls:
         return "tools"
-    return END
+    return "ltm_write"
 
 
 # ── 图构建 ──────────────────────────────────────────────
@@ -59,13 +63,42 @@ def build_agent(
     system_prompt: str,
     checkpointer: BaseCheckpointSaver,
     memory_retriever: Callable[[str], Awaitable[list[dict[str, str]]]] | None = None,
+    ltm: Any | None = None,
 ) -> Sonetto:
     """构建 ReAct Agent 图。
 
+    .. rubric:: 图结构
+
+    ::
+
+        START ──→ [retrieve_memory] ──→ [agent] ──→ [tools] ──→ [agent] ──→ ...
+                                                              │              │
+                                                              └── [ltm_write] ──→ END
+
+    - **retrieve_memory** — 每轮 HumanMessage 时检索长期记忆，以 HumanMessage 追加到 messages
+    - **agent** — 调用 LLM，可绑定工具
+    - **tools** — 执行工具调用
+    - **ltm_write** — 将本轮对话投递到 LTM 后台队列以更新 memory.yaml
+
+    .. rubric:: config.configurable 支持的键
+
+    传入 ``astream_events(inputs, config={"configurable": {...}})`` 时：
+
+    ==============  =====  ====================================================
+    键              类型    说明
+    ==============  =====  ====================================================
+    ``thread_id``    str    **必需**。会话 ID，传给 checkpointer 读写状态。
+    ``private_mode``  bool  可选。为 ``True`` 时跳过 ltm_write 节点。
+    ==============  =====  ====================================================
+
     Args:
-        memory_retriever: 可选。异步函数，接收用户消息文本，返回相关记忆条目列表。
-            检索结果由 ``retrieve_memory`` 节点以 HumanMessage 的形式追加到
-            ``messages`` 中，紧随触发检索的用户消息之后。
+        model: LangChain 聊天模型实例（如 ChatOpenAI）。
+        tools: 工具列表，传给 ToolNode 统一调度。
+        system_prompt: 系统提示词，作为 SystemMessage 注入每次模型调用。
+        checkpointer: 检查点存储器（必填，由调用方提供）。
+        memory_retriever: 可选。异步函数，接收用户消息文本，返回相关记忆条目列表
+            （每项含 id / description / theme）。
+        ltm: 可选。LongTermMemory 实例。提供时启用 ``ltm_write`` 节点。
 
     Returns:
         编译后的 ``CompiledStateGraph``（即 ``Sonetto``）。
@@ -127,6 +160,33 @@ def build_agent(
         response = await model_with_tools.ainvoke(messages, config)
         return {"messages": [response]}
 
+    # ── LTM 写入节点（ltm_write） ─────────────────────
+    async def ltm_write(
+        state: MessagesState, config: RunnableConfig
+    ) -> dict[str, Any]:
+        """将本轮对话投递到 LTM 后台队列，异步更新 memory.yaml。
+
+        仅在 ``config.configurable.private_mode`` 不为 ``True`` 且 ltm 可用时执行。
+        不阻塞——send_history_from_session 仅做 queue.put 后立即返回。
+        """
+        if ltm is None:
+            return {}
+
+        private = config["configurable"].get("private_mode", False)
+        if private:
+            return {}
+
+        # 延迟导入避免循环依赖
+        from api.session.manager import session_manager  # noqa: PLC0415
+
+        sid = config["configurable"]["thread_id"]
+        session = session_manager.get(sid)
+        if session is None:
+            return {}
+
+        await ltm.send_history_from_session(session)
+        return {}
+
     # ── 组装图 ────────────────────────────────────────
     builder = StateGraph(MessagesState)
 
@@ -138,10 +198,14 @@ def build_agent(
         "agent", RunnableCallable(None, call_agent, name="agent", trace=False),
     )
     builder.add_node("tools", tool_node)
+    builder.add_node(
+        "ltm_write", RunnableCallable(None, ltm_write, name="ltm_write", trace=False),
+    )
 
     builder.add_edge(START, "retrieve_memory")
     builder.add_edge("retrieve_memory", "agent")
     builder.add_conditional_edges("agent", _route_after_agent)
     builder.add_edge("tools", "agent")
+    builder.add_edge("ltm_write", END)
 
     return builder.compile(checkpointer=checkpointer)
