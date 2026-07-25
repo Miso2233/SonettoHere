@@ -20,10 +20,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# 模块级 WS 锁映射：所有共享同一 ws 连接的 Sender 实例共用一把锁，
-# 避免并发写入时 ws.send_json 交错，同时确保锁在 _send() 首次调用时
-# 才按需创建，绑定到调用时的事件循环。
-_ws_locks: dict[int, asyncio.Lock] = {}
+# 模块级 WS 锁映射：(id(ws), id(loop)) → asyncio.Lock
+# 之所以用二元组作 key，是因为 LangChain 内部有时会创建临时事件循环来调度
+# async callback（如 MemoryToolCallback），导致 callback 中的 _send() 与
+# 主循环共用同一把锁 → "bound to a different event loop" 错误。
+# 按 (ws, loop) 各自持锁，彻底隔离不同循环的锁竞争。
+_ws_locks: dict[tuple[int, int], asyncio.Lock] = {}
+
+
+def _cleanup_ws_locks(ws_id: int) -> None:
+    """断开时清理所有涉及给定 ws 的锁条目。"""
+    for key in list(_ws_locks.keys()):
+        if key[0] == ws_id:
+            _ws_locks.pop(key, None)
 
 
 class WsTransport:
@@ -97,15 +106,17 @@ class WsTransport:
         if self._ws is None:
             return
 
-        # 按 ws 对象身份获取共享锁，所有指向同一 ws 的 Sender 实例共用，
-        # 避免并发写入；锁在首次访问时按需创建，绑定当前事件循环。
+        # 按 (ws, loop) 获取锁，不同循环各自隔离，避免 LangChain 临时
+        # 事件循环与主循环共用锁导致的 "bound to a different event loop"。
         ws_id = id(self._ws)
-        if ws_id not in _ws_locks:
-            _ws_locks[ws_id] = asyncio.Lock()
+        loop_id = id(asyncio.get_running_loop())
+        key = (ws_id, loop_id)
+        if key not in _ws_locks:
+            _ws_locks[key] = asyncio.Lock()
 
-        async with _ws_locks[ws_id]:
+        async with _ws_locks[key]:
             try:
                 await self._ws.send_json({"type": event_type, "payload": payload})
             except WebSocketDisconnect:
                 self._ws = None
-                _ws_locks.pop(ws_id, None)
+                _cleanup_ws_locks(ws_id)
