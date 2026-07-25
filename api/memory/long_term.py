@@ -328,8 +328,8 @@ class LongTermMemory:
             return ""
         return _format_narrative(items)
 
-    def get_related_memory_from(self, prompt: str) -> list[str]:
-        """根据查询要求从记忆库中找出语义相关的条目并返回其描述文本。"""
+    def get_related_memory_from(self, prompt: str) -> list[dict[str, str]]:
+        """根据查询要求从记忆库中找出语义相关的条目并返回其 id / description / theme。"""
         if get_default_llm() is None:
             return []
         items = self._mm.show()
@@ -351,7 +351,10 @@ class LongTermMemory:
         try:
             indices = json.loads(response.content)
             if isinstance(indices, list):
-                return [items[i]["description"] for i in indices if 0 <= i < len(items)]
+                return [
+                    {"id": items[i]["id"], "description": items[i]["description"], "theme": items[i]["theme"]}
+                    for i in indices if 0 <= i < len(items)
+                ]
         except (json.JSONDecodeError, TypeError, IndexError):
             pass
         return []

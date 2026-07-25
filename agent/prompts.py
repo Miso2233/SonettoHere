@@ -4,7 +4,6 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-from api.memory.long_term import get_narrative
 from api.memory.user_init import ensure_user_md
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
@@ -111,8 +110,6 @@ def get_system_prompt_parts() -> list[dict]:
          "content": "## 性格设定\n" + _read_persona("SOUL.md")},
         {"key": "user_self_report", "label": "用户自述",
          "content": "## 用户自述\n" + _read_if_exists("USER.md")},
-        {"key": "long_term_memory", "label": "长期记忆",
-         "content": "## 我对用户的记忆\n" + get_narrative()},
         {"key": "skills", "label": "Skills 清单",
          "content": _scan_anthropic_skills()},
         {"key": "macros", "label": "宏清单",
@@ -134,8 +131,8 @@ def build_system_prompt() -> str:
         "## 用户自述",
         _read_if_exists("USER.md"),
         "",
-        "## 我对用户的记忆",
-        get_narrative(),
+        "## 记忆检索说明",
+        "在对话中，你有时会看到一条以 【相关记忆】 开头的消息。这是系统根据用户当前输入自动检索的长期记忆摘要，帮助你了解与当前话题相关的过往记录。请将这些记忆信息当作背景知识使用。",
         "",
         _scan_anthropic_skills(),
         "",
