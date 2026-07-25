@@ -144,8 +144,8 @@ def build_agent(
         if ws_sender:
             await ws_sender.memory_search_start()
 
-        # BM25 机械检索（~2ms），直接同步调用
-        results = ltm.get_related_memory_from(query, mode=RetrievalMode.MECHANICAL)
+        # 检索记忆
+        results = ltm.get_related_memory_from(query, mode=RetrievalMode.LLM)
 
         # 通知前端搜索完成
         if ws_sender:

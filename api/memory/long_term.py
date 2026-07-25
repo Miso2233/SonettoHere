@@ -9,6 +9,7 @@ import functools
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langchain.agents import create_agent
@@ -369,10 +370,10 @@ class LongTermMemory:
         memory_text = "\n".join(lines)
         user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
 
-        response = get_default_llm().invoke([
-            SystemMessage(content=FIND_RELATED_MEMORY.strip()),
-            HumanMessage(content=user_prompt),
-        ])
+        response = get_default_llm().invoke(
+            [SystemMessage(content=FIND_RELATED_MEMORY.strip()), HumanMessage(content=user_prompt)],
+            config=RunnableConfig(callbacks=[]),
+        )
 
         try:
             indices = json.loads(response.content)
