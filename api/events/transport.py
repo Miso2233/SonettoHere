@@ -20,6 +20,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# 模块级 WS 锁映射：所有共享同一 ws 连接的 Sender 实例共用一把锁，
+# 避免并发写入时 ws.send_json 交错，同时确保锁在 _send() 首次调用时
+# 才按需创建，绑定到调用时的事件循环。
+_ws_locks: dict[int, asyncio.Lock] = {}
+
 
 class WsTransport:
     """WebSocket 传输基类。
@@ -29,13 +34,14 @@ class WsTransport:
 
         async def answer(self, content: str) -> None:
             await self._send("answer", {"content": content})
+
+    线程安全性：本类通过模块级 ``_ws_locks`` 字典实现按 WebSocket 实例
+    粒度的锁，确保所有共享同一 ws 连接的 Sender 实例并发调用 _send() 时
+    不会交错写入。锁在 _send() 首次调用时按需创建，绑定调用时的事件循环。
     """
 
     def __init__(self, ws: WebSocket | None) -> None:
         self._ws = ws
-        # 延迟初始化锁，确保锁在 _send() 调用的事件循环中创建，
-        # 避免 LTM 后台 consumer 等场景下锁绑定到错误的事件循环。
-        self._write_lock: asyncio.Lock | None = None
 
     # ── 工厂方法 ─────────────────────────────────────────────
 
@@ -91,12 +97,15 @@ class WsTransport:
         if self._ws is None:
             return
 
-        # 延迟创建锁，确保绑定到 _send 调用时的事件循环
-        if self._write_lock is None:
-            self._write_lock = asyncio.Lock()
+        # 按 ws 对象身份获取共享锁，所有指向同一 ws 的 Sender 实例共用，
+        # 避免并发写入；锁在首次访问时按需创建，绑定当前事件循环。
+        ws_id = id(self._ws)
+        if ws_id not in _ws_locks:
+            _ws_locks[ws_id] = asyncio.Lock()
 
-        async with self._write_lock:
+        async with _ws_locks[ws_id]:
             try:
                 await self._ws.send_json({"type": event_type, "payload": payload})
             except WebSocketDisconnect:
                 self._ws = None
+                _ws_locks.pop(ws_id, None)
