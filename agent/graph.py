@@ -70,9 +70,10 @@ def build_agent(
 
     ::
 
-        START ──→ [retrieve_memory] ──→ [agent] ──→ [tools] ──→ [agent] ──→ ...
-                                                              │              │
-                                                              └── [ltm_write] ──→ END
+                                    ↓←  [tools] ←↑
+        START ──→ [retrieve_memory] ──→ [agent] ──→  [ltm_write] ──→ END
+
+
 
     - **retrieve_memory** — 每轮 HumanMessage 时通过 ``ltm`` 语义检索长期记忆，
       以 HumanMessage 追加到 messages
