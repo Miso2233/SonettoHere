@@ -11,8 +11,19 @@
         >
           <MessageBubble role="user" :content="turn.userMessage" :refs="turn.refs" :image-refs="turn.imageRefs" />
         </div>
-        <!-- 助手侧：events + finalAnswer + 记忆日志，hover 时才显示记忆日志 -->
+        <!-- 助手侧：记忆搜索指示器 + events + finalAnswer + 记忆日志，hover 时才显示记忆日志 -->
         <div class="assistant-side">
+          <!-- 语义记忆搜索指示器 -->
+          <div v-if="turn.memorySearch" class="memory-search-indicator">
+            <template v-if="turn.memorySearch.status === 'searching'">
+              <span class="memory-search-spinner"></span>
+              <span>正在搜索相关记忆…</span>
+            </template>
+            <template v-else>
+              <span class="memory-search-check">&#10003;</span>
+              <span>已检索到 {{ turn.memorySearch.count }} 条相关记忆</span>
+            </template>
+          </div>
           <template v-for="(ev, i) in turn.events" :key="i">
             <div
               v-if="ev.kind === 'thinking'"
@@ -639,5 +650,33 @@ function closeContextMenu() {
   font-variant-numeric: tabular-nums;
   opacity: 0.6;
   font-size: 10px;
+}
+
+/* ── 语义记忆搜索指示器 ── */
+.memory-search-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0 2px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.memory-search-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: memory-spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+.memory-search-check {
+  font-size: 11px;
+  color: #22c55e;
+  flex-shrink: 0;
 }
 </style>

@@ -201,6 +201,18 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    // 语义记忆搜索事件：直接更新 currentTurn
+    if (event.type === 'memory_search_start') {
+      if (ch.currentTurn) ch.currentTurn.memorySearch = { status: 'searching' }
+      return
+    }
+    if (event.type === 'memory_search_done') {
+      if (ch.currentTurn) {
+        ch.currentTurn.memorySearch = { status: 'done', count: event.payload.count }
+      }
+      return
+    }
+
     const memoryHandler = memoryHandlers.get(event.type as MemoryEventType)
     if (typeof memoryHandler === 'function') {
       memoryHandler(ch, sid, event)

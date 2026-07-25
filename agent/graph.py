@@ -27,6 +27,7 @@ from langgraph.graph.message import MessagesState
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
+
 # 彩蛋：Sonetto 就是这个 CompiledStateGraph ✨
 Sonetto = CompiledStateGraph
 
@@ -98,7 +99,20 @@ def build_agent(
         if not query:
             return {}
 
+        # 延迟导入避免循环依赖
+        from api.events.memory import MemorySender  # noqa: PLC0415
+
+        # 通知前端开始搜索
+        ws_sender = MemorySender.from_context()
+        if ws_sender:
+            await ws_sender.memory_search_start()
+
         results = await memory_retriever(query)
+
+        # 通知前端搜索完成
+        if ws_sender:
+            await ws_sender.memory_search_done(count=len(results))
+
         if not results:
             return {}
 

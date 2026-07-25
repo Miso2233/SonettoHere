@@ -47,3 +47,11 @@ class MemorySender(WsTransport):
     async def memory_done(self, turn_id: str) -> None:
         """通知前端本轮记忆处理完成。"""
         await self._send("memory_done", {"turn_id": turn_id})
+
+    async def memory_search_start(self) -> None:
+        """通知前端开始语义搜索记忆。"""
+        await self._send("memory_search_start", {})
+
+    async def memory_search_done(self, count: int) -> None:
+        """通知前端记忆搜索完成。"""
+        await self._send("memory_search_done", {"count": count})
