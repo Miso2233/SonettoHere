@@ -257,15 +257,6 @@ def _resolve_llm(
 # ── 阶段 2：构建 Agent 与输入 ──────────────────────────────
 
 
-async def _search_memories(
-    ltm: Any,
-    query: str,
-) -> list[dict[str, str]]:
-    """在长期记忆中语义搜索与查询相关的条目（通过 run_in_executor 避免阻塞事件循环）。"""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, ltm.get_related_memory_from, query)
-
-
 async def _build_turn_context(
     tools: list,
     session: SessionState,
@@ -281,19 +272,11 @@ async def _build_turn_context(
     cb_sender = CallbackSender.from_context()
     ws_callback = WebSocketCallback(cb_sender)
 
-    # 若 LTM 可用，创建记忆检索器注入 graph
-    memory_retriever = None
-    if ltm is not None:
-        async def _retriever(query: str) -> list[dict[str, str]]:
-            return await _search_memories(ltm, query)
-        memory_retriever = _retriever
-
     agent = build_agent(
         model=llm_conf.llm,
         tools=tools,
         system_prompt=system_prompt,
         checkpointer=get_checkpointer(),
-        memory_retriever=memory_retriever,
         ltm=ltm,
     )
     session.set_graph(agent)

@@ -12,7 +12,7 @@
 用户消息之后。旧轮次的记忆消息随历史保留，不会主动清除。
 """
 
-from collections.abc import Awaitable, Callable
+import asyncio
 from typing import Any, Literal
 
 from langchain_core.language_models import BaseChatModel
@@ -62,7 +62,6 @@ def build_agent(
     tools: list[BaseTool],
     system_prompt: str,
     checkpointer: BaseCheckpointSaver,
-    memory_retriever: Callable[[str], Awaitable[list[dict[str, str]]]] | None = None,
     ltm: Any | None = None,
 ) -> Sonetto:
     """构建 ReAct Agent 图。
@@ -75,7 +74,8 @@ def build_agent(
                                                               │              │
                                                               └── [ltm_write] ──→ END
 
-    - **retrieve_memory** — 每轮 HumanMessage 时检索长期记忆，以 HumanMessage 追加到 messages
+    - **retrieve_memory** — 每轮 HumanMessage 时通过 ``ltm`` 语义检索长期记忆，
+      以 HumanMessage 追加到 messages
     - **agent** — 调用 LLM，可绑定工具
     - **tools** — 执行工具调用
     - **ltm_write** — 将本轮对话投递到 LTM 后台队列以更新 memory.yaml
@@ -88,7 +88,7 @@ def build_agent(
     键              类型    说明
     ==============  =====  ====================================================
     ``thread_id``    str    **必需**。会话 ID，传给 checkpointer 读写状态。
-    ``private_mode``  bool  可选。为 ``True`` 时跳过 ltm_write 节点。
+    ``private_mode``  bool   **必需**。为 ``True`` 时跳过 ltm_write 节点。
     ==============  =====  ====================================================
 
     Args:
@@ -96,9 +96,8 @@ def build_agent(
         tools: 工具列表，传给 ToolNode 统一调度。
         system_prompt: 系统提示词，作为 SystemMessage 注入每次模型调用。
         checkpointer: 检查点存储器（必填，由调用方提供）。
-        memory_retriever: 可选。异步函数，接收用户消息文本，返回相关记忆条目列表
-            （每项含 id / description / theme）。
-        ltm: 可选。LongTermMemory 实例。提供时启用 ``ltm_write`` 节点。
+        ltm: LongTermMemory 实例。提供时启用 ``retrieve_memory`` 和
+            ``ltm_write`` 节点；为 ``None`` 时两节点均为空操作。
 
     Returns:
         编译后的 ``CompiledStateGraph``（即 ``Sonetto``）。
@@ -113,11 +112,11 @@ def build_agent(
     async def retrieve_memory(state: MessagesState) -> dict[str, list[BaseMessage]]:
         """检索长期记忆，以 HumanMessage 追加到 messages 中。
 
-        仅当最后一条是 HumanMessage（用户本轮新输入）时检索；
+        仅当最后一条是 HumanMessage（用户本轮新输入）且 ltm 可用时检索；
         工具回圈（ToolMessage 结尾）时不检索，但此前追加的记忆保留在历史中。
         """
         last = state["messages"][-1] if state["messages"] else None
-        if not isinstance(last, HumanMessage) or not memory_retriever:
+        if not isinstance(last, HumanMessage) or ltm is None:
             return {}
 
         query = last.content
@@ -140,7 +139,10 @@ def build_agent(
         if ws_sender:
             await ws_sender.memory_search_start()
 
-        results = await memory_retriever(query)
+        # ltm.get_related_memory_from 是同步 LLM 调用，通过 run_in_executor
+        # 避免阻塞事件循环
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(None, ltm.get_related_memory_from, query)
 
         # 通知前端搜索完成
         if ws_sender:
@@ -166,14 +168,13 @@ def build_agent(
     ) -> dict[str, Any]:
         """将本轮对话投递到 LTM 后台队列，异步更新 memory.yaml。
 
-        仅在 ``config.configurable.private_mode`` 不为 ``True`` 且 ltm 可用时执行。
         不阻塞——send_history_from_session 仅做 queue.put 后立即返回。
+        当 ``ltm is None`` 或 ``private_mode is True`` 时跳过。
         """
         if ltm is None:
             return {}
 
-        private = config["configurable"].get("private_mode", False)
-        if private:
+        if config["configurable"]["private_mode"]:
             return {}
 
         # 延迟导入避免循环依赖
