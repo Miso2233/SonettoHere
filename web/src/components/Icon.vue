@@ -6,6 +6,7 @@
 import { computed } from 'vue'
 import chatRaw from '@/assets/icons/sidebar/chat.svg?raw'
 import memoryRaw from '@/assets/icons/sidebar/memory.svg?raw'
+import recallRaw from '@/assets/icons/sidebar/recall.svg?raw'
 import modelRaw from '@/assets/icons/sidebar/model.svg?raw'
 import pinRaw from '@/assets/icons/sidebar/pin.svg?raw'
 import citeSpeechRaw from '@/assets/icons/context-menu/cite-speech.svg?raw'
@@ -31,6 +32,7 @@ const props = withDefaults(defineProps<{
 const svgContents: Record<string, string> = {
   chat: chatRaw,
   memory: memoryRaw,
+  recall: recallRaw,
   model: modelRaw,
   pin: pinRaw,
   settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

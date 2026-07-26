@@ -110,6 +110,15 @@
             <Icon name="memory" :size="18" />
           </button>
           <button
+            class="btn-recall"
+            :class="{ active: skipRecall }"
+            :disabled="disabled"
+            :title="skipRecall ? '失忆模式：已跳过记忆检索' : '回忆模式：每轮自动检索相关记忆'"
+            @click="$emit('toggleRecall')"
+          >
+            <Icon name="recall" :size="18" />
+          </button>
+          <button
             class="btn-check"
             :class="{ active: autoApprove }"
             :disabled="disabled"
@@ -184,6 +193,7 @@ const props = defineProps<{
   isStreaming: boolean
   disabled: boolean
   privateMode: boolean
+  skipRecall: boolean
   autoApprove: boolean
   imageRecognition: boolean
   hasVision?: boolean
@@ -194,6 +204,7 @@ const emit = defineEmits<{
   stop: []
   modelChange: [providerId: string, modelName: string]
   togglePrivate: []
+  toggleRecall: []
   toggleAutoApprove: []
   toggleImageRecognition: []
 }>()
@@ -1354,9 +1365,72 @@ function onResizeEnd(e: PointerEvent) {
   cursor: default;
 }
 .btn-memory.active {
+  position: relative;
   background: color-mix(in srgb, #81ae92 12%, transparent);
   color: #81ae92;
   box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
+}
+.btn-memory.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 0.5px),
+    currentColor calc(50% - 0.5px),
+    currentColor calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  pointer-events: none;
+  opacity: 0.65;
+  border-radius: 8px;
+}
+
+/* ── 回忆/失忆模式切换按钮 ── */
+.btn-recall {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-recall:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-recall:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-recall.active {
+  position: relative;
+  background: color-mix(in srgb, #81ae92 12%, transparent);
+  color: #81ae92;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
+}
+.btn-recall.active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top right,
+    transparent calc(50% - 0.5px),
+    currentColor calc(50% - 0.5px),
+    currentColor calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  pointer-events: none;
+  opacity: 0.65;
+  border-radius: 8px;
 }
 
 /* ── 检查/自动执行按钮 ── */

@@ -111,6 +111,10 @@
               <span class="quick-hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
               <span><kbd>Ctrl</kbd> + <kbd>K</kbd> 切换私密模式</span>
             </span>
+            <span class="quick-hint" @click="toggleRecall">
+              <span class="quick-hint-icon"><svg width="14" height="14" viewBox="0 0 82.118 82.118" fill="currentColor"><path d="M75.346,15.559h-47.9c-3.499,0-4.873,1.509-6.328,2.905c-0.294,0.283-0.613,0.685-0.982,1.01c-0.045,0.04-0.088,0.128-0.129,0.172L0.548,40.216c-0.721,0.761-0.731,1.962-0.024,2.737l19.459,21.298c0.07,0.076,0.146-0.04,0.227,0.024c2.194,1.756,3.463,2.284,7.237,2.284h47.899c4.35,0,6.772-2.659,6.772-7.184V24.2C82.118,19.491,79.491,15.559,75.346,15.559z M78.118,59.375c0,1.331,0.075,3.184-2.772,3.184h-47.9c-2.675,0-3.106-0.101-4.616-1.307L4.731,41.544L22.85,22.461c0.387-0.344,0.725-0.833,1.037-1.134c1.281-1.229,1.668-1.767,3.559-1.767h47.899c2.248,0,2.772,2.589,2.772,4.641v35.174H78.118z M26.143,34.135c-4.297,0-7.793,3.496-7.793,7.794c0,4.297,3.496,7.793,7.793,7.793s7.793-3.496,7.793-7.793C33.936,37.631,30.44,34.135,26.143,34.135z M26.143,45.722c-2.092,0-3.793-1.701-3.793-3.793s1.701-3.794,3.793-3.794s3.793,1.702,3.793,3.794S28.235,45.722,26.143,45.722z"/></svg></span>
+              <span><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd> 切换回忆/失忆</span>
+            </span>
             <span class="quick-hint"> <!-- will be wired to new-session -->
               <span class="quick-hint-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></span>
               点击 <kbd>+</kbd> 新建会话
@@ -162,6 +166,7 @@ const emit = defineEmits<{
   (e: 'action', p: { action: string; data?: unknown }): void
   (e: 'cite', ref: ParsedRef): void
   (e: 'togglePrivate'): void
+  (e: 'toggleRecall'): void
 }>()
 
 function forwardAction(payload: { action: string; data?: unknown }) {
@@ -268,12 +273,21 @@ function typewriterTick() {
   }
 }
 
-// ── Private mode toggle (Ctrl+K) ──
+// ── Mode toggles (Ctrl+K / Ctrl+Shift+K) ──
 function togglePrivate() {
   emit('togglePrivate')
 }
 
+function toggleRecall() {
+  emit('toggleRecall')
+}
+
 function onPrivateKeydown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'K') {
+    e.preventDefault()
+    toggleRecall()
+    return
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
     e.preventDefault()
     togglePrivate()

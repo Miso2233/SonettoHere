@@ -64,6 +64,7 @@ export interface SessionChannel {
   _awaitingToolName: string | null
   parentSessionId: string | null
   privateMode: boolean
+  skipRecall: boolean
   autoApprove: boolean
 }
 
@@ -101,6 +102,7 @@ export const useChatStore = defineStore('chat', () => {
         _awaitingToolName: null,
         parentSessionId: null,
         privateMode: false,
+        skipRecall: false,
         autoApprove: false,
       })
     }
@@ -286,6 +288,7 @@ export const useChatStore = defineStore('chat', () => {
       payload: {
         message: flatMsg,
         private: ch.privateMode,
+        skip_recall: ch.skipRecall,
         auto_approve: ch.autoApprove,
         provider_id: providerId,
         model_name: modelName,

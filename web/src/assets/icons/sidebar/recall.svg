@@ -15,10 +15,10 @@
 			s3.793,1.702,3.793,3.794S28.235,45.722,26.143,45.722z"/>
 	</g>
 </g>
-<!-- 右下角三层向下箭头，表示点击切换私密模式 -->
+<!-- 右下角三层向上箭头，表示回忆模式：开启时检索记忆，关闭时跳过记忆提取 -->
 <g opacity="0.9" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
-	<path d="M56,36 L70,48 L82,36"/>
-	<path d="M56,48 L70,60 L82,48"/>
-	<path d="M56,60 L70,72 L82,60"/>
+	<path d="M56,48 L70,36 L82,48"/>
+	<path d="M56,60 L70,48 L82,60"/>
+	<path d="M56,72 L70,60 L82,72"/>
 </g>
 </svg>

@@ -82,6 +82,7 @@ async def _handle_chat(
         return agent_task
 
     auto_approve = payload.get("auto_approve", False)
+    skip_recall = payload.get("skip_recall", False)
     interaction.current_ws.set(ws)  # 供工具函数/Sender.from_context() 通过 WebSocket 推送交互
     interaction.current_session_id.set(session_id)
     interaction.set_session_auto_approve(session_id, auto_approve)
@@ -95,6 +96,7 @@ async def _handle_chat(
             model_name=payload.get("model_name"),
             image_recognition=payload.get("image_recognition", False),
             image_refs=payload.get("image_refs", []),
+            skip_recall=skip_recall,
         )
     )
     session.set_active_task(agent_task)

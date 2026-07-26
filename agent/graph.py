@@ -70,6 +70,10 @@ class RetrieveMemoryNode:
         if not isinstance(last, HumanMessage) or self._ltm is None:
             return {}
 
+        # 失忆模式：跳过记忆提取
+        if config["configurable"].get("skip_recall", False):
+            return {}
+
         query = last.content
         if isinstance(query, list):
             text_parts = [
@@ -213,6 +217,7 @@ def build_agent(
     ==============  =====  ====================================================
     ``thread_id``    str    **必需**。会话 ID，传给 checkpointer 读写状态。
     ``private_mode``  bool   **必需**。为 ``True`` 时跳过 ltm_write 节点。
+    ``skip_recall``   bool   **必需**。为 ``True`` 时跳过 retrieve_memory 节点（失忆模式）。
     ==============  =====  ====================================================
 
     Args:

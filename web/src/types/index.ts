@@ -172,6 +172,7 @@ export interface ChatMessage {
   payload: {
     message: string
     private?: boolean
+    skip_recall?: boolean
     auto_approve?: boolean
     provider_id?: string
     model_name?: string

@@ -266,6 +266,7 @@ async def _build_turn_context(
     image_refs: list[str] | None,
     ltm: Any | None = None,
     private_mode: bool = False,
+    skip_recall: bool = False,
 ) -> _TurnContext:
     """构建 Agent 图、输入消息和执行配置。"""
     system_prompt = build_system_prompt()
@@ -307,6 +308,7 @@ async def _build_turn_context(
         "configurable": {
             "thread_id": session.session_id,
             "private_mode": private_mode,
+            "skip_recall": skip_recall,
             "turn_id": turn_id,
         },
         "callbacks": [ws_callback],
@@ -419,6 +421,7 @@ async def run_agent_turn(
     session: SessionState,
     user_message: str,
     private_mode: bool = False,
+    skip_recall: bool = False,
     provider_id: str | None = None,
     model_name: str | None = None,
     image_recognition: bool = False,
@@ -460,6 +463,7 @@ async def run_agent_turn(
         image_refs=image_refs,
         ltm=app_state.ltm,
         private_mode=private_mode,
+        skip_recall=skip_recall,
     )
 
     # 3. 执行轮次

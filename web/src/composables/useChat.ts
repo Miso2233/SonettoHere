@@ -46,11 +46,17 @@ export function useChat(sessionId: Ref<string>) {
   const contextUsage = computed(() => activeChannelRef.value.contextUsage)
   const taskTrackerData = computed(() => activeChannelRef.value.taskTrackerData)
   const privateMode = computed(() => activeChannelRef.value.privateMode)
+  const skipRecall = computed(() => activeChannelRef.value.skipRecall)
   const autoApprove = computed(() => activeChannelRef.value.autoApprove)
 
   function setPrivateMode(val: boolean) {
     const ch = activeChannelRef.value
     ch.privateMode = val
+  }
+
+  function setSkipRecall(val: boolean) {
+    const ch = activeChannelRef.value
+    ch.skipRecall = val
   }
 
   function setAutoApprove(val: boolean) {
@@ -88,6 +94,7 @@ export function useChat(sessionId: Ref<string>) {
     connected, isStreaming, turns, currentTurn, error, contextUsage, taskTrackerData,
     send, cancel, sendUserResponse, removeTurns,
     privateMode, setPrivateMode,
+    skipRecall, setSkipRecall,
     autoApprove, setAutoApprove,
   }
 }
