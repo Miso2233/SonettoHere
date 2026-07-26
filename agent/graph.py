@@ -16,9 +16,11 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from langchain_core.language_models import BaseChatModel
+from api.memory import LongTermMemory
+
+from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_core.tools import BaseTool
 from langgraph._internal._runnable import RunnableCallable
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -35,7 +37,7 @@ Sonetto = CompiledStateGraph
 # ── 条件路由 ──────────────────────────────────────────
 
 
-def _route_after_agent(state: MessagesState) -> Literal["tools", "ltm_write"]:
+def route_after_agent(state: MessagesState) -> Literal["tools", "ltm_write"]:
     """模型节点后的条件边路由器。
 
     带 tool_calls → tools 节点执行工具；
@@ -47,17 +49,116 @@ def _route_after_agent(state: MessagesState) -> Literal["tools", "ltm_write"]:
     return "ltm_write"
 
 
+# ── 图节点类 ──────────────────────────────────────────
+
+
+class RetrieveMemoryNode:
+    """检索长期记忆，以 HumanMessage 追加到 messages 中。
+
+    仅当最后一条是 HumanMessage（用户本轮新输入）且 ltm 可用时检索；
+    工具回圈（ToolMessage 结尾）时不检索，但此前追加的记忆保留在历史中。
+    """
+
+    def __init__(self, ltm: LongTermMemory | None) -> None:
+        self._ltm = ltm
+
+    async def __call__(self, state: MessagesState) -> dict[str, list[BaseMessage]]:
+        last = state["messages"][-1] if state["messages"] else None
+        if not isinstance(last, HumanMessage) or self._ltm is None:
+            return {}
+
+        query = last.content
+        if isinstance(query, list):
+            text_parts = [
+                p.get("text", "")
+                for p in query
+                if isinstance(p, dict) and p.get("type") == "text"
+            ]
+            query = " ".join(text_parts) if text_parts else ""
+
+        if not query:
+            return {}
+
+        # 延迟导入避免循环依赖
+        from api.events.memory import MemorySender  # noqa: PLC0415
+        from api.memory import RetrievalMode  # noqa: PLC0415
+
+        # 通知前端开始搜索
+        ws_sender = MemorySender.from_context()
+        if ws_sender:
+            await ws_sender.memory_search_start()
+
+        # 检索记忆
+        results = self._ltm.get_related_memory_from(query, mode=RetrievalMode.LLM)
+
+        # 通知前端搜索完成
+        if ws_sender:
+            await ws_sender.memory_search_done(count=len(results))
+
+        if not results:
+            return {}
+
+        return {"messages": [self._build_memory_message(results)]}
+
+    @staticmethod
+    def _build_memory_message(results: list[dict[str, str]]) -> HumanMessage:
+        """将记忆检索结果格式化为一条 HumanMessage。"""
+        from api.memory.long_term import MEMORY_INJECTION_MARKER  # noqa: PLC0415
+
+        lines = [MEMORY_INJECTION_MARKER]
+        for r in results:
+            lines.append(f"- [{r['theme']}] {r['description']}")
+        return HumanMessage(content="\n".join(lines))
+
+
+class CallAgentNode:
+    """调用 LLM，返回新的 AIMessage。"""
+
+    def __init__(self, system_message: SystemMessage, model_with_tools: Runnable[LanguageModelInput, AIMessage]) -> None:
+        self._system_message = system_message
+        self._model_with_tools = model_with_tools
+
+    async def __call__(
+        self, state: MessagesState, config: RunnableConfig
+    ) -> dict[str, Any]:
+        messages = [self._system_message] + state["messages"]
+        response = await self._model_with_tools.ainvoke(messages, config)
+        return {"messages": [response]}
+
+
+class LtmWriteNode:
+    """将本轮对话投递到 LTM 后台队列，异步更新 memory.yaml。
+
+    不阻塞——send_history_from_session 仅做 queue.put 后立即返回。
+    当 ``ltm is None`` 或 ``private_mode is True`` 时跳过。
+    """
+
+    def __init__(self, ltm: LongTermMemory | None) -> None:
+        self._ltm = ltm
+
+    async def __call__(
+        self, state: MessagesState, config: RunnableConfig
+    ) -> dict[str, Any]:
+        if self._ltm is None:
+            return {}
+
+        if config["configurable"]["private_mode"]:
+            return {}
+
+        # 延迟导入避免循环依赖
+        from api.session.manager import session_manager  # noqa: PLC0415
+
+        sid = config["configurable"]["thread_id"]
+        session = session_manager.get(sid)
+        if session is None:
+            return {}
+
+        turn_id = config["configurable"].get("turn_id", "")
+        await self._ltm.send_history_from_session(session, turn_id=turn_id)
+        return {}
+
+
 # ── 图构建 ──────────────────────────────────────────────
-
-
-def _build_memory_message(results: list[dict[str, str]]) -> HumanMessage:
-    """将记忆检索结果格式化为一条 HumanMessage。"""
-    from api.memory.long_term import MEMORY_INJECTION_MARKER  # noqa: PLC0415
-
-    lines = [MEMORY_INJECTION_MARKER]
-    for r in results:
-        lines.append(f"- [{r['theme']}] {r['description']}")
-    return HumanMessage(content="\n".join(lines))
 
 
 def build_agent(
@@ -65,7 +166,7 @@ def build_agent(
     tools: list[BaseTool],
     system_prompt: str,
     checkpointer: BaseCheckpointSaver,
-    ltm: Any | None = None,
+    ltm: LongTermMemory | None = None,
 ) -> Sonetto:
     """构建 ReAct Agent 图。
 
@@ -107,109 +208,35 @@ def build_agent(
         编译后的 ``CompiledStateGraph``（即 ``Sonetto``）。
     """
 
-    # ── 将外部依赖转换为图内可运行对象 ────────────────
-    system_message = SystemMessage(content=system_prompt)
-    model_with_tools = model.bind_tools(tools)
+    # ── 构造节点实例 ─────────────────────────────────
+    retrieve_memory_node = RetrieveMemoryNode(ltm)
+    agent_node = CallAgentNode(
+        SystemMessage(content=system_prompt),
+        model.bind_tools(tools),
+    )
+    ltm_write_node = LtmWriteNode(ltm)
     tool_node = ToolNode(tools)
-
-    # ── 记忆检索节点（retrieve_memory） ──────────────
-    async def retrieve_memory(state: MessagesState) -> dict[str, list[BaseMessage]]:
-        """检索长期记忆，以 HumanMessage 追加到 messages 中。
-
-        仅当最后一条是 HumanMessage（用户本轮新输入）且 ltm 可用时检索；
-        工具回圈（ToolMessage 结尾）时不检索，但此前追加的记忆保留在历史中。
-        """
-        last = state["messages"][-1] if state["messages"] else None
-        if not isinstance(last, HumanMessage) or ltm is None:
-            return {}
-
-        query = last.content
-        if isinstance(query, list):
-            text_parts = [
-                p.get("text", "")
-                for p in query
-                if isinstance(p, dict) and p.get("type") == "text"
-            ]
-            query = " ".join(text_parts) if text_parts else ""
-
-        if not query:
-            return {}
-
-        # 延迟导入避免循环依赖
-        from api.events.memory import MemorySender  # noqa: PLC0415
-        from api.memory import RetrievalMode  # noqa: PLC0415
-
-        # 通知前端开始搜索
-        ws_sender = MemorySender.from_context()
-        if ws_sender:
-            await ws_sender.memory_search_start()
-
-        # 检索记忆
-        results = ltm.get_related_memory_from(query, mode=RetrievalMode.LLM)
-
-        # 通知前端搜索完成
-        if ws_sender:
-            await ws_sender.memory_search_done(count=len(results))
-
-        if not results:
-            return {}
-
-        return {"messages": [_build_memory_message(results)]}
-
-    # ── 模型节点（agent） ─────────────────────────────
-    async def call_agent(
-        state: MessagesState, config: RunnableConfig
-    ) -> dict[str, Any]:
-        """调用 LLM，返回新的 AIMessage。"""
-        messages = [system_message] + state["messages"]
-        response = await model_with_tools.ainvoke(messages, config)
-        return {"messages": [response]}
-
-    # ── LTM 写入节点（ltm_write） ─────────────────────
-    async def ltm_write(
-        state: MessagesState, config: RunnableConfig
-    ) -> dict[str, Any]:
-        """将本轮对话投递到 LTM 后台队列，异步更新 memory.yaml。
-
-        不阻塞——send_history_from_session 仅做 queue.put 后立即返回。
-        当 ``ltm is None`` 或 ``private_mode is True`` 时跳过。
-        """
-        if ltm is None:
-            return {}
-
-        if config["configurable"]["private_mode"]:
-            return {}
-
-        # 延迟导入避免循环依赖
-        from api.session.manager import session_manager  # noqa: PLC0415
-
-        sid = config["configurable"]["thread_id"]
-        session = session_manager.get(sid)
-        if session is None:
-            return {}
-
-        turn_id = config["configurable"].get("turn_id", "")
-        await ltm.send_history_from_session(session, turn_id=turn_id)
-        return {}
 
     # ── 组装图 ────────────────────────────────────────
     builder = StateGraph(MessagesState)
 
     builder.add_node(
         "retrieve_memory",
-        RunnableCallable(None, retrieve_memory, name="retrieve_memory", trace=False),
+        RunnableCallable(None, retrieve_memory_node, name="retrieve_memory", trace=False),
     )
     builder.add_node(
-        "agent", RunnableCallable(None, call_agent, name="agent", trace=False),
+        "agent",
+        RunnableCallable(None, agent_node, name="agent", trace=False),
     )
     builder.add_node("tools", tool_node)
     builder.add_node(
-        "ltm_write", RunnableCallable(None, ltm_write, name="ltm_write", trace=False),
+        "ltm_write",
+        RunnableCallable(None, ltm_write_node, name="ltm_write", trace=False),
     )
 
     builder.add_edge(START, "retrieve_memory")
     builder.add_edge("retrieve_memory", "agent")
-    builder.add_conditional_edges("agent", _route_after_agent)
+    builder.add_conditional_edges("agent", route_after_agent)
     builder.add_edge("tools", "agent")
     builder.add_edge("ltm_write", END)
 
