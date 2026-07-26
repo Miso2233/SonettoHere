@@ -21,7 +21,7 @@
             </template>
             <template v-else>
               <span class="memory-search-check">&#10003;</span>
-              <span>已检索到 {{ turn.memorySearch.count }} 条相关记忆</span>
+              <span>已检索 {{ turn.memorySearch.total }} 条，新增 {{ turn.memorySearch.fresh }} 条</span>
             </template>
           </div>
           <template v-for="(ev, i) in turn.events" :key="i">

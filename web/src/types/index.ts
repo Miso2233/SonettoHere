@@ -138,7 +138,8 @@ export interface MemorySearchStartEvent {
 export interface MemorySearchDoneEvent {
   type: 'memory_search_done'
   payload: {
-    count: number
+    total: number
+    fresh: number
   }
 }
 
@@ -266,7 +267,7 @@ export interface ChatTurn {
   /** 后端生成的 turn_id，用于关联后台记忆 consumer 的事件 */
   turnId?: string
   /** 当前轮的语义记忆搜索结果 */
-  memorySearch?: { status: 'searching' } | { status: 'done'; count: number }
+  memorySearch?: { status: 'searching' } | { status: 'done'; total: number; fresh: number }
 }
 
 // === 会话与 API 类型 ===

@@ -3,9 +3,8 @@
 
 图结构：（箭头为固定/条件边）
 
-    START ──→ [retrieve_memory] ──→ [agent] ──→ [tools] ──→ [agent] ──→ ... ──→ END
-                                            │                              ↑
-                                            └── 无 tool_calls → END ──────┘
+                                    ↓←  [tools] ←↑
+        START ──→ [retrieve_memory] ──→ [agent] ──→  [ltm_write] ──→ END
 
 `retrieve_memory` 节点在每轮用户输入时，根据最新的 HumanMessage 语义检索长期记忆，
 将结果以 HumanMessage（【相关记忆】…）的形式追加到 `messages` 列表中，紧随触发它的
@@ -55,14 +54,18 @@ def route_after_agent(state: MessagesState) -> Literal["tools", "ltm_write"]:
 class RetrieveMemoryNode:
     """检索长期记忆，以 HumanMessage 追加到 messages 中。
 
-    仅当最后一条是 HumanMessage（用户本轮新输入）且 ltm 可用时检索；
-    工具回圈（ToolMessage 结尾）时不检索，但此前追加的记忆保留在历史中。
+    按 (session_id, memory_id) 去重——同一会话中已注入过的记忆不再重复注入。
     """
+
+    # 跨实例去重状态（key=session_id, value=已注入的记忆 ID 集合）
+    _seen: dict[str, set[str]] = {}
 
     def __init__(self, ltm: LongTermMemory | None) -> None:
         self._ltm = ltm
 
-    async def __call__(self, state: MessagesState) -> dict[str, list[BaseMessage]]:
+    async def __call__(
+        self, state: MessagesState, config: RunnableConfig
+    ) -> dict[str, list[BaseMessage]]:
         last = state["messages"][-1] if state["messages"] else None
         if not isinstance(last, HumanMessage) or self._ltm is None:
             return {}
@@ -91,14 +94,30 @@ class RetrieveMemoryNode:
         # 检索记忆
         results = self._ltm.get_related_memory_from(query, mode=RetrievalMode.LLM)
 
-        # 通知前端搜索完成
-        if ws_sender:
-            await ws_sender.memory_search_done(count=len(results))
-
         if not results:
+            if ws_sender:
+                await ws_sender.memory_search_done(total=0, fresh=0)
             return {}
 
-        return {"messages": [self._build_memory_message(results)]}
+        # 按会话去重（以记忆 ID 为标识）
+        session_id = config["configurable"]["thread_id"]
+        seen_ids = RetrieveMemoryNode._seen.setdefault(session_id, set())
+        fresh: list[dict[str, str]] = []
+        for r in results:
+            mid = r["id"]
+            if mid in seen_ids:
+                continue
+            seen_ids.add(mid)
+            fresh.append(r)
+
+        # 通知前端搜索完成（含重复量和净增量）
+        if ws_sender:
+            await ws_sender.memory_search_done(total=len(results), fresh=len(fresh))
+
+        if not fresh:
+            return {}
+
+        return {"messages": [self._build_memory_message(fresh)]}
 
     @staticmethod
     def _build_memory_message(results: list[dict[str, str]]) -> HumanMessage:

@@ -52,6 +52,6 @@ class MemorySender(WsTransport):
         """通知前端开始语义搜索记忆。"""
         await self._send("memory_search_start", {})
 
-    async def memory_search_done(self, count: int) -> None:
-        """通知前端记忆搜索完成。"""
-        await self._send("memory_search_done", {"count": count})
+    async def memory_search_done(self, total: int, fresh: int) -> None:
+        """通知前端记忆搜索完成。total=原始检索数, fresh=去重后净新增数。"""
+        await self._send("memory_search_done", {"total": total, "fresh": fresh})

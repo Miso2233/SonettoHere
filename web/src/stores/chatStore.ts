@@ -208,7 +208,7 @@ export const useChatStore = defineStore('chat', () => {
     }
     if (event.type === 'memory_search_done') {
       if (ch.currentTurn) {
-        ch.currentTurn.memorySearch = { status: 'done', count: event.payload.count }
+        ch.currentTurn.memorySearch = { status: 'done', total: event.payload.total, fresh: event.payload.fresh }
       }
       return
     }
