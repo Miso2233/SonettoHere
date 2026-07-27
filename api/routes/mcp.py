@@ -1,12 +1,11 @@
 """REST API — MCP 服务器配置查看与热加载。"""
 
-import logging
-
 from fastapi import APIRouter, HTTPException, Request
 
 from tools.mcp import get_mcp_servers_info
+from api.utils.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter()
 

@@ -11,8 +11,11 @@ import yaml
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from pydantic import BaseModel, Field
+from api.utils.logger import get_logger
 
 _CONFIG_PATH = Path(__file__).resolve().parent.parent / "config" / "mcp_servers.yaml"
+
+_log = get_logger("mcp")
 
 _client: MultiServerMCPClient | None = None
 _tools: list[BaseTool] | None = None
@@ -150,7 +153,7 @@ def load_mcp_config() -> list[MCPServerConfig]:
         return _config
     except Exception as exc:
         _last_error = f"加载 MCP 配置失败: {exc}"
-        print(f"[mcp] {_last_error}")
+        _log.error("加载 MCP 配置失败: %s", exc)
         _config = []
         return []
 
@@ -185,7 +188,7 @@ async def init_mcp_tools() -> list[BaseTool]:
         except Exception as exc:
             msg = f"服务器 '{cfg.server_id}' 连接构建失败: {exc}"
             server_errors.append(msg)
-            print(f"[mcp] {msg}")
+            _log.error("服务器 '%s' 连接构建失败: %s", cfg.server_id, exc)
 
     if not connections:
         _tools = []
@@ -204,10 +207,10 @@ async def init_mcp_tools() -> list[BaseTool]:
         for cfg in enabled:
             prefix = f"{cfg.server_id}_"
             count = sum(1 for t in _tools if t.name.startswith(prefix))
-            print(f"[mcp] 服务器 '{cfg.server_id}' 已加载 {count} 个工具")
+            _log.info("服务器 '%s' 已加载 %d 个工具", cfg.server_id, count)
     except Exception as exc:
         _last_error = f"初始化 MCP 客户端失败: {exc}"
-        print(f"[mcp] {_last_error}")
+        _log.error("初始化 MCP 客户端失败: %s", exc)
         _tools = []
 
     return _tools

@@ -21,6 +21,9 @@ from api.memory.manager import MAX_DESC_LENGTH
 from api.memory.retriever import MechanicalRetriever, RetrievalMode
 from api.providers.default_llm import get_default_llm
 from api.session.manager import SessionState, session_manager
+from api.utils.logger import get_logger
+
+_log = get_logger("ltm")
 
 
 def _sanitize(text: str) -> str:
@@ -436,11 +439,9 @@ class LongTermMemory:
             return
         if self._queue is not None:
             await self._queue.put((session_id, turn_id, list(turn_messages)))
-            print(
-                f"[ltm] queue.put session={session_id} turn_id={turn_id} queue_size≈{self._queue.qsize()}"
-            )
+            _log.debug("queue.put session=%s turn_id=%s queue_size≈%d", session_id, turn_id, self._queue.qsize())
         else:
-            print("[ltm] queue is None, dropping history")
+            _log.warning("queue is None, dropping history")
 
     @staticmethod
     async def _extract_session_messages(session: SessionState) -> list[dict[str, str]]:
@@ -520,21 +521,17 @@ class LongTermMemory:
             if item is None:
                 break
             session_id, turn_id, turn_messages = item
-            print(
-                f"[ltm] consumer got session={session_id} turn_id={turn_id} msgs={len(turn_messages)}"
-            )
+            _log.info("consumer got session=%s turn_id=%s msgs=%d", session_id, turn_id, len(turn_messages))
 
             # 无论后续成功与否，先通知前端「开始处理」
             if session_id:
                 sender = MemorySender.from_session_id(session_id)
                 if sender is not None:
                     await sender.memory_start(turn_id or "")
-                    print(
-                        f"[ltm] memory_start sent session={session_id[:8]} turn_id={turn_id[:8]}"
-                    )
+                    _log.debug("memory_start sent session=%s turn_id=%s", session_id[:8], turn_id[:8])
 
             if get_default_llm() is None:
-                print("[ltm] no LLM available — skipping memory update")
+                _log.warning("no LLM available — skipping memory update")
                 # 发送 memory_done 避免前端一直显示「处理中…」
                 if session_id:
                     sender = MemorySender.from_session_id(session_id)
@@ -588,18 +585,16 @@ class LongTermMemory:
                 # 创建回调：推送 CRUD 工具调用到前端对应轮次
                 callbacks = []
                 if session_id:
-                    print(
-                        f"[ltm] creating MemoryToolCallback session={session_id[:8]} turn_id={turn_id[:8]}"
-                    )
+                    _log.debug("creating MemoryToolCallback session=%s turn_id=%s", session_id[:8], turn_id[:8])
                     memory_cb = MemoryToolCallback(
                         session_id,
                         turn_id or "",
                     )
                     callbacks.append(memory_cb)
                 else:
-                    print("[ltm] NO session_id — skip callbacks")
+                    _log.warning("NO session_id — skip callbacks")
 
-                print("[ltm] invoking CRUD agent...")
+                _log.debug("invoking CRUD agent...")
                 await agent.ainvoke(
                     {"messages": [HumanMessage(content=user_prompt)]},
                     config={
@@ -607,22 +602,18 @@ class LongTermMemory:
                         "callbacks": callbacks,
                     },
                 )
-                print("[ltm] CRUD agent done")
+                _log.debug("CRUD agent done")
 
             except Exception as e:
-                print(f"[ltm] CRUD agent error: {e}")
+                _log.error("CRUD agent error: %s", e)
             finally:
                 # 无论异常与否，都通知前端本轮记忆处理完成
                 if session_id:
                     sender = MemorySender.from_session_id(session_id)
                     if sender is not None:
                         await sender.memory_done(turn_id or "")
-                        print(
-                            f"[ltm] memory_done sent session={session_id[:8]} turn_id={turn_id[:8]}"
-                        )
+                        _log.debug("memory_done sent session=%s turn_id=%s", session_id[:8], turn_id[:8])
                     else:
-                        print(
-                            f"[ltm] session.ws is None for session={session_id[:8]}"
-                        )
+                        _log.debug("session.ws is None for session=%s", session_id[:8])
                 else:
-                    print("[ltm] NO session_id — skip memory_done")
+                    _log.debug("NO session_id — skip memory_done")

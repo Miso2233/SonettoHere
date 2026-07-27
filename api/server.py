@@ -33,6 +33,10 @@ from api.providers.default_llm import init_provider_manager, get_default_llm
 from version import __version__
 
 from api.middleware.auth import AuthMiddleware
+from api.middleware.logging import TraceIdMiddleware
+from api.utils.logger import get_logger
+
+_log = get_logger("server")
 
 
 async def _load_const_sessions(app: FastAPI):
@@ -43,7 +47,7 @@ async def _load_const_sessions(app: FastAPI):
         return
 
     if get_default_llm() is None:
-        print(f"[const] Skipping {len(const_list)} const session(s) — no LLM available")
+        _log.warning("跳过 %d 个 const session — 无可用 LLM", len(const_list))
         return
 
     from api.memory.short_term import get_checkpointer
@@ -74,7 +78,7 @@ async def _load_const_sessions(app: FastAPI):
                     {"messages": reconstructed},
                 )
         except Exception as e:
-            print(f"[const] 重建会话 {sid} 失败: {e}")
+            _log.warning("重建会话 %s 失败: %s", sid, e)
             continue
 
         session = SessionState(
@@ -88,7 +92,7 @@ async def _load_const_sessions(app: FastAPI):
         sm.put(sid, session)
         loaded += 1
 
-    print(f"[const] 已加载 {loaded}/{len(const_list)} 个固定会话")
+    _log.info("已加载 %d/%d 个固定会话", loaded, len(const_list))
 
 
 @asynccontextmanager
@@ -98,11 +102,11 @@ async def lifespan(app: FastAPI):
     if provider_store.is_empty:
         migrated = provider_store.migrate_from_env()
         if migrated:
-            print(f"[provider] migrated {migrated.label} from .env → providers.yaml")
+            _log.info("migrated %s from .env → providers.yaml", migrated.label)
     provider_manager = init_manager(provider_store)
     provider_manager.load_all()
     init_provider_manager(provider_manager)
-    print(f"[provider] loaded {provider_manager.count} provider(s)")
+    _log.info("loaded %d provider(s)", provider_manager.count)
 
     # 预加载 OpenRouter 上下文窗口数据，为已配置的模型补充信息
     from api.providers.model_context_windows import ensure_openrouter_cache, fill_missing_context_windows
@@ -114,13 +118,11 @@ async def lifespan(app: FastAPI):
             provider_manager.save_config(p)
             total_filled += filled
     if total_filled:
-        print(f"[context-window] auto-filled {total_filled} model(s) from OpenRouter")
+        _log.info("auto-filled %d model(s) from OpenRouter", total_filled)
 
     # 2. 其他共享资源（LLM 统一从 ProviderManager 获取）
     if get_default_llm() is None:
-        print(
-            "[llm] No LLM configured — chat will be read-only until a provider is added"
-        )
+        _log.warning("未配置 LLM — 对话将处于只读状态")
     app.state.tool_manager = ToolManager()
     await app.state.tool_manager.load_all()
     app.state.ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(MEMORY_PATH)).build())
@@ -161,6 +163,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Trace ID 中间件（在所有路由之前注入）
+    app.add_middleware(TraceIdMiddleware)
 
     # REST 路由
     app.include_router(sessions.router, prefix="/api")

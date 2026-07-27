@@ -2,8 +2,6 @@
 
 import asyncio
 import contextvars
-import sys
-import traceback
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +10,9 @@ from api.events import ToolSender
 from api.memory.short_term import get_checkpointer
 from api.providers.default_llm import get_default_llm
 from tools.base import ToolBase, format_success, format_error
+from api.utils.logger import get_logger
+
+_log = get_logger("call_sub_agent")
 
 
 class CallSubAgentInput(BaseModel):
@@ -65,28 +66,20 @@ class CallSubAgentTool(ToolBase):
             _sub_call_depth.set(depth)  # 恢复而非递减，避免异常场景下计数错乱
 
     async def _do_run(self, task: str, name: str = "") -> str:
-        print("[call_sub_agent] _do_run entered", file=sys.stderr)
+        _log.debug("_do_run entered")
         try:
             ws = interaction.current_ws.get()
-            print(
-                f"[call_sub_agent] current_ws OK: {type(ws).__name__}", file=sys.stderr
-            )
+            _log.debug("current_ws OK: %s", type(ws).__name__)
         except LookupError:
-            print(
-                "[call_sub_agent] FATAL: current_ws not set in this context!",
-                file=sys.stderr,
-            )
-            traceback.print_stack(file=sys.stderr)
+            _log.error("FATAL: current_ws not set in this context!")
             return format_error("内部错误: WebSocket 上下文丢失，无法创建子会话")
         except Exception as e:
-            print(
-                f"[call_sub_agent] FATAL: current_ws.get() failed: {e}", file=sys.stderr
-            )
+            _log.error("FATAL: current_ws.get() failed: %s", e)
             return format_error(f"内部错误: current_ws 异常: {e}")
 
         from api.session.manager import session_manager as sm
         app_state = ws.app.state
-        print("[call_sub_agent] session_manager OK", file=sys.stderr)
+        _log.debug("session_manager OK")
 
         # 确定 parent_session_id
         # 从 WebSocket 路径推断：ws/chat/{session_id}
@@ -100,12 +93,10 @@ class CallSubAgentTool(ToolBase):
 
         # 1. 创建 sub-session
         sub = sm.create_sub_session(task=task)
-        print(
-            f"[call_sub_agent] sub-session created: {sub.session_id}", file=sys.stderr
-        )
+        _log.info("sub-session created: %s", sub.session_id)
 
         # 2. 通知前端（通过主 WS）
-        print("[call_sub_agent] sending sub_session_created via WS", file=sys.stderr)
+        _log.debug("sending sub_session_created via WS")
         sender = ToolSender.from_context()
         if sender is not None:
             await sender.sub_session_created(
@@ -114,10 +105,7 @@ class CallSubAgentTool(ToolBase):
                 task=task,
                 name=name[:100] if name else "",
             )
-        print(
-            "[call_sub_agent] sub_session_created sent, awaiting pending_result...",
-            file=sys.stderr,
-        )
+        _log.debug("sub_session_created sent, awaiting pending_result...")
 
         # 3. 等待 sub-agent 执行完成
         #    sub-agent 由前端连接 sub-session WS 后自动启动
@@ -126,31 +114,19 @@ class CallSubAgentTool(ToolBase):
             # 等待前端连接并触发 auto-start（最多等 10 秒）
             try:
                 final_answer = await asyncio.wait_for(sub.pending_future, timeout=120)
-                print(
-                    f"[call_sub_agent] pending_result resolved, answer len={len(final_answer)}",
-                    file=sys.stderr,
-                )
+                _log.info("pending_result resolved, answer len=%d", len(final_answer))
             except asyncio.TimeoutError:
-                print(
-                    "[call_sub_agent] timeout waiting for pending_result (120s), trying background...",
-                    file=sys.stderr,
-                )
+                _log.warning("timeout waiting for pending_result (120s), trying background...")
                 # 如果前端一直未连接，后端直接执行（无 WS streaming）
                 if not sub.is_pending_done():
                     # 尝试后台执行
                     final_answer = await self._run_background(sub, task, app_state)
-                    print(
-                        f"[call_sub_agent] background done, answer len={len(final_answer)}",
-                        file=sys.stderr,
-                    )
+                    _log.info("background done, answer len=%d", len(final_answer))
                 else:
-                    print(
-                        "[call_sub_agent] pending_result done during timeout, re-raising",
-                        file=sys.stderr,
-                    )
+                    _log.warning("pending_result done during timeout, re-raising")
                     raise
 
-            print("[call_sub_agent] returning success", file=sys.stderr)
+            _log.debug("returning success")
             return format_success(
                 {
                     "sub_session_id": sub.session_id,
@@ -158,22 +134,18 @@ class CallSubAgentTool(ToolBase):
                 }
             )
         except asyncio.CancelledError:
-            print("[call_sub_agent] cancelled", file=sys.stderr)
+            _log.info("cancelled")
             # 主 Agent 被取消 → 取消 sub-agent
             sub.cancel_active_task()
             sub.cancel_pending()
             return format_error("主任务被取消，子 Agent 已终止")
         except Exception as e:
-            print(f"[call_sub_agent] error: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+            _log.error("error: %s", e, exc_info=True)
             return format_error(f"子 Agent 执行失败: {str(e)}")
 
     async def _run_background(self, sub, task: str, app_state) -> str:
         """后端直接执行（无前端连接时的回退路径）。"""
-        print(
-            f"[call_sub_agent] _run_background starting for {sub.session_id}",
-            file=sys.stderr,
-        )
+        _log.info("_run_background starting for %s", sub.session_id)
         from agent import build_agent, build_system_prompt
         from langchain_core.messages import HumanMessage
 
@@ -218,16 +190,10 @@ class CallSubAgentTool(ToolBase):
                 except Exception:
                     pass
         except Exception as e:
-            print(
-                f"[call_sub_agent] _run_background agent failed: {e}", file=sys.stderr
-            )
-            traceback.print_exc(file=sys.stderr)
+            _log.error("_run_background agent failed: %s", e, exc_info=True)
             raise
 
-        print(
-            f"[call_sub_agent] _run_background got answer: {final_answer[:100] if final_answer else '(empty)'}",
-            file=sys.stderr,
-        )
+        _log.info("_run_background got answer: %s", final_answer[:100] if final_answer else "(empty)")
 
         if final_answer:
             sub.increment_messages()

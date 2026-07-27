@@ -6,6 +6,9 @@ from typing import Any
 from langchain_core.callbacks import BaseCallbackHandler
 
 from api.events import MemorySender
+from api.utils.logger import get_logger
+
+_log = get_logger("ltm-cb")
 
 
 class MemoryToolCallback(BaseCallbackHandler):
@@ -33,9 +36,7 @@ class MemoryToolCallback(BaseCallbackHandler):
         # 截断过长输入
         truncated = input_str[:300] if len(input_str) > 300 else input_str
         await self._sender.memory_tool_start(self._turn_id, tool_name, truncated)
-        print(
-            f"[ltm-cb] memory_tool_start sent tool={tool_name} turn_id={self._turn_id[:8]}"
-        )
+        _log.debug("memory_tool_start sent tool=%s turn_id=%s", tool_name, self._turn_id[:8])
 
     async def on_tool_end(self, output: str, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
@@ -48,15 +49,11 @@ class MemoryToolCallback(BaseCallbackHandler):
             out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"
 
         await self._sender.memory_tool_end(self._turn_id, tool_name, out_str, round(elapsed, 2))
-        print(
-            f"[ltm-cb] memory_tool_end sent tool={tool_name} turn_id={self._turn_id[:8]} elapsed={elapsed:.2f}"
-        )
+        _log.debug("memory_tool_end sent tool=%s turn_id=%s elapsed=%.2f", tool_name, self._turn_id[:8], elapsed)
 
     async def on_tool_error(self, error: BaseException, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
         self._tool_start_time.pop(run_id, None)
         tool_name = self._tool_names.pop(run_id, "unknown")
         await self._sender.memory_tool_error(self._turn_id, tool_name, str(error))
-        print(
-            f"[ltm-cb] memory_tool_error sent tool={tool_name} turn_id={self._turn_id[:8]}"
-        )
+        _log.debug("memory_tool_error sent tool=%s turn_id=%s", tool_name, self._turn_id[:8])

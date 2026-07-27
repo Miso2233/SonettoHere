@@ -10,6 +10,9 @@ import urllib.request
 import urllib.error
 
 from api.providers import ProviderConfig
+from api.utils.logger import get_logger
+
+_log = get_logger("context-window")
 
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/models"
 
@@ -49,7 +52,7 @@ def ensure_openrouter_cache() -> dict[str, int]:
         data = _fetch_openrouter_models()
         if data:
             _OPENROUTER_CACHE = data
-            print(f"[context-window] loaded {len(data)} model(s) from OpenRouter")
+            _log.info("loaded %d model(s) from OpenRouter", len(data))
     return _OPENROUTER_CACHE or {}
 
 

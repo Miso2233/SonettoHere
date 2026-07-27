@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING, Self
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -17,8 +16,6 @@ from api.session.manager import session_manager
 
 if TYPE_CHECKING:
     from api.session.manager import SessionState
-
-logger = logging.getLogger(__name__)
 
 # 模块级 WS 锁映射：(id(ws), id(loop)) → asyncio.Lock
 # 之所以用二元组作 key，是因为 LangChain 内部有时会创建临时事件循环来调度

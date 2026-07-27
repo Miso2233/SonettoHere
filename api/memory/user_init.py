@@ -3,8 +3,12 @@
 import shutil
 from pathlib import Path
 
+from api.utils.logger import get_logger
+
 PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+
+_log = get_logger("init")
 
 
 def _copy_if_missing(src: Path, dst: Path, description: str = "") -> None:
@@ -16,7 +20,7 @@ def _copy_if_missing(src: Path, dst: Path, description: str = "") -> None:
             rel = dst.relative_to(PROJECT_ROOT)
         except ValueError:
             rel = dst
-        print(f"[init] 已创建 {rel}{label}")
+        _log.info("已创建 %s%s", rel, label)
 
 
 def ensure_user_md() -> None:

@@ -2,8 +2,6 @@
 
 import asyncio
 import base64
-import sys
-import traceback
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -25,6 +23,9 @@ from api.memory.short_term import get_checkpointer
 from langchain_core.language_models.chat_models import BaseChatModel
 from tools.base import format_error
 from tools.network.tool_image_understand import load_image_bytes, get_mime_type
+from api.utils.logger import get_logger
+
+_log = get_logger("turn")
 
 
 # ── 内部数据对象 ──────────────────────────────────────────
@@ -175,9 +176,7 @@ async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, 
     try:
         await graph.aupdate_state(config, {"messages": cancel_msgs}, as_node="tools")
     except Exception as e:
-        print(
-            f"[cancel] aupdate_state failed: {type(e).__name__}: {e}", file=sys.stderr
-        )
+        _log.error("aupdate_state failed: %s: %s", type(e).__name__, e)
         raise
 
 
@@ -296,7 +295,7 @@ async def _build_turn_context(
                     "image_url": {"url": f"data:{mime};base64,{image_b64}"},
                 })
             except (FileNotFoundError, IsADirectoryError, PermissionError) as e:
-                print(f"[image_recognition] 跳过无法加载的图片 {img_path}: {e}", file=sys.stderr)
+                _log.warning("跳过无法加载的图片 %s: %s", img_path, e)
                 continue
         inputs = {"messages": [HumanMessage(content=content_parts)]}
     else:
@@ -353,13 +352,12 @@ async def _execute_agent_turn(
         try:
             await _inject_cancel_tool_messages(session, ctx.config, sender)
         except Exception as e:
-            print(f"[cancel] checkpoint cleanup error: {e}", file=sys.stderr)
+            _log.warning("checkpoint cleanup error: %s", e)
         await sender.error("CANCELLED", "生成已取消")
 
     except Exception as e:
         error = str(e)
-        print(f"[sub-agent:{session.session_id[:8]}] run_agent_turn error: {e}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
+        _log.error("run_agent_turn error: %s", e, exc_info=True)
         await sender.error("AGENT_ERROR", str(e))
 
     finally:
@@ -398,15 +396,15 @@ async def _postprocess_turn(
             }
             save_const_session(session.session_id, session.const_name, metadata, serialize_messages(raw_messages))
         except Exception as e:
-            print(f"[const] 自动保存会话 {session.session_id[:8]} 失败: {e}", file=sys.stderr)
+            _log.warning("自动保存会话 %s 失败: %s", session.session_id[:8], e)
 
     # Sub-agent pending 结果回调
     if session.has_pending_result():
         if result.error:
-            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with run error", file=sys.stderr)
+            _log.info("resolving pending_result with run error (session=%s)", session.session_id[:8])
             session.fail_pending(f"子 Agent 执行失败: {result.error}")
         elif result.final_answer:
-            print(f"[sub-agent:{session.session_id[:8]}] resolving pending_result with answer", file=sys.stderr)
+            _log.info("resolving pending_result with answer (session=%s)", session.session_id[:8])
             session.resolve_pending(result.final_answer)
         else:
             session.fail_pending("Sub-agent 未能产生有效回答")
