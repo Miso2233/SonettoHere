@@ -17,14 +17,18 @@ export const useSessionStore = defineStore('session', () => {
     _initialized = true
 
     const stored = localStorage.getItem(STORAGE_KEY)
+    console.debug('[sessionStore] initIfNeeded: stored sessionId=%s', stored)
     if (stored) {
       try {
         await api.getSession(stored)
         sessionId.value = stored
+        console.debug('[sessionStore] initIfNeeded: restored session %s from localStorage', stored)
       } catch {
+        console.debug('[sessionStore] initIfNeeded: stored session %s not found on backend, creating new', stored)
         await _createSession()
       }
     } else {
+      console.debug('[sessionStore] initIfNeeded: no stored session, creating new')
       await _createSession()
     }
     await refreshSessions()
@@ -52,8 +56,10 @@ export const useSessionStore = defineStore('session', () => {
   }
 
   async function switchSession(id: string) {
+    console.debug('[sessionStore] switchSession: id=%s, prev=%s', id, sessionId.value)
     sessionId.value = id
     localStorage.setItem(STORAGE_KEY, id)
+    console.debug('[sessionStore] switchSession: localStorage.setItem(%s, %s)', STORAGE_KEY, id)
   }
 
   async function deleteSession(id: string) {
@@ -104,6 +110,9 @@ export const useSessionStore = defineStore('session', () => {
         removed++
         totalSize += (raw ? raw.length : 0) + key.length
       }
+    }
+    if (removed > 0) {
+      console.debug('[sessionStore] cleanupOrphanedCaches: 已清理 %d 个孤儿缓存, 释放 %d 字节', removed, totalSize)
     }
   }
 

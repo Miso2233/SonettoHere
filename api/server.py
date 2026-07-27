@@ -44,7 +44,10 @@ async def _load_const_sessions(app: FastAPI):
     sm = session_manager
     const_list = load_all_const_sessions()
     if not const_list:
+        _log.debug("没有待加载的固定会话文件")
         return
+
+    _log.info("发现 %d 个固定会话文件, 正在重建...", len(const_list))
 
     if get_default_llm() is None:
         _log.warning("跳过 %d 个 const session — 无可用 LLM", len(const_list))
@@ -55,11 +58,15 @@ async def _load_const_sessions(app: FastAPI):
     loaded = 0
     for const_data in const_list:
         sid = const_data.get("session_id")
+        const_name = const_data.get("const_name", "")
+        msg_count = len(const_data.get("messages", []))
+        _log.debug("处理固定会话: id=%s, name=%r, messages=%d", sid, const_name, msg_count)
+
         if not sid or sm.exists(sid):
+            _log.debug("跳过: sid=%s, 已存在=%s", sid, sm.exists(sid) if sid else "无ID")
             continue
 
         metadata = const_data.get("metadata", {})
-        const_name = const_data.get("const_name", "")
         messages = const_data.get("messages", [])
 
         # 用全局单例 checkpointer 重建
@@ -77,6 +84,7 @@ async def _load_const_sessions(app: FastAPI):
                     {"configurable": {"thread_id": sid}},
                     {"messages": reconstructed},
                 )
+                _log.debug("checkpointer 已更新, %d 条消息", len(reconstructed))
         except Exception as e:
             _log.warning("重建会话 %s 失败: %s", sid, e)
             continue
@@ -91,6 +99,7 @@ async def _load_const_sessions(app: FastAPI):
         )
         sm.put(sid, session)
         loaded += 1
+        _log.debug("SessionState 已放入内存, const_name=%r", const_name)
 
     _log.info("已加载 %d/%d 个固定会话", loaded, len(const_list))
 

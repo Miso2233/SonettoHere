@@ -8,6 +8,7 @@ import type {
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
 import { getToken } from '@/api'
+import { sessionsApi } from '@/api/sessions'
 import { memoryHandlers, type MemoryEventType } from '@/composables/useChat.memory'
 import { turnHandlers } from '@/composables/useChat.handlers'
 
@@ -31,6 +32,7 @@ function migrateLegacyTurn(turn: any): ChatTurn {
 
 function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
   const map = new Map<string, ChatTurn[]>()
+  let loadedCount = 0
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i)
     if (key && key.startsWith(TURNS_KEY_PREFIX)) {
@@ -40,10 +42,15 @@ function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {
         const data = JSON.parse(raw)
         if (Array.isArray(data)) {
           map.set(sid, data.map(migrateLegacyTurn))
+          loadedCount++
+          console.debug('[chatStore] loadAllTurnsFromStorage: 已加载 session=%s, turns=%d', sid, data.length)
         }
-      } catch { /* skip corrupt entry */ }
+      } catch (e) {
+        console.warn('[chatStore] loadAllTurnsFromStorage: 跳过损坏的缓存 key=%s, error=%o', key, e)
+      }
     }
   }
+  console.debug('[chatStore] loadAllTurnsFromStorage: 完成, 共加载 %d 个会话的缓存', loadedCount)
   return map
 }
 
@@ -87,6 +94,8 @@ export const useChatStore = defineStore('chat', () => {
   function getOrCreateChannel(sid: string): SessionChannel {
     if (!channels.has(sid)) {
       const cached = turnsCache.get(sid)
+      console.debug('[chatStore] getOrCreateChannel: 创建新通道 session=%s, 缓存命中=%s, turns=%d',
+        sid, !!cached, cached ? cached.length : 0)
       channels.set(sid, {
         ws: null,
         connected: false,
@@ -105,6 +114,10 @@ export const useChatStore = defineStore('chat', () => {
         skipRecall: false,
         autoApprove: false,
       })
+    } else {
+      const ch = channels.get(sid)!
+      console.debug('[chatStore] getOrCreateChannel: 复用已有通道 session=%s, turns=%d, connected=%s',
+        sid, ch.turns.length, ch.connected)
     }
     return channels.get(sid)!
   }
@@ -113,48 +126,151 @@ export const useChatStore = defineStore('chat', () => {
     const key = TURNS_KEY_PREFIX + sid
     try {
       localStorage.setItem(key, JSON.stringify(data))
-    } catch { /* quota exceeded */ }
+      console.debug('[chatStore] saveTurnsToStorage: 已写入 key=%s, turns=%d, bytes=%d',
+        key, data.length, JSON.stringify(data).length)
+    } catch (e) {
+      console.warn('[chatStore] saveTurnsToStorage: 写入失败 key=%s, error=%o', key, e)
+    }
   }
 
   function persistTurns(sid: string) {
     const ch = channels.get(sid)
-    if (!ch) return
+    if (!ch) {
+      console.debug('[chatStore] persistTurns: 跳过, 通道不存在 sid=%s', sid)
+      return
+    }
     const snapshot = [...ch.turns]
     turnsCache.set(sid, snapshot)
+    console.debug('[chatStore] persistTurns: 持久化 session=%s, turns=%d', sid, snapshot.length)
     saveTurnsToStorage(sid, snapshot)
   }
 
   function removeTurnsFromStorage(sid: string) {
-    localStorage.removeItem(TURNS_KEY_PREFIX + sid)
+    const key = TURNS_KEY_PREFIX + sid
+    console.debug('[chatStore] removeTurnsFromStorage: 删除缓存 key=%s', key)
+    localStorage.removeItem(key)
+  }
+
+  // ── 从后端恢复历史消息 ──
+
+  /**
+   * 将后端返回的扁平消息列表按 human→ai 配对，转换为 ChatTurn[]。
+   * tool 消息作为 ToolCall 事件嵌入所在轮次。
+   */
+  function messagesToTurns(
+    msgs: Array<{ role: string; content: string }>,
+  ): ChatTurn[] {
+    const turns: ChatTurn[] = []
+    let i = 0
+    while (i < msgs.length) {
+      // 找到下一条 human 消息
+      if (msgs[i].role !== 'human') { i++; continue }
+
+      const userMsg = msgs[i].content
+      const events: TurnEvent[] = []
+      let finalAnswer: string | null = null
+      i++
+
+      // 收集 human 之后的所有消息直到下一条 human 或结尾
+      while (i < msgs.length && msgs[i].role !== 'human') {
+        const m = msgs[i]
+        if (m.role === 'tool') {
+          events.push({
+            kind: 'tool',
+            name: '',
+            input: '',
+            output: m.content,
+            elapsed: null,
+            status: 'done',
+          } as ToolCall)
+        } else if (m.role === 'ai') {
+          // 如果有多个 ai 段，最后一段作为 finalAnswer，前面的作为 thinking
+          if (finalAnswer !== null) {
+            // 已有 finalAnswer，前面的 ai 内容视为 thinking
+            events.push({
+              kind: 'thinking',
+              tokens: finalAnswer,
+              done: true,
+              becameAnswer: false,
+            } as ThinkingBlock)
+          }
+          finalAnswer = m.content
+        }
+        i++
+      }
+
+      turns.push({
+        id: crypto.randomUUID(),
+        userMessage: userMsg,
+        refs: [],
+        events,
+        finalAnswer,
+      })
+    }
+    return turns
+  }
+
+  /** 从后端 API 拉取消息并恢复到通道的 turns 中。 */
+  async function restoreTurnsFromBackend(sid: string): Promise<void> {
+    const ch = channels.get(sid)
+    if (!ch) return
+    if (ch.turns.length > 0) {
+      console.debug('[chatStore] restoreTurnsFromBackend: 通道已有 turns, 跳过 sid=%s, turns=%d', sid, ch.turns.length)
+      return
+    }
+    try {
+      console.debug('[chatStore] restoreTurnsFromBackend: 从后端获取消息 sid=%s', sid)
+      const res = await sessionsApi.getMessages(sid)
+      const turns = messagesToTurns(res.messages)
+      if (turns.length > 0) {
+        ch.turns.push(...turns)
+        turnsCache.set(sid, [...ch.turns])
+        saveTurnsToStorage(sid, [...ch.turns])
+        console.debug('[chatStore] restoreTurnsFromBackend: 已恢复 %d 个轮次 sid=%s', turns.length, sid)
+      }
+    } catch (e) {
+      console.warn('[chatStore] restoreTurnsFromBackend: 获取消息失败 sid=%s, error=%o', sid, e)
+    }
   }
 
   // ── WebSocket 生命周期 ──
 
   function connectSession(sid: string) {
-    if (!isValidSessionId(sid)) return
+    if (!isValidSessionId(sid)) {
+      console.debug('[chatStore] connectSession: 跳过, sid=%s 格式无效', sid)
+      return
+    }
     const ch = getOrCreateChannel(sid)
-    if (ch.ws?.readyState === WebSocket.OPEN) return
+    if (ch.ws?.readyState === WebSocket.OPEN) {
+      console.debug('[chatStore] connectSession: WS 已打开, 跳过 sid=%s', sid)
+      return
+    }
 
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
     const token = getToken()
-    ch.ws = new WebSocket(`${protocol}//${location.host}/ws/chat/${sid}`, [token])
+    const wsUrl = `${protocol}//${location.host}/ws/chat/${sid}`
+    console.debug('[chatStore] connectSession: 创建 WebSocket sid=%s, url=%s', sid, wsUrl)
+    ch.ws = new WebSocket(wsUrl, [token])
 
     ch.ws.onopen = () => {
       ch.connected = true
+      console.debug('[chatStore] WS onopen: sid=%s', sid)
       if (ch.reconnectTimer) {
         clearTimeout(ch.reconnectTimer)
         ch.reconnectTimer = null
       }
     }
 
-    ch.ws.onclose = () => {
+    ch.ws.onclose = (ev) => {
       ch.connected = false
+      console.debug('[chatStore] WS onclose: sid=%s, code=%d, reason=%s', sid, ev.code, ev.reason)
       ch.reconnectTimer = setTimeout(() => connectSession(sid), 3000)
     }
 
     ch.ws.onmessage = (event) => {
       try {
         const msg: ServerEvent = JSON.parse(event.data)
+        console.debug('[chatStore] WS onmessage: sid=%s, type=%s', sid, msg.type)
         handleEventForChannel(sid, msg)
       } catch (e) {
         console.error('[chatStore] WS message error:', e)
@@ -163,16 +279,27 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function ensureConnected(sid: string) {
-    if (!sid || !isValidSessionId(sid)) return
+    if (!sid || !isValidSessionId(sid)) {
+      console.debug('[chatStore] ensureConnected: 跳过, sid=%s, valid=%s', sid, sid ? isValidSessionId(sid) : false)
+      return
+    }
     const ch = getOrCreateChannel(sid)
-    if (ch.initialized) return
+    if (ch.initialized) {
+      console.debug('[chatStore] ensureConnected: 已初始化, 跳过 sid=%s', sid)
+      return
+    }
     ch.initialized = true
+    console.debug('[chatStore] ensureConnected: 初始化并连接 sid=%s', sid)
     connectSession(sid)
   }
 
   function disconnectChannel(sid: string) {
     const ch = channels.get(sid)
-    if (!ch) return
+    if (!ch) {
+      console.debug('[chatStore] disconnectChannel: 通道不存在 sid=%s', sid)
+      return
+    }
+    console.debug('[chatStore] disconnectChannel: 断开 sid=%s', sid)
     if (ch.reconnectTimer) {
       clearTimeout(ch.reconnectTimer)
       ch.reconnectTimer = null
@@ -359,6 +486,7 @@ export const useChatStore = defineStore('chat', () => {
     sendUserResponse,
     removeTurns,
     updateAutoApprove,
+    restoreTurnsFromBackend,
   }
 })
 

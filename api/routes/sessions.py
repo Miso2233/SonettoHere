@@ -12,8 +12,10 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
+from api.utils.logger import get_logger
 
 router = APIRouter()
+_log = get_logger("sessions")
 
 
 class ConstifyRequest(BaseModel):
@@ -30,13 +32,17 @@ async def create_session(request: Request) -> dict:
 @router.get("/sessions")
 async def list_sessions(request: Request) -> dict:
     sm = session_manager
-    return {"sessions": sm.list_sessions()}
+    sessions = sm.list_sessions()
+    const_count = sum(1 for s in sessions if s.get("is_const"))
+    _log.debug("list_sessions: 返回 %d 个会话, 其中固定会话 %d 个", len(sessions), const_count)
+    return {"sessions": sessions}
 
 
 @router.get("/sessions/{session_id}")
 async def get_session(session_id: str, request: Request) -> dict:
     sm = session_manager
     session = sm.get(session_id)
+    _log.debug("get_session: id=%s, found=%s", session_id, session is not None)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {
@@ -54,10 +60,13 @@ async def get_messages(session_id: str, request: Request) -> dict:
     sm = session_manager
     session = sm.get(session_id)
     if session is None:
+        _log.info("get_messages: 会话不存在, session_id=%s", session_id)
         raise HTTPException(status_code=404, detail="Session not found")
     try:
         msgs = await session.get_messages()
-    except Exception:
+        _log.debug("get_messages: session_id=%s, 获取到 %d 条消息", session_id, len(msgs))
+    except Exception as e:
+        _log.warning("get_messages: 获取消息失败, session_id=%s, error=%s", session_id, e)
         msgs = []
     return {
         "session_id": session_id,
@@ -128,17 +137,21 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
     """将当前会话固定为 const 持久化保存。"""
     sm = session_manager
     session = sm.get(session_id)
+    _log.debug("constify: session_id=%s, name=%r, found=%s", session_id, body.name, session is not None)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
     # Agent 运行中禁止固定
     if session.has_active_task():
+        _log.warning("constify: 拒绝 — Agent 仍在运行中, session_id=%s", session_id)
         raise HTTPException(status_code=409, detail="Agent 仍在运行中，无法固定会话")
 
     # 从短期记忆提取消息
     try:
         raw_messages = await session.get_messages()
-    except Exception:
+        _log.debug("constify: 获取到 %d 条消息", len(raw_messages))
+    except Exception as e:
+        _log.warning("constify: 获取消息失败: %s", e)
         raw_messages = []
 
     from api.session.const_store import save_const_session, serialize_messages
@@ -149,10 +162,12 @@ async def constify_session(session_id: str, body: ConstifyRequest, request: Requ
         "message_count": session.message_count,
     }
     serialized = serialize_messages(raw_messages)
-    save_const_session(session.session_id, body.name, metadata, serialized)
+    saved_path = save_const_session(session.session_id, body.name, metadata, serialized)
+    _log.info("constify: YAML 已保存到 %s", saved_path)
 
     # 标记为 const
     session.constify(body.name)
+    _log.info("constify: 完成, session_id=%s, const_name=%r", session_id, body.name)
 
     return {
         "session_id": session.session_id,
@@ -240,11 +255,15 @@ async def unconstify_session(session_id: str, request: Request) -> dict:
     """取消固定，删除磁盘文件。"""
     from api.session.const_store import delete_const_session
 
-    delete_const_session(session_id)
+    deleted = delete_const_session(session_id)
+    _log.info("unconstify: session_id=%s, 文件已删除=%s", session_id, deleted)
 
     sm = session_manager
     session = sm.get(session_id)
     if session is not None:
         session.unconstify()
+        _log.info("unconstify: 会话标记已清除, session_id=%s", session_id)
+    else:
+        _log.debug("unconstify: 会话不在内存中, session_id=%s", session_id)
 
     return {"status": "ok"}

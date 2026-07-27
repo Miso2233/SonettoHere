@@ -140,6 +140,7 @@ function onSidebarClick(e: MouseEvent) {
 const router = useRouter()
 
 function handleSwitchSession(id: string) {
+  console.debug('[App] handleSwitchSession: id=%s', id)
   switchSession(id)
   router.push('/')
 }

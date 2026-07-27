@@ -11,6 +11,9 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph.state import CompiledStateGraph
 
 from api.memory.short_term import get_checkpointer, delete_thread as _delete_memory_thread
+from api.utils.logger import get_logger
+
+_log = get_logger("manager")
 
 
 # ── 子数据类：会话元信息 ──────────────────────────────────────────
@@ -327,6 +330,8 @@ class SessionManager:
         session = self._sessions.get(session_id)
         if session is not None:
             session.last_active = time.time()
+        else:
+            _log.debug("get: 会话 %s 不存在", session_id)
         return session
 
     def get_or_create(self, session_id: str) -> SessionState:
@@ -345,8 +350,11 @@ class SessionManager:
 
     def list_sessions(self) -> list[dict]:
         result = []
+        const_count = 0
         for s in self._sessions.values():
             has_active = s.has_active_task()
+            if s.is_const:
+                const_count += 1
             result.append(
                 {
                     "session_id": s.session_id,
@@ -360,6 +368,8 @@ class SessionManager:
                 }
             )
         result.sort(key=lambda x: x["last_active"], reverse=True)
+        _log.debug("list_sessions: 内存中共 %d 个会话, 返回 %d 条, 其中固定会话 %d 个",
+                   len(self._sessions), len(result), const_count)
         return result
 
     def exists(self, session_id: str) -> bool:
