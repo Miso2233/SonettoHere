@@ -55,6 +55,9 @@ class RetrieveMemoryNode:
     """检索长期记忆，以 HumanMessage 追加到 messages 中。
 
     按 (session_id, memory_id) 去重——同一会话中已注入过的记忆不再重复注入。
+
+    查询策略：拼接所有真实用户输入（排除内存注入的【相关记忆】消息），
+    而非仅取最后一条消息，使语义检索能够感知完整对话上下文。
     """
 
     # 跨实例去重状态（key=session_id, value=已注入的记忆 ID 集合）
@@ -66,25 +69,38 @@ class RetrieveMemoryNode:
     async def __call__(
         self, state: MessagesState, config: RunnableConfig
     ) -> dict[str, list[BaseMessage]]:
-        last = state["messages"][-1] if state["messages"] else None
-        if not isinstance(last, HumanMessage) or self._ltm is None:
+        if self._ltm is None:
             return {}
 
         # 失忆模式：跳过记忆提取
         if config["configurable"].get("skip_recall", False):
             return {}
 
-        query = last.content
-        if isinstance(query, list):
-            text_parts = [
-                p.get("text", "")
-                for p in query
-                if isinstance(p, dict) and p.get("type") == "text"
-            ]
-            query = " ".join(text_parts) if text_parts else ""
+        # 收集所有真实用户输入：HumanMessage 且不含记忆注入标记
+        from api.memory.long_term import MEMORY_INJECTION_MARKER  # noqa: PLC0415
 
-        if not query:
+        user_queries: list[str] = []
+        for msg in state["messages"]:
+            if not isinstance(msg, HumanMessage):
+                continue
+            content = msg.content
+            if isinstance(content, list):
+                text_parts = [
+                    p.get("text", "")
+                    for p in content
+                    if isinstance(p, dict) and p.get("type") == "text"
+                ]
+                content = " ".join(text_parts) if text_parts else ""
+            if not content:
+                continue
+            if content.startswith(MEMORY_INJECTION_MARKER):
+                continue
+            user_queries.append(content)
+
+        if not user_queries:
             return {}
+
+        query = "\n".join(user_queries)
 
         # 延迟导入避免循环依赖
         from api.events.memory import MemorySender  # noqa: PLC0415
