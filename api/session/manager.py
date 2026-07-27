@@ -327,6 +327,8 @@ class SessionManager:
         session = self._sessions.get(session_id)
         if session is not None:
             session.last_active = time.time()
+        else:
+            print(f"[manager] get: 会话 {session_id} 不存在")
         return session
 
     def get_or_create(self, session_id: str) -> SessionState:
@@ -345,8 +347,11 @@ class SessionManager:
 
     def list_sessions(self) -> list[dict]:
         result = []
+        const_count = 0
         for s in self._sessions.values():
             has_active = s.has_active_task()
+            if s.is_const:
+                const_count += 1
             result.append(
                 {
                     "session_id": s.session_id,
@@ -360,6 +365,8 @@ class SessionManager:
                 }
             )
         result.sort(key=lambda x: x["last_active"], reverse=True)
+        print(f"[manager] list_sessions: 内存中共 {len(self._sessions)} 个会话, "
+              f"返回 {len(result)} 条, 其中固定会话 {const_count} 个")
         return result
 
     def exists(self, session_id: str) -> bool:

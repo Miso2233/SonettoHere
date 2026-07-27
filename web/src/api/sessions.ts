@@ -31,6 +31,10 @@ export const sessionsApi = {
 
   // ── 会话控制 ──
 
+  /** 获取指定会话的完整消息列表 */
+  getMessages: (id: string) =>
+    request<{ session_id: string; messages: Array<{ role: string; content: string }> }>(`/sessions/${id}/messages`),
+
   /**
    * 获取指定会话的上下文窗口用量
    * @param sessionId - 会话 ID

@@ -40,7 +40,10 @@ async def _load_const_sessions(app: FastAPI):
     sm = session_manager
     const_list = load_all_const_sessions()
     if not const_list:
+        print(f"[const] 没有待加载的固定会话文件")
         return
+
+    print(f"[const] 发现 {len(const_list)} 个固定会话文件, 正在重建...")
 
     if get_default_llm() is None:
         print(f"[const] Skipping {len(const_list)} const session(s) — no LLM available")
@@ -51,11 +54,15 @@ async def _load_const_sessions(app: FastAPI):
     loaded = 0
     for const_data in const_list:
         sid = const_data.get("session_id")
+        const_name = const_data.get("const_name", "")
+        msg_count = len(const_data.get("messages", []))
+        print(f"[const] 处理固定会话: id={sid}, name={const_name!r}, messages={msg_count}")
+
         if not sid or sm.exists(sid):
+            print(f"[const]   └─ 跳过: sid={sid}, 已存在={sm.exists(sid) if sid else '无ID'}")
             continue
 
         metadata = const_data.get("metadata", {})
-        const_name = const_data.get("const_name", "")
         messages = const_data.get("messages", [])
 
         # 用全局单例 checkpointer 重建
@@ -73,8 +80,9 @@ async def _load_const_sessions(app: FastAPI):
                     {"configurable": {"thread_id": sid}},
                     {"messages": reconstructed},
                 )
+                print(f"[const]   └─ checkpointer 已更新, {len(reconstructed)} 条消息")
         except Exception as e:
-            print(f"[const] 重建会话 {sid} 失败: {e}")
+            print(f"[const]   └─ 重建失败: {e}")
             continue
 
         session = SessionState(
@@ -87,8 +95,9 @@ async def _load_const_sessions(app: FastAPI):
         )
         sm.put(sid, session)
         loaded += 1
+        print(f"[const]   └─ SessionState 已放入内存, const_name={const_name!r}")
 
-    print(f"[const] 已加载 {loaded}/{len(const_list)} 个固定会话")
+    print(f"[const] 完成: 已加载 {loaded}/{len(const_list)} 个固定会话")
 
 
 @asynccontextmanager

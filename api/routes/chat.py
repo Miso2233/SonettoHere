@@ -155,9 +155,13 @@ async def _handle_update_auto_approve(
 async def websocket_chat(ws: WebSocket, session_id: str) -> None:
     """WebSocket 聊天端点 — 接收消息、派发、生命周期管理。"""
     await ws.accept()
+    print(f"[chat] WebSocket 已连接: session_id={session_id}")
 
     # ── 初始化会话 ────────────────────────────────────────
     session = session_manager.get_or_create(session_id)
+    print(f"[chat] 会话状态: id={session_id}, is_const={session.is_const}, "
+          f"const_name={session.const_name!r}, message_count={session.message_count}, "
+          f"has_active_task={session.has_active_task()}")
     session.ws = ws  # 供后台记忆 consumer 推送事件
     interaction.current_ws.set(ws)  # 供 ChatSender/TurnSender/CallbackSender 使用
 
@@ -180,17 +184,22 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
         while True:
             raw = await ws.receive_text()
             msg = json.loads(raw)
+            msg_type = msg.get("type", "")
+            print(f"[chat] 收到消息: session_id={session_id}, type={msg_type}")
 
-            handler = _HANDLERS.get(msg.get("type", ""))
+            handler = _HANDLERS.get(msg_type)
             if handler is not None:
                 agent_task = await handler(
                     ws, session_id, session, agent_task, msg
                 )
+            else:
+                print(f"[chat] 未知消息类型: {msg_type}")
 
     except WebSocketDisconnect:
-        pass  # 客户端断开是正常行为
+        print(f"[chat] WebSocket 断开: session_id={session_id}")
     finally:
         session.ws = None
+        print(f"[chat] 清理会话: session_id={session_id}, agent_task_done={agent_task is not None and agent_task.done()}")
         if agent_task is not None and not agent_task.done():
             agent_task.cancel()
         session.clear_active_task()
