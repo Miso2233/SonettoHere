@@ -230,26 +230,13 @@ class LongTermMemory:
         """删除指定 ID 的单条记忆，返回被删除条目的描述。"""
         return self._mm.delete(id)
 
-    def inject_all(self) -> None:
-        """向所有需要 mm 的地方注入当前 MemoryManager 实例。
-
-        包括：
-        - consumer.py 模块级 @tool 函数（通过 _set_current_mm）
-        - tools/memory/ 中 6 个 ToolBase 子类（通过 inject_memory_manager）
-
-        应在 start_listening() 之后调用一次。
-        """
-        _set_current_mm(self._mm)
-        from tools.memory import inject_memory_manager
-
-        inject_memory_manager(self._mm)
-
     def start_listening(self) -> None:
-        """创建 asyncio.Queue 并启动后台消费者协程。
+        """创建 asyncio.Queue、注入 _current_mm 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
         内部通过 get_default_llm() 获取 LLM，无需外部传入。
         """
+        _set_current_mm(self._mm)
         self._queue = asyncio.Queue()
         self._consumer_task = asyncio.create_task(self._consumer_loop())
 

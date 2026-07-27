@@ -72,14 +72,6 @@ def get_all_tools() -> list[BaseTool]:
     # Entertainment
     from tools.entertainment.tool_tarot import TarotTool
 
-    # Memory
-    from tools.memory.tool_list_memories import ListMemoriesTool
-    from tools.memory.tool_read_memories import ReadMemoriesTool
-    from tools.memory.tool_create_memory import CreateMemoryTool
-    from tools.memory.tool_update_memory import UpdateMemoryTool
-    from tools.memory.tool_delete_memory import DeleteMemoryTool
-    from tools.memory.tool_merge_memories import MergeMemoriesTool
-
     return [
         # System
         RunPythonTool(client=client),
@@ -123,11 +115,4 @@ def get_all_tools() -> list[BaseTool]:
         AskUserMultiChoiceTool(client=client),
         # Entertainment
         TarotTool(client=client),
-        # Memory
-        ListMemoriesTool(client=client),
-        ReadMemoriesTool(client=client),
-        CreateMemoryTool(client=client),
-        UpdateMemoryTool(client=client),
-        DeleteMemoryTool(client=client),
-        MergeMemoriesTool(client=client),
     ]

@@ -136,7 +136,6 @@ async def lifespan(app: FastAPI):
     await app.state.tool_manager.load_all()
     app.state.ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(MEMORY_PATH)).build())
     app.state.ltm.start_listening()
-    app.state.ltm.inject_all()
 
     # 加载 const 固定会话（需要 tools 已就绪）
     await _load_const_sessions(app)
