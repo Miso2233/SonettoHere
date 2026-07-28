@@ -8,22 +8,7 @@ from __future__ import annotations
 
 import math
 import re
-from enum import Enum
 from typing import Any
-
-
-# ── 枚举 ─────────────────────────────────────────────
-
-
-class RetrievalMode(Enum):
-    """记忆检索模式。
-
-    Attributes:
-        LLM:        LLM 语义检索（默认，当前生产方案）
-        MECHANICAL: BM25 机械检索（零 LLM 调用，毫秒级）
-    """
-    LLM = "llm"
-    MECHANICAL = "mech"
 
 
 # ── 停用字 ───────────────────────────────────────────

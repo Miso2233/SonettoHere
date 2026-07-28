@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import functools
-import json
+from enum import Enum
 from pathlib import Path
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.runnables import RunnableConfig
-
 from api.memory.consumer import MemoryConsumer, _set_current_mm
+from api.memory.llm_retriever import LLMRetriever
 from api.memory.manager import BaseMemoryManager
-from api.memory.retriever import MechanicalRetriever, RetrievalMode
+from api.memory.mechanical_retriever import MechanicalRetriever
 from api.providers.default_llm import get_default_llm
 from api.session.manager import SessionState, session_manager
 from api.utils.logger import get_logger
@@ -28,66 +26,18 @@ PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "perso
 MEMORY_PATH = PERSONAS_DIR / "memory.yaml"
 
 
-FIND_RELATED_MEMORY = """
-你是一位认真细心的记忆检索助手。
+# ── 检索模式枚举 ─────────────────────────────────────
 
-你的任务是：逐条阅读以下带有编号索引的AI记忆库全文，从用户的长期记忆中找出与当前查询要求相关的所有条目。
 
-## 匹配标准
+class RetrievalMode(Enum):
+    """记忆检索模式。
 
-判断一条记忆是否与查询相关时，请综合以下维度：
-
-1. **字面匹配** — 记忆描述中直接包含查询中的关键词或短语。
-2. **语义关联** — 虽然用词不同，但概念上密切相关。例如"修改"与"重构"、"考试"与"复习"、"视频"与"番剧"。
-3. **主题一致** — 记忆所属的分区（theme）与查询涉及的话题吻合。例如查询关于编程，优先留意"项目"分区；查询关于偏好，留意"品味"分区。
-4. **时间线索** — 如果查询中出现了时间范围（如"最近""上周""7月"），优先匹配该时间段内的记忆。
-
-## 处理规则
-
-- 如果查询较为宽泛（如"项目""最近"），优先匹配近期记录和高引用次数的条目。
-- 如果没有完全匹配的条目，可以放宽标准，选取语义上最接近的 1 到 3 条返回。
-- 如果确实没有任何相关内容，返回空数组 []，不要硬凑。
-- 返回的结果按相关度从高到低排序。
-
-## 输出格式
-
-只输出一个 JSON 数组，包含匹配条目的索引编号，按相关度降序排列：
-```
-[3, 7, 12]
-```
-
-## 示例
-
-示例1：
-查询要求："塔罗牌重构"
-记忆库摘录：
-  [0] (项目) 塔罗牌工具是Sonetto项目的人文性质彩蛋，Miso正在重构。
-  [1] (瞬间) 2026年7月11日，Miso让Sonetto分析塔罗牌工具代码，识别出小阿尔卡纳粗糙、逆位缺失等重构点。
-  [2] (品味) Miso 喜欢夏天和猫。
-  [3] (瞬间) 2026年7月12日凌晨，Miso抽塔罗牌问期末考运势，得圣杯六（逆位）和死神（正位）。
-相关条目：[0, 1, 3]
-（推理：0和1直接涉及塔罗牌重构，3提到塔罗牌抽牌语义相关；2不相关）
-
-示例2：
-查询要求："期末复习范围"
-记忆库摘录：
-  [0] (音乐) Miso 最喜欢洛天依。
-  [1] (项目) 2026年7月5日，Miso将数学复习范围整理成md复习目录。
-  [2] (瞬间) 2026年7月6日，Miso考完了物理考试。
-  [3] (项目) 2026年7月7日，Miso将红线划定的数学复习范围整理成md复习目录。
-相关条目：[2, 1, 3]
-（推理：2是考试完成，1和3是复习范围整理；0不相关）
-
-示例3：
-查询要求："喜欢看什么视频"
-记忆库摘录：
-  [0] (品味) Miso 喜欢看日剧《孤独的美食家》。
-  [1] (项目) Miso学习前端知识，涉及TS泛型、JS箭头函数和Vue3的ref/computed。
-  [2] (品味) Miso 喜欢新海诚的电影。
-  [3] (项目) 塔罗牌工具正在重构中。
-相关条目：[0, 2]
-（推理：0和2都是视频影视偏好；1和3是项目相关，不匹配）
-"""
+    Attributes:
+        LLM:        LLM 语义检索（默认，当前生产方案）
+        MECHANICAL: BM25 机械检索（零 LLM 调用，毫秒级）
+    """
+    LLM = "llm"
+    MECHANICAL = "mech"
 
 
 # ── 格式化辅助 ──────────────────────────────────────────────
@@ -131,18 +81,34 @@ def get_narrative() -> str:
 
 
 class LongTermMemory:
-    """异步管线：逐轮对话消息 → asyncio.Queue → 后台 CRUD Agent → 写入记忆后端。
+    """长期记忆（LTM）核心编排器 — 检索 + 后台持久化管线。
+
+    职责：
+    - **检索** — 通过 :meth:`get_related_memory_from` 按模式（LLM 语义 / BM25 机械）
+      从记忆库中召回相关条目。
+    - **持久化** — 通过 ``start()`` / ``send_history()`` / ``stop()``
+      管线将逐轮对话异步消费、提炼并写入记忆后端。
 
     用法::
 
         from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 
-        ltm = LongTermMemory(MemoryManagerBuilder()
-            .with_backend(YamlMemoryManager).with_args(yaml_file="path/to/memory.yaml")
-            .build())
-        ltm.start_listening()              # 启动后台消费者
-        await ltm.send_history(messages)  # 投放本轮对话（非阻塞）
-        await ltm.stop_listening()        # 排空队列并停止
+        ltm = LongTermMemory(
+            MemoryManagerBuilder()
+            .with_backend(YamlMemoryManager)
+            .with_args(yaml_file="path/to/memory.yaml")
+            .build() # 传入选用的记忆管理器
+        )
+
+        ltm.start() # 生命周期开始
+
+        # 检索
+        results = ltm.get_related_memory_from("塔罗牌重构", mode=RetrievalMode.LLM)
+
+        # 持久化
+        await ltm.send_history(messages)
+
+        await ltm.stop() # 生命周期结束
     """
 
     def __init__(
@@ -150,12 +116,14 @@ class LongTermMemory:
         memory_manager: BaseMemoryManager,
     ) -> None:
         self._mm = memory_manager
-        self._retriever: MechanicalRetriever | None = None
+        self._llm_retriever = LLMRetriever(memory_manager)
+        self._mechanical_retriever = MechanicalRetriever()
+        self._mechanical_retriever.build_index(self._mm.show())
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
 
     @property
-    def is_listening(self) -> bool:
+    def running(self) -> bool:
         """后台消费者协程是否正在运行。"""
         return self._consumer_task is not None and not self._consumer_task.done()
 
@@ -182,55 +150,29 @@ class LongTermMemory:
             prompt: 用户查询文本。
             mode: 检索模式，默认 LLM 语义检索。
         """
-        if mode == RetrievalMode.MECHANICAL:
-            return self._retrieve_mechanical(prompt)
-        return self._retrieve_llm(prompt)
+        match mode:
+            case RetrievalMode.MECHANICAL:
+                return self._retrieve_mechanical(prompt)
+            case RetrievalMode.LLM:
+                return self._retrieve_llm(prompt)
+            case _:
+                raise ValueError("未定义的记忆提取模式")
 
     def _retrieve_llm(self, prompt: str) -> list[dict[str, str]]:
-        """LLM 语义检索：将全量记忆注入 LLM，由 LLM 判断相关条目。"""
-        if get_default_llm() is None:
-            return []
-        items = self._mm.show()
-        if not items:
-            return []
-
-        # 格式化为带列表序号的编号列表，供 LLM 引用
-        lines = []
-        for i, item in enumerate(items):
-            lines.append(f"[{i}] ({item['theme']}) {item['description']}")
-        memory_text = "\n".join(lines)
-        user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
-
-        response = get_default_llm().invoke(
-            [SystemMessage(content=FIND_RELATED_MEMORY.strip()), HumanMessage(content=user_prompt)],
-            config=RunnableConfig(callbacks=[]),
-        )
-
-        try:
-            indices = json.loads(response.content)
-            if isinstance(indices, list):
-                return [
-                    {"id": items[i]["id"], "description": items[i]["description"], "theme": items[i]["theme"]}
-                    for i in indices if 0 <= i < len(items)
-                ]
-        except (json.JSONDecodeError, TypeError, IndexError):
-            pass
-        return []
+        """LLM 语义检索：委托给 LLMRetriever。"""
+        return self._llm_retriever.retrieve(prompt)
 
     def _retrieve_mechanical(self, prompt: str) -> list[dict[str, str]]:
         """BM25 机械检索：零 LLM 调用，毫秒级匹配。"""
-        if self._retriever is None:
-            self._retriever = MechanicalRetriever()
-            self._retriever.build_index(self._mm.show())
-        elif self._retriever.dirty:
-            self._retriever.build_index(self._mm.show())
-        return self._retriever.get_related_memory_from(prompt)
+        if self._mechanical_retriever.dirty:
+            self._mechanical_retriever.build_index(self._mm.show())
+        return self._mechanical_retriever.get_related_memory_from(prompt)
 
     def delete_memory(self, id: str) -> str:
         """删除指定 ID 的单条记忆，返回被删除条目的描述。"""
         return self._mm.delete(id)
 
-    def start_listening(self) -> None:
+    def start(self) -> None:
         """创建 asyncio.Queue、注入 _current_mm 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
@@ -320,7 +262,7 @@ class LongTermMemory:
             ]
         await self.send_history(messages, session_id=session.session_id, turn_id=turn_id)
 
-    async def stop_listening(self) -> None:
+    async def stop(self) -> None:
         """发送 None 哨兵并等待消费者排空队列。"""
         if self._queue is not None:
             await self._queue.put(None)

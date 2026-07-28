@@ -78,7 +78,7 @@ async def check_memory(app: FastAPI) -> ComponentHealth:
         items = mm.show()
 
         ltm = app.state.ltm
-        consumer_running = ltm.is_listening if hasattr(ltm, "is_listening") else False
+        consumer_running = ltm.running if hasattr(ltm, "running") else False
 
         parts = [f"{len(items)} 条记忆"]
         if not consumer_running:

@@ -78,7 +78,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
 
     # ── 初始化管线 ──
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-    ltm.start_listening()
+    ltm.start()
 
     # ── 第一轮对话 ──
     turn1 = [
@@ -105,7 +105,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
     await ltm.send_history(turn3)
 
     # ── 停止管线 ──
-    await ltm.stop_listening()
+    await ltm.stop()
 
     # ── 验证 ──
 
@@ -146,7 +146,7 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
     monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-    ltm.start_listening()
+    ltm.start()
 
     # 快速连续投放 5 轮对话
     for i in range(5):
@@ -157,7 +157,7 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
             ]
         )
 
-    await ltm.stop_listening()
+    await ltm.stop()
 
     assert processed_count[0] == 5
     content = path.read_text(encoding="utf-8")
@@ -181,7 +181,7 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
     monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-    ltm.start_listening()
+    ltm.start()
 
     import time
 
@@ -193,5 +193,5 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
     # send_history 瞬时返回（远小于 3 × 0.1s）
     assert elapsed < 0.05
 
-    await ltm.stop_listening()
+    await ltm.stop()
     assert fake_agent.ainvoke.call_count == 3

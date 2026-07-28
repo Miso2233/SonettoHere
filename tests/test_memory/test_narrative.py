@@ -358,13 +358,13 @@ class TestLongTermMemory:
 
     @pytest.mark.asyncio
     async def test_send_history_before_start_is_noop(self, tmp_path):
-        """未 start_listening 时 send_history 不抛异常。"""
+        """未 start 时 send_history 不抛异常。"""
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(tmp_path / "memory.yaml")).build())
         await ltm.send_history([{"role": "user", "content": "你好"}])
 
     @pytest.mark.asyncio
     async def test_send_history_after_stop_is_noop(self, tmp_path, monkeypatch):
-        """stop_listening 后 send_history 应无操作。"""
+        """stop 后 send_history 应无操作。"""
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
@@ -372,9 +372,9 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
 
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
-        await ltm.stop_listening()
+        await ltm.stop()
         await ltm.send_history([{"role": "user", "content": "msg2"}])
 
         assert fake_agent.ainvoke.call_count == 1
@@ -390,9 +390,9 @@ class TestLongTermMemory:
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         fake_agent.ainvoke.assert_not_called()
 
@@ -411,9 +411,9 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         assert path.exists()
         _assert_file_contains(path, "Miso 是一名学生。")
@@ -433,9 +433,9 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "你好"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         assert len(captured_prompt) == 1
         assert "记忆叙事师" in captured_prompt[0]
@@ -466,9 +466,9 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "新消息"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         assert len(captured_prompt) == 1
         assert "记忆叙事师" in captured_prompt[0]
@@ -506,13 +506,13 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
 
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
         await asyncio.sleep(0.05)
 
         await ltm.send_history([{"role": "user", "content": "我住北京"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         assert call_count[0] == 2
         _assert_file_contains(path, "第二轮补充")
@@ -533,11 +533,11 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "测试"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
-        # File is created by start_listening → load_yaml, but agent errored
+        # File is created by start → load_yaml, but agent errored
         # so no entries were added; file exists with empty content
         assert path.exists()
         mm = _mm_from_path(path)
@@ -555,11 +555,11 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "测试"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
-        # File is created by start_listening, but agent didn't add entries
+        # File is created by start, but agent didn't add entries
         assert path.exists()
         mm = _mm_from_path(path)
         assert mm.show() == []
@@ -575,9 +575,9 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "测试"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         _assert_file_contains(path, "原始记忆。")
 
@@ -597,10 +597,10 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
-        ltm.start_listening()
+        ltm.start()
         await ltm.send_history([{"role": "user", "content": "msg1"}])
         await ltm.send_history([{"role": "user", "content": "msg2"}])
-        await ltm.stop_listening()
+        await ltm.stop()
 
         assert fake_agent.ainvoke.call_count == 2
         assert ltm._consumer_task is None
