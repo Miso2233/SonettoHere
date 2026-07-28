@@ -1,4 +1,12 @@
 news:
+  - id: "memory-upstream-chain-refactor"
+    title: "记忆上行链路重构"
+    description: "记忆检索架构全面升级：LLM 语义检索与 BM25 机械检索拆分为对称双引擎，统一接口契约，检索更精准；生命周期方法按规范标准化；后台消费者独立为模块，依赖与导出清理。架构更稳健，维护更高效。"
+    type: "refactor"
+    date: "2026-07-28"
+    tags: ["记忆", "重构", "检索"]
+    version: "v3.4.0"
+    pr_number: 268
   - id: "memory-grid-dashboard"
     title: "二维网格记忆看板上线"
     description: "记忆展示页焕新为二维网格布局，统计栏环形图 + 品牌标题，热门记忆排行、最近活动时间线、主题分区卡片一目了然。支持搜索高亮、条目删除、展开收起。"
