@@ -17,7 +17,10 @@
 | `manager/base.py` | **BaseMemoryManager** — 抽象基类，定义 _load_all / _save_all / _write_lock 三个原语 + 完整 CRUD 默认实现 + show / get_memories_grouped / _validate_all_items / _generate_id |
 | `manager/yaml.py` | **YamlMemoryManager(BaseMemoryManager)** — YAML 文件持久化，仅实现 _load_all / _save_all / _write_lock + 介质相关 self_check |
 | `manager/builder.py` | **MemoryManagerBuilder** — 构造器，统一建造形式，与后端解耦 |
-| `long_term.py` | **LongTermMemory** — 后台 LLM 增量总结管线 + 5 个模块级 `@tool`；Builder → inject_all() 统一注入管理器到所有消费方 |
+| `long_term.py` | **LongTermMemory** — 核心编排器：检索（LLM 语义 / BM25 机械）+ 后台持久化管线 |
+| `consumer.py` | **MemoryConsumer** — 后台 CRUD Agent 管线 + 模块级 `@tool`（create_memory / read_memories / update_memory / delete_memory / merge_memories / hit_memory）；`set_current_mm()` 公开注入 |
+| `llm_retriever.py` | **LLMRetriever** — LLM 语义检索器，将全量记忆注入 LLM，由 LLM 判定相关条目 |
+| `mechanical_retriever.py` | **MechanicalRetriever** — BM25 机械检索器，零 LLM 调用、毫秒级匹配（替代旧 `retriever.py`） |
 | `callback.py` | MemoryToolCallback — CRUD 工具事件 → WebSocket 前端推送 |
 | `short_term.py` | **短期记忆管理器** — 全局 MemorySaver 单例，所有会话的 LangGraph 检查点共享此实例，通过 `thread_id = session.session_id` 区分隔离 |
 | `user_init.py` | 首次运行初始化：USER.md / SOUL.md / .env 文件复制 |
@@ -43,12 +46,11 @@ mm = MemoryManagerBuilder() \
 
 `LongTermMemory` 是异步管线：每轮对话消息 → `asyncio.Queue` → 后台 LLM CRUD Agent → `memory.yaml` 写入。实现了冷启动（首次无记忆）和增量更新（已有记忆）两种叙事策略。
 
-应用启动时通过 `inject_all()` 将 `LongTermMemory` 持有的管理器注入到所有需要 mm 的地方：
+应用通过 `set_current_mm()` 将管理器注入为模块级全局变量供 `@tool` 函数使用：
 
 ```python
 ltm = LongTermMemory(MemoryManagerBuilder().with_backend(...).build())
-ltm.start_listening()
-ltm.inject_all()   # → _set_current_mm() + tools/memory inject_memory_manager()
+ltm.start()    # 内部调用 set_current_mm(self._mm) 注入管理器
 ```
 
 ### 3. 首次运行环境初始化
@@ -179,7 +181,7 @@ class YamlMemoryManager(BaseMemoryManager):
 ### 模块级 @tool 定义
 
 ```python
-# api/memory/long_term.py
+# api/memory/consumer.py
 
 @tool
 def create_memory(content: str, section: str) -> str:
@@ -215,27 +217,15 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
     ...
 ```
 
-这些 `@tool` 函数通过模块级全局变量 `_current_mm` 委托给 `BaseMemoryManager` 实例，由 `LongTermMemory.inject_all()` 在启动时注入。
+这些 `@tool` 函数通过模块级全局变量 `_current_mm` 委托给 `BaseMemoryManager` 实例，由 `LongTermMemory.start()` 在启动时通过 `set_current_mm()` 注入。
 
-### tools/memory/ 工具
+### 管理器注入
 
-六个记忆 `ToolBase` 子类（`tool_create_memory.py` 等）不自行构造 `YamlMemoryManager`，而是通过 `tools/memory/__init__.py` 的 `get_memory_manager()` 获取注入的共享管理器：
-
-```python
-# tools/memory/tool_create_memory.py
-def _run(self, ...):
-    from tools.memory import get_memory_manager
-    mm = get_memory_manager()
-    new_id = mm.add(description=content, theme=section)
-    ...
-```
-
-注入在应用启动时由 `LongTermMemory.inject_all()` 统一完成：
+`LongTermMemory.start()` 在启动时通过 `set_current_mm()` 将管理器实例注入为 `consumer.py` 模块级全局变量，供六个 `@tool` 函数共用：
 
 ```
-LongTermMemory.inject_all()
-  ├── _set_current_mm(self._mm)         → 给 long_term.py 模块级 @tool
-  └── inject_memory_manager(self._mm)   → 给 tools/memory/ 六个 Tool
+LongTermMemory.start()
+  └── set_current_mm(self._mm)  → 给 consumer.py 模块级 @tool
 ```
 
 ## 设计要点
@@ -269,9 +259,9 @@ send_history(user_msg)           — 生产者，非阻塞放入队列
 Queue[ (session_id, turn_id, messages), ... ]
     │
     ▼
-_consumer()                      — 后台协程，逐条消费
+_consumer_loop()                 — 后台协程，逐条消费
     │
-    ├── _set_current_mm(mm)     — 兜底注入（主注入已在 inject_all() 完成）
+    ├── set_current_mm(mm)      — 兜底注入（主注入已在 start() 完成）
     ├── create_agent(llm, tools) — 创建 CRUD Agent
     ├── agent.ainvoke(...)       — LLM 调用
     ├── callback.py              — 推送 tool 事件到前端
@@ -280,7 +270,7 @@ _consumer()                      — 后台协程，逐条消费
 
 - 聊天响应直接返回用户，不等待记忆总结完成
 - 后台消费者的 LLM 调用复用同一个 Provider 提供的 `BaseChatModel`
-- 支持 `stop_listening()` 安全关闭（`None` 哨兵）
+- 支持 `stop()` 安全关闭（`None` 哨兵）
 
 ## 分层边界
 
@@ -288,12 +278,11 @@ _consumer()                      — 后台协程，逐条消费
 
 | 使用方 | 接口方式 | 具体入口 |
 |--------|----------|----------|
-| Agent 编排层（long_term.py） | `@tool` 函数 | `create_memory` / `read_memories` / `update_memory` / `delete_memory` / `merge_memories` |
-| Agent 编排层（tools/memory/） | `ToolBase` 子类 | `ListMemoriesTool` / `ReadMemoriesTool` / `CreateMemoryTool` / `UpdateMemoryTool` / `DeleteMemoryTool` / `MergeMemoriesTool` |
+| Agent 编排层（consumer.py） | `@tool` 函数 | `create_memory` / `read_memories` / `update_memory` / `delete_memory` / `merge_memories` / `hit_memory` |
 | REST 路由层 | `LongTermMemory._mm` 方法 | `/api/long-term`、`/api/memories`、`/api/moment` |
 | Vignette 前端 | REST API | `/api/memories` 端点返回分组记忆（`get_memories_grouped`） |
 | Agent 工具层 | `get_narrative()` | 读取完整记忆叙事文本，作为系统提示前缀 |
-| 查询相关 | `get_related_memory_from()` | 基于 LLM 的语义检索 |
+| 查询相关 | `get_related_memory_from()` | 双模式检索：LLMRetriever（LLM 语义）或 MechanicalRetriever（BM25 机械） |
 
 ### 依赖关系
 
@@ -303,7 +292,9 @@ _consumer()                      — 后台协程，逐条消费
 | `long_term.py →` | `callback.py` | MemoryToolCallback |
 | `long_term.py →` | `api.session.manager` | SessionState（`session.get_messages()` 提取消息） |
 | `long_term.py →` | `api.session.manager` | session_manager（通过 `session_manager.get(sid).ws` 获取 WebSocket） |
-| `long_term.py →` | `tools/memory/` | inject_all() 注入管理器实例 |
+| `long_term.py →` | `consumer.py` | MemoryConsumer + set_current_mm |
+| `long_term.py →` | `llm_retriever.py` | LLMRetriever 语义检索 |
+| `long_term.py →` | `mechanical_retriever.py` | MechanicalRetriever BM25 机械检索 |
 | `callback.py →` | `api.session.manager` | session_manager（通过 `session_manager.get(sid).ws` 获取 WebSocket） |
 | `short_term.py →` | `langgraph.checkpoint.memory` | MemorySaver 全局单例 |
 | `api.session.manager →` | `short_term.py` | `get_checkpointer()` / `delete_thread()` — 会话层倒依赖短期记忆模块 |
@@ -313,7 +304,7 @@ _consumer()                      — 后台协程，逐条消费
 
 **已知问题**：
 
-1. **模块级全局变量**：`long_term.py` 中的 `_current_mm` 是模块级可变全局状态，通过 `_set_current_mm()` 注入。`inject_all()` 在启动时设置一次，`_consumer` 中每次迭代兜底再设一次。单消费者场景下工作正常，但若并发存在多个 `LongTermMemory` 实例（如多租户），全局状态会互相覆盖。建议改为实例级别的依赖注入，使 `@tool` 函数与具体的 `BaseMemoryManager` 实例绑定。
+1. **模块级全局变量**：`consumer.py` 中的 `_current_mm` 是模块级可变全局状态，通过 `set_current_mm()` 注入。`start()` 在启动时设置一次，`_consumer_loop` 中每次迭代兜底再设一次。单消费者场景下工作正常，但若并发存在多个 `LongTermMemory` 实例（如多租户），全局状态会互相覆盖。建议改为实例级别的依赖注入，使 `@tool` 函数与具体的 `BaseMemoryManager` 实例绑定。
 
 2. **Session 依赖方向**：`long_term.py` 和 `callback.py` 都通过 `api.session.manager.session_manager` 访问会话状态。`api.session.manager` 也反向依赖 `memory/short_term.py` 获取全局 checkpointer。这属于同一层级（第⑥层）内的模块间依赖，不违反分层规则。但应注意：`session/` 与 `memory/` 同层，彼此引入时需要避免循环依赖（当前 `short_term.py` 不依赖 `session/`，所以无风险）。
 
