@@ -7,7 +7,7 @@ import functools
 from enum import Enum
 from pathlib import Path
 
-from api.memory.consumer import MemoryConsumer, _set_current_mm
+from api.memory.consumer import MemoryConsumer, set_current_mm
 from api.memory.llm_retriever import LLMRetriever
 from api.memory.manager import BaseMemoryManager
 from api.memory.mechanical_retriever import MechanicalRetriever
@@ -178,7 +178,7 @@ class LongTermMemory:
         必须在运行中的事件循环内调用。
         内部通过 get_default_llm() 获取 LLM，无需外部传入。
         """
-        _set_current_mm(self._mm)
+        set_current_mm(self._mm)
         self._queue = asyncio.Queue()
         self._consumer_task = asyncio.create_task(self._consumer_loop())
 

@@ -74,7 +74,7 @@ UPDATE_SYSTEM = _UPDATE_PREFIX + _CORE_PRINCIPLES
 _current_mm: BaseMemoryManager | None = None
 
 
-def _set_current_mm(mm: BaseMemoryManager | None) -> None:
+def set_current_mm(mm: BaseMemoryManager | None) -> None:
     global _current_mm
     _current_mm = mm
 

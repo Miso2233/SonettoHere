@@ -164,7 +164,7 @@ class TestCrudTools:
 
     def _make_mm(self, tmp_path: Path) -> YamlMemoryManager:
         mm = YamlMemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
-        long_term._set_current_mm(mm)
+        long_term.set_current_mm(mm)
         return mm
 
     def test_create_memory(self, tmp_path):
@@ -211,7 +211,7 @@ class TestCrudTools:
 
     def test_read_memories_empty(self, tmp_path):
         mm = YamlMemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
-        long_term._set_current_mm(mm)
+        long_term.set_current_mm(mm)
         result = long_term.read_memories.invoke({})
         assert "暂无记忆条目" in result
 
@@ -329,10 +329,10 @@ class TestLongTermMemory:
     """LongTermMemory 异步单元测试。"""
 
     def setup_method(self):
-        long_term._set_current_mm(None)
+        long_term.set_current_mm(None)
 
     def teardown_method(self):
-        long_term._set_current_mm(None)
+        long_term.set_current_mm(None)
 
     # ── get_narrative（实例方法） ──────────────────────────────
 
