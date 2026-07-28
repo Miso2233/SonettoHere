@@ -255,8 +255,7 @@ def hit_memory(id: str) -> str:
 class MemoryConsumer:
     """后台消费一轮对话：WebSocket 通知 → CRUD Agent → memory.yaml 写入。"""
 
-    def __init__(self, mm: BaseMemoryManager, llm: BaseChatModel | None) -> None:
-        self._mm = mm
+    def __init__(self, llm: BaseChatModel | None) -> None:
         self._llm = llm
 
     async def consume(
@@ -285,8 +284,7 @@ class MemoryConsumer:
             return
 
         try:
-            _set_current_mm(self._mm)
-            items = self._mm.show()
+            items = _current_mm.show()
             messages_text = _format_messages(turn_messages)
 
             if items:

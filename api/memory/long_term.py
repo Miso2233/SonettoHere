@@ -272,7 +272,7 @@ class LongTermMemory:
 
     async def _consumer_loop(self) -> None:
         """后台消费者协程：从队列取消息，交给 MemoryConsumer 处理。"""
-        consumer = MemoryConsumer(self._mm, get_default_llm())
+        consumer = MemoryConsumer(get_default_llm())
         while True:
             item = await self._queue.get()
             if item is None:
