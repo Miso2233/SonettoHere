@@ -58,18 +58,23 @@ function handleImageClick(path: string) {
   font-size: 16px;
   line-height: 1.6;
   word-break: break-word;
-  box-shadow: var(--shadow);
 }
 .bubble.user {
   background: var(--user-bubble);
   color: var(--text-primary);
   border: 1px solid rgba(0, 0, 0, 0.2);
   border-bottom-right-radius: 4px;
+  box-shadow: var(--shadow);
 }
 .bubble.assistant {
   background: var(--bg-card);
   color: var(--text-primary);
   border-bottom-left-radius: 4px;
+  box-shadow: none;
+  transition: box-shadow 0.15s ease;
+}
+.bubble.assistant:hover {
+  box-shadow: var(--shadow);
 }
 .image-thumbnails {
   display: flex;

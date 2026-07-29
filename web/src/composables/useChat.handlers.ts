@@ -107,6 +107,15 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
     turn.turnId = de.payload.turn_id
     console.log(`[ltm-fe] turnId set on turn.id=${turn.id}: ${turn.turnId}`)
   }
+
+  // ── 防重复守卫：若 turn 已存在于 turns 中则跳过 ──
+  if (ch.turns.some(t => t.id === turn.id)) {
+    console.warn(`[useChat:done] 防重复守卫触发: 会话 ${sid}, turn.id=${turn.id} 已在 turns 中, 跳过 push`)
+    ch.currentTurn = null
+    ch.isStreaming = false
+    return
+  }
+
   const lastThink = findLastThinking(turn.events)
   const trackBecame = lastThink?.becameAnswer
   console.log(`[useChat:done] 会话 ${sid}: becameAnswer=${trackBecame}, events=${turn.events.length}, finalAnswer=${turn.finalAnswer?.slice(0, 50) ?? 'null'}`)
@@ -115,6 +124,13 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
     void nextTick(() => {
       setTimeout(() => {
         console.log(`[useChat:done] becameAnswer 分支执行 persist (会话 ${sid})`)
+        // 延迟后再检查一次：turns 中可能已被其他逻辑写入
+        if (ch.turns.some(t => t.id === turnToFinalize.id)) {
+          console.warn(`[useChat:done] becameAnswer 防重复守卫触发: 会话 ${sid}, turn.id=${turnToFinalize.id}`)
+          ch.currentTurn = null
+          ch.isStreaming = false
+          return
+        }
         ch.turns.push(turnToFinalize)
         ch.currentTurn = null
         ch.isStreaming = false
@@ -122,7 +138,7 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
       }, 420)
     })
   } else {
-    console.log(`[useChat:done] 直接分支执行 persist (会话 ${sid})`)
+    console.log(`[useChat:done] 直接分支执行 persist (会话 ${sid}), turns.length=${ch.turns.length}`)
     ch.turns.push(turn)
     ch.currentTurn = null
     ch.isStreaming = false

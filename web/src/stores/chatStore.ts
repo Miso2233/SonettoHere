@@ -91,17 +91,39 @@ export const useChatStore = defineStore('chat', () => {
 
   // ── 通道管理 ──
 
+  /** 按 turn.id 去重，清理旧 bug 留存的同 ID 重复条目。 */
+  function dedupTurnsById(turns: ChatTurn[]): ChatTurn[] {
+    const seen = new Set<string>()
+    const result: ChatTurn[] = []
+    let dupCount = 0
+    for (const t of turns) {
+      if (seen.has(t.id)) {
+        dupCount++
+        console.warn('[chatStore] dedupTurnsById: 发现重复 turn.id=%s, 已跳过', t.id)
+      } else {
+        seen.add(t.id)
+        result.push(t)
+      }
+    }
+    if (dupCount > 0) {
+      console.warn('[chatStore] dedupTurnsById: 共清理 %d 个重复条目  session=%s', dupCount, /* sid not available here */ '')
+    }
+    return result
+  }
+
   function getOrCreateChannel(sid: string): SessionChannel {
     if (!channels.has(sid)) {
       const cached = turnsCache.get(sid)
-      console.debug('[chatStore] getOrCreateChannel: 创建新通道 session=%s, 缓存命中=%s, turns=%d',
-        sid, !!cached, cached ? cached.length : 0)
+      // 去重：清理可能因旧 bug 留存的同 ID 重复 turns
+      const deduped = cached ? dedupTurnsById(cached) : undefined
+      console.debug('[chatStore] getOrCreateChannel: 创建新通道 session=%s, 缓存命中=%s, 缓存 turns=%d, 去重后=%d',
+        sid, !!cached, cached ? cached.length : 0, deduped ? deduped.length : 0)
       channels.set(sid, {
         ws: null,
         connected: false,
         isStreaming: false,
         isAwaitingUser: false,
-        turns: cached ? [...cached] : [],
+        turns: deduped ?? [],
         currentTurn: null,
         error: null,
         contextUsage: null,
@@ -141,7 +163,8 @@ export const useChatStore = defineStore('chat', () => {
     }
     const snapshot = [...ch.turns]
     turnsCache.set(sid, snapshot)
-    console.debug('[chatStore] persistTurns: 持久化 session=%s, turns=%d', sid, snapshot.length)
+    console.debug('[chatStore] persistTurns: 持久化 session=%s, turns=%d, currentTurn=%s',
+      sid, snapshot.length, ch.currentTurn?.id ?? 'null')
     saveTurnsToStorage(sid, snapshot)
   }
 
@@ -166,7 +189,10 @@ export const useChatStore = defineStore('chat', () => {
       // 找到下一条 human 消息
       if (msgs[i].role !== 'human') { i++; continue }
 
-      const userMsg = msgs[i].content
+      // 从后端恢复的消息包含时间标记（如「（2026-07-29 Wed 14:30）」）和引用块，
+      // 使用 parseReferences 提取纯净文本与引用，与 migrateLegacyTurn（localStorage 缓存）保持一致
+      const { cleanText, refs } = parseReferences(msgs[i].content)
+      const userMsg = refs.length > 0 ? cleanText : msgs[i].content.replace(TIME_SUFFIX_RE, '').trim()
       const events: TurnEvent[] = []
       let finalAnswer: string | null = null
       i++
@@ -202,7 +228,7 @@ export const useChatStore = defineStore('chat', () => {
       turns.push({
         id: crypto.randomUUID(),
         userMessage: userMsg,
-        refs: [],
+        refs,
         events,
         finalAnswer,
       })
@@ -210,26 +236,48 @@ export const useChatStore = defineStore('chat', () => {
     return turns
   }
 
+  /** 正在从后端恢复中的会话集合，防止并发调用导致重复。 */
+  const restoreInFlight = new Set<string>()
+
   /** 从后端 API 拉取消息并恢复到通道的 turns 中。 */
   async function restoreTurnsFromBackend(sid: string): Promise<void> {
-    const ch = channels.get(sid)
-    if (!ch) return
-    if (ch.turns.length > 0) {
-      console.debug('[chatStore] restoreTurnsFromBackend: 通道已有 turns, 跳过 sid=%s, turns=%d', sid, ch.turns.length)
+    if (restoreInFlight.has(sid)) {
+      console.warn('[chatStore] restoreTurnsFromBackend: 跳过, 正在恢复中 sid=%s', sid)
       return
     }
+    restoreInFlight.add(sid)
+    const ch = channels.get(sid)
+    if (!ch) { console.warn('[chatStore] restoreTurnsFromBackend: 通道不存在 sid=%s', sid); restoreInFlight.delete(sid); return }
+    if (ch.turns.length > 0) {
+      console.warn('[chatStore] restoreTurnsFromBackend: 通道已有 turns(%d), 跳过恢复 sid=%s（若此日志未出现则问题不在此）', ch.turns.length, sid)
+      restoreInFlight.delete(sid)
+      return
+    }
+    // 若有 currentTurn（正在流式的轮次），说明会话仍「活着」，不应从后端恢复
+    if (ch.currentTurn) {
+      console.warn('[chatStore] restoreTurnsFromBackend: 有 currentTurn(%s), 跳过恢复 sid=%s', ch.currentTurn.id, sid)
+      restoreInFlight.delete(sid)
+      return
+    }
+    console.warn('[chatStore] restoreTurnsFromBackend: ⚡ 即将从后端恢复 sid=%s（当前 channels 数=%d）', sid, channels.size)
     try {
       console.debug('[chatStore] restoreTurnsFromBackend: 从后端获取消息 sid=%s', sid)
       const res = await sessionsApi.getMessages(sid)
       const turns = messagesToTurns(res.messages)
-      if (turns.length > 0) {
+      // 再次检查：await 期间可能有其他调用已写入 turns
+      if (turns.length > 0 && ch.turns.length === 0) {
         ch.turns.push(...turns)
         turnsCache.set(sid, [...ch.turns])
         saveTurnsToStorage(sid, [...ch.turns])
-        console.debug('[chatStore] restoreTurnsFromBackend: 已恢复 %d 个轮次 sid=%s', turns.length, sid)
+        console.warn('[chatStore] restoreTurnsFromBackend: ✅ 已恢复 %d 个轮次 sid=%s', turns.length, sid)
+      } else {
+        console.warn('[chatStore] restoreTurnsFromBackend: await 后有变化, turns=%d, backend返回=%d, 跳过 push sid=%s',
+          ch.turns.length, turns.length, sid)
       }
     } catch (e) {
       console.warn('[chatStore] restoreTurnsFromBackend: 获取消息失败 sid=%s, error=%o', sid, e)
+    } finally {
+      restoreInFlight.delete(sid)
     }
   }
 
@@ -392,6 +440,11 @@ export const useChatStore = defineStore('chat', () => {
   ) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
+    // 覆盖 currentTurn 前检查是否有未完成的轮次
+    if (ch.currentTurn) {
+      console.warn('[chatStore] send: 覆盖 currentTurn, sid=%s, 旧 turn.id=%s, 旧 finalAnswer=%s',
+        sid, ch.currentTurn.id, ch.currentTurn.finalAnswer?.slice(0, 50) ?? 'null')
+    }
     ch.isStreaming = true
     ch.error = null
 

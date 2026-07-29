@@ -67,18 +67,22 @@ export function useChat(sessionId: Ref<string>) {
   watch(
     sessionId,
     async (newId, oldId) => {
-      console.debug('[useChat] watch(sessionId): old=%s, new=%s', oldId, newId)
+      console.warn('[useChat] ⚡ watch(sessionId): old=%s, new=%s', oldId, newId)
       if (oldId) {
-        console.debug('[useChat] 持久化旧会话: %s', oldId)
+        console.warn('[useChat] 持久化旧会话: %s', oldId)
         store.persistTurns(oldId)
       }
-      console.debug('[useChat] 确保新会话连接: %s', newId)
+      console.warn('[useChat] 确保新会话连接: %s', newId)
       store.ensureConnected(newId)
       // 若 localStorage 无缓存, 从后端拉取历史消息恢复
       const ch = store.getOrCreateChannel(newId)
-      if (ch.turns.length === 0) {
-        console.debug('[useChat] 本地无缓存, 尝试从后端恢复历史消息: %s', newId)
+      console.warn('[useChat] 新会话通道 turns.length=%d, currentTurn=%s', ch.turns.length, ch.currentTurn?.id ?? 'null')
+      // 若 turns 为空且无 currentTurn（无正在流式的轮次），才从后端恢复历史消息；
+      // 反之若存在 currentTurn，说明该通道有未完成的轮次，会话仍是「活的」，恢复会导致后端消息与 currentTurn 同时出现
+      if (ch.turns.length === 0 && !ch.currentTurn) {
+        console.warn('[useChat] 本地无缓存且无活动轮次, 尝试从后端恢复历史消息: %s', newId)
         await store.restoreTurnsFromBackend(newId)
+        console.warn('[useChat] 后端恢复完成: session=%s, turns.length=%d', newId, ch.turns.length)
       }
     },
     { immediate: true },
