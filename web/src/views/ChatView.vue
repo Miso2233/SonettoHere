@@ -32,7 +32,7 @@
           </span>
         </div>
         <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" :has-vision="selectedModelHasVision" />
-        <TaskTrackerBar :data="taskTrackerData as any" />
+        <TaskTrackerBar :data="taskTrackerData as any" @dismiss="dismissTaskTracker" />
     </header>
 
     <ChatWindow
@@ -96,6 +96,7 @@ import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TaskTrackerBar from '@/components/TaskTrackerBar.vue'
 import { useChat } from '@/composables/useChat'
+import { useChatStore } from '@/stores/chatStore'
 import { health } from '@/composables/useHealth'
 import { useSession } from '@/composables/useSession'
 import type { ParsedRef } from '@/utils/references'
@@ -105,6 +106,12 @@ import { computed, onMounted, ref } from 'vue'
 const { sessionId, sessions } = useSession()
 const { connected, isStreaming, turns, currentTurn, error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove } =
   useChat(sessionId)
+const chatStore = useChatStore()
+
+function dismissTaskTracker() {
+  const ch = chatStore.getOrCreateChannel(sessionId.value)
+  ch.taskTrackerData = null
+}
 
 const selectedModelName = ref('')
 const selectedProviderId = ref('')

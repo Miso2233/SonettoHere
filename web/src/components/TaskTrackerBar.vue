@@ -1,5 +1,12 @@
 <template>
-  <div class="tracker-bar" :class="{ idle: !data }">
+  <div
+    class="tracker-bar"
+    :class="{
+      idle: !data,
+      completed: isCompleted,
+    }"
+    @click="isCompleted && $emit('dismiss')"
+  >
     <template v-if="!data">
       <span class="bar-label">无激活任务</span>
     </template>
@@ -40,6 +47,10 @@ interface TaskTrackerData {
 
 const props = defineProps<{ data: TaskTrackerData | null }>()
 
+defineEmits<{
+  dismiss: []
+}>()
+
 const currentStep = computed(() => {
   if (!props.data) return 0
   return props.data.completed + ((props.data.in_progress ?? 0) > 0 ? 1 : 0)
@@ -58,6 +69,15 @@ const activeForm = computed(() => {
   return current?.activeForm || ''
 })
 
+const isCompleted = computed(() => {
+  if (!props.data) return false
+  const todos = props.data.todos
+  if (!Array.isArray(todos) || todos.length === 0) return false
+  const hasInProgress = todos.some(t => t.status === 'in_progress')
+  const hasPending = todos.some(t => t.status === 'pending')
+  return !hasInProgress && !hasPending && todos.length > 0
+})
+
 const statusLabel = computed(() => {
   if (!props.data) return ''
   const todos = props.data.todos
@@ -68,14 +88,12 @@ const statusLabel = computed(() => {
   const hasPending = todos.some(t => t.status === 'pending')
 
   if (!hasInProgress) {
-    // 没有进行中的任务
-    if (!hasCompleted && hasPending) return '就绪'       // 全 pending
-    if (hasCompleted && !hasPending) return '已完成'      // 全 completed
-    return '待命'  // 混合 pending + completed
+    if (!hasCompleted && hasPending) return '就绪'
+    if (hasCompleted && !hasPending) return '已完成'
+    return '待命'
   } else {
-    // 有进行中的任务
-    if (!hasCompleted) return '出发'   // 全 pending + in_progress，无 completed
-    return '工作中'  // 三种状态混合
+    if (!hasCompleted) return '出发'
+    return '工作中'
   }
 })
 </script>
@@ -98,6 +116,20 @@ const statusLabel = computed(() => {
 
 .tracker-bar.idle {
   opacity: 0.35;
+}
+
+.tracker-bar.completed {
+  cursor: pointer;
+}
+
+.tracker-bar.completed:hover {
+  border-color: #00000050;
+  background: #00000006;
+  box-shadow: var(--shadow-sm);
+}
+
+.tracker-bar.completed:active {
+  transform: scale(0.97);
 }
 
 .bar-label {
