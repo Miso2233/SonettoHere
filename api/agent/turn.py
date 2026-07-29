@@ -433,6 +433,11 @@ async def run_agent_turn(
       3. _execute_agent_turn  — 流式执行、异常/取消处理
       4. _postprocess_turn    — 消息计数、记忆持久化、Const 保存、Sub-agent 回调
     """
+    # Sub-agent 跳过长期记忆的读（retrieve_memory）和写（ltm_write）
+    if session.is_subagent:
+        private_mode = True
+        skip_recall = True
+
     ws = interaction.current_ws.get()
     app_state = ws.app.state
     sender = TurnSender.from_context()
