@@ -7,8 +7,6 @@ from pydantic import BaseModel, Field
 
 from api.agent import interaction
 from api.events import ToolSender
-from api.memory.short_term import get_checkpointer
-from api.providers.default_llm import get_default_llm
 from tools.base import ToolBase, format_success, format_error
 from api.utils.logger import get_logger
 
@@ -108,23 +106,10 @@ class CallSubAgentTool(ToolBase):
         _log.debug("sub_session_created sent, awaiting pending_result...")
 
         # 3. 等待 sub-agent 执行完成
-        #    sub-agent 由前端连接 sub-session WS 后自动启动
-        #    或在前端未连接时由超时触发后台执行
+        #    sub-agent 由前端连接 sub-session WS 后自动启动并返回结果
         try:
-            # 等待前端连接并触发 auto-start（最多等 10 秒）
-            try:
-                final_answer = await asyncio.wait_for(sub.pending_future, timeout=120)
-                _log.info("pending_result resolved, answer len=%d", len(final_answer))
-            except asyncio.TimeoutError:
-                _log.warning("timeout waiting for pending_result (120s), trying background...")
-                # 如果前端一直未连接，后端直接执行（无 WS streaming）
-                if not sub.is_pending_done():
-                    # 尝试后台执行
-                    final_answer = await self._run_background(sub, task, app_state)
-                    _log.info("background done, answer len=%d", len(final_answer))
-                else:
-                    _log.warning("pending_result done during timeout, re-raising")
-                    raise
+            final_answer = await sub.pending_future
+            _log.info("pending_result resolved, answer len=%d", len(final_answer))
 
             _log.debug("returning success")
             return format_success(
@@ -142,63 +127,3 @@ class CallSubAgentTool(ToolBase):
         except Exception as e:
             _log.error("error: %s", e, exc_info=True)
             return format_error(f"子 Agent 执行失败: {str(e)}")
-
-    async def _run_background(self, sub, task: str, app_state) -> str:
-        """后端直接执行（无前端连接时的回退路径）。"""
-        _log.info("_run_background starting for %s", sub.session_id)
-        from agent import build_agent, build_system_prompt
-        from langchain_core.messages import HumanMessage
-
-        system_prompt = build_system_prompt()
-        agent = build_agent(
-            model=get_default_llm(),
-            tools=app_state.tool_manager.get_all(),
-            system_prompt=system_prompt,
-            checkpointer=get_checkpointer(),
-        )
-        inputs = {"messages": [HumanMessage(content=task)]}
-        config = {"configurable": {"thread_id": sub.session_id}, "recursion_limit": 72}
-
-        final_answer = ""
-        try:
-            async for event in agent.astream_events(
-                inputs, config=config, version="v2"
-            ):
-                if (
-                    event.get("event") == "on_chain_end"
-                    and event.get("name") == "agent"
-                ):
-                    output = event["data"].get("output", {})
-                    messages = output.get("messages", [])
-                    if messages:
-                        last = messages[-1]
-                        final_answer = (
-                            last.content if hasattr(last, "content") else str(last)
-                        )
-
-            # 事件未捕获到 final_answer 时，从 checkpoint 兜底提取
-            if not final_answer:
-                try:
-                    messages = await sub.get_messages()
-                    if messages:
-                        last = messages[-1]
-                        candidate = (
-                            last.content if hasattr(last, "content") else str(last)
-                        )
-                        if candidate:
-                            final_answer = candidate
-                except Exception:
-                    pass
-        except Exception as e:
-            _log.error("_run_background agent failed: %s", e, exc_info=True)
-            raise
-
-        _log.info("_run_background got answer: %s", final_answer[:100] if final_answer else "(empty)")
-
-        if final_answer:
-            sub.increment_messages()
-            sub.resolve_pending(final_answer)
-        else:
-            sub.fail_pending("子 Agent 未能产生有效回答")
-
-        return final_answer
