@@ -166,6 +166,8 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
   if (payload.action === 'user_response') {
     const d = payload.data as { interactionId: string; response: string | string[] }
     sendUserResponse(d.interactionId, d.response)
+  } else if (payload.action === 'skip_memory_search') {
+    chatStore.skipMemorySearch(sessionId.value)
   } else if (payload.action === 'undo') {
     handleUndo()
   }

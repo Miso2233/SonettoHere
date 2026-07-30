@@ -48,9 +48,13 @@ class MemorySender(WsTransport):
         """通知前端本轮记忆处理完成。"""
         await self._send("memory_done", {"turn_id": turn_id})
 
-    async def memory_search_start(self) -> None:
+    async def memory_search_start(self, turn_id: str, interaction_id: str) -> None:
         """通知前端开始语义搜索记忆。"""
-        await self._send("memory_search_start", {})
+        await self._send("memory_search_start", {"turn_id": turn_id, "interaction_id": interaction_id})
+
+    async def memory_search_skipped(self) -> None:
+        """通知前端搜索已被跳过。"""
+        await self._send("memory_search_skipped", {})
 
     async def memory_search_done(self, total: int, fresh: int) -> None:
         """通知前端记忆搜索完成。total=原始检索数, fresh=去重后净新增数。"""

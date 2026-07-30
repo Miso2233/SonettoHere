@@ -131,6 +131,15 @@ export interface MemoryDoneEvent {
 /** memory_search_start — 前端语义记忆搜索开始 */
 export interface MemorySearchStartEvent {
   type: 'memory_search_start'
+  payload: {
+    turn_id: string
+    interaction_id: string
+  }
+}
+
+/** memory_search_skipped — 前端语义记忆搜索已被跳过 */
+export interface MemorySearchSkippedEvent {
+  type: 'memory_search_skipped'
   payload: Record<string, never>
 }
 
@@ -163,6 +172,7 @@ export type ServerEvent =
   | MemoryToolErrorEvent
   | MemoryDoneEvent
   | MemorySearchStartEvent
+  | MemorySearchSkippedEvent
   | MemorySearchDoneEvent
 
 // === WebSocket 客户端 → 服务端消息 ===
@@ -210,7 +220,15 @@ export interface UpdateAutoApproveMessage {
   }
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage
+/** skip_memory_search — 用户跳过当前轮的语义记忆搜索 */
+export interface SkipMemorySearchMessage {
+  type: 'skip_memory_search'
+  payload: {
+    interaction_id: string
+  }
+}
+
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage
 
 // === 前端 UI 状态类型 ===
 
@@ -268,7 +286,7 @@ export interface ChatTurn {
   /** 后端生成的 turn_id，用于关联后台记忆 consumer 的事件 */
   turnId?: string
   /** 当前轮的语义记忆搜索结果 */
-  memorySearch?: { status: 'searching' } | { status: 'done'; total: number; fresh: number }
+  memorySearch?: { status: 'searching'; skipInteractionId?: string } | { status: 'skipped' } | { status: 'done'; total: number; fresh: number }
 }
 
 // === 会话与 API 类型 ===

@@ -380,7 +380,18 @@ export const useChatStore = defineStore('chat', () => {
 
     // 语义记忆搜索事件：直接更新 currentTurn
     if (event.type === 'memory_search_start') {
-      if (ch.currentTurn) ch.currentTurn.memorySearch = { status: 'searching' }
+      if (ch.currentTurn) {
+        ch.currentTurn.memorySearch = {
+          status: 'searching',
+          skipInteractionId: event.payload.interaction_id,
+        }
+      }
+      return
+    }
+    if (event.type === 'memory_search_skipped') {
+      if (ch.currentTurn) {
+        ch.currentTurn.memorySearch = { status: 'skipped' }
+      }
       return
     }
     if (event.type === 'memory_search_done') {
@@ -484,6 +495,19 @@ export const useChatStore = defineStore('chat', () => {
     ch.ws.send(JSON.stringify({ type: 'cancel', payload: {} } as ClientMessage))
   }
 
+  function skipMemorySearch(sid: string) {
+    const ch = channels.get(sid)
+    if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
+    const interactionId = ch.currentTurn?.memorySearch?.status === 'searching'
+      ? ch.currentTurn.memorySearch.skipInteractionId
+      : undefined
+    if (!interactionId) return
+    ch.ws.send(JSON.stringify({
+      type: 'skip_memory_search',
+      payload: { interaction_id: interactionId },
+    } as ClientMessage))
+  }
+
   function sendUserResponse(sid: string, interactionId: string, response: string | string[]) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
@@ -536,6 +560,7 @@ export const useChatStore = defineStore('chat', () => {
     handleEventForChannel,
     send,
     cancel,
+    skipMemorySearch,
     sendUserResponse,
     removeTurns,
     updateAutoApprove,

@@ -139,3 +139,38 @@ class LLMRetriever:
         except (json.JSONDecodeError, TypeError, IndexError):
             pass
         return []
+
+    async def aretrieve(self, prompt: str) -> list[dict[str, str]]:
+        """异步检索相关记忆条目（支持 asyncio 取消）。
+
+        与 :meth:`retrieve` 逻辑相同，但使用 ``ainvoke`` 替代 ``invoke``，
+        可被 ``asyncio.Task.cancel()`` 中断。用于 RetrieveMemoryNode 的
+        竞速模式（检索 vs 用户跳过）。
+        """
+        if get_default_llm() is None:
+            return []
+        items = self._mm.show()
+        if not items:
+            return []
+
+        lines = []
+        for i, item in enumerate(items):
+            lines.append(f"[{i}] ({item['theme']}) {item['description']}")
+        memory_text = "\n".join(lines)
+        user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
+
+        response = await get_default_llm().ainvoke(
+            [SystemMessage(content=FIND_RELATED_MEMORY.strip()), HumanMessage(content=user_prompt)],
+            config=RunnableConfig(callbacks=[]),
+        )
+
+        try:
+            indices = json.loads(response.content)
+            if isinstance(indices, list):
+                return [
+                    {"id": items[i]["id"], "description": items[i]["description"], "theme": items[i]["theme"]}
+                    for i in indices if 0 <= i < len(items)
+                ]
+        except (json.JSONDecodeError, TypeError, IndexError):
+            pass
+        return []

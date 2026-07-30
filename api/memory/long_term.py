@@ -168,6 +168,23 @@ class LongTermMemory:
             self._mechanical_retriever.build_index(self._mm.show())
         return self._mechanical_retriever.get_related_memory_from(prompt)
 
+    async def get_related_memory_from_async(
+        self, prompt: str, mode: RetrievalMode = RetrievalMode.LLM
+    ) -> list[dict[str, str]]:
+        """异步检索相关记忆条目（可取消）。
+
+        与 :meth:`get_related_memory_from` 功能相同，但：
+        - LLM 模式使用 ``ainvoke``，支持 ``asyncio.Task.cancel()`` 中断
+        - 机械模式仍为同步（BM25 毫秒级，无需取消）
+        """
+        match mode:
+            case RetrievalMode.LLM:
+                return await self._llm_retriever.aretrieve(prompt)
+            case RetrievalMode.MECHANICAL:
+                return self._retrieve_mechanical(prompt)
+            case _:
+                raise ValueError("未定义的记忆提取模式")
+
     def delete_memory(self, id: str) -> str:
         """删除指定 ID 的单条记忆，返回被删除条目的描述。"""
         return self._mm.delete(id)

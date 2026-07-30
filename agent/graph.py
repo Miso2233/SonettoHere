@@ -13,8 +13,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Literal
 
+from api.agent import interaction
 from api.memory import LongTermMemory
 
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
@@ -106,13 +108,45 @@ class RetrieveMemoryNode:
         from api.events.memory import MemorySender  # noqa: PLC0415
         from api.memory import RetrievalMode  # noqa: PLC0415
 
-        # 通知前端开始搜索
+        turn_id = config["configurable"].get("turn_id", "")
+        session_id = config["configurable"]["thread_id"]
+
+        # ═══ 注册 skip 交互 Future ═══
+        interaction_id, skip_future = interaction.register()
+
+        # 通知前端开始搜索（携带 interaction_id 供跳过按钮回传）
         ws_sender = MemorySender.from_context()
         if ws_sender:
-            await ws_sender.memory_search_start()
+            await ws_sender.memory_search_start(
+                turn_id=turn_id,
+                interaction_id=interaction_id,
+            )
 
-        # 检索记忆
-        results = self._ltm.get_related_memory_from(query, mode=RetrievalMode.LLM)
+        # ═══ 异步检索 vs 跳过信号 竞速 ═══
+        retrieval_task = asyncio.create_task(
+            self._ltm.get_related_memory_from_async(query, mode=RetrievalMode.LLM)
+        )
+
+        done, pending = await asyncio.wait(
+            [retrieval_task, skip_future],
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        if skip_future.done():
+            # ← 用户点击了跳过：放弃检索结果，不注入记忆
+            retrieval_task.cancel()
+            try:
+                await retrieval_task
+            except asyncio.CancelledError:
+                pass
+            interaction.cleanup(interaction_id)
+            if ws_sender:
+                await ws_sender.memory_search_skipped()
+            return {}
+
+        # → 检索正常完成
+        interaction.cleanup(interaction_id)
+        results = retrieval_task.result()
 
         if not results:
             if ws_sender:
@@ -120,7 +154,6 @@ class RetrieveMemoryNode:
             return {}
 
         # 按会话去重（以记忆 ID 为标识）
-        session_id = config["configurable"]["thread_id"]
         seen_ids = RetrieveMemoryNode._seen.setdefault(session_id, set())
         fresh: list[dict[str, str]] = []
         for r in results:

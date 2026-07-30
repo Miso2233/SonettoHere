@@ -12,7 +12,7 @@ from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from agent import build_system_prompt
 from api.agent.turn import run_agent_turn
-from api.events import ChatSender
+from api.events import ChatSender, MemorySender
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
 from api.session.manager import SessionState, session_manager
@@ -152,6 +152,29 @@ async def _handle_update_auto_approve(
         session_id, msg["payload"]["auto_approve"]
     )
     return agent_task
+
+
+@ws_event_handler("skip_memory_search")
+async def _handle_skip_memory_search(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+
+) -> asyncio.Task | None:
+    """处理跳过记忆搜索：通过 interaction.resolve() 唤醒 retrieve_memory 节点的 Future。
+
+    不取消 agent_task——只跳过记忆检索，Agent 图继续执行。
+    """
+    interaction_id = msg.get("payload", {}).get("interaction_id", "")
+    if interaction_id:
+        interaction.resolve(interaction_id, "skipped")
+        # 立即通知前端已跳过（不等 node 中竞速结束后二次推送）
+        sender = MemorySender.from_ws(ws)
+        await sender.memory_search_skipped()
+    return agent_task
+
 
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str) -> None:

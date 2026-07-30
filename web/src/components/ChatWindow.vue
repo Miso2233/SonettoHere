@@ -18,6 +18,10 @@
             <template v-if="turn.memorySearch.status === 'searching'">
               <span class="memory-search-spinner"></span>
               <span>正在搜索相关记忆…</span>
+              <button class="skip-btn" @click="onSkipMemorySearch">跳过</button>
+            </template>
+            <template v-else-if="turn.memorySearch.status === 'skipped'">
+              <span class="memory-search-skipped">— 已跳过搜索</span>
             </template>
             <template v-else>
               <span class="memory-search-check">&#10003;</span>
@@ -171,6 +175,10 @@ const emit = defineEmits<{
 
 function forwardAction(payload: { action: string; data?: unknown }) {
   emit('action', payload)
+}
+
+function onSkipMemorySearch() {
+  emit('action', { action: 'skip_memory_search' })
 }
 
 const windowRef = ref<HTMLElement | null>(null)
@@ -686,6 +694,33 @@ function closeContextMenu() {
   border-radius: 50%;
   animation: memory-spin 0.6s linear infinite;
   flex-shrink: 0;
+}
+
+.skip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  height: 18px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.skip-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.memory-search-skipped {
+  color: var(--text-tertiary);
+  font-style: italic;
 }
 
 .memory-search-check {
