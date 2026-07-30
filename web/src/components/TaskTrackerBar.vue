@@ -215,6 +215,14 @@ const statusLabel = computed(() => {
   display: flex;
 }
 
+.bar-progress-fill {
+  height: 100%;
+  min-width: 8px;
+  background: #000;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
 /* ── 悬停菜单 ── */
 .hover-menu {
   position: absolute;
