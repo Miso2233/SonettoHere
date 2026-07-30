@@ -15,14 +15,25 @@
           <Icon name="memory" :size="18" /> <span class="nav-label">记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY</span>
         </router-link>
         <router-link to="/playground" class="nav-item pg-nav">动态 NEWS</router-link>
-        <div class="settings-area" ref="settingsTriggerRef">
-          <button class="nav-item settings-btn" :class="{ active: showSettingsMenu }" @click="toggleSettingsMenu">
-            <Icon name="settings" :size="18" /> <span class="nav-label">设置&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SETTINGS</span>
-          </button>
-        </div>
       </nav>
+      <SessionSidebar
+        :sessions="sessions"
+        :active-id="sessionId"
+        :session-statuses="allSessionStatuses"
+        :collapsed="effectiveCollapsed"
+        @create="createSession"
+        @switch="handleSwitchSession"
+        @delete="deleteSession"
+        @constify="handleConstify"
+        @unconstify="handleUnconstify"
+      />
+      <div class="settings-area" ref="settingsTriggerRef">
+        <button class="nav-item settings-btn" :class="{ active: showSettingsMenu }" @click="toggleSettingsMenu">
+          <Icon name="settings" :size="18" /> <span class="nav-label">设置&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SETTINGS</span>
+        </button>
+      </div>
       <Transition name="popup">
-        <div v-if="showSettingsMenu" ref="settingsPopupRef" class="settings-popup" :style="{ top: popupTop, left: popupLeft }" @click.stop>
+        <div v-if="showSettingsMenu" ref="settingsPopupRef" class="settings-popup" :style="{ bottom: popupBottom, left: popupLeft }" @click.stop>
           <div class="popup-header">设置</div>
           <router-link to="/providers" class="popup-item" @click="closeSettingsMenu">模型 MODELS</router-link>
           <router-link to="/soul" class="popup-item" @click="closeSettingsMenu">人设 SOUL</router-link>
@@ -36,18 +47,6 @@
           </button>
         </div>
       </Transition>
-      <SessionSidebar
-        :sessions="sessions"
-        :active-id="sessionId"
-        :session-statuses="allSessionStatuses"
-        :collapsed="effectiveCollapsed"
-        @create="createSession"
-        @switch="handleSwitchSession"
-        @delete="deleteSession"
-        @constify="handleConstify"
-        @unconstify="handleUnconstify"
-      />
-      <HealthPanel :health="health!" v-if="health" />
     </aside>
     <main class="main">
       <router-view />
@@ -56,11 +55,10 @@
 </template>
 
 <script setup lang="ts">
-import HealthPanel from '@/components/HealthPanel.vue';
 import Icon from '@/components/Icon.vue';
 import SessionSidebar from '@/components/SessionSidebar.vue';
 import { allSessionStatuses } from '@/composables/useChat';
-import { health, startPolling, useHealth } from '@/composables/useHealth';
+import { startPolling, useHealth } from '@/composables/useHealth';
 import { constifySession, unconstifySession, useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
 import { api } from '@/api';
@@ -72,7 +70,7 @@ const { effectiveCollapsed, toggleSidebar } = useSidebar()
 const showSettingsMenu = ref(false)
 const settingsTriggerRef = ref<HTMLElement | null>(null)
 const settingsPopupRef = ref<HTMLElement | null>(null)
-const popupTop = ref('0px')
+const popupBottom = ref('0px')
 const popupLeft = ref('228px')
 const restarting = ref(false)
 
@@ -107,7 +105,7 @@ function closeSettingsMenu() {
 function updatePopupPosition() {
   if (settingsTriggerRef.value) {
     const rect = settingsTriggerRef.value.getBoundingClientRect()
-    popupTop.value = `${rect.top}px`
+    popupBottom.value = `${window.innerHeight - rect.top}px`
     popupLeft.value = `${rect.right + 8}px`
   }
 }
@@ -438,12 +436,6 @@ html, body {
   min-width: 0;
 }
 
-.sidebar .health-panel {
-  transition: opacity 0.2s ease 0.05s;
-  overflow: hidden;
-  max-height: 300px;
-}
-
 /* ── Collapsible sidebar ── */
 .sidebar {
   position: relative;
@@ -499,14 +491,6 @@ html, body {
 .sidebar.collapsed .pg-nav {
   display: none;
 }
-.sidebar.collapsed .health-panel {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  padding: 0;
-  margin: 0;
-}
-
 /* ── Sidebar background image with blur + white overlay ── */
 .sidebar::before {
   content: '';
