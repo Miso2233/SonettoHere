@@ -42,12 +42,32 @@
           />
           <span class="choice-label">{{ opt }}</span>
         </label>
+
+        <!-- 单项选择：告诉Sonetto别的意见 -->
+        <div class="other-choice-area">
+          <button
+            v-if="!showSingleOther"
+            class="btn-other-toggle"
+            @click="showSingleOther = true"
+          >
+            告诉Sonetto别的意见 ✎
+          </button>
+          <div v-else class="other-input-group">
+            <textarea
+              v-model="singleOtherText"
+              class="other-textarea"
+              placeholder="在此输入你的想法..."
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
+
         <button
           class="btn-submit"
-          :disabled="!singleSelected"
+          :disabled="!singleSelected && !singleOtherText.trim()"
           @click="submitSingle"
         >
-          确认选择
+          确认选择{{ singleOtherText.trim() ? '（含自定义意见）' : '' }}
         </button>
       </div>
 
@@ -67,12 +87,32 @@
           />
           <span class="choice-label">{{ opt }}</span>
         </label>
+
+        <!-- 多项选择：告诉Sonetto别的意见 -->
+        <div class="other-choice-area">
+          <button
+            v-if="!showMultiOther"
+            class="btn-other-toggle"
+            @click="showMultiOther = true"
+          >
+            告诉Sonetto别的意见 ✎
+          </button>
+          <div v-else class="other-input-group">
+            <textarea
+              v-model="multiOtherText"
+              class="other-textarea"
+              placeholder="在此输入你的想法..."
+              rows="2"
+            ></textarea>
+          </div>
+        </div>
+
         <button
           class="btn-submit"
-          :disabled="multiSelected.length === 0"
+          :disabled="multiSelected.length === 0 && !multiOtherText.trim()"
           @click="submitMulti"
         >
-          确认选择（{{ multiSelected.length }}）
+          确认选择（{{ multiOtherText.trim() ? multiSelected.length + 1 : multiSelected.length }}）
         </button>
       </div>
     </div>
@@ -117,10 +157,21 @@ const emit = defineEmits<{
   (e: 'action', p: { action: string; data?: unknown }): void
 }>()
 
+/** 自定义文本前缀，用于在 response 中区分选中的选项和用户手写输入 */
+const CUSTOM_TEXT_PREFIX = '__custom__::'
+
 const submitted = ref(false)
 const qaText = ref('')
 const singleSelected = ref('')
 const multiSelected = ref<string[]>([])
+
+/** 单项选择「告诉Sonetto别的意见」状态 */
+const showSingleOther = ref(false)
+const singleOtherText = ref('')
+
+/** 多项选择「告诉Sonetto别的意见」状态 */
+const showMultiOther = ref(false)
+const multiOtherText = ref('')
 
 const interactionData = computed(() => {
   const result = props.toolCall.interaction
@@ -132,13 +183,6 @@ const interactionData = computed(() => {
         interactionId: '',
         submitted: false,
       }
-  console.log('[AskUserBubble] interactionData computed:', {
-    status: props.toolCall.status,
-    submitted: submitted.value,
-    hasInteraction: !!props.toolCall.interaction,
-    interactionId: result.interactionId,
-    mode: result.mode,
-  })
   return result
 })
 
@@ -154,12 +198,17 @@ const doneData = computed(() => {
   return null
 })
 
-/** 格式化用户的回答（多选时用顿号连接） */
+/** 格式化用户的回答（多选时用顿号连接，自定义文本移除前缀标记） */
 const doneAnswer = computed(() => {
   if (!doneData.value) return ''
   const answer = doneData.value.answer
   if (Array.isArray(answer)) {
-    return answer.join('、')
+    return answer
+      .map(a => a.startsWith(CUSTOM_TEXT_PREFIX) ? a.slice(CUSTOM_TEXT_PREFIX.length) : a)
+      .join('、')
+  }
+  if (typeof answer === 'string' && answer.startsWith(CUSTOM_TEXT_PREFIX)) {
+    return answer.slice(CUSTOM_TEXT_PREFIX.length)
   }
   return answer || ''
 })
@@ -178,25 +227,42 @@ function submitQA() {
 }
 
 function submitSingle() {
-  if (!singleSelected.value) return
+  const response: string[] = []
+  if (singleSelected.value) {
+    response.push(singleSelected.value)
+  }
+  const other = singleOtherText.value.trim()
+  if (other) {
+    response.push(CUSTOM_TEXT_PREFIX + other)
+  }
+  if (response.length === 0) return
   submitted.value = true
   emit('action', {
     action: 'user_response',
     data: {
       interactionId: interactionData.value.interactionId,
-      response: singleSelected.value,
+      // 单选且无自定义文本时保持字符串，向后兼容
+      response: response.length === 1 && !other ? response[0] : response,
     },
   })
 }
 
 function submitMulti() {
-  if (multiSelected.value.length === 0) return
+  const response: string[] = []
+  // 已选中的选项
+  response.push(...multiSelected.value)
+  // 自定义文本
+  const other = multiOtherText.value.trim()
+  if (other) {
+    response.push(CUSTOM_TEXT_PREFIX + other)
+  }
+  if (response.length === 0) return
   submitted.value = true
   emit('action', {
     action: 'user_response',
     data: {
       interactionId: interactionData.value.interactionId,
-      response: multiSelected.value,
+      response,
     },
   })
 }
@@ -276,6 +342,54 @@ function submitMulti() {
   color: var(--text-primary);
 }
 
+/* ── 告诉Sonetto别的意见 ── */
+.other-choice-area {
+  margin-top: 2px;
+}
+.btn-other-toggle {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+  text-align: left;
+}
+.btn-other-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+.other-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.other-textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.other-textarea:focus {
+  border-color: var(--accent);
+}
+.other-textarea::placeholder {
+  color: var(--text-secondary);
+}
 /* 提交按钮 */
 .btn-submit {
   align-self: flex-end;
