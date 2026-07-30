@@ -4,8 +4,11 @@
     :class="{
       idle: !data,
       completed: isCompleted,
+      'has-data': !!data,
     }"
     @click="isCompleted && $emit('dismiss')"
+    @mouseenter="showMenu = true"
+    @mouseleave="showMenu = false"
   >
     <template v-if="!data">
       <span class="bar-label">无激活任务</span>
@@ -26,11 +29,36 @@
         <span class="bar-progress-fill" :style="{ width: progressPercent + '%' }"></span>
       </span>
     </template>
+
+    <!-- 悬停菜单 -->
+    <Transition name="menu-fade">
+      <div v-if="showMenu && data?.todos?.length" class="hover-menu" @mouseenter="showMenu = true" @mouseleave="showMenu = false">
+        <div class="menu-header">
+          <span>{{ statusLabel }} · {{ data.total }} 项任务</span>
+        </div>
+        <div class="menu-list">
+          <div
+            v-for="(todo, i) in data.todos"
+            :key="i"
+            class="menu-row"
+            :class="'row-' + todo.status"
+          >
+            <span class="menu-icon" :class="'icon-' + todo.status">
+              <template v-if="todo.status === 'completed'">✓</template>
+              <template v-else-if="todo.status === 'in_progress'">→</template>
+              <template v-else>○</template>
+            </span>
+            <span class="menu-content">{{ todo.content }}</span>
+            <span v-if="todo.activeForm" class="menu-active-form">{{ todo.activeForm }}</span>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 interface TaskTrackerTodo {
   content: string
@@ -50,6 +78,8 @@ const props = defineProps<{ data: TaskTrackerData | null }>()
 defineEmits<{
   dismiss: []
 }>()
+
+const showMenu = ref(false)
 
 const currentStep = computed(() => {
   if (!props.data) return 0
@@ -185,11 +215,122 @@ const statusLabel = computed(() => {
   display: flex;
 }
 
-.bar-progress-fill {
-  height: 100%;
-  min-width: 8px;
-  background: #000;
-  border-radius: 3px;
-  transition: width 0.3s ease;
+/* ── 悬停菜单 ── */
+.hover-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 240px;
+  max-width: 360px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+  z-index: 500;
+  overflow: hidden;
 }
+
+.menu-header {
+  padding: 10px 12px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #999;
+  border-bottom: 1px solid #f0f0f0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.menu-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.menu-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-bottom: 1px solid #f5f5f5;
+  transition: background 0.1s;
+}
+
+.menu-row:last-child {
+  border-bottom: none;
+}
+
+.menu-row:hover {
+  background: #f9f9f9;
+}
+
+.menu-icon {
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.menu-icon.icon-completed {
+  color: #999;
+}
+
+.menu-icon.icon-in_progress {
+  color: #000;
+  font-weight: 700;
+}
+
+.menu-icon.icon-pending {
+  color: #ccc;
+}
+
+.menu-content {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.row-completed .menu-content {
+  color: #bbb;
+  text-decoration: line-through;
+}
+
+.row-in_progress .menu-content {
+  color: #000;
+  font-weight: 600;
+}
+
+.row-pending .menu-content {
+  color: #999;
+}
+
+.menu-active-form {
+  font-size: 11px;
+  color: #666;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.menu-active-form::before {
+  content: '· ';
+  color: #ccc;
+}
+
+/* 入场/退场过渡 */
+.menu-fade-enter-active,
+.menu-fade-leave-active {
+  transition: opacity 0.15s ease, transform 0.12s ease;
+}
+
+.menu-fade-enter-from,
+.menu-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.tracker-bar.has-data {
+  position: relative;
+}
+
 </style>
