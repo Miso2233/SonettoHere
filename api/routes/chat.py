@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from collections.abc import Awaitable, Callable
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -11,11 +12,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from agent import build_system_prompt
-from api.agent.turn import run_agent_turn
-from api.events import ChatSender, MemorySender
+from api.agent.turn import merge_pending_batch, run_agent_turn
+from api.events import ChatSender, MemorySender, TurnSender
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
-from api.session.manager import SessionState, session_manager
+from api.session.manager import PendingMessage, SessionState, session_manager
 from api.utils.logger import get_logger
 
 router = APIRouter()
@@ -34,6 +35,44 @@ def _resume_sub_agent(ws: WebSocket, session: SessionState) -> asyncio.Task | No
     interaction.current_ws.set(ws)
     agent_task = asyncio.create_task(
         run_agent_turn(session, task, private_mode=False)
+    )
+    session.set_active_task(agent_task)
+    return agent_task
+
+
+def _start_turn_from_ws(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    incoming: PendingMessage | None = None,
+) -> asyncio.Task | None:
+    """排空会话挂起队列（可选合并 incoming）并启动 Agent 轮次。
+
+    排队消息与 incoming 按 FIFO 合并为单个输入（合并处理语义）。
+    返回新建的 asyncio.Task；无可用消息时返回 None。
+
+    ``queued_pending_ids`` 仅包含原排队消息（不含 incoming）——incoming
+    是前端通过 send() 发来的，前端已创建 currentTurn，无需 pending_consumed。
+    """
+    queued = session.drain_pending()
+    batch = queued + ([incoming] if incoming else [])
+    if not batch:
+        return None
+    text, img_recog, img_refs = merge_pending_batch(batch)
+    last = batch[-1]
+    interaction.set_session_auto_approve(session_id, last.auto_approve)
+    agent_task = asyncio.create_task(
+        run_agent_turn(
+            session,
+            text,
+            private_mode=last.private,
+            skip_recall=last.skip_recall,
+            provider_id=last.provider_id,
+            model_name=last.model_name,
+            image_recognition=img_recog,
+            image_refs=img_refs,
+            queued_pending_ids=[p.pending_id for p in queued],
+        )
     )
     session.set_active_task(agent_task)
     return agent_task
@@ -74,35 +113,45 @@ async def _handle_chat(
     msg: dict,
 
 ) -> asyncio.Task | None:
-    """处理聊天消息：创建 Agent 轮次。"""
-    if agent_task is not None and not agent_task.done():
-        return agent_task  # 已有 Agent 运行中，忽略本次输入
-
+    """处理聊天消息：Agent 空闲时创建轮次，忙碌时挂起到队列等待注入。"""
     payload = msg["payload"]
     user_message = payload["message"].strip()
     if not user_message:
         return agent_task
 
-    auto_approve = payload.get("auto_approve", False)
-    skip_recall = payload.get("skip_recall", False)
+    incoming = PendingMessage(
+        pending_id=payload.get("client_msg_id") or uuid.uuid4().hex,
+        text=user_message,
+        private=payload.get("private", False),
+        skip_recall=payload.get("skip_recall", False),
+        auto_approve=payload.get("auto_approve", False),
+        provider_id=payload.get("provider_id"),
+        model_name=payload.get("model_name"),
+        image_recognition=payload.get("image_recognition", False),
+        image_refs=payload.get("image_refs") or [],
+    )
+
+    # 子 Agent 会话不参与排队（其流程由 _resume_sub_agent 驱动），保持原丢弃行为
+    if session.is_subagent:
+        return agent_task
+
     interaction.current_ws.set(ws)  # 供工具函数/Sender.from_context() 通过 WebSocket 推送交互
     interaction.current_session_id.set(session_id)
-    interaction.set_session_auto_approve(session_id, auto_approve)
 
-    agent_task = asyncio.create_task(
-        run_agent_turn(
-            session,
-            user_message,
-            private_mode=payload.get("private", False),
-            provider_id=payload.get("provider_id"),
-            model_name=payload.get("model_name"),
-            image_recognition=payload.get("image_recognition", False),
-            image_refs=payload.get("image_refs", []),
-            skip_recall=skip_recall,
+    # 已有 Agent 运行中：消息挂起到队列，等待注入
+    if agent_task is not None and not agent_task.done():
+        session.enqueue_pending(incoming)
+        sender = TurnSender.from_ws(ws)
+        await sender.message_queued(
+            incoming.pending_id, incoming.text, session.pending_count()
         )
-    )
-    session.set_active_task(agent_task)
-    return agent_task
+        # 重查：message_queued 等待期间旧任务可能已收尾退出，此时需补启动 drain
+        if agent_task.done():
+            return _start_turn_from_ws(ws, session_id, session)
+        return agent_task
+
+    # 空闲：合并残留队列 + 本条消息启动轮次
+    return _start_turn_from_ws(ws, session_id, session, incoming)
 
 
 @ws_event_handler("user_response")
@@ -132,10 +181,48 @@ async def _handle_cancel(
     msg: dict,
 
 ) -> asyncio.Task | None:
-    """处理取消请求。"""
+    """处理取消请求：停止当前轮并丢弃全部排队消息（停止 = 全部放弃）。"""
     if agent_task is not None and not agent_task.done():
         agent_task.cancel()
+    cleared = session.clear_pending()
+    if cleared:
+        sender = TurnSender.from_ws(ws)
+        await sender.pending_cancelled([p.pending_id for p in cleared])
     return None
+
+
+@ws_event_handler("remove_pending")
+async def _handle_remove_pending(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+
+) -> asyncio.Task | None:
+    """移除一条排队消息（不取消正在运行的 Agent）。"""
+    pending_id = msg.get("payload", {}).get("pending_id", "")
+    if pending_id and session.remove_pending(pending_id):
+        sender = TurnSender.from_ws(ws)
+        await sender.pending_cancelled([pending_id])
+    return agent_task
+
+
+@ws_event_handler("clear_pending")
+async def _handle_clear_pending(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+
+) -> asyncio.Task | None:
+    """清空全部排队消息（不取消正在运行的 Agent）。"""
+    cleared = session.clear_pending()
+    if cleared:
+        sender = TurnSender.from_ws(ws)
+        await sender.pending_cancelled([p.pending_id for p in cleared])
+    return agent_task
 
 
 @ws_event_handler("update_auto_approve")
@@ -203,6 +290,18 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
 
     # ── 断线重连时恢复 sub-agent ──────────────────────────
     agent_task = _resume_sub_agent(ws, session)
+
+    # ── 重连时同步挂起队列（Agent 输出期间发送的消息）──────
+    pending = session.peek_pending()
+    if pending:
+        turn_sender = TurnSender.from_ws(ws)
+        await turn_sender.pending_sync([
+            {"pending_id": p.pending_id, "text": p.text, "position": i + 1}
+            for i, p in enumerate(pending)
+        ])
+        # 队列有内容且无任务运行（如断连前被取消）时自动续跑
+        if not session.has_active_task():
+            agent_task = _start_turn_from_ws(ws, session_id, session)
 
     # ── 消息主循环（字典派发） ─────────────────────────────
     try:
