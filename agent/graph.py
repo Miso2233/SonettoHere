@@ -184,7 +184,13 @@ class RetrieveMemoryNode:
 
 
 class CallAgentNode:
-    """调用 LLM，返回新的 AIMessage。"""
+    """调用 LLM，返回新的 AIMessage。
+
+    每次 LLM 调用前检查会话挂起队列（工具间隙注入）：若用户在 Agent
+    输出期间发送了消息，将其以 HumanMessage 形式并入本次调用的上下文。
+    注意必须随返回值一起返回注入的消息——LangGraph 的 add_messages
+    仅持久化节点返回值，否则注入的提问会从 checkpoint 中消失。
+    """
 
     def __init__(self, system_message: SystemMessage, model_with_tools: Runnable[LanguageModelInput, AIMessage]) -> None:
         self._system_message = system_message
@@ -193,9 +199,26 @@ class CallAgentNode:
     async def __call__(
         self, state: MessagesState, config: RunnableConfig
     ) -> dict[str, Any]:
-        messages = [self._system_message] + state["messages"]
+        # 延迟导入避免循环依赖
+        from api.events import TurnSender  # noqa: PLC0415
+        from api.session.manager import session_manager  # noqa: PLC0415
+
+        injected: list[HumanMessage] = []
+        sid = config["configurable"]["thread_id"]
+        session = session_manager.get(sid)
+        if session is not None and session.has_pending():
+            pending = session.drain_pending()
+            # 文本-only 注入：含图片的排队消息走轮末 new_turn 路径的多模态处理
+            injected = [HumanMessage(content=p.text) for p in pending]
+            sender = TurnSender.from_session(session)
+            if sender:
+                await sender.pending_consumed(
+                    [p.pending_id for p in pending], mode="mid_turn"
+                )
+
+        messages = [self._system_message] + state["messages"] + injected
         response = await self._model_with_tools.ainvoke(messages, config)
-        return {"messages": [response]}
+        return {"messages": [*injected, response]}
 
 
 class LtmWriteNode:
