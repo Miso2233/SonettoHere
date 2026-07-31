@@ -28,8 +28,8 @@ export const allSessionStatuses = computed(() => useChatStore().allSessionStatus
  * useChat composable — 委托到 Pinia store。
  *
  * 保持现有 API 接口不变：
- *   connected, isStreaming, turns, currentTurn, error,
- *   contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns,
+ *   connected, isStreaming, turns, currentTurn, pendingMessages, pendingCount,
+ *   error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns,
  *   privateMode, setPrivateMode, autoApprove, setAutoApprove
  */
 export function useChat(sessionId: Ref<string>) {
@@ -42,6 +42,8 @@ export function useChat(sessionId: Ref<string>) {
   const isStreaming = computed(() => activeChannelRef.value.isStreaming)
   const turns = computed(() => activeChannelRef.value.turns)
   const currentTurn = computed(() => activeChannelRef.value.currentTurn)
+  const pendingMessages = computed(() => activeChannelRef.value.pendingMessages)
+  const pendingCount = computed(() => activeChannelRef.value.pendingMessages.length)
   const error = computed(() => activeChannelRef.value.error)
   const contextUsage = computed(() => activeChannelRef.value.contextUsage)
   const taskTrackerData = computed(() => activeChannelRef.value.taskTrackerData)
@@ -105,7 +107,8 @@ export function useChat(sessionId: Ref<string>) {
   }
 
   return {
-    connected, isStreaming, turns, currentTurn, error, contextUsage, taskTrackerData,
+    connected, isStreaming, turns, currentTurn, pendingMessages, pendingCount,
+    error, contextUsage, taskTrackerData,
     send, cancel, sendUserResponse, removeTurns,
     privateMode, setPrivateMode,
     skipRecall, setSkipRecall,

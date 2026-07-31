@@ -3,7 +3,8 @@ import { defineStore } from 'pinia'
 import type {
   ServerEvent, ChatTurn, ToolCall, ThinkingBlock,
   TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent,
-  ClientMessage, TokenEvent,
+  ClientMessage, TokenEvent, PendingMessage,
+  MessageQueuedEvent, PendingConsumedEvent, PendingSyncEvent, PendingCancelledEvent,
 } from '@/types'
 import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
@@ -63,6 +64,8 @@ export interface SessionChannel {
   isAwaitingUser: boolean
   turns: ChatTurn[]
   currentTurn: ChatTurn | null
+  /** Agent 输出期间发送、等待注入的排队消息气泡 */
+  pendingMessages: PendingMessage[]
   error: string | null
   contextUsage: ContextUsage | null
   taskTrackerData: Record<string, unknown> | null
@@ -125,6 +128,7 @@ export const useChatStore = defineStore('chat', () => {
         isAwaitingUser: false,
         turns: deduped ?? [],
         currentTurn: null,
+        pendingMessages: [],
         error: null,
         contextUsage: null,
         taskTrackerData: null,
@@ -407,6 +411,60 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    // 排队消息事件：在 turn 守卫之前处理（可能 currentTurn 尚为 null）
+    if (event.type === 'message_queued') {
+      const me = event as MessageQueuedEvent
+      // 竞态兜底：空闲路径可能已为该消息创建了 currentTurn，但后端实际入队了
+      // → 该消息并非作为轮次处理，转为排队气泡
+      if (ch.currentTurn && ch.currentTurn.id === me.payload.pending_id && ch.currentTurn.events.length === 0) {
+        ch.currentTurn = null
+        ch.isStreaming = false
+      }
+      if (!ch.pendingMessages.some(p => p.id === me.payload.pending_id)) {
+        ch.pendingMessages.push({ id: me.payload.pending_id, text: me.payload.text, status: 'queued' })
+      }
+      return
+    }
+
+    if (event.type === 'pending_consumed') {
+      const pe = event as PendingConsumedEvent
+      if (pe.payload.mode === 'mid_turn') {
+        // 注入当前轮：标记对应气泡「已注入」
+        const consumed = new Set(pe.payload.pending_ids)
+        for (const p of ch.pendingMessages) {
+          if (consumed.has(p.id)) p.status = 'injected'
+        }
+      } else if (pe.payload.mode === 'new_turn') {
+        // 后端自动启动的合并轮：移除已消费气泡，创建 currentTurn（不调用 send）
+        const consumed = new Set(pe.payload.pending_ids)
+        ch.pendingMessages = ch.pendingMessages.filter(p => !consumed.has(p.id))
+        ch.error = null
+        ch.currentTurn = {
+          id: crypto.randomUUID(),
+          userMessage: pe.payload.text || '(已合并消息)',
+          refs: [],
+          events: [],
+          memoryEvents: [],
+          finalAnswer: null,
+        }
+        ch.isStreaming = true
+      }
+      return
+    }
+
+    if (event.type === 'pending_sync') {
+      const se = event as PendingSyncEvent
+      ch.pendingMessages = se.payload.pending.map(p => ({ id: p.pending_id, text: p.text, status: 'queued' }))
+      return
+    }
+
+    if (event.type === 'pending_cancelled') {
+      const ce = event as PendingCancelledEvent
+      const ids = new Set(ce.payload.pending_ids)
+      ch.pendingMessages = ch.pendingMessages.filter(p => !ids.has(p.id))
+      return
+    }
+
     const turn = ch.currentTurn
     if (!turn) return
 
@@ -451,28 +509,12 @@ export const useChatStore = defineStore('chat', () => {
   ) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
-    // 覆盖 currentTurn 前检查是否有未完成的轮次
-    if (ch.currentTurn) {
-      console.warn('[chatStore] send: 覆盖 currentTurn, sid=%s, 旧 turn.id=%s, 旧 finalAnswer=%s',
-        sid, ch.currentTurn.id, ch.currentTurn.finalAnswer?.slice(0, 50) ?? 'null')
-    }
-    ch.isStreaming = true
-    ch.error = null
 
     const timestamp = buildTimestamp()
     const flatMsg = buildFlatMessage(text, timestamp, refs)
-
-    ch.currentTurn = {
-      id: crypto.randomUUID(),
-      userMessage: text,
-      refs,
-      imageRefs: imageRecognition && imagePaths?.length
-        ? imagePaths.map(p => ({ type: 'file' as const, path: p, label: p.split(/[/\\]/).pop() || p }))
-        : undefined,
-      events: [],
-      memoryEvents: [],
-      finalAnswer: null,
-    }
+    // 客户端消息 ID：作为 client_msg_id 发送，后端复用作 pending_id，
+    // 使 message_queued ack 与乐观气泡 id 精确对应。
+    const clientMsgId = crypto.randomUUID()
 
     const payload: ClientMessage = {
       type: 'chat',
@@ -483,8 +525,31 @@ export const useChatStore = defineStore('chat', () => {
         auto_approve: ch.autoApprove,
         provider_id: providerId,
         model_name: modelName,
+        client_msg_id: clientMsgId,
         ...(imageRecognition && imagePaths?.length ? { image_recognition: true, image_refs: imagePaths } : {}),
       },
+    }
+
+    // Agent 输出期间（或已有排队消息）：挂起到队列，等待注入，不触碰 currentTurn
+    if (ch.isStreaming || ch.pendingMessages.length > 0) {
+      ch.pendingMessages.push({ id: clientMsgId, text, status: 'queued' })
+      ch.ws.send(JSON.stringify(payload))
+      return
+    }
+
+    // 空闲：正常创建轮次
+    ch.isStreaming = true
+    ch.error = null
+    ch.currentTurn = {
+      id: clientMsgId,
+      userMessage: text,
+      refs,
+      imageRefs: imageRecognition && imagePaths?.length
+        ? imagePaths.map(p => ({ type: 'file' as const, path: p, label: p.split(/[/\\]/).pop() || p }))
+        : undefined,
+      events: [],
+      memoryEvents: [],
+      finalAnswer: null,
     }
     ch.ws.send(JSON.stringify(payload))
   }
@@ -493,6 +558,26 @@ export const useChatStore = defineStore('chat', () => {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
     ch.ws.send(JSON.stringify({ type: 'cancel', payload: {} } as ClientMessage))
+  }
+
+  /** 从排队队列移除一条消息（乐观移除 + 后端同步）。 */
+  function removePendingMessage(sid: string, pendingId: string) {
+    const ch = channels.get(sid)
+    if (!ch) return
+    ch.pendingMessages = ch.pendingMessages.filter(p => p.id !== pendingId)
+    if (ch.ws?.readyState === WebSocket.OPEN) {
+      ch.ws.send(JSON.stringify({ type: 'remove_pending', payload: { pending_id: pendingId } } as ClientMessage))
+    }
+  }
+
+  /** 清空全部排队消息（乐观清空 + 后端同步，不取消正在运行的 Agent）。 */
+  function clearPendingMessages(sid: string) {
+    const ch = channels.get(sid)
+    if (!ch) return
+    ch.pendingMessages = []
+    if (ch.ws?.readyState === WebSocket.OPEN) {
+      ch.ws.send(JSON.stringify({ type: 'clear_pending', payload: {} } as ClientMessage))
+    }
   }
 
   function skipMemorySearch(sid: string) {
@@ -564,6 +649,8 @@ export const useChatStore = defineStore('chat', () => {
     sendUserResponse,
     removeTurns,
     updateAutoApprove,
+    removePendingMessage,
+    clearPendingMessages,
     restoreTurnsFromBackend,
   }
 })

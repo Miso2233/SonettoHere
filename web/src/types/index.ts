@@ -152,6 +152,44 @@ export interface MemorySearchDoneEvent {
   }
 }
 
+/** message_queued — Agent 输出期间发送的消息已挂起到服务端队列 */
+export interface MessageQueuedEvent {
+  type: 'message_queued'
+  payload: {
+    pending_id: string
+    text: string
+    position: number
+  }
+}
+
+/** pending_consumed — 排队消息已被注入 Agent 上下文 */
+export interface PendingConsumedEvent {
+  type: 'pending_consumed'
+  payload: {
+    pending_ids: string[]
+    /** mid_turn：注入当前轮；new_turn：合并为新的一轮 */
+    mode: 'mid_turn' | 'new_turn'
+    /** new_turn 模式下合并后的用户消息文本 */
+    text?: string
+  }
+}
+
+/** pending_sync — WebSocket 重连时同步服务端挂起队列 */
+export interface PendingSyncEvent {
+  type: 'pending_sync'
+  payload: {
+    pending: Array<{ pending_id: string; text: string; position: number }>
+  }
+}
+
+/** pending_cancelled — 用户点击停止，排队消息被丢弃 */
+export interface PendingCancelledEvent {
+  type: 'pending_cancelled'
+  payload: {
+    pending_ids: string[]
+  }
+}
+
 export type ServerEvent =
   | ThinkingStartEvent
   | TokenEvent
@@ -174,6 +212,10 @@ export type ServerEvent =
   | MemorySearchStartEvent
   | MemorySearchSkippedEvent
   | MemorySearchDoneEvent
+  | MessageQueuedEvent
+  | PendingConsumedEvent
+  | PendingSyncEvent
+  | PendingCancelledEvent
 
 // === WebSocket 客户端 → 服务端消息 ===
 
@@ -190,6 +232,8 @@ export interface ChatMessage {
     image_recognition?: boolean
     /** 图像认知模式下的图片文件绝对路径列表 */
     image_refs?: string[]
+    /** 客户端生成的消息 ID，后端用作 pending_id 以关联入队确认 */
+    client_msg_id?: string
   }
 }
 
@@ -228,7 +272,21 @@ export interface SkipMemorySearchMessage {
   }
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage
+/** remove_pending — 从排队队列移除一条消息（不取消正在运行的 Agent） */
+export interface RemovePendingMessage {
+  type: 'remove_pending'
+  payload: {
+    pending_id: string
+  }
+}
+
+/** clear_pending — 清空全部排队消息（不取消正在运行的 Agent） */
+export interface ClearPendingMessage {
+  type: 'clear_pending'
+  payload: Record<string, never>
+}
+
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage
 
 // === 前端 UI 状态类型 ===
 
@@ -287,6 +345,15 @@ export interface ChatTurn {
   turnId?: string
   /** 当前轮的语义记忆搜索结果 */
   memorySearch?: { status: 'searching'; skipInteractionId?: string } | { status: 'skipped' } | { status: 'done'; total: number; fresh: number }
+}
+
+/** 前端展示的排队消息气泡 */
+export interface PendingMessage {
+  /** pending_id（message_queued ack 后替换为服务端 ID） */
+  id: string
+  text: string
+  /** queued：等待注入；injected：已注入当前轮 */
+  status: 'queued' | 'injected'
 }
 
 // === 会话与 API 类型 ===

@@ -99,6 +99,8 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
   const de = event as DoneEvent
   ch.isAwaitingUser = false
   ch._awaitingToolName = null
+  // 轮次结束，清除已注入当前轮的排队气泡（「已注入」标识完成使命）
+  ch.pendingMessages = ch.pendingMessages.filter(p => p.status !== 'injected')
   if (de.payload.context_usage) {
     ch.contextUsage = de.payload.context_usage
   }
@@ -111,8 +113,10 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
   // ── 防重复守卫：若 turn 已存在于 turns 中则跳过 ──
   if (ch.turns.some(t => t.id === turn.id)) {
     console.warn(`[useChat:done] 防重复守卫触发: 会话 ${sid}, turn.id=${turn.id} 已在 turns 中, 跳过 push`)
-    ch.currentTurn = null
-    ch.isStreaming = false
+    if (ch.currentTurn?.id === turn.id) {
+      ch.currentTurn = null
+      ch.isStreaming = false
+    }
     return
   }
 
@@ -127,21 +131,29 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
         // 延迟后再检查一次：turns 中可能已被其他逻辑写入
         if (ch.turns.some(t => t.id === turnToFinalize.id)) {
           console.warn(`[useChat:done] becameAnswer 防重复守卫触发: 会话 ${sid}, turn.id=${turnToFinalize.id}`)
-          ch.currentTurn = null
-          ch.isStreaming = false
+          if (ch.currentTurn?.id === turnToFinalize.id) {
+            ch.currentTurn = null
+            ch.isStreaming = false
+          }
           return
         }
         ch.turns.push(turnToFinalize)
-        ch.currentTurn = null
-        ch.isStreaming = false
+        // ⚠ id 守卫：420ms 延迟窗口内可能已由 pending_consumed(new_turn)
+        // 创建了下一合并轮，不得清空它
+        if (ch.currentTurn?.id === turnToFinalize.id) {
+          ch.currentTurn = null
+          ch.isStreaming = false
+        }
         if (!ch.privateMode) { useChatStore().persistTurns(sid) }
       }, 420)
     })
   } else {
     console.log(`[useChat:done] 直接分支执行 persist (会话 ${sid}), turns.length=${ch.turns.length}`)
     ch.turns.push(turn)
-    ch.currentTurn = null
-    ch.isStreaming = false
+    if (ch.currentTurn?.id === turn.id) {
+      ch.currentTurn = null
+      ch.isStreaming = false
+    }
     if (!ch.privateMode) { useChatStore().persistTurns(sid) }
   }
   // 轮次结束，刷新会话列表以更新 message_count
@@ -158,6 +170,10 @@ function handleError(ch: SessionChannel, _sid: string, _turn: ChatTurn, event: S
   ch._awaitingToolName = null
   ch.error = (event as ErrorEvent).payload.message
   ch.isStreaming = false
+  // 用户点击停止（CANCELLED）→ 排队消息一并丢弃，与后端 pending_cancelled 语义一致
+  if ((event as ErrorEvent).payload.code === 'CANCELLED') {
+    ch.pendingMessages = []
+  }
 }
 
 /** ask_user：设置交互等待状态，在 running 工具上挂载 interaction。 */
