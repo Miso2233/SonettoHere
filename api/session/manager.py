@@ -3,6 +3,7 @@
 import asyncio
 import time
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 
 from fastapi import WebSocket
@@ -54,9 +55,14 @@ class AgentRuntime:
         """设置当前 Agent 运行任务。"""
         self._active_task = task
 
-    def clear_active_task(self) -> None:
-        """清除 Agent 任务引用。"""
-        self._active_task = None
+    def clear_active_task(self, task: asyncio.Task | None = None) -> None:
+        """清除 Agent 任务引用。
+
+        传入 task 时仅当引用指向该任务才清除（owner 守卫），防止
+        取消后立刻重发导致旧任务的 finally 覆盖新任务引用。
+        """
+        if task is None or self._active_task is task:
+            self._active_task = None
 
     def cancel_active_task(self) -> None:
         """取消正在运行的 Agent 任务（如存在且未完成）。"""
@@ -133,6 +139,73 @@ class ConstSession:
         self.const_name = ""
 
 
+# ── 子数据类：排队消息 ──────────────────────────────────────────
+
+@dataclass
+class PendingMessage:
+    """一条被挂起的用户消息（Agent 输出期间发送，等待注入）。
+
+    Attributes:
+        pending_id:   唯一标识（前端 client_msg_id 或后端生成的 UUID）。
+        text:         消息文本（含时间戳/引用标记，与正常 chat payload 一致）。
+        private:      私密模式标记。
+        skip_recall:  失忆模式标记。
+        auto_approve: 自动批准模式。
+        provider_id:  指定 LLM 提供商（可选）。
+        model_name:   指定模型（可选）。
+        image_recognition: 是否图像认知模式。
+        image_refs:   图像文件绝对路径列表。
+        created_at:   入队时间。
+    """
+    pending_id: str
+    text: str
+    private: bool = False
+    skip_recall: bool = False
+    auto_approve: bool = False
+    provider_id: str | None = None
+    model_name: str | None = None
+    image_recognition: bool = False
+    image_refs: list[str] | None = None
+    created_at: float = field(default_factory=time.time)
+
+
+@dataclass
+class PendingQueue:
+    """Agent 输出期间挂起的用户消息队列（FIFO）。"""
+    _items: deque[PendingMessage] = field(default_factory=deque, repr=False)
+
+    def enqueue(self, pm: PendingMessage) -> int:
+        """入队，返回 1-based 位置（供前端展示排队序号）。"""
+        self._items.append(pm)
+        return len(self._items)
+
+    def has_pending(self) -> bool:
+        """是否有待处理消息。"""
+        return bool(self._items)
+
+    def peek_all(self) -> list[PendingMessage]:
+        """非破坏性查看全部待处理消息（供重连同步）。"""
+        return list(self._items)
+
+    def drain_all(self) -> list[PendingMessage]:
+        """取走并清空全部待处理消息。"""
+        items = list(self._items)
+        self._items.clear()
+        return items
+
+    def remove(self, pending_id: str) -> bool:
+        """按 pending_id 移除一条消息，返回是否成功。"""
+        for i, pm in enumerate(self._items):
+            if pm.pending_id == pending_id:
+                del self._items[i]
+                return True
+        return False
+
+    def clear(self) -> list[PendingMessage]:
+        """清空队列并返回被移除的消息（语义与 drain_all 相同）。"""
+        return self.drain_all()
+
+
 # ── 会话状态（组合层）───────────────────────────────────────────
 
 class SessionState:
@@ -160,6 +233,7 @@ class SessionState:
             is_const=kwargs.pop("is_const", False),
             const_name=kwargs.pop("const_name", ""),
         )
+        self.pending_queue = PendingQueue()
         if kwargs:
             raise TypeError(
                 f"__init__() got unexpected keyword arguments: {kwargs}"
@@ -238,9 +312,9 @@ class SessionState:
         """设置当前 Agent 运行任务。"""
         self.runtime.set_active_task(task)
 
-    def clear_active_task(self) -> None:
-        """清除 Agent 任务引用。"""
-        self.runtime.clear_active_task()
+    def clear_active_task(self, task: asyncio.Task | None = None) -> None:
+        """清除 Agent 任务引用（带 owner 守卫，见 AgentRuntime.clear_active_task）。"""
+        self.runtime.clear_active_task(task)
 
     def cancel_active_task(self) -> None:
         """取消正在运行的 Agent 任务（如存在且未完成）。"""
@@ -281,6 +355,36 @@ class SessionState:
     def unconstify(self) -> None:
         """取消固定标记。"""
         self.const.unconstify()
+
+    # ── 排队消息转发 ────────────────────────────────────────
+
+    def enqueue_pending(self, pm: PendingMessage) -> int:
+        """入队一条挂起消息，返回 1-based 位置。"""
+        return self.pending_queue.enqueue(pm)
+
+    def has_pending(self) -> bool:
+        """是否有挂起消息待注入。"""
+        return self.pending_queue.has_pending()
+
+    def pending_count(self) -> int:
+        """挂起消息数量。"""
+        return len(self.pending_queue._items)
+
+    def peek_pending(self) -> list[PendingMessage]:
+        """非破坏性查看全部挂起消息。"""
+        return self.pending_queue.peek_all()
+
+    def drain_pending(self) -> list[PendingMessage]:
+        """取走并清空全部挂起消息。"""
+        return self.pending_queue.drain_all()
+
+    def remove_pending(self, pending_id: str) -> bool:
+        """按 pending_id 移除一条挂起消息，返回是否成功。"""
+        return self.pending_queue.remove(pending_id)
+
+    def clear_pending(self) -> list[PendingMessage]:
+        """清空挂起队列并返回被移除的消息。"""
+        return self.pending_queue.clear()
 
     def increment_messages(self, by: int = 2) -> None:
         """增加消息计数（默认 user+assistant 一对）。"""
