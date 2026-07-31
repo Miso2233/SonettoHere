@@ -428,15 +428,18 @@ export const useChatStore = defineStore('chat', () => {
 
     if (event.type === 'pending_consumed') {
       const pe = event as PendingConsumedEvent
+      const consumed = new Set(pe.payload.pending.map(p => p.pending_id))
       if (pe.payload.mode === 'mid_turn') {
-        // 注入当前轮：标记对应气泡「已注入」
-        const consumed = new Set(pe.payload.pending_ids)
-        for (const p of ch.pendingMessages) {
-          if (consumed.has(p.id)) p.status = 'injected'
+        // 注入当前轮：从排队区移除，作为用户气泡插入工具之间的聊天流
+        ch.pendingMessages = ch.pendingMessages.filter(p => !consumed.has(p.id))
+        const turn = ch.currentTurn
+        if (turn) {
+          for (const item of pe.payload.pending) {
+            turn.events.push({ kind: 'user_message', content: item.text })
+          }
         }
       } else if (pe.payload.mode === 'new_turn') {
         // 后端自动启动的合并轮：移除已消费气泡，创建 currentTurn（不调用 send）
-        const consumed = new Set(pe.payload.pending_ids)
         ch.pendingMessages = ch.pendingMessages.filter(p => !consumed.has(p.id))
         ch.error = null
         ch.currentTurn = {

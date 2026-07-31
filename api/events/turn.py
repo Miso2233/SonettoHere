@@ -45,16 +45,18 @@ class TurnSender(WsTransport):
 
     async def pending_consumed(
         self,
-        pending_ids: list[str],
+        pending: list[dict],
         mode: str,
         text: str | None = None,
     ) -> None:
         """推送排队消息已被注入上下文。
 
-        mode='mid_turn'：注入到当前轮次（前端标记气泡「已注入」）；
-        mode='new_turn'：合并为新的一轮（前端创建 currentTurn，text 为用户消息）。
+        ``pending`` 为 ``[{"pending_id": str, "text": str}, ...]``，按消费顺序排列。
+
+        mode='mid_turn'：注入到当前轮次（前端在工具之间渲染为用户气泡）；
+        mode='new_turn'：合并为新的一轮（前端创建 currentTurn，text 为合并文本）。
         """
-        payload: dict = {"pending_ids": pending_ids, "mode": mode}
+        payload: dict = {"pending": pending, "mode": mode}
         if text is not None:
             payload["text"] = text
         await self._send("pending_consumed", payload)

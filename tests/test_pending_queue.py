@@ -356,7 +356,7 @@ async def test_start_turn_from_ws_merges_fifo(monkeypatch):
     assert len(captured) == 1
     text, kw = captured[0]
     assert text == "排队一\n\n排队二\n\n新消息"  # 旧在前，新在后
-    assert kw["queued_pending_ids"] == ["q1", "q2"]  # 仅排队消息（不含 incoming）
+    assert [p.pending_id for p in kw["queued_pending"]] == ["q1", "q2"]  # 仅排队消息（不含 incoming）
     assert s.pending_count() == 0
 
 
@@ -399,11 +399,11 @@ async def test_inject_pending_node_drains_and_persists():
         assert "第一个问题" in contents
         assert "排队问题" in contents
 
-        # 队列已排空，且前端收到 mid_turn 注入事件
+        # 队列已排空，且前端收到 mid_turn 注入事件（含文本供前端渲染气泡）
         assert session.has_pending() is False
         events = _ws_events(session.ws, "pending_consumed")
         assert len(events) == 1
-        assert events[0]["payload"]["pending_ids"] == ["p1"]
+        assert events[0]["payload"]["pending"] == [{"pending_id": "p1", "text": "排队问题"}]
         assert events[0]["payload"]["mode"] == "mid_turn"
     finally:
         session_manager._sessions.pop(sid, None)
@@ -485,7 +485,7 @@ async def test_inject_pending_node_tool_gap_graph():
         # 前端收到 mid_turn 注入事件
         events = _ws_events(session.ws, "pending_consumed")
         assert len(events) == 1
-        assert events[0]["payload"]["pending_ids"] == ["p1"]
+        assert [p["pending_id"] for p in events[0]["payload"]["pending"]] == ["p1"]
         assert events[0]["payload"]["mode"] == "mid_turn"
     finally:
         session_manager._sessions.pop(sid, None)
@@ -633,7 +633,7 @@ async def test_check_pending_node_loops_turns():
         events = _ws_events(session.ws, "pending_consumed")
         assert len(events) == 1
         assert events[0]["payload"]["mode"] == "new_turn"
-        assert events[0]["payload"]["pending_ids"] == ["p1"]
+        assert events[0]["payload"]["pending"] == [{"pending_id": "p1", "text": "排队问题"}]
         assert events[0]["payload"]["text"] == "排队问题"
 
         # 逐轮事件由 check_pending 节点按确定顺序推送：

@@ -264,7 +264,8 @@ class InjectPendingNode:
         sender = TurnSender.from_session(session)
         if sender:
             await sender.pending_consumed(
-                [p.pending_id for p in pending], mode="mid_turn"
+                [{"pending_id": p.pending_id, "text": p.text} for p in pending],
+                mode="mid_turn",
             )
         return {"messages": injected}
 
@@ -362,7 +363,9 @@ class CheckPendingNode:
 
         if sender:
             await sender.pending_consumed(
-                [p.pending_id for p in pending], mode="new_turn", text=text
+                [{"pending_id": p.pending_id, "text": p.text} for p in pending],
+                mode="new_turn",
+                text=text,
             )
 
         return {"messages": injected, "continue_turn": True}

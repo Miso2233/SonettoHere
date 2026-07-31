@@ -71,7 +71,7 @@ def _start_turn_from_ws(
             model_name=last.model_name,
             image_recognition=img_recog,
             image_refs=img_refs,
-            queued_pending_ids=[p.pending_id for p in queued],
+            queued_pending=queued,
         )
     )
     session.set_active_task(agent_task)

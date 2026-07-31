@@ -166,8 +166,9 @@ export interface MessageQueuedEvent {
 export interface PendingConsumedEvent {
   type: 'pending_consumed'
   payload: {
-    pending_ids: string[]
-    /** mid_turn：注入当前轮；new_turn：合并为新的一轮 */
+    /** 被消费的排队消息（按消费顺序），含文本供前端渲染 */
+    pending: Array<{ pending_id: string; text: string }>
+    /** mid_turn：注入当前轮（工具之间渲染为用户气泡）；new_turn：合并为新的一轮 */
     mode: 'mid_turn' | 'new_turn'
     /** new_turn 模式下合并后的用户消息文本 */
     text?: string
@@ -330,7 +331,13 @@ export interface MemoryToolEvent {
   status: 'running' | 'done' | 'error'
 }
 
-export type TurnEvent = ThinkingBlock | ToolCall | MemoryToolEvent
+/** 工具间隙注入的用户消息（渲染为工具之间的用户气泡） */
+export interface UserMessageEvent {
+  kind: 'user_message'
+  content: string
+}
+
+export type TurnEvent = ThinkingBlock | ToolCall | MemoryToolEvent | UserMessageEvent
 
 export interface ChatTurn {
   id: string

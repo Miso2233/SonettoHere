@@ -460,7 +460,7 @@ async def run_agent_turn(
     model_name: str | None = None,
     image_recognition: bool = False,
     image_refs: list[str] | None = None,
-    queued_pending_ids: list[str] | None = None,
+    queued_pending: list[PendingMessage] | None = None,
 ):
     """编排一次 Agent 图执行（单次调用）。
 
@@ -474,7 +474,7 @@ async def run_agent_turn(
       4. _postprocess_turn    — Const 保存、Sub-agent 回调
 
     Args:
-        queued_pending_ids: 随首轮一起被消费的排队消息 ID 列表（_start_turn_from_ws
+        queued_pending: 随首轮一起被消费的排队消息列表（_start_turn_from_ws
             合并残留队列时非空），此时需先发 ``pending_consumed(new_turn)`` 让前端
             创建 currentTurn。普通发送为 ``None``。
     """
@@ -504,9 +504,11 @@ async def run_agent_turn(
             return
 
         # 首轮若合并了排队消息（_start_turn_from_ws 传入），通知前端创建 currentTurn
-        if queued_pending_ids:
+        if queued_pending:
             await sender.pending_consumed(
-                pending_ids=queued_pending_ids, mode="new_turn", text=user_message
+                [{"pending_id": p.pending_id, "text": p.text} for p in queued_pending],
+                mode="new_turn",
+                text=user_message,
             )
 
         # 2. 构建执行上下文

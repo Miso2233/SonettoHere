@@ -50,6 +50,10 @@
             >
               <ToolBubbleRouter :tool-call="ev" @action="forwardAction" />
             </div>
+            <!-- 工具间隙注入的用户消息：渲染为工具之间的用户气泡 -->
+            <div v-else-if="ev.kind === 'user_message'" class="cite-source">
+              <MessageBubble role="user" :content="ev.content" />
+            </div>
           </template>
           <!-- finalAnswer：仅在已完成（非流式）轮次中展示 -->
           <div

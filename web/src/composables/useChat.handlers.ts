@@ -99,8 +99,7 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
   const de = event as DoneEvent
   ch.isAwaitingUser = false
   ch._awaitingToolName = null
-  // 轮次结束，清除已注入当前轮的排队气泡（「已注入」标识完成使命）
-  ch.pendingMessages = ch.pendingMessages.filter(p => p.status !== 'injected')
+  // 注：工具间隙注入的消息已由 pending_consumed(mid_turn) 移入聊天流渲染
   if (de.payload.context_usage) {
     ch.contextUsage = de.payload.context_usage
   }
