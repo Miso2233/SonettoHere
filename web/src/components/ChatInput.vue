@@ -19,6 +19,34 @@
       :class="{ 'is-resizing': isResizing }"
       :style="containerStyle"
     >
+      <!-- 排队消息区域：Agent 输出期间发送的消息在此排队等待注入 -->
+      <div v-if="pendingMessages.length > 0" class="queue-tray">
+        <div class="queue-tray-header">
+          <span class="queue-pulse"></span>
+          <span>排队消息</span>
+          <span class="queue-tray-count">{{ pendingMessages.length }}</span>
+          <button class="queue-tray-clear" @click="emit('clearPending')">清空</button>
+        </div>
+        <div class="queue-tray-list">
+          <div
+            v-for="p in pendingMessages"
+            :key="p.id"
+            class="queue-item"
+            :class="p.status"
+          >
+            <span class="queue-item-text">{{ displayPendingText(p.text) }}</span>
+            <span class="queue-item-badge" :class="p.status">
+              {{ p.status === 'injected' ? '已注入' : '排队中' }}
+            </span>
+            <button
+              v-if="p.status === 'queued'"
+              class="queue-item-remove"
+              title="移除"
+              @click="emit('removePending', p.id)"
+            >✕</button>
+          </div>
+        </div>
+      </div>
       <div
         class="resize-handle"
         @pointerdown="startResize"
@@ -150,18 +178,30 @@
           </div>
           <span class="input-separator"></span>
           <div class="input-actions">
-            <button
-              v-if="!isStreaming"
-              class="btn-send"
-              :disabled="!text.trim() || disabled || noProvider"
-              :title="noProvider ? '请先在模型设置中添加 LLM 提供商' : ''"
-              @click="handleSend"
-            >
-              <Icon name="send" :size="16" />
-            </button>
-            <button v-else class="btn-stop" @click="$emit('stop')">
-              <Icon name="stop" :size="12" />
-            </button>
+            <template v-if="!isStreaming">
+              <button
+                class="btn-send"
+                :disabled="!text.trim() || disabled || noProvider"
+                :title="noProvider ? '请先在模型设置中添加 LLM 提供商' : ''"
+                @click="handleSend"
+              >
+                <Icon name="send" :size="16" />
+              </button>
+            </template>
+            <template v-else>
+              <!-- 流式期间发送按钮仍可用：消息进入排队队列，等待注入 -->
+              <button
+                class="btn-send"
+                :disabled="!text.trim() || disabled || noProvider"
+                :title="pendingMessages.length > 0 ? `已排队 ${pendingMessages.length} 条消息，将在 Agent 空闲后合并注入` : '发送（Agent 输出期间将排队）'"
+                @click="handleSend"
+              >
+                <Icon name="send" :size="16" />
+              </button>
+              <button class="btn-stop" @click="$emit('stop')">
+                <Icon name="stop" :size="12" />
+              </button>
+            </template>
           </div>
         </div>
       </div>
@@ -184,7 +224,7 @@
 import { api } from '@/api'
 import AutocompletePanel from '@/components/AutocompletePanel.vue'
 import Icon from '@/components/Icon.vue'
-import type { ProviderConfig, SkillInfo, ToolInfo } from '@/types'
+import type { PendingMessage, ProviderConfig, SkillInfo, ToolInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { REF_CHIP_CONFIG, filterImageRefs } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -197,11 +237,15 @@ const props = defineProps<{
   autoApprove: boolean
   imageRecognition: boolean
   hasVision?: boolean
+  /** Agent 输出期间排队等待注入的消息 */
+  pendingMessages: PendingMessage[]
 }>()
 
 const emit = defineEmits<{
   send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]]
   stop: []
+  removePending: [pendingId: string]
+  clearPending: []
   modelChange: [providerId: string, modelName: string]
   togglePrivate: []
   toggleRecall: []
@@ -218,6 +262,14 @@ const showMenu = ref(false)
 const showLinkInput = ref(false)
 const linkUrl = ref('')
 const linkInputRef = ref<HTMLInputElement | null>(null)
+
+// 排队消息尾部的时间标记（与 chatStore/buildTimestamp 一致），展示时剥离
+const PENDING_TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
+
+function displayPendingText(text: string): string {
+  const stripped = text.replace(PENDING_TIME_SUFFIX_RE, '').trim()
+  return stripped || text
+}
 
 // ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──
 
@@ -1607,5 +1659,127 @@ function onResizeEnd(e: PointerEvent) {
 }
 .btn-stop:hover {
   background: #dc2626;
+}
+/* ── 排队消息区域（输入框内顶部延伸区） ── */
+.queue-tray {
+  border-bottom: 1px solid var(--border);
+  padding-top: 8px;
+  animation: queue-tray-in .18s ease;
+}
+@keyframes queue-tray-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.queue-tray-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+.queue-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+.queue-tray-count {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+.queue-tray-clear {
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: all .15s;
+}
+.queue-tray-clear:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+}
+.queue-tray-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px 8px;
+  max-height: 152px;   /* 约 3 条，再多内部滚动 */
+  overflow-y: auto;
+}
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-secondary);
+  font-size: 13px;
+  color: var(--text-secondary);
+  animation: queue-item-in .22s ease;
+  transition: opacity .3s, border-color .3s, background .3s;
+}
+@keyframes queue-item-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.queue-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue-item-badge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.5;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.queue-item-badge.queued {
+  color: var(--text-secondary);
+  border-color: var(--border);
+  background: transparent;
+}
+.queue-item-badge.injected {
+  color: #22c55e;
+  border-color: color-mix(in srgb, #22c55e 30%, transparent);
+  background: color-mix(in srgb, #22c55e 8%, transparent);
+}
+.queue-item.injected {
+  opacity: .6;
+  border-color: color-mix(in srgb, #22c55e 25%, transparent);
+  background: color-mix(in srgb, #22c55e 5%, var(--bg-secondary));
+}
+.queue-item-remove {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .15s;
+}
+.queue-item-remove:hover {
+  background: #fef2f2;
+  color: #ef4444;
 }
 </style>

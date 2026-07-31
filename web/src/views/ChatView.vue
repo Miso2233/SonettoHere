@@ -55,6 +55,9 @@
       :auto-approve="autoApprove"
       :image-recognition="imageRecognition"
       :has-vision="selectedModelHasVision"
+      :pending-messages="pendingMessages"
+      @remove-pending="onRemovePending"
+      @clear-pending="onClearPending"
       @send="onSend"
       @stop="cancel"
       @model-change="onModelChange"
@@ -104,7 +107,7 @@ import type { ProviderConfig } from '@/types'
 import { computed, onMounted, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove } =
+const { connected, isStreaming, turns, currentTurn, pendingMessages, error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove } =
   useChat(sessionId)
 const chatStore = useChatStore()
 
@@ -160,6 +163,14 @@ function addCitation(ref: ParsedRef) {
 
 function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]) {
   send(text, refs, providerId, modelName, imageRecognition, imagePaths)
+}
+
+function onRemovePending(pendingId: string) {
+  chatStore.removePendingMessage(sessionId.value, pendingId)
+}
+
+function onClearPending() {
+  chatStore.clearPendingMessages(sessionId.value)
 }
 
 function handleToolAction(payload: { action: string; data?: unknown }) {
