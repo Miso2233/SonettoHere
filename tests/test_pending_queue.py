@@ -7,8 +7,9 @@
 - _handle_chat 忙碌路径入队 + ack + 重查补启动
 - _handle_cancel 清队列 + pending_cancelled
 - _start_turn_from_ws FIFO 合并
-- CallAgentNode 工具间隙注入（LangGraph 状态持久化）
-- run_agent_turn drain 循环（正常续跑 / CANCELLED 中断）
+- InjectPendingNode 独立节点注入（LangGraph 状态持久化 + 工具循环接线）
+- CheckPendingNode 图内多轮循环（队列非空注入并跳回 retrieve_memory）
+- run_agent_turn 单次图调用（不再 drain 队列）
 """
 
 import asyncio
@@ -17,12 +18,20 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableLambda
+from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.constants import END, START
 from langgraph.graph import StateGraph
-from langgraph.graph.message import MessagesState
+from langgraph.prebuilt import ToolNode
 
-from agent.graph import CallAgentNode
+from agent.graph import (
+    AgentState,
+    CallAgentNode,
+    CheckPendingNode,
+    InjectPendingNode,
+    route_after_agent,
+    route_after_check,
+)
 from api.agent import interaction
 from api.agent.turn import (
     _TurnResult,
@@ -359,24 +368,18 @@ async def test_start_turn_from_ws_no_messages_returns_none(monkeypatch):
     assert _start_turn_from_ws(ws, "test-sid", s) is None
 
 
-# ── CallAgentNode 工具间隙注入 ────────────────────────────────
+# ── InjectPendingNode 工具间隙注入 ─────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_call_agent_node_mid_turn_injection():
-    captured: list = []
+async def test_inject_pending_node_drains_and_persists():
+    """独立节点单元测试：排空队列、持久化注入消息、发 mid_turn 事件。"""
+    node = InjectPendingNode()
 
-    def fake_model(messages: list) -> AIMessage:
-        captured.append(messages)
-        return AIMessage(content="response")
-
-    model_with_tools = RunnableLambda(fake_model)
-    node = CallAgentNode(SystemMessage(content="sys"), model_with_tools)
-
-    builder = StateGraph(MessagesState)
-    builder.add_node("agent", node)
-    builder.add_edge(START, "agent")
-    builder.add_edge("agent", END)
+    builder = StateGraph(AgentState)
+    builder.add_node("inject", node)
+    builder.add_edge(START, "inject")
+    builder.add_edge("inject", END)
     graph = builder.compile(checkpointer=MemorySaver())
 
     sid = "inject-sid"
@@ -390,22 +393,96 @@ async def test_call_agent_node_mid_turn_injection():
             {"messages": [HumanMessage(content="第一个问题")]}, config
         )
 
-        # (a) 排队文本进入模型输入
-        assert any(
-            isinstance(m, HumanMessage) and m.content == "排队问题"
-            for m in captured[0]
-        )
-        assert isinstance(captured[0][-1], HumanMessage)  # 注入在响应之前
-
-        # (b) 节点返回值持久化到 checkpoint（含注入消息）
+        # 注入消息持久化到 checkpoint
         state = await graph.aget_state(config)
         contents = [m.content for m in state.values["messages"]]
         assert "第一个问题" in contents
         assert "排队问题" in contents
-        assert contents[-1] == "response"
 
-        # (c) 队列已排空，且前端收到 mid_turn 注入事件
+        # 队列已排空，且前端收到 mid_turn 注入事件
         assert session.has_pending() is False
+        events = _ws_events(session.ws, "pending_consumed")
+        assert len(events) == 1
+        assert events[0]["payload"]["pending_ids"] == ["p1"]
+        assert events[0]["payload"]["mode"] == "mid_turn"
+    finally:
+        session_manager._sessions.pop(sid, None)
+
+
+@pytest.mark.asyncio
+async def test_inject_pending_node_tool_gap_graph():
+    """完整工具循环接线：agent → tools → inject_pending → agent。
+
+    首次 agent 调用（无工具）不注入；工具执行后的 inject_pending 才注入。
+    """
+    @tool
+    def fake_tool(x: str) -> str:
+        """A fake tool for tests."""
+        return f"tool-result:{x}"
+
+    captured: list = []
+
+    def fake_model(messages: list) -> AIMessage:
+        captured.append(messages)
+        has_prior_tool_call = any(
+            isinstance(m, AIMessage) and getattr(m, "tool_calls", None)
+            for m in messages
+        )
+        if not has_prior_tool_call:
+            return AIMessage(content="", tool_calls=[
+                {"name": "fake_tool", "args": {"x": "hi"}, "id": "call_1"}
+            ])
+        return AIMessage(content="final answer")
+
+    model_with_tools = RunnableLambda(fake_model)
+
+    async def ltm_write_noop(state: AgentState, config) -> dict:
+        return {}
+
+    builder = StateGraph(AgentState)
+    builder.add_node("agent", CallAgentNode(SystemMessage(content="sys"), model_with_tools))
+    builder.add_node("tools", ToolNode([fake_tool]))
+    builder.add_node("inject_pending", InjectPendingNode())
+    builder.add_node("ltm_write", ltm_write_noop)
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges("agent", route_after_agent)
+    builder.add_edge("tools", "inject_pending")
+    builder.add_edge("inject_pending", "agent")
+    builder.add_edge("ltm_write", END)
+    graph = builder.compile(checkpointer=MemorySaver())
+
+    sid = "inject-tool-sid"
+    session = _make_session(sid)
+    session.ws = FakeWs()
+    session.enqueue_pending(PendingMessage(pending_id="p1", text="排队问题"))
+    session_manager.put(sid, session)
+    try:
+        config = {"configurable": {"thread_id": sid}}
+        await graph.ainvoke(
+            {"messages": [HumanMessage(content="第一个问题")]}, config
+        )
+
+        # 两次 agent 调用：首次不注入，工具间隙后注入
+        assert len(captured) == 2
+        assert not any(
+            isinstance(m, HumanMessage) and m.content == "排队问题"
+            for m in captured[0]
+        )
+        assert any(
+            isinstance(m, HumanMessage) and m.content == "排队问题"
+            for m in captured[1]
+        )
+        # 工具结果也进入第二次思考
+        assert any(getattr(m, "content", None) == "tool-result:hi" for m in captured[1])
+
+        # 队列已排空 + checkpoint 含注入消息 + 最终回答
+        assert session.has_pending() is False
+        state = await graph.aget_state(config)
+        contents = [m.content for m in state.values["messages"]]
+        assert "排队问题" in contents
+        assert contents[-1] == "final answer"
+
+        # 前端收到 mid_turn 注入事件
         events = _ws_events(session.ws, "pending_consumed")
         assert len(events) == 1
         assert events[0]["payload"]["pending_ids"] == ["p1"]
@@ -418,19 +495,20 @@ async def test_call_agent_node_mid_turn_injection():
 
 
 @pytest.mark.asyncio
-async def test_run_agent_turn_drains_queue(monkeypatch):
+async def test_run_agent_turn_single_invocation(monkeypatch):
+    """run_agent_turn 为单次图调用：不再 drain 队列（留给图内 check_pending）。"""
     s = _make_session()
     s.enqueue_pending(PendingMessage(pending_id="q1", text="排队"))
     ws = FakeWs()
     interaction.current_ws.set(ws)
 
-    built_texts: list[str] = []
+    exec_calls: list[int] = []
 
     async def fake_build(tools, session, llm_conf, **kw):
-        built_texts.append(kw["user_message"])
         return SimpleNamespace(user_message=kw["user_message"])
 
     async def fake_execute(ctx, sender, session, llm_conf):
+        exec_calls.append(1)
         return _TurnResult(final_answer="ok", error=None)
 
     class FakeLlmConf:
@@ -445,21 +523,15 @@ async def test_run_agent_turn_drains_queue(monkeypatch):
 
     await run_agent_turn(s, "hi")
 
-    assert built_texts == ["hi", "排队"]  # 首轮 + 队列合并轮
-    assert s.pending_count() == 0
-    assert s.has_active_task() is False
-
-    # 合并轮启动前发送 pending_consumed(new_turn)
-    events = _ws_events(ws, "pending_consumed")
-    assert len(events) == 1
-    assert events[0]["payload"]["mode"] == "new_turn"
-    assert events[0]["payload"]["text"] == "排队"
-    assert events[0]["payload"]["pending_ids"] == ["q1"]
+    assert len(exec_calls) == 1  # 单次调用
+    assert s.has_pending() is True  # 队列留给图内 check_pending 消费
+    assert s.has_active_task() is False  # finally 清空 active task
+    assert _ws_events(ws, "pending_consumed") == []  # run_agent_turn 不再消费队列
 
 
 @pytest.mark.asyncio
-async def test_run_agent_turn_cancelled_breaks_loop(monkeypatch):
-    """CANCELLED 后不得继续启动合并轮。"""
+async def test_run_agent_turn_cancelled_preserves_queue(monkeypatch):
+    """取消后 run_agent_turn 不再消费队列（队列保留）。"""
     s = _make_session()
     s.enqueue_pending(PendingMessage(pending_id="q1", text="排队"))
     ws = FakeWs()
@@ -486,6 +558,92 @@ async def test_run_agent_turn_cancelled_breaks_loop(monkeypatch):
 
     await run_agent_turn(s, "hi")
 
-    assert len(exec_calls) == 1  # 只执行首轮，未消费队列
+    assert len(exec_calls) == 1
     assert s.has_pending() is True  # 队列保留
-    assert s.has_active_task() is False  # finally 清空 active task
+    assert s.has_active_task() is False
+
+
+# ── CheckPendingNode 图内多轮循环 ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_check_pending_node_loops_turns():
+    """轮末查询点：队列非空时合并注入并跳回 retrieve_memory，形成图内多轮。"""
+    captured: list = []
+
+    def fake_model(messages: list) -> AIMessage:
+        captured.append(messages)
+        return AIMessage(content=f"answer-{len(captured)}")
+
+    model_with_tools = RunnableLambda(fake_model)
+
+    async def retrieve_noop(state: AgentState, config) -> dict:
+        return {}
+
+    async def ltm_noop(state: AgentState, config) -> dict:
+        return {}
+
+    async def tools_noop(state: AgentState, config) -> dict:
+        return {}
+
+    builder = StateGraph(AgentState)
+    builder.add_node("retrieve_memory", retrieve_noop)
+    builder.add_node("agent", CallAgentNode(SystemMessage(content="sys"), model_with_tools))
+    builder.add_node("tools", tools_noop)  # route_after_agent 编译期要求该目标存在
+    builder.add_node("ltm_write", ltm_noop)
+    builder.add_node("check_pending", CheckPendingNode())
+    builder.add_edge(START, "retrieve_memory")
+    builder.add_edge("retrieve_memory", "agent")
+    builder.add_conditional_edges("agent", route_after_agent)
+    builder.add_edge("ltm_write", "check_pending")
+    builder.add_conditional_edges("check_pending", route_after_check)
+    graph = builder.compile(checkpointer=MemorySaver())
+
+    sid = "check-sid"
+    session = _make_session(sid)
+    session.ws = FakeWs()
+    session.enqueue_pending(PendingMessage(pending_id="p1", text="排队问题"))
+    session_manager.put(sid, session)
+    try:
+        config = {"configurable": {"thread_id": sid}}
+        await graph.ainvoke(
+            {"messages": [HumanMessage(content="第一个问题")]}, config
+        )
+
+        # 两次 agent 调用：第二次（跳回后）输入包含排队消息
+        assert len(captured) == 2
+        assert any(
+            isinstance(m, HumanMessage) and m.content == "排队问题"
+            for m in captured[1]
+        )
+
+        # 队列已排空 + checkpoint 含两条用户消息与两个回答
+        assert session.has_pending() is False
+        state = await graph.aget_state(config)
+        contents = [m.content for m in state.values["messages"]]
+        assert "第一个问题" in contents
+        assert "排队问题" in contents
+        assert "answer-1" in contents
+        assert "answer-2" in contents
+
+        # 逐轮消息计数由 check_pending 完成
+        assert session.message_count == 4  # 2 轮 × (user+assistant)
+
+        # 前端收到 pending_consumed(new_turn)
+        events = _ws_events(session.ws, "pending_consumed")
+        assert len(events) == 1
+        assert events[0]["payload"]["mode"] == "new_turn"
+        assert events[0]["payload"]["pending_ids"] == ["p1"]
+        assert events[0]["payload"]["text"] == "排队问题"
+
+        # 逐轮事件由 check_pending 节点按确定顺序推送：
+        # answer1 → done1 → pending_consumed(new_turn) → answer2 → done2
+        answers = _ws_events(session.ws, "answer")
+        assert [a["payload"]["content"] for a in answers] == ["answer-1", "answer-2"]
+        dones = _ws_events(session.ws, "done")
+        assert len(dones) == 2
+        assert [e["type"] for e in session.ws.sent] == [
+            "answer", "done", "pending_consumed", "answer", "done",
+        ]
+    finally:
+        session_manager._sessions.pop(sid, None)

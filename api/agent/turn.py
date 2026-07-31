@@ -219,7 +219,11 @@ async def _stream_turn(
     model_name: str | None = None,
     max_tokens: int = 256_000,
 ) -> str:
-    """流式执行 Agent 图，返回最终回答。"""
+    """流式执行 Agent 图，返回最终回答。
+
+    图的逐轮 answer/done/pending_consumed 事件由轮末查询点（check_pending）
+    在节点内按序推送（顺序确定）；此处仅消费流式事件、提取最终回答。
+    """
     final_answer = ""
     async for event in graph.astream_events(inputs, config=config, version="v2"):
         if event.get("event") == "on_chain_end" and event.get("name") == "agent":
@@ -338,6 +342,10 @@ async def _build_turn_context(
             "private_mode": private_mode,
             "skip_recall": skip_recall,
             "turn_id": turn_id,
+            # 供图内 check_pending 计算逐轮上下文用量（answer/done 事件）
+            "system_prompt": system_prompt,
+            "model_name": llm_conf.model_name,
+            "max_tokens": llm_conf.max_tokens,
         },
         "callbacks": [ws_callback],
         "recursion_limit": 120,
@@ -370,11 +378,11 @@ async def _execute_agent_turn(
         )
         await sender.context_usage(initial_usage)
 
+        # 逐轮 answer/done 已由图内 check_pending 节点按序推送
         final_answer = await _stream_turn(
             ctx.agent, ctx.inputs, ctx.config, sender, session,
             ctx.system_prompt, model_name=llm_conf.model_name, max_tokens=llm_conf.max_tokens,
         )
-        await sender.answer(final_answer)
 
     except asyncio.CancelledError:
         interaction.cancel_all()
@@ -390,8 +398,8 @@ async def _execute_agent_turn(
         await sender.error("AGENT_ERROR", str(e))
 
     finally:
-        # 注意：clear_active_task 已移至 run_agent_turn 的 drain 循环外层 finally，
-        # 否则合并轮之间 has_active_task() 为 False，破坏侧栏/constify 的忙碌判定。
+        # 兜底 done：若最后一轮未达 ltm_write（异常/取消中断）则补发收尾；
+        # 正常完成时前端 currentTurn 已为 null，重复 done 被前端静默忽略。
         context_usage = await estimate_context_usage_from_session(
             session, ctx.system_prompt,
             max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
@@ -408,13 +416,11 @@ async def _postprocess_turn(
     session: SessionState,
     result: _TurnResult,
 ) -> None:
-    """后处理：消息计数、Const 会话保存、Sub-agent 结果回调。
+    """后处理：Const 会话保存、Sub-agent 结果回调。
 
-    LTM 持久化已移至图内 ``ltm_write`` 节点，不再在此处调用。
+    LTM 持久化已移至图内 ``ltm_write`` 节点；
+    消息计数已移至图内 ``check_pending`` 节点（逐轮计数）。
     """
-    if result.final_answer:
-        session.increment_messages()
-
     # Const 会话持久化
     if result.final_answer and session.is_const:
         try:
@@ -456,22 +462,21 @@ async def run_agent_turn(
     image_refs: list[str] | None = None,
     queued_pending_ids: list[str] | None = None,
 ):
-    """编排 Agent 对话（drain 循环）。
+    """编排一次 Agent 图执行（单次调用）。
 
-    首个轮次处理传入的 user_message；此后每轮结束后自动排空会话挂起队列
-    （Agent 输出期间用户发送的消息），合并为一个新轮次并继续执行，直到
-    队列为空。取消（CANCELLED）会终止循环，不再启动后续合并轮。
+    排队消息的注入与下一轮编排全部在图内完成——工具间隙注入（inject_pending）
+    与轮末查询点（check_pending）负责队列消费，本函数不再循环驱动。
 
-    每个轮次分 4 个阶段执行：
-      1. _resolve_llm        — 解析 LLM 与上下文窗口配置（每轮重解析，排队消息可指定不同模型）
+    分 4 个阶段执行：
+      1. _resolve_llm        — 解析 LLM 与上下文窗口配置
       2. _build_turn_context  — 构建 Agent 图、多模态输入与运行配置
-      3. _execute_agent_turn  — 流式执行、异常/取消处理
-      4. _postprocess_turn    — 消息计数、记忆持久化、Const 保存、Sub-agent 回调
+      3. _execute_agent_turn  — 流式执行、逐轮 answer/done、异常/取消处理
+      4. _postprocess_turn    — Const 保存、Sub-agent 回调
 
     Args:
-        queued_pending_ids: 随首个轮次一起被消费的排队消息 ID 列表（前端已创建
-            currentTurn 的普通发送为 ``[]`` 或 ``None``；后端自动启动的合并轮非空，
-            此时会先发 ``pending_consumed(new_turn)`` 让前端创建 currentTurn）。
+        queued_pending_ids: 随首轮一起被消费的排队消息 ID 列表（_start_turn_from_ws
+            合并残留队列时非空），此时需先发 ``pending_consumed(new_turn)`` 让前端
+            创建 currentTurn。普通发送为 ``None``。
     """
     # Sub-agent 跳过长期记忆的读（retrieve_memory）和写（ltm_write）
     if session.is_subagent:
@@ -483,74 +488,47 @@ async def run_agent_turn(
     sender = TurnSender.from_context()
 
     current_task = asyncio.current_task()
-    first_iteration = True
     try:
-        while True:
-            if first_iteration:
-                first_iteration = False
-                text = user_message
-                cur_private = private_mode
-                cur_skip = skip_recall
-                cur_provider = provider_id
-                cur_model = model_name
-                cur_img_recog = image_recognition
-                cur_img_refs = image_refs
-                pending_ids = queued_pending_ids or []
-            else:
-                batch = session.drain_pending()
-                if not batch:
-                    break
-                text, cur_img_recog, cur_img_refs = merge_pending_batch(batch)
-                last = batch[-1]
-                cur_private = last.private
-                cur_skip = last.skip_recall
-                cur_provider = last.provider_id
-                cur_model = last.model_name
-                pending_ids = [p.pending_id for p in batch]
-                interaction.set_session_auto_approve(session.session_id, last.auto_approve)
-
-            # 1. 解析 LLM 配置
-            llm_conf: _LlmConfig = _resolve_llm(
-                provider_manager=get_manager(),
-                default_llm=get_default_llm(),
-                provider_id=cur_provider,
-                model_name=cur_model,
+        # 1. 解析 LLM 配置
+        llm_conf: _LlmConfig = _resolve_llm(
+            provider_manager=get_manager(),
+            default_llm=get_default_llm(),
+            provider_id=provider_id,
+            model_name=model_name,
+        )
+        if llm_conf is None:
+            await sender.error(
+                "NO_LLM",
+                "No LLM provider configured. Add one in Model Settings first.",
             )
-            if llm_conf is None:
-                await sender.error(
-                    "NO_LLM",
-                    "No LLM provider configured. Add one in Model Settings first.",
-                )
-                break
+            return
 
-            # 通知前端合并轮启动：必须在流式事件前发送，让前端先创建 currentTurn
-            if pending_ids:
-                await sender.pending_consumed(
-                    pending_ids=pending_ids, mode="new_turn", text=text
-                )
-
-            # 2. 构建执行上下文
-            ctx: _TurnContext = await _build_turn_context(
-                tools=app_state.tool_manager.get_all(multimodal=llm_conf.multimodal),
-                session=session,
-                llm_conf=llm_conf,
-                user_message=text,
-                image_recognition=cur_img_recog,
-                image_refs=cur_img_refs,
-                ltm=app_state.ltm,
-                private_mode=cur_private,
-                skip_recall=cur_skip,
+        # 首轮若合并了排队消息（_start_turn_from_ws 传入），通知前端创建 currentTurn
+        if queued_pending_ids:
+            await sender.pending_consumed(
+                pending_ids=queued_pending_ids, mode="new_turn", text=user_message
             )
 
-            # 3. 执行轮次
-            result: _TurnResult = await _execute_agent_turn(ctx, sender, session, llm_conf)
-            if result.error == "CANCELLED":
-                break
+        # 2. 构建执行上下文
+        ctx: _TurnContext = await _build_turn_context(
+            tools=app_state.tool_manager.get_all(multimodal=llm_conf.multimodal),
+            session=session,
+            llm_conf=llm_conf,
+            user_message=user_message,
+            image_recognition=image_recognition,
+            image_refs=image_refs,
+            ltm=app_state.ltm,
+            private_mode=private_mode,
+            skip_recall=skip_recall,
+        )
 
-            # 4. 后处理（LTM 持久化已在图内 ltm_write 节点中完成）
-            await _postprocess_turn(
-                session=session,
-                result=result,
-            )
+        # 3. 执行（图内完成全部轮次）
+        result: _TurnResult = await _execute_agent_turn(ctx, sender, session, llm_conf)
+
+        # 4. 后处理（消息计数已在图内 check_pending 节点完成）
+        await _postprocess_turn(
+            session=session,
+            result=result,
+        )
     finally:
         session.clear_active_task(current_task)
