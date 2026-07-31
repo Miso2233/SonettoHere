@@ -6,7 +6,7 @@ import type {
   ClientMessage, TokenEvent, PendingMessage,
   MessageQueuedEvent, PendingConsumedEvent, PendingSyncEvent, PendingCancelledEvent,
 } from '@/types'
-import { buildFlatMessage, buildTimestamp, parseReferences } from '@/utils/references'
+import { buildFlatMessage, parseReferences } from '@/utils/references'
 import type { ParsedRef } from '@/utils/references'
 import { getToken } from '@/api'
 import { sessionsApi } from '@/api/sessions'
@@ -430,12 +430,14 @@ export const useChatStore = defineStore('chat', () => {
       const pe = event as PendingConsumedEvent
       const consumed = new Set(pe.payload.pending.map(p => p.pending_id))
       if (pe.payload.mode === 'mid_turn') {
-        // 注入当前轮：从排队区移除，作为用户气泡插入工具之间的聊天流
+        // 注入当前轮：从排队区移除，作为用户气泡插入工具之间的聊天流。
+        // 文本含引用块，解析出干净文本与引用 chip（与普通用户气泡一致）。
         ch.pendingMessages = ch.pendingMessages.filter(p => !consumed.has(p.id))
         const turn = ch.currentTurn
         if (turn) {
           for (const item of pe.payload.pending) {
-            turn.events.push({ kind: 'user_message', content: item.text })
+            const { cleanText, refs } = parseReferences(item.text)
+            turn.events.push({ kind: 'user_message', content: cleanText, refs })
           }
         }
       } else if (pe.payload.mode === 'new_turn') {
@@ -513,8 +515,7 @@ export const useChatStore = defineStore('chat', () => {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
 
-    const timestamp = buildTimestamp()
-    const flatMsg = buildFlatMessage(text, timestamp, refs)
+    const flatMsg = buildFlatMessage(text, refs)
     // 客户端消息 ID：作为 client_msg_id 发送，后端复用作 pending_id，
     // 使 message_queued ack 与乐观气泡 id 精确对应。
     const clientMsgId = crypto.randomUUID()

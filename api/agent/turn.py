@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import datetime
 import re
 import uuid
 from dataclasses import dataclass
@@ -110,11 +111,22 @@ def _strip_time_suffix(text: str) -> str:
     return _TIME_SUFFIX_RE.sub("", text).rstrip()
 
 
+def now_timestamp() -> str:
+    """当前服务器时间尾缀，如（2026-07-31 Fri 10:24）。
+
+    时间戳是必须进入 LLM 上下文的输入数据（Agent 需感知当前时间以回答
+    时间相关查询），由后端统一生成，前端不再拼接。
+    """
+    now = datetime.datetime.now()
+    wd = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][now.weekday()]
+    return f"（{now.year:04d}-{now.month:02d}-{now.day:02d} {wd} {now.hour:02d}:{now.minute:02d}）"
+
+
 def merge_pending_batch(batch: list[PendingMessage]) -> tuple[str, bool, list[str] | None]:
     """将一批排队消息合并为单个 Agent 输入（合并处理语义）。
 
     返回 ``(text, image_recognition, image_refs)``：
-    - 文本以空行（\\n\\n）连接，逐条剥离时间后缀；
+    - 文本以空行（\\n\\n）连接（消息文本已不含时间戳，时间戳由注入侧统一追加）；
     - 图片标记 OR 累积——任一消息启用图像认知则整体启用，路径全部合并。
     """
     text = "\n\n".join(_strip_time_suffix(p.text) for p in batch)
@@ -315,8 +327,11 @@ async def _build_turn_context(
     session.set_graph(agent)
 
     # 多模态输入
+    # 时间戳由后端统一追加并进入 LLM 上下文（Agent 需感知当前时间）
+    timestamped = user_message + now_timestamp()
+
     if image_recognition and image_refs:
-        content_parts: list[dict] = [{"type": "text", "text": user_message}]
+        content_parts: list[dict] = [{"type": "text", "text": timestamped}]
         for img_path in image_refs:
             if not img_path.strip():
                 continue
@@ -332,7 +347,7 @@ async def _build_turn_context(
                 continue
         inputs = {"messages": [HumanMessage(content=content_parts)]}
     else:
-        inputs = {"messages": [HumanMessage(content=user_message)]}
+        inputs = {"messages": [HumanMessage(content=timestamped)]}
 
     turn_id = uuid.uuid4().hex
 

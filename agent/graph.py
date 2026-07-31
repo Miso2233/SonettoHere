@@ -251,6 +251,7 @@ class InjectPendingNode:
         self, state: AgentState, config: RunnableConfig
     ) -> dict[str, list[HumanMessage]]:
         # 延迟导入避免循环依赖
+        from api.agent.turn import now_timestamp  # noqa: PLC0415
         from api.events import TurnSender  # noqa: PLC0415
         from api.session.manager import session_manager  # noqa: PLC0415
 
@@ -260,7 +261,8 @@ class InjectPendingNode:
             return {}
 
         pending = session.drain_pending()
-        injected = [HumanMessage(content=p.text) for p in pending]
+        # 时间戳随注入进入 LLM 上下文；pending_consumed 推送干净文本供前端展示
+        injected = [HumanMessage(content=p.text + now_timestamp()) for p in pending]
         sender = TurnSender.from_session(session)
         if sender:
             await sender.pending_consumed(
@@ -321,7 +323,7 @@ class CheckPendingNode:
     ) -> dict[str, Any]:
         # 延迟导入避免循环依赖（turn.py 顶层导入 build_agent）
         from api.agent.context_usage import estimate_context_usage_from_session  # noqa: PLC0415
-        from api.agent.turn import merge_pending_batch  # noqa: PLC0415
+        from api.agent.turn import merge_pending_batch, now_timestamp  # noqa: PLC0415
         from api.events import TurnSender  # noqa: PLC0415
         from api.session.manager import session_manager  # noqa: PLC0415
 
@@ -359,7 +361,8 @@ class CheckPendingNode:
         # ── 队列非空：合并注入 + 跳回 START ──
         pending = session.drain_pending()
         text, _, _ = merge_pending_batch(pending)
-        injected = [HumanMessage(content=text)]
+        # 时间戳随注入进入 LLM 上下文；pending_consumed 推送干净合并文本供前端展示
+        injected = [HumanMessage(content=text + now_timestamp())]
 
         if sender:
             await sender.pending_consumed(

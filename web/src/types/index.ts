@@ -335,6 +335,8 @@ export interface MemoryToolEvent {
 export interface UserMessageEvent {
   kind: 'user_message'
   content: string
+  /** 消息内引用的解析结果（引用 chip） */
+  refs?: ParsedRef[]
 }
 
 export type TurnEvent = ThinkingBlock | ToolCall | MemoryToolEvent | UserMessageEvent

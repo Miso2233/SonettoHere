@@ -226,7 +226,7 @@ import AutocompletePanel from '@/components/AutocompletePanel.vue'
 import Icon from '@/components/Icon.vue'
 import type { PendingMessage, ProviderConfig, SkillInfo, ToolInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
-import { REF_CHIP_CONFIG, filterImageRefs } from '@/utils/references'
+import { REF_CHIP_CONFIG, filterImageRefs, parseReferences } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -263,12 +263,10 @@ const showLinkInput = ref(false)
 const linkUrl = ref('')
 const linkInputRef = ref<HTMLInputElement | null>(null)
 
-// 排队消息尾部的时间标记（与 chatStore/buildTimestamp 一致），展示时剥离
-const PENDING_TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
-
+// 排队消息文本已不含时间戳（后端统一追加进 LLM 上下文）；展示时剥离引用块
 function displayPendingText(text: string): string {
-  const stripped = text.replace(PENDING_TIME_SUFFIX_RE, '').trim()
-  return stripped || text
+  const { cleanText } = parseReferences(text)
+  return cleanText || text
 }
 
 // ── 供父组件注入新引用（如 ChatWindow 发出的 cite） ──

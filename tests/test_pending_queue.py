@@ -393,13 +393,14 @@ async def test_inject_pending_node_drains_and_persists():
             {"messages": [HumanMessage(content="第一个问题")]}, config
         )
 
-        # 注入消息持久化到 checkpoint
+        # 注入消息持久化到 checkpoint，且时间戳由后端追加进入 LLM 上下文
         state = await graph.aget_state(config)
-        contents = [m.content for m in state.values["messages"]]
-        assert "第一个问题" in contents
-        assert "排队问题" in contents
+        contents = [str(m.content) for m in state.values["messages"]]
+        assert any("第一个问题" in c for c in contents)
+        assert any("排队问题" in c for c in contents)
+        assert any("（20" in c for c in contents)  # 后端时间戳尾缀
 
-        # 队列已排空，且前端收到 mid_turn 注入事件（含文本供前端渲染气泡）
+        # 队列已排空，且前端收到 mid_turn 注入事件（干净文本供前端渲染气泡）
         assert session.has_pending() is False
         events = _ws_events(session.ws, "pending_consumed")
         assert len(events) == 1
@@ -469,17 +470,18 @@ async def test_inject_pending_node_tool_gap_graph():
             for m in captured[0]
         )
         assert any(
-            isinstance(m, HumanMessage) and m.content == "排队问题"
+            isinstance(m, HumanMessage) and "排队问题" in m.content
             for m in captured[1]
         )
         # 工具结果也进入第二次思考
         assert any(getattr(m, "content", None) == "tool-result:hi" for m in captured[1])
 
-        # 队列已排空 + checkpoint 含注入消息 + 最终回答
+        # 队列已排空 + checkpoint 含注入消息（带后端时间戳）+ 最终回答
         assert session.has_pending() is False
         state = await graph.aget_state(config)
-        contents = [m.content for m in state.values["messages"]]
-        assert "排队问题" in contents
+        contents = [str(m.content) for m in state.values["messages"]]
+        assert any("排队问题" in c for c in contents)
+        assert any("（20" in c for c in contents)  # 后端时间戳尾缀
         assert contents[-1] == "final answer"
 
         # 前端收到 mid_turn 注入事件
@@ -610,19 +612,20 @@ async def test_check_pending_node_loops_turns():
             {"messages": [HumanMessage(content="第一个问题")]}, config
         )
 
-        # 两次 agent 调用：第二次（跳回后）输入包含排队消息
+        # 两次 agent 调用：第二次（跳回后）输入包含排队消息（含后端时间戳）
         assert len(captured) == 2
         assert any(
-            isinstance(m, HumanMessage) and m.content == "排队问题"
+            isinstance(m, HumanMessage) and "排队问题" in m.content
             for m in captured[1]
         )
 
-        # 队列已排空 + checkpoint 含两条用户消息与两个回答
+        # 队列已排空 + checkpoint 含两条用户消息（带时间戳）与两个回答
         assert session.has_pending() is False
         state = await graph.aget_state(config)
-        contents = [m.content for m in state.values["messages"]]
-        assert "第一个问题" in contents
-        assert "排队问题" in contents
+        contents = [str(m.content) for m in state.values["messages"]]
+        assert any("第一个问题" in c for c in contents)
+        assert any("排队问题" in c for c in contents)
+        assert any("（20" in c for c in contents)  # 后端时间戳尾缀
         assert "answer-1" in contents
         assert "answer-2" in contents
 
