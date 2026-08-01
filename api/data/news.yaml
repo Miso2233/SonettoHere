@@ -6,7 +6,7 @@ news:
     date: "2026-08-01"
     tags: ["交互", "消息", "排队"]
     version: ""
-    pr_number:
+    pr_number: 275
   - id: "memory-upstream-chain-refactor"
     title: "记忆上行链路重构"
     description: "记忆检索架构全面升级：LLM 语义检索与 BM25 机械检索拆分为对称双引擎，统一接口契约，检索更精准；生命周期方法按规范标准化；后台消费者独立为模块，依赖与导出清理。架构更稳健，维护更高效。"
