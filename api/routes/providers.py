@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from api.providers import ProviderConfig
 from api.providers.enrich import enrich_provider_config
-from api.providers.default_llm import refresh_default_llm
 from api.providers.manager import ProviderManager, get_manager
 from api.providers.openai_provider import OpenAIProvider
 
@@ -52,8 +51,10 @@ def _require_manager() -> ProviderManager:
 
 
 async def _refresh_app_llm() -> None:
-    """刷新默认 LLM 缓存。LTM 内部已通过 get_default_llm() 按需获取，无需同步。"""
-    refresh_default_llm()
+    """刷新默认 LLM 缓存（load_all 已自动清缓存，此处保持显式重建确保热更新）。"""
+    mgr = get_manager()
+    if mgr is not None:
+        mgr.refresh_default_llm()
 
 
 # ── CRUD ────────────────────────────────────────────────

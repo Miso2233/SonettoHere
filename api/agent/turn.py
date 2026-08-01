@@ -16,9 +16,7 @@ from api.agent.context_usage import estimate_context_usage_from_session
 from api.events import CallbackSender, TurnSender
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.providers import FALLBACK_CTX
-from api.providers.manager import get_manager
-from api.providers.default_llm import get_default_llm
-from api.providers.manager import ProviderManager
+from api.providers.manager import get_manager, ProviderManager
 from api.session.const_store import save_const_session, serialize_messages
 from api.session.manager import PendingMessage, SessionState
 from api.memory.short_term import get_checkpointer
@@ -503,11 +501,13 @@ async def run_agent_turn(
     sender = TurnSender.from_context()
 
     current_task = asyncio.current_task()
+    mgr = get_manager()
     try:
         # 1. 解析 LLM 配置
         llm_conf: _LlmConfig = _resolve_llm(
-            provider_manager=get_manager(),
-            default_llm=get_default_llm(),
+            provider_manager=mgr,
+            # 主对话轮次保持思考模式（其余默认 LLM 用途统一关闭）
+            default_llm=(mgr.get_default_llm(thinking_enabled=True) if mgr else None),
             provider_id=provider_id,
             model_name=model_name,
         )

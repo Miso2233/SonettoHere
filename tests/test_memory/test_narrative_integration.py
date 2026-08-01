@@ -74,7 +74,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
             return _make_fake_agent(entries_setup=setup3)
 
     monkeypatch.setattr(long_term, "create_agent", agent_factory)
-    monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+    monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
     # ── 初始化管线 ──
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -143,7 +143,7 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
         return _make_fake_agent(entries_setup=setup)
 
     monkeypatch.setattr(long_term, "create_agent", agent_factory)
-    monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+    monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
     ltm.start()
@@ -178,7 +178,7 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
     fake_agent = MagicMock()
     fake_agent.ainvoke = AsyncMock(side_effect=slow_ainvoke)
     monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
-    monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+    monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
     ltm.start()

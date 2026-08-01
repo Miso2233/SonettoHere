@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 from api.agent.context_usage import estimate_context_usage_from_session
 from agent import build_system_prompt
-from api.providers.default_llm import get_default_llm
 from api.session.const_store import flatten_content
 from api.session.manager import session_manager
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -222,9 +221,9 @@ async def generate_session_title(session_id: str, request: Request) -> dict:
         # 通过 provider_manager 动态获取 LLM（支持 Web UI 添加后的热更新）
         mgr = get_manager()
         llm: BaseChatModel | None = (
-            mgr.get_default_llm(temperature=0.7, streaming=True)
+            mgr.get_default_llm()
             if mgr is not None and mgr.count > 0
-            else get_default_llm()
+            else None
         )
 
         if llm is None:

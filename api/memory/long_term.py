@@ -11,7 +11,7 @@ from api.memory.consumer import MemoryConsumer, set_current_mm
 from api.memory.llm_retriever import LLMRetriever
 from api.memory.manager import BaseMemoryManager
 from api.memory.mechanical_retriever import MechanicalRetriever
-from api.providers.default_llm import get_default_llm
+from api.providers.manager import get_manager
 from api.session.manager import SessionState, session_manager
 from api.utils.logger import get_logger
 
@@ -193,7 +193,7 @@ class LongTermMemory:
         """创建 asyncio.Queue、注入 _current_mm 并启动后台消费者协程。
 
         必须在运行中的事件循环内调用。
-        内部通过 get_default_llm() 获取 LLM，无需外部传入。
+        内部通过 get_manager().get_default_llm() 获取 LLM，无需外部传入。
         """
         set_current_mm(self._mm)
         self._queue = asyncio.Queue()
@@ -289,7 +289,9 @@ class LongTermMemory:
 
     async def _consumer_loop(self) -> None:
         """后台消费者协程：从队列取消息，交给 MemoryConsumer 处理。"""
-        consumer = MemoryConsumer(get_default_llm())
+        mgr = get_manager()
+        llm = mgr.get_default_llm() if mgr is not None else None
+        consumer = MemoryConsumer(llm)
         while True:
             item = await self._queue.get()
             if item is None:

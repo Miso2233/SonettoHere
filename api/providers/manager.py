@@ -15,12 +15,18 @@ class ProviderManager:
     def __init__(self, store: ProviderConfigStore):
         self._store = store
         self._providers: dict[str, Provider] = {}
+        # 默认 LLM 实例缓存：key=(thinking_enabled, temperature, streaming)
+        self._default_llm_cache: dict[tuple[bool, float, bool], BaseChatModel] = {}
 
     # ── 生命周期 ────────────────────────────────────────
 
     def load_all(self) -> None:
-        """从 store 加载所有 enabled provider 并创建实例。"""
+        """从 store 加载所有 enabled provider 并创建实例。
+
+        provider 集合变化后默认 LLM 缓存一并清空，下次 get_default_llm 重建。
+        """
         self._providers.clear()
+        self._default_llm_cache.clear()
         for config in self._store.load_all():
             if config.enabled:
                 provider = self._build_provider(config)
@@ -107,12 +113,55 @@ class ProviderManager:
 
         return {"max_tokens": max_tokens, "multimodal": multimodal}
 
-    def get_default_llm(self, **kwargs: Any) -> BaseChatModel | None:
-        """获取默认 provider 的 LLM。无可用 provider 时返回 None。"""
+    def get_default_llm(
+        self,
+        thinking_enabled: bool = False,
+        temperature: float = 0.7,
+        streaming: bool = True,
+        **kwargs: Any,
+    ) -> BaseChatModel | None:
+        """获取默认 provider 的 LLM（惰性缓存）。无可用 provider 时返回 None。
+
+        Args:
+            thinking_enabled: 是否对默认 LLM 注入 ``extra_body`` 开启思考模式。
+                默认 ``False``（关闭），规避 DeepSeek 思考模式下工具调用必须完整
+                回传 reasoning_content（思维链）否则 400 的问题；主对话轮次等需要
+                思考模式的场景传 ``True`` 保持开启。无论厂商一律注入——OpenAI
+                兼容服务端对未知的顶层 extra_body 字段通常忽略。
+            temperature: LLM 采样温度，默认 0.7。
+            streaming: 是否流式，默认 True。
+
+        同一 ``(thinking_enabled, temperature, streaming)`` 的实例缓存复用；
+        provider 变更（load_all）后缓存自动清空，或显式调用 :meth:`refresh_default_llm`
+        立即重建。
+        """
         provider = self.get_default_provider()
         if provider is None:
             return None
-        return provider.create_llm(provider.default_model, **kwargs)
+        key = (thinking_enabled, temperature, streaming)
+        if key in self._default_llm_cache:
+            return self._default_llm_cache[key]
+        thinking = {"type": "enabled" if thinking_enabled else "disabled"}
+        extra = dict(kwargs.get("extra_body") or {})
+        extra["thinking"] = thinking
+        kwargs["extra_body"] = extra
+        llm = provider.create_llm(
+            provider.default_model,
+            temperature=temperature,
+            streaming=streaming,
+            **kwargs,
+        )
+        self._default_llm_cache[key] = llm
+        return llm
+
+    def refresh_default_llm(self, thinking_enabled: bool = False) -> BaseChatModel | None:
+        """清除默认 LLM 缓存并重新构建（切换/增删 provider 后调用）。
+
+        Args:
+            thinking_enabled: 重建时采用的思考模式取值，默认 ``False``（关闭）。
+        """
+        self._default_llm_cache.clear()
+        return self.get_default_llm(thinking_enabled=thinking_enabled)
 
     # ── 配置 CRUD（委托 store 并同步缓存）────────────────
 

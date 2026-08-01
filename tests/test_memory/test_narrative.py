@@ -369,7 +369,7 @@ class TestLongTermMemory:
 
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
@@ -409,7 +409,7 @@ class TestLongTermMemory:
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
@@ -431,7 +431,7 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "你好"}])
@@ -464,7 +464,7 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "新消息"}])
@@ -504,7 +504,7 @@ class TestLongTermMemory:
 
         monkeypatch.setattr(long_term, "create_agent", capture_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
 
@@ -531,7 +531,7 @@ class TestLongTermMemory:
         fake_agent.ainvoke = AsyncMock(side_effect=failing_ainvoke)
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "测试"}])
@@ -553,7 +553,7 @@ class TestLongTermMemory:
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "测试"}])
@@ -573,7 +573,7 @@ class TestLongTermMemory:
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "测试"}])
@@ -595,7 +595,7 @@ class TestLongTermMemory:
         )
         monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
 
-        monkeypatch.setattr(long_term, "get_default_llm", lambda: MagicMock())
+        monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
         await ltm.send_history([{"role": "user", "content": "msg1"}])

@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 
 from api.memory.manager import BaseMemoryManager
-from api.providers.default_llm import get_default_llm
+from api.providers.manager import get_manager
 
 
 # ── LLM 检索提示词 ──────────────────────────────────────
@@ -111,8 +111,10 @@ class LLMRetriever:
             相关记忆条目列表，按相关度降序排列。
             若无相关记忆或 LLM 不可用，返回空列表。
         """
-        if get_default_llm() is None:
+        mgr = get_manager()
+        if mgr is None or mgr.get_default_llm() is None:
             return []
+        llm = mgr.get_default_llm()
         items = self._mm.show()
         if not items:
             return []
@@ -124,7 +126,7 @@ class LLMRetriever:
         memory_text = "\n".join(lines)
         user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
 
-        response = get_default_llm().invoke(
+        response = llm.invoke(
             [SystemMessage(content=FIND_RELATED_MEMORY.strip()), HumanMessage(content=user_prompt)],
             config=RunnableConfig(callbacks=[]),
         )
@@ -147,8 +149,10 @@ class LLMRetriever:
         可被 ``asyncio.Task.cancel()`` 中断。用于 RetrieveMemoryNode 的
         竞速模式（检索 vs 用户跳过）。
         """
-        if get_default_llm() is None:
+        mgr = get_manager()
+        if mgr is None or mgr.get_default_llm() is None:
             return []
+        llm = mgr.get_default_llm()
         items = self._mm.show()
         if not items:
             return []
@@ -159,7 +163,7 @@ class LLMRetriever:
         memory_text = "\n".join(lines)
         user_prompt = f"## 记忆库\n{memory_text}\n\n## 查询要求\n{prompt}"
 
-        response = await get_default_llm().ainvoke(
+        response = await llm.ainvoke(
             [SystemMessage(content=FIND_RELATED_MEMORY.strip()), HumanMessage(content=user_prompt)],
             config=RunnableConfig(callbacks=[]),
         )
