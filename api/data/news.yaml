@@ -1,4 +1,12 @@
 news:
+  - id: "pending-message-custom-input"
+    title: "排队消息与自定义输入"
+    description: "Sonetto 忙碌时仍可继续发送消息，消息自动排队并在合适时机注入对话，不再错过任何输入；单选/多选询问支持「告诉Sonetto别的意见」，可自由补充自定义想法。交互更顺畅，等待期间输入无缝衔接。"
+    type: "feat"
+    date: "2026-08-01"
+    tags: ["交互", "消息", "排队"]
+    version: ""
+    pr_number:
   - id: "memory-upstream-chain-refactor"
     title: "记忆上行链路重构"
     description: "记忆检索架构全面升级：LLM 语义检索与 BM25 机械检索拆分为对称双引擎，统一接口契约，检索更精准；生命周期方法按规范标准化；后台消费者独立为模块，依赖与导出清理。架构更稳健，维护更高效。"
