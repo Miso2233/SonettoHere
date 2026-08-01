@@ -8,6 +8,9 @@ from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success
 
+# 前端自定义文本输入的前缀标记，用于区分「选中的选项」和「用户手写输入」
+_CUSTOM_PREFIX = "__custom__::"
+
 
 class AskUserSingleChoiceInput(BaseModel):
     get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
@@ -54,9 +57,34 @@ class AskUserSingleChoiceTool(ToolBase):
 
         try:
             answer = await future
-            return format_success(
-                {"question": question, "answer": answer, "options": options}
-            )
+            data: dict = {
+                "question": question,
+                "answer": answer,
+                "options": options,
+            }
+            # 检测用户是否通过「告诉Sonetto别的意见」提交了自定义文本
+            if isinstance(answer, list):
+                cleaned: list[str] = []
+                has_custom = False
+                has_option = False
+                for item in answer:
+                    if isinstance(item, str) and item.startswith(_CUSTOM_PREFIX):
+                        cleaned.append(item[len(_CUSTOM_PREFIX):])
+                        has_custom = True
+                    else:
+                        cleaned.append(item)
+                        if item in options:
+                            has_option = True
+                data["answer"] = cleaned
+                data["selected_option"] = has_option
+                if has_custom:
+                    data["is_custom_text"] = True
+            elif isinstance(answer, str) and answer.startswith(_CUSTOM_PREFIX):
+                data["answer"] = answer[len(_CUSTOM_PREFIX):]
+                data["is_custom_text"] = True
+            else:
+                data["selected_option"] = answer in options if isinstance(answer, str) else False
+            return format_success(data)
         except asyncio.CancelledError:
             return format_error("用户取消了回复")
         finally:

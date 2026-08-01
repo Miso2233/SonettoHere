@@ -43,7 +43,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   ask_user: '询问用户',
   ask_user_for_info: '询问用户',
   ask_user_qa: '询问用户',
-  ask_user_single_choice: '请选择',
+  ask_user_single_choice: '选择意见',
   ask_user_multi_choice: '多选',
   task_tracker: '任务追踪',
 
