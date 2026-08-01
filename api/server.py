@@ -15,6 +15,7 @@ from api.session.const_store import (
 from agent import build_agent, build_system_prompt
 from api.core.health import get_health_report
 from api.providers.manager import init_manager, get_manager
+from api.providers.enrich import enrich_all_providers
 from api.providers.store import ProviderConfigStore
 from api.routes import chat, files, images, memory, sessions, balance, providers
 from api.routes import path_whitelist as path_whitelist_router
@@ -106,27 +107,14 @@ async def _load_const_sessions(app: FastAPI):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. 初始化 Provider 管理器（优先从 YAML 加载）
+    # 1. 初始化 Provider 管理器（从 YAML 加载）
     provider_store = ProviderConfigStore()
-    if provider_store.is_empty:
-        migrated = provider_store.migrate_from_env()
-        if migrated:
-            _log.info("migrated %s from .env → providers.yaml", migrated.label)
     provider_manager = init_manager(provider_store)
     provider_manager.load_all()
     _log.info("loaded %d provider(s)", provider_manager.count)
 
     # 预加载 OpenRouter 上下文窗口数据，为已配置的模型补充信息
-    from api.providers.model_context_windows import ensure_openrouter_cache, fill_missing_context_windows
-    ensure_openrouter_cache()  # 启动预热
-    total_filled = 0
-    for p in provider_manager.list_configs():
-        filled = await fill_missing_context_windows(p)
-        if filled:
-            provider_manager.save_config(p)
-            total_filled += filled
-    if total_filled:
-        _log.info("auto-filled %d model(s) from OpenRouter", total_filled)
+    await enrich_all_providers(provider_manager)
 
     # 2. 其他共享资源（LLM 统一从 ProviderManager 获取）
     if provider_manager.get_default_llm() is None:
