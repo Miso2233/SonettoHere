@@ -19,6 +19,10 @@ class CallbackSender(WsTransport):
         """推送 LLM 开始思考。"""
         await self._send("thinking_start", {"timestamp": timestamp})
 
+    async def thinking_token(self, count: int) -> None:
+        """推送 LLM 思考进度（已产出 token 数）。"""
+        await self._send("thinking_token", {"count": count})
+
     async def token(self, token: str) -> None:
         """推送 LLM 流式输出 token。"""
         await self._send("token", {"token": token})

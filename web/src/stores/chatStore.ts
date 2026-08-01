@@ -219,6 +219,7 @@ export const useChatStore = defineStore('chat', () => {
             // 已有 finalAnswer，前面的 ai 内容视为 thinking
             events.push({
               kind: 'thinking',
+              thinkingCount: 0,
               tokens: finalAnswer,
               done: true,
               becameAnswer: false,

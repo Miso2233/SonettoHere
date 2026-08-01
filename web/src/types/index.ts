@@ -12,6 +12,11 @@ export interface TokenEvent {
   payload: { token: string }
 }
 
+export interface ThinkingTokenEvent {
+  type: 'thinking_token'
+  payload: { count: number }
+}
+
 export interface ThinkingEndEvent {
   type: 'thinking_end'
   payload: { timestamp: number }
@@ -193,6 +198,7 @@ export interface PendingCancelledEvent {
 
 export type ServerEvent =
   | ThinkingStartEvent
+  | ThinkingTokenEvent
   | TokenEvent
   | ThinkingEndEvent
   | ToolStartEvent
@@ -293,6 +299,9 @@ export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResp
 
 export interface ThinkingBlock {
   kind: 'thinking'
+  /** 思考进度（已产出的 token chunk 计数，非思考明文） */
+  thinkingCount: number
+  /** 回答正文（流式追加，完成后即最终答案） */
   tokens: string
   done: boolean
   becameAnswer: boolean

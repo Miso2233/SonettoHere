@@ -30,6 +30,7 @@ class WebSocketCallback(BaseCallbackHandler):
         super().__init__()
         self._sender = sender
         self._thinking_started = False
+        self._thinking_count = 0
         self._tool_start_time: dict[str, float] = {}
         self._tool_names: dict[str, str] = {}
         self._tool_inputs: dict[str, str] = {}
@@ -67,10 +68,17 @@ class WebSocketCallback(BaseCallbackHandler):
         self, serialized: dict[str, Any], prompts: list[str], **kwargs: Any
     ) -> None:
         self._thinking_started = True
+        self._thinking_count = 0
         await self._sender.thinking_start(time.time())
 
     async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        await self._sender.token(token)
+        # 思考模型流式期间 content 为空（思考文字在 reasoning_content，LangChain 默认丢弃），
+        # 以空 token chunk 计数作为思考进度推给前端；不保存、不展示思考明文。
+        if not token:
+            self._thinking_count += 1
+            await self._sender.thinking_token(self._thinking_count)
+        else:
+            await self._sender.token(token)
 
     async def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         if self._thinking_started:

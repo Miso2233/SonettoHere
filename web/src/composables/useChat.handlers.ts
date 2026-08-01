@@ -3,17 +3,25 @@ import type { SessionChannel } from '@/stores/chatStore'
 import { findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction } from '@/stores/chatStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useSessionStore } from '@/stores/sessionStore'
-import type { ServerEvent, ChatTurn, TokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent } from '@/types'
+import type { ServerEvent, ChatTurn, TokenEvent, ThinkingTokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent } from '@/types'
 
 /** 事件路由处理器签名（turn 已由调用方守卫保证存在）。 */
 type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
 
 /** thinking_start：压入思考块。 */
 function handleThinkingStart(ch: SessionChannel, _sid: string, turn: ChatTurn, _event: ServerEvent): void {
-  turn.events.push({ kind: 'thinking', tokens: '', done: false, becameAnswer: false })
+  turn.events.push({ kind: 'thinking', thinkingCount: 0, tokens: '', done: false, becameAnswer: false })
 }
 
-/** token：追加到最后一个思考块。 */
+/** thinking_token：更新最后一个思考块的思考进度计数。 */
+function handleThinkingToken(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const lastThink = findLastThinking(turn.events)
+  if (lastThink) {
+    lastThink.thinkingCount = (event as ThinkingTokenEvent).payload.count
+  }
+}
+
+/** token：追加正文到最后一个思考块。 */
 function handleToken(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
   const lastThink = findLastThinking(turn.events)
   if (lastThink) {
@@ -208,6 +216,7 @@ function handleAskUser(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
 /** 事件路由处理器注册表。 */
 export const turnHandlers = new Map<string, TurnEventHandler>([
   ['thinking_start', handleThinkingStart],
+  ['thinking_token', handleThinkingToken],
   ['token', handleToken],
   ['thinking_end', handleThinkingEnd],
   ['tool_start', handleToolStart],

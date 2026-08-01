@@ -3,7 +3,9 @@
     <div class="thinking-header">
       <span class="thinking-label">
         <span class="spinner" v-if="!block.done"></span>
-        思考中{{ block.done ? '（完成）' : '……' }}
+        <span v-if="!block.done && block.thinkingCount > 0" class="thinking-count">思考中|{{ block.thinkingCount }}碎片</span>
+        <template v-else-if="!block.done">思考中……</template>
+        <template v-else>思考中（完成）</template>
       </span>
     </div>
     <div class="thinking-body" v-if="block.tokens">
@@ -85,5 +87,8 @@ const props = defineProps<{ block: ThinkingBlockType }>()
 }
 .thinking-content {
   color: var(--text-primary);
+}
+.thinking-count {
+  font-variant-numeric: tabular-nums;
 }
 </style>
