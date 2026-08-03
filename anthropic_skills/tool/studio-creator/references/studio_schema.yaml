@@ -1,0 +1,24 @@
+# 工作室（studio）YAML schema — 用 yamale 固定字段与类型。
+# 与 agent/studio.py 的 STUDIO_SPEC 保持一致：新增字段需同时更新两处。
+# 注意：管理页会把空列表/空映射存为 null，validate_studio.py 在校验前先规范化为空容器。
+name: str()
+description: str(required=False)
+role: str(required=False)
+main_folder: list(include('folder_item'), required=False)
+additional_folders: list(include('folder_item'), required=False)
+tools: list(str(), required=False)
+macros: list(str(), required=False)
+skills: list(str(), required=False)
+meta: map(required=False)
+body: include('body', required=False)
+---
+# main_folder / additional_folders 元素：路径 + 可选附注
+folder_item:
+  path: str()
+  note: str(required=False)
+# body 嵌套结构
+body:
+  structure: str(required=False)
+  workflow: list(str(), required=False)
+  rules: list(str(), required=False)
+  notes: list(str(), required=False)
