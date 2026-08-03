@@ -5,7 +5,16 @@
 
 from agent.graph import Sonetto, build_agent
 from agent.prompts import build_system_prompt, get_system_prompt_parts
-from agent.studio import StudioInfo, load_all_studios, render_studio_by_name
+from agent.studio import (
+    StudioInfo,
+    create_studio,
+    delete_studio,
+    get_studio,
+    load_all_studios,
+    render_studio_by_name,
+    studio_schema,
+    update_studio,
+)
 
 __all__ = [
     "build_agent",
@@ -13,6 +22,11 @@ __all__ = [
     "build_system_prompt",
     "get_system_prompt_parts",
     "StudioInfo",
+    "create_studio",
+    "delete_studio",
+    "get_studio",
     "load_all_studios",
     "render_studio_by_name",
+    "studio_schema",
+    "update_studio",
 ]

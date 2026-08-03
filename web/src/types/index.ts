@@ -576,7 +576,26 @@ export interface ListMacrosResponse {
 export interface StudioInfo {
   name: string
   description: string
+  filename: string
 }
+
+/** STUDIO_SPEC 单字段声明（后端 /studios/schema 返回） */
+export interface StudioFieldSpec {
+  key: string
+  label: string
+  kind: 'text' | 'code' | 'list' | 'keyval' | 'join'
+  description: string
+  empty_text: string
+  item_key?: string
+  item_note?: string
+}
+
+export interface StudioSchemaResponse {
+  fields: StudioFieldSpec[]
+}
+
+/** 工作坊完整文档（YAML dict），未知键原样保留 */
+export type StudioDocument = Record<string, any>
 
 export interface ListStudiosResponse {
   studios: StudioInfo[]

@@ -9,11 +9,17 @@ from agent.prompts import get_system_prompt_parts
 from agent.studio import (
     _get_path,
     _render_field,
+    _sanitize_filename,
+    create_studio,
+    delete_studio,
+    get_studio,
     load_all_studios,
     load_studio_file,
     render_studio,
     render_studio_by_name,
     StudioFieldSpec,
+    studio_schema,
+    update_studio,
 )
 from api.agent.context_usage import estimate_context_usage_from_session
 from api.session.manager import SessionState
@@ -134,6 +140,156 @@ def test_load_all_studios(monkeypatch, tmp_path: Path):
     assert len(studios) == 1
     assert studios[0].name == "测试工坊"
     assert studios[0].description == "一个测试工坊"
+    assert studios[0].filename == "obsidian-km-workshop.yaml"
+
+
+def test_studio_schema_shape():
+    fields = studio_schema()
+    assert isinstance(fields, list)
+    assert len(fields) == len((
+        "description", "role", "main_folder", "additional_folders", "tools",
+        "macros", "skills", "meta", "body.structure", "body.workflow",
+        "body.rules", "body.notes",
+    ))
+    kinds = {"text", "code", "list", "keyval", "join"}
+    for f in fields:
+        assert set(f) >= {"key", "label", "kind"}
+        assert f["kind"] in kinds
+    # 点路径字段（body.*）
+    assert any(f["key"] == "body.structure" for f in fields)
+
+
+def test_sanitize_filename():
+    assert _sanitize_filename("本地 Obsidian 知识管理工作坊") == "本地 Obsidian 知识管理工作坊"
+    assert _sanitize_filename('a<b>:"c/d\\e|f?g*h') == "abcdefgh"
+    assert _sanitize_filename("  abc  ") == "abc"
+    assert _sanitize_filename("abc...") == "abc"
+    assert _sanitize_filename("") == ""
+    assert _sanitize_filename(":::") == ""
+
+
+def test_get_studio_by_name_and_stem(monkeypatch, tmp_path: Path):
+    d = _write_fixture(tmp_path)
+    monkeypatch.setattr("agent.studio.STUDIOS_DIR", d)
+    # 按 name 命中
+    data = get_studio("测试工坊")
+    assert data is not None and data["name"] == "测试工坊"
+    # 按文件名 stem 回退命中（obsidian-km-workshop）
+    data = get_studio("obsidian-km-workshop")
+    assert data is not None and data["name"] == "测试工坊"
+    assert get_studio("不存在") is None
+
+
+def test_create_studio(monkeypatch, tmp_path: Path):
+    d = tmp_path / "studios"
+    monkeypatch.setattr("agent.studio.STUDIOS_DIR", d)
+    info = create_studio({"name": "  新建工坊  ", "description": "描述"})
+    assert info.name == "新建工坊"
+    assert info.filename == "新建工坊.yaml"
+    assert (d / "新建工坊.yaml").exists()
+    # 重复创建抛 ValueError
+    with pytest.raises(ValueError):
+        create_studio({"name": "新建工坊"})
+    # 非法名抛 ValueError
+    with pytest.raises(ValueError):
+        create_studio({"name": ""})
+    with pytest.raises(ValueError):
+        create_studio({"name": ":::"})
+
+
+def test_update_studio_rewrite_and_rename(monkeypatch, tmp_path: Path):
+    d = tmp_path / "studios"
+    monkeypatch.setattr("agent.studio.STUDIOS_DIR", d)
+    create_studio({"name": "旧名", "description": "旧描述"})
+
+    # 仅改内容，不改名 → 原文件重写
+    info = update_studio("旧名", {"name": "旧名", "description": "新描述"})
+    assert info.filename == "旧名.yaml"
+    assert get_studio("旧名")["description"] == "新描述"
+
+    # 改名 → 文件重命名
+    info = update_studio("旧名", {"name": "新名", "description": "描述"})
+    assert info.filename == "新名.yaml"
+    assert (d / "新名.yaml").exists()
+    assert not (d / "旧名.yaml").exists()
+    assert get_studio("新名")["name"] == "新名"
+
+    # 不存在的工坊 → ValueError
+    with pytest.raises(ValueError):
+        update_studio("不存在", {"name": "其他"})
+    # 新名与他人冲突 → ValueError
+    create_studio({"name": "他人"})
+    with pytest.raises(ValueError):
+        update_studio("新名", {"name": "他人"})
+
+
+def test_delete_studio(monkeypatch, tmp_path: Path):
+    d = tmp_path / "studios"
+    monkeypatch.setattr("agent.studio.STUDIOS_DIR", d)
+    create_studio({"name": "要删的"})
+    assert delete_studio("要删的") is True
+    assert not (d / "要删的.yaml").exists()
+    assert delete_studio("要删的") is False
+
+
+def test_render_studio_by_name_refactored(monkeypatch, tmp_path: Path):
+    """重构成 get_studio 后行为不变（name 与 stem 均命中）。"""
+    d = _write_fixture(tmp_path)
+    monkeypatch.setattr("agent.studio.STUDIOS_DIR", d)
+    assert "## 工作坊：测试工坊" in render_studio_by_name("测试工坊")
+    assert "## 工作坊：测试工坊" in render_studio_by_name("obsidian-km-workshop")
+    assert render_studio_by_name("不存在的工坊") == ""
+
+
+def test_studios_route_crud(monkeypatch, tmp_path: Path):
+    """route 级闭环：schema → create → list → get → put(改名) → delete。"""
+    from urllib.parse import quote
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from api.routes.studios import router
+
+    d = tmp_path / "studios"
+    monkeypatch.setattr("agent.studio.STUDIOS_DIR", d)
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    # 空列表 + schema
+    assert client.get("/studios").json() == {"studios": []}
+    schema = client.get("/studios/schema").json()
+    assert "fields" in schema and len(schema["fields"]) > 0
+
+    # create
+    r = client.post("/studios", json={"document": {"name": "路由工坊", "description": "d"}})
+    assert r.status_code == 200
+    assert r.json() == {"name": "路由工坊", "description": "d", "filename": "路由工坊.yaml"}
+
+    # list 含 filename
+    lst = client.get("/studios").json()["studios"]
+    assert lst == [{"name": "路由工坊", "description": "d", "filename": "路由工坊.yaml"}]
+
+    # get one / get missing
+    enc = quote("路由工坊")
+    assert client.get(f"/studios/{enc}").json()["name"] == "路由工坊"
+    assert client.get("/studios/%E4%B8%8D%E5%AD%98%E5%9C%A8").status_code == 404
+
+    # put 改名 → 文件重命名
+    new_enc = quote("新路由工坊")
+    r = client.put(
+        f"/studios/{enc}",
+        json={"document": {"name": "新路由工坊", "description": "d2"}},
+    )
+    assert r.status_code == 200
+    assert r.json()["filename"] == "新路由工坊.yaml"
+    assert not (d / "路由工坊.yaml").exists()
+
+    # delete / 重复 delete 404
+    assert client.delete(f"/studios/{new_enc}").status_code == 200
+    assert client.delete(f"/studios/{new_enc}").status_code == 404
+    assert client.get("/studios").json() == {"studios": []}
 
 
 def test_render_studio_by_name(monkeypatch, tmp_path: Path):

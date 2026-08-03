@@ -71,6 +71,7 @@ class StudioInfo:
     """供 REST 枚举返回的 studio 元信息。"""
     name: str
     description: str
+    filename: str
 
 
 def _get_path(data: dict[str, Any], dotted: str) -> Any:
@@ -120,6 +121,7 @@ def load_all_studios() -> list[StudioInfo]:
         result.append(StudioInfo(
             name=name,
             description=desc if isinstance(desc, str) else str(desc),
+            filename=fpath.name,
         ))
     return result
 
@@ -204,11 +206,126 @@ def render_studio_by_name(name: str | None) -> str:
     """
     if not name:
         return ""
+    data = get_studio(name)
+    return render_studio(data) if data is not None else ""
+
+
+# ── 编辑器支撑：schema / 校验 / CRUD ──────────────────────────
+
+def studio_schema() -> list[dict[str, Any]]:
+    """把 STUDIO_SPEC 序列化为 dict 列表，供前端动态生成编辑表单。"""
+    return [
+        {
+            "key": s.key,
+            "label": s.label,
+            "kind": s.kind,
+            "description": s.description,
+            "empty_text": s.empty_text,
+            "item_key": s.item_key,
+            "item_note": s.item_note,
+        }
+        for s in STUDIO_SPEC
+    ]
+
+
+_INVALID_FILENAME_CHARS = set('<>:"/\\|?*')
+
+
+def _sanitize_filename(name: str) -> str:
+    """把展示名安全化为 Windows 兼容文件名（去非法字符、去首尾空白/点）。"""
+    cleaned = "".join(c for c in name.strip() if c not in _INVALID_FILENAME_CHARS)
+    return cleaned.strip().rstrip(" .")
+
+
+def find_studio_file(name: str) -> Path | None:
+    """按 name 定位 studio 文件；未命中（含缺失/解析失败）返回 None。
+
+    先按 YAML 内 name 精确匹配，再回退按文件名 stem 匹配（兼容历史文件）。
+    """
+    if not name:
+        return None
     for fpath, data in _iter_studio_data():
         n = data.get("name")
         if isinstance(n, str) and n == name:
-            return render_studio(data)
-        # 回退：文件名 stem 与 name 一致时也命中
+            return fpath
         if fpath.stem == name:
-            return render_studio(data)
-    return ""
+            return fpath
+    return None
+
+
+def get_studio(name: str) -> dict[str, Any] | None:
+    """按 name 返回完整 YAML dict（供编辑回填）；未命中返回 None。"""
+    fpath = find_studio_file(name)
+    return load_studio_file(fpath) if fpath is not None else None
+
+
+def validate_studio(data: dict[str, Any]) -> list[str]:
+    """返回校验错误列表；空列表 = 通过。"""
+    name = data.get("name")
+    if not isinstance(name, str) or not name.strip():
+        return ["name 不能为空"]
+    if not _sanitize_filename(name):
+        return ["name 无法生成合法文件名"]
+    return []
+
+
+def _to_info(data: dict[str, Any], filename: str) -> StudioInfo:
+    name = data.get("name")
+    desc = data.get("description", "")
+    return StudioInfo(
+        name=name if isinstance(name, str) else "",
+        description=desc if isinstance(desc, str) else str(desc),
+        filename=filename,
+    )
+
+
+def _write_studio_file(path: Path, data: dict[str, Any]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+
+def create_studio(data: dict[str, Any]) -> StudioInfo:
+    """新建：校验 → 查重 → 写 <name 安全化>.yaml。重复/非法抛 ValueError。"""
+    data = dict(data)
+    name = str(data.get("name") or "").strip()
+    data["name"] = name
+    errors = validate_studio(data)
+    if errors:
+        raise ValueError("；".join(errors))
+    if find_studio_file(name) is not None:
+        raise ValueError(f"工作坊「{name}」已存在")
+    filename = _sanitize_filename(name) + ".yaml"
+    STUDIOS_DIR.mkdir(parents=True, exist_ok=True)
+    _write_studio_file(STUDIOS_DIR / filename, data)
+    return _to_info(data, filename)
+
+
+def update_studio(name: str, data: dict[str, Any]) -> StudioInfo:
+    """更新：按 name 定位旧文件；body 内 name 变更则重命名文件。
+
+    不存在 → ValueError；新名与他人冲突 → ValueError。
+    """
+    errors = validate_studio(data)
+    if errors:
+        raise ValueError("；".join(errors))
+    old_path = find_studio_file(name)
+    if old_path is None:
+        raise ValueError(f"工作坊「{name}」不存在")
+    new_name = str(data["name"]).strip()
+    new_filename = _sanitize_filename(new_name) + ".yaml"
+    new_path = STUDIOS_DIR / new_filename
+    if new_name != name and find_studio_file(new_name) is not None:
+        raise ValueError(f"工作坊「{new_name}」已存在")
+    if old_path != new_path:
+        old_path.rename(new_path)
+    _write_studio_file(new_path, data)
+    return _to_info(data, new_filename)
+
+
+def delete_studio(name: str) -> bool:
+    """删除指定工作坊文件；不存在返回 False。"""
+    fpath = find_studio_file(name)
+    if fpath is None:
+        return False
+    fpath.unlink()
+    return True
