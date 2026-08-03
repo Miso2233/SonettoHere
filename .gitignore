@@ -85,6 +85,10 @@ anthropic_skills/*/
 # Macros（同上）
 macros/*/
 
+# Studios（工坊文件，忽略目录内全部内容，保留目录本身用于 .gitkeep）
+studios/*
+!studios/.gitkeep
+
 # 安全威胁模型（本地文档，不提交）
 dev_docs/security/
 
