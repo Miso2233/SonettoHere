@@ -1,19 +1,27 @@
 news:
+  - id: "studio-workshop-system"
+    title: "工作坊（Studio）模式"
+    description: "新增工作坊场景化配置：顶栏选择工作坊后，将 Obsidian 知识库等特定场景的文件夹、推荐工具与工作规则注入系统提示词，AI 按场景工作。侧栏「工作坊」页面支持表单可视化新建/编辑/删除，推荐工具/宏/技能自动补全。"
+    type: "feat"
+    date: "2026-08-03"
+    tags: ["工作坊", "场景", "提示词", "管理"]
+    version: "v3.5.0"
+    pr_number: 277
   - id: "thinking-progress-fragments"
     title: "思考过程进度可视化"
     description: "等待期间不再毫无进展反馈。任何用户无法直接用眼睛看到的 LLM 生成——包括思考过程与工具入参——现在都会在前端以碎片计数持续增长的形式展示进度。"
     type: "feat"
     date: "2026-08-01"
     tags: ["进度", "思考", "UI", "体验"]
-    version: ""
-    pr_number:
+    version: "v3.5.0"
+    pr_number: 276
   - id: "pending-message-custom-input"
     title: "排队消息与自定义输入"
     description: "Sonetto 忙碌时仍可继续发送消息，消息自动排队并在合适时机注入对话，不再错过任何输入；单选/多选询问支持「告诉Sonetto别的意见」，可自由补充自定义想法。交互更顺畅，等待期间输入无缝衔接。"
     type: "feat"
     date: "2026-08-01"
     tags: ["交互", "消息", "排队"]
-    version: ""
+    version: "v3.5.0"
     pr_number: 275
   - id: "memory-upstream-chain-refactor"
     title: "记忆上行链路重构"
