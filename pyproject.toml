@@ -26,6 +26,7 @@ dependencies = [
     "playwright>=1.40.0",
     "portalocker>=3.0.0",
     "pyyaml>=6.0",
+    "yamale>=5.0",
     "zai-sdk",
 ]
 
