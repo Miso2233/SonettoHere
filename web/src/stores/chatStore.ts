@@ -76,6 +76,8 @@ export interface SessionChannel {
   privateMode: boolean
   skipRecall: boolean
   autoApprove: boolean
+  /** 会话级工作坊状态（同 privateMode/skipRecall，切会话时随频道更新） */
+  studioName: string
 }
 
 export const useChatStore = defineStore('chat', () => {
@@ -139,6 +141,7 @@ export const useChatStore = defineStore('chat', () => {
         privateMode: false,
         skipRecall: false,
         autoApprove: false,
+        studioName: '',
       })
     } else {
       const ch = channels.get(sid)!
@@ -512,7 +515,6 @@ export const useChatStore = defineStore('chat', () => {
     modelName?: string,
     imageRecognition?: boolean,
     imagePaths?: string[],
-    studioName?: string,
   ) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
@@ -533,7 +535,7 @@ export const useChatStore = defineStore('chat', () => {
         model_name: modelName,
         client_msg_id: clientMsgId,
         ...(imageRecognition && imagePaths?.length ? { image_recognition: true, image_refs: imagePaths } : {}),
-        ...(studioName ? { studio_name: studioName } : {}),
+        ...(ch.studioName ? { studio_name: ch.studioName } : {}),
       },
     }
 
