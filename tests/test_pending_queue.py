@@ -202,7 +202,7 @@ async def test_handle_chat_busy_enqueues():
     s = _make_session()
     ws = FakeWs()
     agent_task: asyncio.Future = asyncio.Future()  # 永不完成 → 忙碌路径
-    msg = {"type": "chat", "payload": {"message": "hello", "client_msg_id": "cid-1"}}
+    msg = {"type": "chat", "payload": {"message": "hello", "client_msg_id": "cid-1", "studio_name": "测试工坊"}}
 
     ret = await _handle_chat(ws, "test-sid", s, agent_task, msg)
     assert ret is agent_task  # 返回原任务
@@ -210,6 +210,7 @@ async def test_handle_chat_busy_enqueues():
     pending = s.peek_pending()[0]
     assert pending.pending_id == "cid-1"
     assert pending.text == "hello"
+    assert pending.studio_name == "测试工坊"
 
     acks = _ws_events(ws, "message_queued")
     assert len(acks) == 1
@@ -349,7 +350,7 @@ async def test_start_turn_from_ws_merges_fifo(monkeypatch):
     interaction.current_ws.set(ws)
 
     task = _start_turn_from_ws(
-        ws, "test-sid", s, PendingMessage(pending_id="c1", text="新消息")
+        ws, "test-sid", s, PendingMessage(pending_id="c1", text="新消息", studio_name="测试工坊")
     )
     assert task is not None
     await asyncio.wait_for(task, timeout=1)
@@ -357,6 +358,7 @@ async def test_start_turn_from_ws_merges_fifo(monkeypatch):
     text, kw = captured[0]
     assert text == "排队一\n\n排队二\n\n新消息"  # 旧在前，新在后
     assert [p.pending_id for p in kw["queued_pending"]] == ["q1", "q2"]  # 仅排队消息（不含 incoming）
+    assert kw["studio_name"] == "测试工坊"  # batch 取最后一条消息的 studio
     assert s.pending_count() == 0
 
 
