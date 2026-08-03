@@ -7,7 +7,7 @@
         :title="studioName || '默认工作坊（不注入工作坊配置）'"
         @click.stop="open = !open"
       >
-        {{ studioName || '默认' }}<span class="dropdown-arrow">▾</span>
+        {{ studioName || '进入工作坊' }}
       </button>
       <div v-if="open" class="dropdown-menu">
         <button
@@ -76,7 +76,7 @@ function select(name: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 8px;
   border: 1px solid transparent;
   border-radius: 6px;
@@ -94,11 +94,6 @@ function select(name: string) {
 .dropdown-trigger.active {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-}
-.dropdown-arrow {
-  font-size: 8px;
-  line-height: 1;
-  opacity: 0.5;
 }
 .dropdown-menu {
   position: absolute;
