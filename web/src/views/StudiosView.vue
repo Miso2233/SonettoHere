@@ -158,14 +158,21 @@ onMounted(loadStudios)
 .studios-view {
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: 32px 24px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .header {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
+  gap: 14px;
+  width: 100%;
+  max-width: 720px;
+  margin: 8px 0 28px;
+  text-align: center;
 }
 .header h2 {
   font-size: 20px;
@@ -196,12 +203,15 @@ onMounted(loadStudios)
   text-align: center;
   color: var(--text-secondary);
   padding: 40px 0;
+  width: 100%;
+  max-width: 720px;
 }
 
 .studio-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  width: 100%;
   max-width: 720px;
 }
 
@@ -210,7 +220,7 @@ onMounted(loadStudios)
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 18px;
+  padding: 16px 18px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -279,19 +289,23 @@ onMounted(loadStudios)
 
 /* ── Form ── */
 .wizard-form {
+  width: 100%;
   max-width: 640px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 .form-actions {
   display: flex;
-  gap: 8px;
+  justify-content: center;
+  gap: 12px;
 }
 .msg {
   font-size: 13px;
   padding: 8px 12px;
   border-radius: 6px;
+  width: 100%;
+  max-width: 720px;
 }
 .msg.error { background: #fee2e2; color: #991b1b; }
 </style>

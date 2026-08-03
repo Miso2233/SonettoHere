@@ -404,12 +404,12 @@ onUnmounted(() => {
 .studio-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 22px;
 }
 .form-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .form-label {
   font-size: 13px;
