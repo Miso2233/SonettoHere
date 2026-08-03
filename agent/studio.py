@@ -33,6 +33,9 @@ class StudioFieldSpec:
                      keyval — dict → ``- k: v`` 列表
                      join   — 标量列表 → 单行（join_sep 分隔）
         heading:   标题级别（默认 2）。
+        description: 标题之后、内容之前的正文形式说明文本（默认空）。
+        empty_text: 字段缺失或渲染为空时的占位文本（默认（无）；
+                    设为空串可恢复「整段跳过」）。
         item_key:  kind="list" 且元素为 dict 时，作为列表项文本的键。
         item_note: kind="list" 且元素为 dict 时，作为括号附注的键。
         join_sep:  kind="join" 的分隔符。
@@ -40,6 +43,8 @@ class StudioFieldSpec:
     key: str
     label: str
     kind: RenderKind
+    description: str = ""
+    empty_text: str = "（无）"
     heading: int = 2
     item_key: str | None = None
     item_note: str | None = None
@@ -51,9 +56,13 @@ STUDIO_SPEC: tuple[StudioFieldSpec, ...] = (
     StudioFieldSpec(key="description", label="简介", kind="text"),
     StudioFieldSpec(key="role", label="角色定位", kind="text"),
     StudioFieldSpec(key="environment", label="工作环境", kind="text"),
-    StudioFieldSpec(key="folders", label="知识库文件夹", kind="list",
-                    item_key="path", item_note="note"),
-    StudioFieldSpec(key="tools", label="可用工具", kind="join"),
+    StudioFieldSpec(key="main_folder", label="主要文件夹", kind="list",
+                    item_key="path", item_note="note", description="你只可以对此文件夹进行写操作。"),
+    StudioFieldSpec(key="additional_folders", label="参考文件夹", kind="list",
+                    item_key="path", item_note="note", description="你可以可选地从以下文件夹读取更多信息"),
+    StudioFieldSpec(key="tools", label="推荐工具", kind="join", description="推荐关注以下工具进行工作"),
+    StudioFieldSpec(key="macros", label="推荐宏", kind="join", description="推荐关注以下宏进行工作"),
+    StudioFieldSpec(key="skills", label="推荐技能", kind="join", description="推荐关注以下技能进行工作"),
     StudioFieldSpec(key="meta", label="元信息", kind="keyval"),
     StudioFieldSpec(key="body.structure", label="目录结构", kind="code"),
     StudioFieldSpec(key="body.workflow", label="工作流程", kind="list"),
@@ -141,13 +150,16 @@ def render_studio(
 
 
 def _render_field(spec: StudioFieldSpec, value: Any) -> str:
-    if value is None:
-        return ""
-    body = _render_kind(spec.kind, value, spec)
-    if not body:
-        return ""
     heading = "#" * spec.heading
-    return f"{heading} {spec.label}\n{body}"
+    header = f"{heading} {spec.label}"
+    body = _render_kind(spec.kind, value, spec) if value is not None else ""
+    if not body:
+        if spec.empty_text:
+            return f"{header}\n{spec.empty_text}"
+        return ""
+    if spec.description:
+        return f"{header}\n{spec.description}\n\n{body}"
+    return f"{header}\n{body}"
 
 
 def _render_kind(kind: RenderKind, value: Any, spec: StudioFieldSpec) -> str:
