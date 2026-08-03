@@ -88,3 +88,10 @@ paths:
     required_for: "Const 固定会话功能"
     gitignored: true
 
+  - path: "studios/"
+    description: "工作坊（Studio）定义文件（*.yaml，每用户本地，注入系统提示词）"
+    created_by: "用户手工编辑"
+    source_template: null
+    required_for: "工作坊功能"
+    gitignored: true
+

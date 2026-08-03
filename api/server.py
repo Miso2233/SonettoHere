@@ -22,6 +22,7 @@ from api.routes import path_whitelist as path_whitelist_router
 from api.routes import persona as persona_router
 from api.routes import sonetto_blocker as sonetto_blocker_router
 from api.routes import skills as skills_router
+from api.routes import studios as studios_router
 from api.routes import news as news_router
 from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
@@ -189,6 +190,9 @@ def create_app() -> FastAPI:
 
     # Anthropic Skills
     app.include_router(skills_router.router, prefix="/api")
+
+    # 工作坊（Studio）
+    app.include_router(studios_router.router, prefix="/api")
 
     # 系统更新动态
     app.include_router(news_router.router, prefix="/api")
