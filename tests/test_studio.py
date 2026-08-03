@@ -134,7 +134,6 @@ def test_load_all_studios(monkeypatch, tmp_path: Path):
     assert len(studios) == 1
     assert studios[0].name == "测试工坊"
     assert studios[0].description == "一个测试工坊"
-    assert studios[0].filename == "obsidian-km-workshop.yaml"
 
 
 def test_render_studio_by_name(monkeypatch, tmp_path: Path):

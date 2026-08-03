@@ -23,32 +23,28 @@ class StudioFieldSpec:
     """声明式字段 spec：描述 YAML 中一个字段如何渲染为 Markdown 段落。
 
     Attributes:
-        key:       点路径（如 ``"body.workflow"``），在 YAML dict 中取值。
-        label:     段落 Markdown 标题（如 ``## 工作流程``）。
-        kind:      渲染形态：
-                     text   — 字符串，渲染为段落
-                     code   — 字符串，渲染为围栏代码块
-                     list   — 列表；元素为 str → ``- x``；元素为 dict
-                               → 用 item_key / item_note 提取
-                     keyval — dict → ``- k: v`` 列表
-                     join   — 标量列表 → 单行（join_sep 分隔）
-        heading:   标题级别（默认 2）。
+        key:        点路径（如 ``"body.workflow"``），在 YAML dict 中取值。
+        label:      段落 Markdown 标题（如 ``## 工作流程``）。
+        kind:       渲染形态：
+                      text   — 字符串，渲染为段落
+                      code   — 字符串，渲染为围栏代码块
+                      list   — 列表；元素为 str → ``- x``；元素为 dict
+                                → 用 item_key / item_note 提取
+                      keyval — dict → ``- k: v`` 列表
+                      join   — 标量列表 → 单行（"、" 分隔）
         description: 标题之后、内容之前的正文形式说明文本（默认空）。
-        empty_text: 字段缺失或渲染为空时的占位文本（默认（无）；
-                    设为空串可恢复「整段跳过」）。
-        item_key:  kind="list" 且元素为 dict 时，作为列表项文本的键。
-        item_note: kind="list" 且元素为 dict 时，作为括号附注的键。
-        join_sep:  kind="join" 的分隔符。
+        empty_text:  字段缺失或渲染为空时的占位文本（默认（无）；
+                     设为空串可恢复「整段跳过」）。
+        item_key:   kind="list" 且元素为 dict 时，作为列表项文本的键。
+        item_note:  kind="list" 且元素为 dict 时，作为换行附注的键。
     """
     key: str
     label: str
     kind: RenderKind
     description: str = ""
     empty_text: str = "（无）"
-    heading: int = 2
     item_key: str | None = None
     item_note: str | None = None
-    join_sep: str = "、"
 
 
 # ── 声明式 spec：新增字段 = 在此加一行 ──────────────────────────
@@ -75,7 +71,6 @@ class StudioInfo:
     """供 REST 枚举返回的 studio 元信息。"""
     name: str
     description: str
-    filename: str
 
 
 def _get_path(data: dict[str, Any], dotted: str) -> Any:
@@ -125,7 +120,6 @@ def load_all_studios() -> list[StudioInfo]:
         result.append(StudioInfo(
             name=name,
             description=desc if isinstance(desc, str) else str(desc),
-            filename=fpath.name,
         ))
     return result
 
@@ -149,8 +143,7 @@ def render_studio(
 
 
 def _render_field(spec: StudioFieldSpec, value: Any) -> str:
-    heading = "#" * spec.heading
-    header = f"{heading} {spec.label}"
+    header = f"## {spec.label}"
     body = _render_kind(spec.kind, value, spec) if value is not None else ""
     if not body:
         if spec.empty_text:
@@ -174,9 +167,8 @@ def _render_kind(kind: RenderKind, value: Any, spec: StudioFieldSpec) -> str:
         case "join":
             if isinstance(value, list):
                 items = [str(x) for x in value if x]
-                return spec.join_sep.join(items) if items else ""
+                return "、".join(items) if items else ""
             return ""
-    return ""
 
 
 def _render_list(value: Any, spec: StudioFieldSpec) -> str:
