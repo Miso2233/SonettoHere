@@ -154,18 +154,26 @@ function readPath(obj: any, key: string): any {
   return cur
 }
 
+/** 危险 key：若按此写入会触发原型污染，直接跳过本次写入 */
+function isUnsafeKey(k: string): boolean {
+  return k === '__proto__' || k === 'constructor' || k === 'prototype'
+}
+
 /** 按点路径写值；中间对象缺失时自动创建 */
 function writePath(obj: any, key: string, val: any) {
   const parts = key.split('.')
   let cur = obj
   for (let i = 0; i < parts.length - 1; i++) {
     const p = parts[i]
+    if (isUnsafeKey(p)) return
     if (cur[p] == null || typeof cur[p] !== 'object' || Array.isArray(cur[p])) {
       cur[p] = {}
     }
     cur = cur[p]
   }
-  cur[parts[parts.length - 1]] = val
+  const last = parts[parts.length - 1]
+  if (isUnsafeKey(last)) return
+  cur[last] = val
 }
 
 // ── 名称（schema 不含 name，单独处理） ──

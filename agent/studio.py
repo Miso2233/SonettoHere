@@ -279,6 +279,19 @@ def _to_info(data: dict[str, Any], filename: str) -> StudioInfo:
     )
 
 
+def _safe_studio_path(filename: str) -> Path:
+    """把 <name 安全化>.yaml 拼接到 STUDIOS_DIR 下，并校验不越出该目录。
+
+    filename 理论上已被 _sanitize_filename 剔除路径分隔符等非法字符，
+    此处再以 resolve() 做防御：若解析后的父目录不是 STUDIOS_DIR，
+    说明存在越权路径（如 ``..`` 上跳），直接抛 ValueError。
+    """
+    path = (STUDIOS_DIR / filename).resolve()
+    if path.parent != STUDIOS_DIR.resolve():
+        raise ValueError(f"非法的工作坊文件名: {filename!r}")
+    return path
+
+
 def _write_studio_file(path: Path, data: dict[str, Any]) -> None:
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
@@ -296,7 +309,7 @@ def create_studio(data: dict[str, Any]) -> StudioInfo:
         raise ValueError(f"工作坊「{name}」已存在")
     filename = _sanitize_filename(name) + ".yaml"
     STUDIOS_DIR.mkdir(parents=True, exist_ok=True)
-    _write_studio_file(STUDIOS_DIR / filename, data)
+    _write_studio_file(_safe_studio_path(filename), data)
     return _to_info(data, filename)
 
 
@@ -313,7 +326,7 @@ def update_studio(name: str, data: dict[str, Any]) -> StudioInfo:
         raise ValueError(f"工作坊「{name}」不存在")
     new_name = str(data["name"]).strip()
     new_filename = _sanitize_filename(new_name) + ".yaml"
-    new_path = STUDIOS_DIR / new_filename
+    new_path = _safe_studio_path(new_filename)
     if new_name != name and find_studio_file(new_name) is not None:
         raise ValueError(f"工作坊「{new_name}」已存在")
     if old_path != new_path:
