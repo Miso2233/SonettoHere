@@ -21,6 +21,7 @@ import { settingsApi } from './settings'
 import { systemApi } from './system'
 import { anthropicApi } from './anthropic'
 import { filesApi } from './files'
+import { studiosApi } from './studios'
 import { getToken, setToken } from './client'
 
 export { getToken, setToken }
@@ -35,5 +36,6 @@ export const api = {
   ...systemApi,
   ...anthropicApi,
   ...filesApi,
+  ...studiosApi,
 }
 

@@ -90,8 +90,8 @@ export function useChat(sessionId: Ref<string>) {
     { immediate: true },
   )
 
-  function send(text: string, refs: ParsedRef[] = [], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]) {
-    store.send(sessionId.value, text, refs, providerId, modelName, imageRecognition, imagePaths)
+  function send(text: string, refs: ParsedRef[] = [], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[], studioName?: string) {
+    store.send(sessionId.value, text, refs, providerId, modelName, imageRecognition, imagePaths, studioName)
   }
 
   function cancel() {

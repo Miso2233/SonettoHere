@@ -69,6 +69,34 @@
           <button class="file-tag-remove" @click="removeRef(idx)">✕</button>
         </span>
       </TransitionGroup>
+      <div class="studio-bar">
+        <span class="studio-bar-label"><Icon name="sparkles" :size="12" /> 工作坊</span>
+        <div class="dropdown">
+          <button
+            class="dropdown-trigger studio-trigger"
+            :class="{ active: selectedStudioName }"
+            @click.stop="toggleDropdown('studio')"
+          >
+            {{ selectedStudioName || '默认' }}<span class="dropdown-arrow">▾</span>
+          </button>
+          <div v-if="openDropdown === 'studio'" class="dropdown-menu studio-menu">
+            <button
+              class="dropdown-option"
+              :class="{ selected: selectedStudioName === '' }"
+              @click="selectStudio('')"
+            >默认</button>
+            <button v-if="studios.length === 0" class="dropdown-option disabled">暂无可用的工作坊</button>
+            <button
+              v-for="s in studios"
+              :key="s.name"
+              class="dropdown-option"
+              :class="{ selected: selectedStudioName === s.name }"
+              :title="s.description || s.name"
+              @click="selectStudio(s.name)"
+            >{{ s.name }}</button>
+          </div>
+        </div>
+      </div>
       <div class="input-body">
         <textarea
           ref="textareaRef"
@@ -224,7 +252,7 @@
 import { api } from '@/api'
 import AutocompletePanel from '@/components/AutocompletePanel.vue'
 import Icon from '@/components/Icon.vue'
-import type { PendingMessage, ProviderConfig, SkillInfo, ToolInfo } from '@/types'
+import type { PendingMessage, ProviderConfig, SkillInfo, StudioInfo, ToolInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { REF_CHIP_CONFIG, filterImageRefs, parseReferences } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -242,7 +270,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]]
+  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[], studioName?: string]
   stop: []
   removePending: [pendingId: string]
   clearPending: []
@@ -609,10 +637,28 @@ const providers = ref<ProviderConfig[]>([])
 const selectedProviderId = ref('')
 const selectedModelName = ref('')
 const currentModels = ref<string[]>([])
-const openDropdown = ref<'provider' | 'model' | null>(null)
+const openDropdown = ref<'provider' | 'model' | 'studio' | null>(null)
 const noProvider = computed(() => providers.value.length === 0)
 
-function toggleDropdown(name: 'provider' | 'model') {
+// ── 工作坊选择器 ──
+const studios = ref<StudioInfo[]>([])
+const selectedStudioName = ref('')
+
+async function loadStudios() {
+  try {
+    const res = await api.listStudios()
+    studios.value = res.studios
+  } catch {
+    // 静默失败
+  }
+}
+
+function selectStudio(name: string) {
+  selectedStudioName.value = name
+  openDropdown.value = null
+}
+
+function toggleDropdown(name: 'provider' | 'model' | 'studio') {
   openDropdown.value = openDropdown.value === name ? null : name
 }
 
@@ -664,6 +710,7 @@ onMounted(loadProviders)
 onMounted(loadSkills)
 onMounted(loadTools)
 onMounted(loadMacros)
+onMounted(loadStudios)
 
 function getFileName(fp: string): string {
   const parts = fp.replace(/\\/g, '/').split('/')
@@ -734,7 +781,7 @@ function handleSend() {
     }
   }
 
-  emit('send', msg, sendRefs, selectedProviderId.value || undefined, selectedModelName.value || undefined, sendImageRecog, imagePaths)
+  emit('send', msg, sendRefs, selectedProviderId.value || undefined, selectedModelName.value || undefined, sendImageRecog, imagePaths, selectedStudioName.value || undefined)
   text.value = ''
   refs.value = []
   nextTick(() => autoResize())
@@ -1050,6 +1097,38 @@ function onResizeEnd(e: PointerEvent) {
   color: var(--accent);
   font-weight: 600;
   background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+/* ── 工作坊选择条 ── */
+.studio-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 0;
+  flex-shrink: 0;
+}
+.studio-bar-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+.studio-trigger {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-trigger.active {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.dropdown-menu.studio-menu {
+  top: calc(100% + 4px);
+  bottom: auto;
+  min-width: 200px;
+  max-height: 240px;
 }
 
 /* 引用标签条 */

@@ -161,8 +161,8 @@ function addCitation(ref: ParsedRef) {
   chatInputRef.value?.addRef(ref)
 }
 
-function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]) {
-  send(text, refs, providerId, modelName, imageRecognition, imagePaths)
+function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[], studioName?: string) {
+  send(text, refs, providerId, modelName, imageRecognition, imagePaths, studioName)
 }
 
 function onRemovePending(pendingId: string) {
