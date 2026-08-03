@@ -55,7 +55,6 @@ class StudioFieldSpec:
 STUDIO_SPEC: tuple[StudioFieldSpec, ...] = (
     StudioFieldSpec(key="description", label="简介", kind="text"),
     StudioFieldSpec(key="role", label="角色定位", kind="text"),
-    StudioFieldSpec(key="environment", label="工作环境", kind="text"),
     StudioFieldSpec(key="main_folder", label="主要文件夹", kind="list",
                     item_key="path", item_note="note", description="你只可以对此文件夹进行写操作。"),
     StudioFieldSpec(key="additional_folders", label="参考文件夹", kind="list",
@@ -190,7 +189,8 @@ def _render_list(value: Any, spec: StudioFieldSpec) -> str:
             note = item.get(spec.item_note, "") if spec.item_note else ""
             text_s = text if isinstance(text, str) else str(text or "")
             note_s = note if isinstance(note, str) else str(note or "")
-            lines.append(f"- {text_s}（{note_s}）" if note_s else f"- {text_s}")
+            # 附注换行缩进放置，避免与 path 正文混淆
+            lines.append(f"- {text_s}\n  （{note_s}）" if note_s else f"- {text_s}")
         else:
             lines.append(f"- {item}")
     return "\n".join(lines)

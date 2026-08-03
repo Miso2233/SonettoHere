@@ -24,7 +24,6 @@ def _sample_data() -> dict:
         "name": "测试工坊",
         "description": "一个测试工坊",
         "role": "测试角色",
-        "environment": "测试环境",
         "main_folder": [
             {"path": "C:\\vault", "note": "根目录"},
         ],
@@ -55,8 +54,7 @@ def test_render_studio_kinds():
     assert text.startswith("## 工作坊：测试工坊")
     assert "## 简介\n一个测试工坊" in text
     assert "## 角色定位\n测试角色" in text
-    assert "## 工作环境\n测试环境" in text
-    assert "## 主要文件夹\n你只可以对此文件夹进行写操作。\n\n- C:\\vault（根目录）" in text
+    assert "## 主要文件夹\n你只可以对此文件夹进行写操作。\n\n- C:\\vault\n  （根目录）" in text
     assert "## 参考文件夹\n你可以可选地从以下文件夹读取更多信息\n\n- C:\\归档" in text  # 无附注时不带括号
     assert "## 推荐工具\n推荐关注以下工具进行工作\n\nfile_read、file_write" in text
     assert "## 推荐宏\n推荐关注以下宏进行工作\n\n宏一、宏二" in text
