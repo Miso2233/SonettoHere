@@ -283,15 +283,15 @@ def _to_info(data: dict[str, Any], filename: str) -> StudioInfo:
 def _safe_studio_path(filename: str) -> Path:
     """把 <name 安全化>.yaml 拼接到 STUDIOS_DIR 下，并校验不越出该目录。
 
-    os.path.basename 剥离目录组件（CodeQL 可识别的路径净化；filename 本身已
-    由 _sanitize_filename 剔除分隔符，此处为无副作用的防御），再以 resolve()
-    断言父目录仍为 STUDIOS_DIR，越权路径（如 ``..`` 上跳）直接抛 ValueError。
+    采用 CodeQL py/path-injection 识别的 SafeAccessCheck 模式：abspath 归一化后，
+    解析结果必须位于 STUDIOS_DIR 之内（前缀校验），否则越权路径（如 ``..``
+    上跳）直接抛 ValueError。
     """
-    safe = os.path.basename(filename)
-    path = (STUDIOS_DIR / safe).resolve()
-    if path.parent != STUDIOS_DIR.resolve():
+    base = os.path.abspath(str(STUDIOS_DIR))
+    path = os.path.abspath(os.path.join(base, filename))
+    if not path.startswith(base + os.sep):
         raise ValueError(f"非法的工作坊文件名: {filename!r}")
-    return path
+    return Path(path)
 
 
 def _write_studio_file(path: Path, data: dict[str, Any]) -> None:
