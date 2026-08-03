@@ -4,6 +4,7 @@
 字段提取部分高度可扩展：支持顶层与 ``body.*`` 等任意点路径嵌套。
 """
 
+import os
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
@@ -282,11 +283,12 @@ def _to_info(data: dict[str, Any], filename: str) -> StudioInfo:
 def _safe_studio_path(filename: str) -> Path:
     """把 <name 安全化>.yaml 拼接到 STUDIOS_DIR 下，并校验不越出该目录。
 
-    filename 理论上已被 _sanitize_filename 剔除路径分隔符等非法字符，
-    此处再以 resolve() 做防御：若解析后的父目录不是 STUDIOS_DIR，
-    说明存在越权路径（如 ``..`` 上跳），直接抛 ValueError。
+    os.path.basename 剥离目录组件（CodeQL 可识别的路径净化；filename 本身已
+    由 _sanitize_filename 剔除分隔符，此处为无副作用的防御），再以 resolve()
+    断言父目录仍为 STUDIOS_DIR，越权路径（如 ``..`` 上跳）直接抛 ValueError。
     """
-    path = (STUDIOS_DIR / filename).resolve()
+    safe = os.path.basename(filename)
+    path = (STUDIOS_DIR / safe).resolve()
     if path.parent != STUDIOS_DIR.resolve():
         raise ValueError(f"非法的工作坊文件名: {filename!r}")
     return path
