@@ -156,9 +156,10 @@ _WHITELIST_PATH = (
 _PROJECT_ROOT = os.path.normpath(
     os.path.abspath(Path(__file__).resolve().parent.parent)
 )
-# 默认白名单路径：仅暴露 anthropic_skills 和 macros 目录
+# 默认白名单路径：仅暴露 anthropic_skills、macros 和 studios 目录
 _DEFAULT_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "anthropic_skills")
 _DEFAULT_MACROS_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "macros")
+_DEFAULT_STUDIOS_WHITELIST_PATH = os.path.join(_PROJECT_ROOT, "studios")
 
 # ── 路径白名单 ──────────────────────────────────────────────
 
@@ -168,10 +169,10 @@ _WHITELIST_PATH = (
 
 
 def _ensure_whitelist() -> None:
-    """确保白名单文件存在且包含当前工程的 anthropic_skills 和 macros 目录。
+    """确保白名单文件存在且包含当前工程的 anthropic_skills、macros 和 studios 目录。
 
     在模块导入时（即应用启动时）调用一次：
-    - 文件不存在 → 自动创建，写入 anthropic_skills + macros 路径
+    - 文件不存在 → 自动创建，写入 anthropic_skills + macros + studios 路径
     - 工程被移动（自动条目路径不匹配当前路径） → 更新文件，
       保留用户添加的额外条目，仅替换/添加自动生成条目
     - 文件已存在且自动条目匹配 → 不做任何操作
@@ -251,9 +252,17 @@ def _default_macros_entry() -> dict:
     }
 
 
+def _default_studios_entry() -> dict:
+    return {
+        "path": os.path.normpath(str(_DEFAULT_STUDIOS_WHITELIST_PATH)),
+        "description": "工作坊目录（自动生成）",
+        "recursive": True,
+    }
+
+
 def _default_entries() -> list[dict]:
     """返回所有自动生成的默认白名单条目。"""
-    return [_default_entry(), _default_macros_entry()]
+    return [_default_entry(), _default_macros_entry(), _default_studios_entry()]
 
 
 def _write_whitelist(entries: list) -> None:
