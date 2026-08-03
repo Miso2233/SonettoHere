@@ -30,8 +30,10 @@ const props = withDefaults(defineProps<{
   activeIndex: number
   filterText: string
   iconName?: string
+  placement?: 'top' | 'bottom'
 }>(), {
   iconName: 'sparkles',
+  placement: 'top',
 })
 
 const emit = defineEmits<{
@@ -68,10 +70,14 @@ function highlightName(name: string): string {
   return name.replace(re, '<strong>$1</strong>')
 }
 
-const panelStyle = computed(() => ({
-  left: props.position.x + 'px',
-  bottom: `${window.innerHeight - props.position.y + 28}px`,
-}))
+const panelStyle = computed(() => {
+  if (props.placement === 'bottom') {
+    // 表单场景：面板在触发输入框下方展开
+    return { left: props.position.x + 'px', top: props.position.y + 6 + 'px' }
+  }
+  // 聊天场景：面板在光标上方展开
+  return { left: props.position.x + 'px', bottom: `${window.innerHeight - props.position.y + 28}px` }
+})
 </script>
 
 <style scoped>

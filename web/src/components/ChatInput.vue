@@ -227,6 +227,7 @@ import Icon from '@/components/Icon.vue'
 import type { PendingMessage, ProviderConfig, SkillInfo, ToolInfo } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 import { REF_CHIP_CONFIG, filterImageRefs, parseReferences } from '@/utils/references'
+import { filterAndScore } from '@/utils/autocomplete'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -425,31 +426,8 @@ const acSource = computed(() =>
   : []
 )
 
-/** 筛选 + 排序后的候选项 */
-const acFiltered = computed(() => {
-  const src = acSource.value
-  if (!acFilterText.value) return src
-  const lower = acFilterText.value.toLowerCase()
-
-  const scored = src
-    .map(item => {
-      const nameLower = item.name.toLowerCase()
-      if (!nameLower.includes(lower)) return null
-      const prefix = nameLower.startsWith(lower)
-      const count = prefix ? 1 : nameLower.split(lower).length - 1
-      const score = prefix ? 4 : 2
-      return { item, score, count }
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null)
-
-  scored.sort((a, b) => {
-    if (a.score !== b.score) return b.score - a.score
-    if (a.count !== b.count) return b.count - a.count
-    return a.item.name.localeCompare(b.item.name)
-  })
-
-  return scored.map(s => s.item)
-})
+/** 筛选 + 排序后的候选项（复用共享过滤逻辑） */
+const acFiltered = computed(() => filterAndScore(acSource.value, acFilterText.value))
 
 async function loadSkills() {
   try {
