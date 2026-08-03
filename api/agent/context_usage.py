@@ -166,10 +166,12 @@ async def estimate_context_usage_from_session(
     *,
     max_tokens: int,
     model_name: str = "",
+    studio_name: str | None = None,
 ) -> dict:
     """从会话短期记忆拉取消息列表，估算上下文用量。
 
     返回字典，包括现用量、最大用量、占比、模型名称。
+    ``studio_name`` 非空时，token 细分包含对应工作坊段落。
     """
     try:
         counting_messages = await session.get_messages()
@@ -181,5 +183,5 @@ async def estimate_context_usage_from_session(
         system_prompt=system_prompt,
         max_tokens=max_tokens,
         model_name=model_name,
-        system_prompt_parts=get_system_prompt_parts(),
+        system_prompt_parts=get_system_prompt_parts(studio_name=studio_name),
     )

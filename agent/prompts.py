@@ -4,6 +4,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from agent.studio import render_studio_by_name
 from api.memory.user_init import ensure_user_md
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent / "config" / "personas"
@@ -96,14 +97,16 @@ def _scan_macros() -> str:
     return "\n".join(lines)
 
 
-def get_system_prompt_parts() -> list[dict]:
+def get_system_prompt_parts(studio_name: str | None = None) -> list[dict]:
     """返回系统提示词的各组成部分（含标题+内容），用于 token 细分展示。
 
     每个元素::
         {"key": str, "label": str, "content": str}
+
+    ``studio_name`` 非空且对应工作坊段落存在时，末尾追加「工作坊」部分。
     """
     ensure_user_md()
-    return [
+    parts = [
         {"key": "behavior_rules", "label": "系统行为规则",
          "content": "## 行为规则\n" + _read_persona("AGENTS.md")},
         {"key": "personality", "label": "性格人设",
@@ -115,6 +118,11 @@ def get_system_prompt_parts() -> list[dict]:
         {"key": "macros", "label": "宏清单",
          "content": _scan_macros()},
     ]
+    if studio_name:
+        studio_section = render_studio_by_name(studio_name)
+        if studio_section:
+            parts.append({"key": "studio", "label": "工作坊", "content": studio_section})
+    return parts
 
 
 @lru_cache(maxsize=1)

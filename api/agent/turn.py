@@ -11,6 +11,7 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from agent import Sonetto, build_agent, build_system_prompt
+from agent.studio import render_studio_by_name
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from api.events import CallbackSender, TurnSender
@@ -57,12 +58,14 @@ class _TurnContext:
         inputs:        本轮输入消息字典（含 HumanMessage 列表）
         config:        运行配置（thread_id、callbacks、recursion_limit）
         turn_id:       本轮唯一标识（UUID hex），用于关联记忆事件
+        studio_name:   所选工作坊名称（可选），用于 token 细分一致性
     """
     system_prompt: str
     agent: Sonetto
     inputs: dict[str, list[HumanMessage]]
     config: dict[str, Any]
     turn_id: str
+    studio_name: str | None = None
 
 
 @dataclass
@@ -228,6 +231,7 @@ async def _stream_turn(
     system_prompt: str,
     model_name: str | None = None,
     max_tokens: int = 256_000,
+    studio_name: str | None = None,
 ) -> str:
     """流式执行 Agent 图，返回最终回答。
 
@@ -245,6 +249,7 @@ async def _stream_turn(
                 system_prompt,
                 max_tokens=max_tokens,
                 model_name=model_name or "",
+                studio_name=studio_name,
             )
             await sender.context_usage(usage)
 
@@ -309,9 +314,14 @@ async def _build_turn_context(
     ltm: Any | None = None,
     private_mode: bool = False,
     skip_recall: bool = False,
+    studio_name: str | None = None,
 ) -> _TurnContext:
     """构建 Agent 图、输入消息和执行配置。"""
+    # 基础提示词走 @lru_cache；studio 段每次现读后追加（共享前缀保持 prompt caching）
     system_prompt = build_system_prompt()
+    studio_section = render_studio_by_name(studio_name)
+    if studio_section:
+        system_prompt = system_prompt + "\n\n" + studio_section
     cb_sender = CallbackSender.from_context()
     ws_callback = WebSocketCallback(cb_sender)
 
@@ -359,6 +369,8 @@ async def _build_turn_context(
             "system_prompt": system_prompt,
             "model_name": llm_conf.model_name,
             "max_tokens": llm_conf.max_tokens,
+            # 供图内 check_pending 透传给 token 细分（旧图无此键 → None）
+            "studio_name": studio_name,
         },
         "callbacks": [ws_callback],
         "recursion_limit": 120,
@@ -367,6 +379,7 @@ async def _build_turn_context(
     return _TurnContext(
         system_prompt=system_prompt, agent=agent,
         inputs=inputs, config=config, turn_id=turn_id,
+        studio_name=studio_name,
     )
 
 
@@ -388,6 +401,7 @@ async def _execute_agent_turn(
         initial_usage = await estimate_context_usage_from_session(
             session, ctx.system_prompt,
             max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
+            studio_name=ctx.studio_name,
         )
         await sender.context_usage(initial_usage)
 
@@ -395,6 +409,7 @@ async def _execute_agent_turn(
         final_answer = await _stream_turn(
             ctx.agent, ctx.inputs, ctx.config, sender, session,
             ctx.system_prompt, model_name=llm_conf.model_name, max_tokens=llm_conf.max_tokens,
+            studio_name=ctx.studio_name,
         )
 
     except asyncio.CancelledError:
@@ -416,6 +431,7 @@ async def _execute_agent_turn(
         context_usage = await estimate_context_usage_from_session(
             session, ctx.system_prompt,
             max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
+            studio_name=ctx.studio_name,
         )
         await sender.done(ctx.turn_id, context_usage)
 
@@ -473,6 +489,7 @@ async def run_agent_turn(
     model_name: str | None = None,
     image_recognition: bool = False,
     image_refs: list[str] | None = None,
+    studio_name: str | None = None,
     queued_pending: list[PendingMessage] | None = None,
 ):
     """编排一次 Agent 图执行（单次调用）。
@@ -537,6 +554,7 @@ async def run_agent_turn(
             ltm=app_state.ltm,
             private_mode=private_mode,
             skip_recall=skip_recall,
+            studio_name=studio_name,
         )
 
         # 3. 执行（图内完成全部轮次）

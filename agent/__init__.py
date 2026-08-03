@@ -5,10 +5,14 @@
 
 from agent.graph import Sonetto, build_agent
 from agent.prompts import build_system_prompt, get_system_prompt_parts
+from agent.studio import StudioInfo, load_all_studios, render_studio_by_name
 
 __all__ = [
     "build_agent",
     "Sonetto",
     "build_system_prompt",
     "get_system_prompt_parts",
+    "StudioInfo",
+    "load_all_studios",
+    "render_studio_by_name",
 ]

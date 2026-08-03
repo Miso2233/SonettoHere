@@ -71,6 +71,7 @@ def _start_turn_from_ws(
             model_name=last.model_name,
             image_recognition=img_recog,
             image_refs=img_refs,
+            studio_name=last.studio_name,
             queued_pending=queued,
         )
     )
@@ -129,6 +130,7 @@ async def _handle_chat(
         model_name=payload.get("model_name"),
         image_recognition=payload.get("image_recognition", False),
         image_refs=payload.get("image_refs") or [],
+        studio_name=payload.get("studio_name"),
     )
 
     # 子 Agent 会话不参与排队（其流程由 _resume_sub_agent 驱动），保持原丢弃行为

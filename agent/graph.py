@@ -352,6 +352,7 @@ class CheckPendingNode:
                 config["configurable"].get("system_prompt", ""),
                 max_tokens=config["configurable"].get("max_tokens", 256_000),
                 model_name=config["configurable"].get("model_name", ""),
+                studio_name=config["configurable"].get("studio_name"),
             )
             await sender.done(config["configurable"].get("turn_id", ""), usage)
 
