@@ -278,6 +278,11 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
                session.has_active_task())
     session.ws = ws  # 供后台记忆 consumer 推送事件
     interaction.current_ws.set(ws)  # 供 ChatSender/TurnSender/CallbackSender 使用
+    # 会话级上下文：供工具函数通过 current_session_id 查询会话级设置。
+    # 必须在 _resume_sub_agent 之前设置，否则子 Agent 任务（create_task 复制
+    # 当前 context）继承到的 current_session_id 为空，导致 run_python 等工具的
+    # auto_approve 检查失效——这正是「子 Agent 会话自动执行按钮失灵」的根因。
+    interaction.current_session_id.set(session_id)
 
     # ── 推送初始上下文用量 ─────────────────────────────────
     mgr = get_manager()
