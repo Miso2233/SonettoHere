@@ -63,37 +63,39 @@
           >
             <MessageBubble role="assistant" :content="turn.finalAnswer" />
           </div>
-          <!-- 后台记忆更新日志（小字，轮次底部）—— 默认隐藏，hover 才显示 -->
-          <div v-if="turn.memoryEvents?.length" class="memory-tool-log">
-            <div
-              v-for="(me, i) in turn.memoryEvents"
-              :key="i"
-              class="memory-tool-entry"
-              :class="{ 'is-running': me.status === 'running' }"
-            >
-              <span class="memory-tool-icon">
-                <span v-if="me.status === 'running'" class="memory-spinner"></span>
-                <span v-else-if="me.status === 'done'" class="memory-check">&#10003;</span>
-                <span v-else class="memory-cross">&#10007;</span>
+          <!-- 后台记忆更新日志（单行 SVG + 数字汇总）—— 默认隐藏，hover 才显示 -->
+          <div
+            v-if="turn.memoryEvents?.length"
+            class="memory-tool-log"
+            :title="getMemorySummary(turn).detail || undefined"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memory-icon" aria-hidden="true"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4 17.5V8a2.5 2.5 0 0 1 2.54-2.5A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 20 17.5V8a2.5 2.5 0 0 0-2.54-2.5A2.5 2.5 0 0 0 14.5 2Z"/></svg>
+            <!-- 处理中 -->
+            <template v-if="getMemorySummary(turn).state === 'processing'">
+              <span class="memory-spinner"></span>
+              <span class="memory-status">处理中</span>
+            </template>
+            <!-- 有变更（含部分失败）：SVG + 数字 -->
+            <template v-else-if="getMemorySummary(turn).total > 0">
+              <span v-for="op in getMemorySummary(turn).ops" :key="op.key" class="memory-op">
+                <svg v-if="op.key === 'create'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                <svg v-else-if="op.key === 'update'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+                <svg v-else-if="op.key === 'delete'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                <svg v-else-if="op.key === 'merge'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6M18 15c-3 0-6-1-8-4"/></svg>
+                <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                <span class="memory-count">{{ op.count }}</span>
               </span>
-              <!-- memory_review = 未触发任何修改，显示简洁文字 -->
-              <template v-if="me.name === 'memory_review'">
-                <span class="memory-tool-name">记忆检查</span>
-                <span class="memory-tool-status">无需修改</span>
-              </template>
-              <!-- memory_processing = 后台 consumer 正在处理中 -->
-              <template v-else-if="me.name === 'memory_processing'">
-                <span class="memory-tool-name">记忆处理</span>
-                <span class="memory-tool-status">处理中...</span>
-              </template>
-              <template v-else>
-                <span class="memory-tool-name">{{ toolDisplayName(me.name) }}</span>
-                <span v-if="me.status === 'running'" class="memory-tool-status">处理中...</span>
-                <span v-else-if="me.status === 'done' && me.output" class="memory-tool-output" :title="me.output">{{ me.output }}</span>
-                <span v-else-if="me.status === 'error'" class="memory-tool-status is-error">失败</span>
-                <span v-if="me.elapsed !== null" class="memory-tool-elapsed">{{ me.elapsed.toFixed(1) }}s</span>
-              </template>
-            </div>
+              <span v-if="getMemorySummary(turn).hasError" class="memory-status is-error">部分失败</span>
+            </template>
+            <!-- 失败（无任何成功操作） -->
+            <template v-else-if="getMemorySummary(turn).state === 'error'">
+              <span class="memory-status is-error">记忆更新失败</span>
+            </template>
+            <!-- 无变更 -->
+            <template v-else>
+              <span class="memory-check">&#10003;</span>
+              <span class="memory-status">无需修改</span>
+            </template>
           </div>
         </div>
       </template>
@@ -196,6 +198,58 @@ function isNearBottom(): boolean {
 
 function hasAnswerBlock(turn: ChatTurn): boolean {
   return turn.events.some(e => e.kind === 'thinking' && e.becameAnswer)
+}
+
+/** 记忆操作类型 → 汇总计数键（read_memories 已在事件处理器层跳过） */
+type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge' | 'hit'
+
+const OP_KEY_MAP: Record<string, MemoryOpKey> = {
+  create_memory: 'create',
+  update_memory: 'update',
+  delete_memory: 'delete',
+  merge_memories: 'merge',
+  hit_memory: 'hit',
+}
+
+interface MemoryOpCount {
+  key: MemoryOpKey
+  count: number
+}
+
+interface MemorySummary {
+  state: 'processing' | 'error' | 'done' | 'none'
+  total: number
+  hasError: boolean
+  ops: MemoryOpCount[]
+  /** 逐操作明细（hover 原生 tooltip 展示，空串则不显示） */
+  detail: string
+}
+
+/** 汇总单个 turn 的 memoryEvents 为「单行 SVG + 数字」所需结构。 */
+function getMemorySummary(turn: ChatTurn): MemorySummary {
+  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, hit: 0 }
+  let processing = false
+  let hasError = false
+  const detail: string[] = []
+  for (const e of turn.memoryEvents ?? []) {
+    if (e.status === 'running') processing = true
+    if (e.status === 'error') hasError = true
+    if (e.name === 'memory_review' || e.name === 'memory_processing') continue
+    const key = OP_KEY_MAP[e.name]
+    if (e.status === 'done' && key) {
+      counts[key] += 1
+    }
+    detail.push(
+      `${toolDisplayName(e.name)}: ${e.output ?? e.input ?? ''}${e.elapsed !== null ? ` (${e.elapsed.toFixed(1)}s)` : ''}`,
+    )
+  }
+  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge', 'hit']
+  const ops: MemoryOpCount[] = order
+    .filter((k) => counts[k] > 0)
+    .map((k) => ({ key: k, count: counts[k] }))
+  const total = counts.create + counts.update + counts.delete + counts.merge + counts.hit
+  const state: MemorySummary['state'] = processing ? 'processing' : hasError ? 'error' : total > 0 ? 'done' : 'none'
+  return { state, total, hasError, ops, detail: detail.join('\n') }
 }
 
 /** 合并已完成轮次和当前流式轮次到单个列表，用 turn.id 作为 key，
@@ -593,38 +647,53 @@ function closeContextMenu() {
   opacity: 1;
 }
 
-/* ── 后台记忆更新日志 ── */
+/* ── 后台记忆更新日志（单行 SVG + 数字汇总） ── */
 .memory-tool-log {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 2px 0 4px 0;
-  margin-top: 0;
-}
-
-.memory-tool-entry {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+  padding: 2px 0 4px 0;
   font-size: 11px;
   color: var(--text-secondary);
   line-height: 1.4;
   opacity: 0.7;
   transition: opacity 0.15s;
+  cursor: default;
 }
 
-.memory-tool-entry:hover {
+.memory-tool-log:hover {
   opacity: 1;
 }
 
-.memory-tool-icon {
+.memory-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 12px;
-  height: 12px;
+  color: var(--text-tertiary);
   flex-shrink: 0;
-  font-size: 9px;
+}
+
+.memory-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+}
+
+.memory-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.memory-status {
+  font-style: italic;
+  color: var(--text-tertiary);
+}
+
+.memory-status.is-error {
+  color: #b91c1c;
 }
 
 .memory-spinner {
@@ -642,40 +711,9 @@ function closeContextMenu() {
 }
 
 .memory-check {
-  color: #22c55e;
-}
-
-.memory-cross {
-  color: #b91c1c;
-}
-
-.memory-tool-name {
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.memory-tool-status {
-  font-style: italic;
-  color: var(--text-tertiary);
-}
-
-.memory-tool-status.is-error {
-  color: #b91c1c;
-}
-
-.memory-tool-output {
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-tertiary);
-  cursor: default;
-}
-
-.memory-tool-elapsed {
-  font-variant-numeric: tabular-nums;
-  opacity: 0.6;
+  display: inline-flex;
   font-size: 10px;
+  color: #22c55e;
 }
 
 /* ── 语义记忆搜索指示器 ── */
