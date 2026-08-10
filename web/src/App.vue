@@ -15,7 +15,7 @@
           <Icon name="memory" :size="18" /> <span class="nav-label">记忆&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MEMORY</span>
         </router-link>
         <router-link to="/studios" class="nav-item">
-          <Icon name="tool" :size="18" /> <span class="nav-label">工作坊&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;STUDIO</span>
+          <Icon name="workshop" :size="18" /> <span class="nav-label">工作坊&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;STUDIO</span>
         </router-link>
         <router-link to="/playground" class="nav-item pg-nav">动态 NEWS</router-link>
       </nav>
