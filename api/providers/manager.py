@@ -126,8 +126,9 @@ class ProviderManager:
             thinking_enabled: 是否对默认 LLM 注入 ``extra_body`` 开启思考模式。
                 默认 ``False``（关闭），规避 DeepSeek 思考模式下工具调用必须完整
                 回传 reasoning_content（思维链）否则 400 的问题；主对话轮次等需要
-                思考模式的场景传 ``True`` 保持开启。无论厂商一律注入——OpenAI
-                兼容服务端对未知的顶层 extra_body 字段通常忽略。
+                思考模式的场景传 ``True`` 保持开启。仅对 OpenAI 兼容提供商注入——
+                其他厂商（如 Anthropic）不走 ``extra_body``，且 v1 暂不启用其
+                思考模式（ChatAnthropic 默认不思考）。
             temperature: LLM 采样温度，默认 0.7。
             streaming: 是否流式，默认 True。
 
@@ -141,10 +142,11 @@ class ProviderManager:
         key = (thinking_enabled, temperature, streaming)
         if key in self._default_llm_cache:
             return self._default_llm_cache[key]
-        thinking = {"type": "enabled" if thinking_enabled else "disabled"}
-        extra = dict(kwargs.get("extra_body") or {})
-        extra["thinking"] = thinking
-        kwargs["extra_body"] = extra
+        if provider.config.provider_type != "anthropic":
+            thinking = {"type": "enabled" if thinking_enabled else "disabled"}
+            extra = dict(kwargs.get("extra_body") or {})
+            extra["thinking"] = thinking
+            kwargs["extra_body"] = extra
         llm = provider.create_llm(
             provider.default_model,
             temperature=temperature,
@@ -189,9 +191,9 @@ class ProviderManager:
 
     @staticmethod
     def _build_provider(config: ProviderConfig) -> Provider:
-        from api.providers.openai_provider import OpenAIProvider
+        from api.providers import build_provider
 
-        return OpenAIProvider(config)
+        return build_provider(config)
 
 
 # ── 模块级单例 ──────────────────────────────────────────────

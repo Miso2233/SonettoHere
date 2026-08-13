@@ -14,7 +14,7 @@ class ProviderConfig:
     """单个 LLM 提供商的配置，对应 providers.yaml 中的一项。"""
 
     id: str
-    provider_type: str  # 如 "openai"、"openrouter"、"deepseek" 等 OpenAI 兼容 API
+    provider_type: str  # 如 "openai"、"openrouter"、"deepseek" 等 OpenAI 兼容 API，或 "anthropic"
     label: str
     api_key: str
     base_url: str
@@ -76,3 +76,17 @@ class Provider(ABC):
     async def check_health(self) -> HealthStatus:
         """验证提供商 API 连接是否正常。"""
         ...
+
+
+def build_provider(config: ProviderConfig) -> Provider:
+    """按 provider_type 分发构建 Provider 实例。
+
+    anthropic → AnthropicProvider；其余（openai/openrouter 等 OpenAI 兼容）→ OpenAIProvider。
+    """
+    if config.provider_type == "anthropic":
+        from api.providers.anthropic_provider import AnthropicProvider
+
+        return AnthropicProvider(config)
+    from api.providers.openai_provider import OpenAIProvider
+
+    return OpenAIProvider(config)

@@ -61,9 +61,9 @@ async def detect_vision_capabilities(config: ProviderConfig) -> dict[str, bool]:
     if not config.models:
         return {}
 
-    from api.providers.openai_provider import OpenAIProvider
+    from api.providers import build_provider
 
-    provider = OpenAIProvider(config)
+    provider = build_provider(config)
 
     tasks = [
         test_model_vision(provider, model, IMAGE_PATH) for model in config.models
