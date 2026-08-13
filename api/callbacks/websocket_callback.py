@@ -9,7 +9,53 @@ from langchain_core.messages import ToolMessage
 from langchain_core.outputs import LLMResult
 
 from api.events import CallbackSender
+from api.utils.logger import get_logger
 from .tool_extractors import _dispatch
+
+_log = get_logger("websocket_callback")
+
+
+def _extract_block_token(token: Any) -> tuple[str, str]:
+    """从块式 token 中提取 (text, thinking) 纯文本。
+
+    部分 Anthropic 适配模型（如 Kimi K3）把流式 content blocks 原样透传为
+    ``on_llm_new_token`` 的 token：可能是 JSON 字符串（``[{"type":"thinking",...}]``）
+    或 Python list。这里统一解析并拆出 text 块与 thinking 块的正文。
+
+    Returns:
+        ``(text, thinking)``。两者都为空表示 token 不是块式结构（普通文本 token），
+        调用方应走原有逻辑。
+    """
+    blocks: list | None = None
+    if isinstance(token, list):
+        blocks = token
+    elif isinstance(token, str) and token.lstrip().startswith("["):
+        try:
+            parsed = json.loads(token)
+        except (json.JSONDecodeError, TypeError):
+            return "", ""
+        if isinstance(parsed, list):
+            blocks = parsed
+        elif isinstance(parsed, str):
+            # JSON 字符串字面量（如 `"hello"`）当作普通文本
+            return parsed, ""
+        else:
+            return "", ""
+
+    if blocks is None:
+        return "", ""
+
+    text_parts: list[str] = []
+    thinking_parts: list[str] = []
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        btype = block.get("type")
+        if btype == "text" and isinstance(block.get("text"), str):
+            text_parts.append(block["text"])
+        elif btype == "thinking" and isinstance(block.get("thinking"), str):
+            thinking_parts.append(block["thinking"])
+    return "".join(text_parts), "".join(thinking_parts)
 
 
 def _extract_content(output: Any) -> str:
@@ -72,8 +118,21 @@ class WebSocketCallback(BaseCallbackHandler):
         await self._sender.thinking_start(time.time())
 
     async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        # 思考模型流式期间 content 为空（思考文字在 reasoning_content，LangChain 默认丢弃），
-        # 以空 token chunk 计数作为思考进度推给前端；不保存、不展示思考明文。
+        # 归一化块式 token：部分 Anthropic 适配模型（如 Kimi K3）把 content blocks
+        # （thinking/text）原样透传为 token（JSON 字符串或 list）。这里解析并提取：
+        #   - text 块    → 正常 token 事件（流式正文）
+        #   - thinking 块 → thinking_token 计数（进度，不展示思考明文，与既有策略一致）
+        # 普通字符串 token 原样转发。
+        text, thinking = _extract_block_token(token)
+        if thinking:
+            self._thinking_count += 1
+            await self._sender.thinking_token(self._thinking_count)
+        if text:
+            await self._sender.token(text)
+            return
+        if thinking:
+            return
+        # 非块式 token：维持原有逻辑（空 chunk 计思考进度，非空发正文）
         if not token:
             self._thinking_count += 1
             await self._sender.thinking_token(self._thinking_count)
