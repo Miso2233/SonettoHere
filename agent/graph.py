@@ -32,6 +32,7 @@ from typing import Annotated, Any, Literal, TypedDict
 
 from api.agent import interaction
 from api.memory import LongTermMemory
+from api.session.const_store import flatten_content
 
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -341,7 +342,7 @@ class CheckPendingNode:
         )
         if last_ai is not None:
             if sender:
-                await sender.answer(str(last_ai.content))
+                await sender.answer(flatten_content(last_ai.content))
             if getattr(last_ai, "content", None):
                 session.increment_messages()  # user+assistant 一对
 

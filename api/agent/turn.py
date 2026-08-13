@@ -18,7 +18,7 @@ from api.events import CallbackSender, TurnSender
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager, ProviderManager
-from api.session.const_store import save_const_session, serialize_messages
+from api.session.const_store import flatten_content, save_const_session, serialize_messages
 from api.session.manager import PendingMessage, SessionState
 from api.memory.short_term import get_checkpointer
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -93,12 +93,10 @@ def _get_final_answer(event: dict[str, Any]) -> str:
     if not messages:
         return ""
     raw_final_answer = messages[-1]  # 最后一条message为Final Answer
-    final_answer = (
-        raw_final_answer.content
-        if hasattr(raw_final_answer, "content")
-        else str(raw_final_answer)
-    )
-    return final_answer
+    if hasattr(raw_final_answer, "content"):
+        # Anthropic 的 content 是 blocks list，需展平为纯文本
+        return flatten_content(raw_final_answer.content)
+    return str(raw_final_answer)
 
 
 # ── 排队消息合并 ──────────────────────────────────────────
@@ -259,7 +257,11 @@ async def _stream_turn(
             messages = await session.get_messages()
             if messages:
                 last = messages[-1]
-                candidate = last.content if hasattr(last, "content") else str(last)
+                candidate = (
+                    flatten_content(last.content)
+                    if hasattr(last, "content")
+                    else str(last)
+                )
                 if candidate:
                     final_answer = candidate
         except Exception:
