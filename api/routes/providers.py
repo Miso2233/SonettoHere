@@ -3,10 +3,9 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
-from api.providers import ProviderConfig
+from api.providers import Provider, ProviderConfig, build_provider
 from api.providers.enrich import enrich_provider_config
 from api.providers.manager import ProviderManager, get_manager
-from api.providers.openai_provider import OpenAIProvider
 
 router = APIRouter()
 
@@ -158,9 +157,9 @@ async def delete_provider(provider_id: str, request: Request) -> dict:
 # ── 连接测试与模型发现 ─────────────────────────────────
 
 
-def _build_temp_provider(body: TestConnectionBody) -> OpenAIProvider:
+def _build_temp_provider(body: TestConnectionBody) -> Provider:
     """根据请求体凭据临时创建 provider 用于测试。"""
-    return OpenAIProvider(
+    return build_provider(
         ProviderConfig(
             id="_test_",
             provider_type=body.provider_type,
@@ -202,19 +201,17 @@ async def test_existing_provider(provider_id: str, request: Request) -> dict:
 @router.post("/providers/discover-models")
 async def discover_models(body: TestConnectionBody) -> dict:
     """根据凭据拉取模型列表（前端向导步骤 3）。"""
-    from openai import AsyncOpenAI
+    from api.providers.model_context_windows import lookup_context_window
 
     try:
-        client = AsyncOpenAI(api_key=body.api_key, base_url=body.base_url)
-        models = await client.models.list()
-        model_names = sorted(m.id for m in models.data)
+        provider = _build_temp_provider(body)
+        model_names = await provider.list_models()
 
-        from api.providers.model_context_windows import lookup_context_window
         model_context_windows: dict[str, int] = {}
-        for m in models.data:
-            ctx = lookup_context_window(m.id)
+        for name in model_names:
+            ctx = lookup_context_window(name)
             if ctx:
-                model_context_windows[m.id] = ctx
+                model_context_windows[name] = ctx
 
         return {"models": model_names, "model_context_windows": model_context_windows}
     except Exception as exc:
@@ -227,7 +224,6 @@ async def discover_models_for_existing(provider_id: str, request: Request) -> di
 
     重新拉取后，如果原来的 default_model 已不存在，自动置 None 并返回警告。
     """
-    from openai import AsyncOpenAI
     from api.providers.model_context_windows import lookup_context_window
 
     mgr = _require_manager()
@@ -236,16 +232,15 @@ async def discover_models_for_existing(provider_id: str, request: Request) -> di
         raise HTTPException(status_code=404, detail="Provider not found")
 
     try:
-        client = AsyncOpenAI(api_key=config.api_key, base_url=config.base_url)
-        models = await client.models.list()
-        model_names = sorted(m.id for m in models.data)
+        provider = build_provider(config)
+        model_names = await provider.list_models()
 
         # 从 OpenRouter 查找模型上下文窗口
         model_context_windows: dict[str, int] = {}
-        for m in models.data:
-            ctx = lookup_context_window(m.id)
+        for name in model_names:
+            ctx = lookup_context_window(name)
             if ctx:
-                model_context_windows[m.id] = ctx
+                model_context_windows[name] = ctx
 
         # 检查 default_model 是否还在新列表中（仅提示，不做保存）
         warning = None

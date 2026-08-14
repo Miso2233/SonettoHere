@@ -20,7 +20,7 @@
             <div class="card-title-row">
               <span class="card-label">{{ p.label }}</span>
               <span v-if="p.is_default_provider" class="default-provider-badge">默认</span>
-              <span class="card-type-badge">OPENAI</span>
+              <span class="card-type-badge">{{ (p.provider_type || 'openai').toUpperCase() }}</span>
             </div>
             <button
               class="toggle-btn"
@@ -72,7 +72,7 @@
             {{ preset.label }}
           </option>
         </select>
-        <div class="form-hint">目前仅支持 OpenAI 兼容适配器</div>
+        <div class="form-hint">支持 OpenAI 兼容与 Anthropic 适配器</div>
       </div>
 
       <div class="form-section">
@@ -160,6 +160,7 @@ import Icon from '@/components/Icon.vue'
 // ── 预设提供商列表 ──
 const presets = [
   { id: 'openai', label: 'OpenAI Compatible', base_url: '' },
+  { id: 'anthropic', label: 'Anthropic', base_url: 'https://api.anthropic.com' },
 ]
 
 // ── 模式 ──
@@ -214,6 +215,7 @@ async function handleTest() {
     const res = await api.testConnection({
       api_key: form.value.api_key,
       base_url: form.value.base_url,
+      provider_type: form.value.provider_type,
     })
     if (res.status === 'ok') {
       testOk.value = true
@@ -265,6 +267,7 @@ async function handleDiscover() {
       const res = await api.discoverModels({
         api_key: form.value.api_key,
         base_url: form.value.base_url,
+        provider_type: form.value.provider_type,
       })
       discoveredModels.value = res.models
       selectedModels.value = res.models.filter(m => prevSelected.includes(m))

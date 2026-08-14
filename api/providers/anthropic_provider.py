@@ -1,4 +1,4 @@
-"""OpenAI 兼容 API 的通用 Provider 实现。"""
+"""Anthropic 官方 API（含兼容代理）的 Provider 实现。"""
 
 from typing import Any
 
@@ -6,27 +6,29 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from api.providers import HealthStatus, Provider
 
+# Anthropic SDK 默认端点（路径如 /v1/messages、/v1/models 由 SDK 追加）。
+# 不能省略 base_url 依赖 SDK 默认值——ChatAnthropic 与 AsyncAnthropic 都会读取
+# ANTHROPIC_BASE_URL 环境变量（本机即被设为 DeepSeek 的 Anthropic 兼容代理），
+# 必须显式传官方端点才能保证"留空 = 官方 API"。
+DEFAULT_BASE_URL = "https://api.anthropic.com"
 
-class OpenAIProvider(Provider):
-    """适配所有 OpenAI 兼容 API 的提供商（DeepSeek / Qwen / Kimi 等）。"""
+
+class AnthropicProvider(Provider):
+    """适配 Anthropic 官方 API 的提供商（原生 Messages API，非 OpenAI 兼容协议）。
+
+    ``apply_thinking`` 沿用基类默认（不注入任何参数）：v1 暂不启用其思考模式，
+    ChatAnthropic 默认不思考。
+    """
 
     def create_llm(self, model: str, **kwargs: Any) -> BaseChatModel:
-        from langchain_openai import ChatOpenAI
+        from langchain_anthropic import ChatAnthropic
 
-        return ChatOpenAI(
+        return ChatAnthropic(
             model=model,
             api_key=self.config.api_key,
-            base_url=self.config.base_url,
+            base_url=self.config.base_url or DEFAULT_BASE_URL,
             **kwargs,
         )
-
-    def apply_thinking(self, kwargs: dict, enabled: bool) -> dict:
-        """OpenAI 兼容提供商通过 ``extra_body.thinking`` 开启/关闭思考模式。"""
-        thinking = {"type": "enabled" if enabled else "disabled"}
-        extra = dict(kwargs.get("extra_body") or {})
-        extra["thinking"] = thinking
-        kwargs["extra_body"] = extra
-        return kwargs
 
     async def check_health(self) -> HealthStatus:
         import time
@@ -51,9 +53,9 @@ class OpenAIProvider(Provider):
         return sorted(m.id for m in models.data)
 
     def _async_client(self) -> Any:
-        from openai import AsyncOpenAI
+        from anthropic import AsyncAnthropic
 
-        return AsyncOpenAI(
+        return AsyncAnthropic(
             api_key=self.config.api_key,
-            base_url=self.config.base_url,
+            base_url=self.config.base_url or DEFAULT_BASE_URL,
         )

@@ -8,24 +8,93 @@ import type { ServerEvent, ChatTurn, TokenEvent, ThinkingTokenEvent, AnswerEvent
 /** 事件路由处理器签名（turn 已由调用方守卫保证存在）。 */
 type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
 
+/**
+ * 从块式 token 中提取纯文本（与后端 websocket_callback._extract_block_token 对应）。
+ *
+ * 部分 Anthropic 适配模型（如 Kimi K3）把流式 content blocks 透传为 token：
+ * JSON 字符串（如 `[{"type":"thinking","thinking":"用","index":0}]`）或数组。
+ * 这里解析并提取 text 块正文（`type:"text"`）与 thinking 块正文（`type:"thinking"`）。
+ *
+ * @returns `{ text, thinking }` — 两者都为空表示 token 不是块式结构。
+ */
+function extractBlockToken(token: unknown): { text: string; thinking: string } {
+  let blocks: unknown[] | null = null
+  if (Array.isArray(token)) {
+    blocks = token
+  } else if (typeof token === 'string' && token.trimStart().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(token) as unknown
+      if (Array.isArray(parsed)) {
+        blocks = parsed
+      } else if (typeof parsed === 'string') {
+        // JSON 字符串字面量（如 `"hello"`）当作普通文本
+        return { text: parsed, thinking: '' }
+      } else {
+        return { text: '', thinking: '' }
+      }
+    } catch {
+      return { text: '', thinking: '' }
+    }
+  }
+  if (!blocks) return { text: '', thinking: '' }
+
+  let text = ''
+  let thinking = ''
+  for (const block of blocks) {
+    if (!block || typeof block !== 'object') continue
+    const b = block as { type?: unknown; text?: unknown; thinking?: unknown }
+    if (b.type === 'text' && typeof b.text === 'string') {
+      text += b.text
+    } else if (b.type === 'thinking' && typeof b.thinking === 'string') {
+      thinking += b.thinking
+    }
+  }
+  return { text, thinking }
+}
+
 /** thinking_start：压入思考块。 */
 function handleThinkingStart(ch: SessionChannel, _sid: string, turn: ChatTurn, _event: ServerEvent): void {
+  // 调试：确认流式思考块何时创建（排查是否有 token 在 thinking 块之前到达）
+  console.log('[useChat:thinking_start] 创建思考块, turn.events.length=', turn.events.length)
   turn.events.push({ kind: 'thinking', thinkingCount: 0, tokens: '', done: false, becameAnswer: false })
 }
 
 /** thinking_token：更新最后一个思考块的思考进度计数。 */
 function handleThinkingToken(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
   const lastThink = findLastThinking(turn.events)
+  const count = (event as ThinkingTokenEvent).payload.count
+  // 调试：确认 thinking 计数到达（用于排查空 token chunk 计数是否正常触发）
+  if (typeof count !== 'number' || count % 10 === 0) {
+    console.log('[useChat:thinking_token] count=', count, 'typeof=', typeof count, 'hasThinkingBlock=', !!lastThink)
+  }
   if (lastThink) {
-    lastThink.thinkingCount = (event as ThinkingTokenEvent).payload.count
+    lastThink.thinkingCount = count
   }
 }
 
 /** token：追加正文到最后一个思考块。 */
 function handleToken(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const rawToken = (event as TokenEvent).payload.token
   const lastThink = findLastThinking(turn.events)
-  if (lastThink) {
-    lastThink.tokens += (event as TokenEvent).payload.token
+  // 调试：定位 [object Object] 来源——payload.token 必须是字符串。
+  // 若 typeof 不是 string，说明后端把结构化对象（如 content blocks 数组）当作 token 推送。
+  if (typeof rawToken !== 'string' || rawToken === '[object Object]') {
+    let serialized: string
+    try {
+      serialized = JSON.stringify(rawToken)
+    } catch {
+      serialized = `[unserializable:${typeof rawToken}]`
+    }
+    console.warn('[useChat:token] ⚠️ token 非字符串！typeof=', typeof rawToken, 'value=', serialized?.slice(0, 300), 'hasThinkingBlock=', !!lastThink)
+  }
+  // 归一化块式 token（Kimi K3 等 Anthropic 适配模型）：提取 text 块正文，
+  // thinking 块正文不展示（与后端"不展示思考明文"策略一致）。
+  const { text: blockText } = extractBlockToken(rawToken)
+  const token = blockText !== ''
+    ? blockText
+    : (typeof rawToken === 'string' ? rawToken : '')
+  if (lastThink && token) {
+    lastThink.tokens += token
   }
 }
 
@@ -95,11 +164,24 @@ function handleToolError(ch: SessionChannel, _sid: string, turn: ChatTurn, event
 
 /** answer：标记思考块为 becameAnswer，设置 finalAnswer。 */
 function handleAnswer(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const content = (event as AnswerEvent).payload.content
+  // 调试：answer 必须是字符串，否则 MessageBubble 会渲染 [object Object]
+  if (typeof content !== 'string') {
+    let serialized: string
+    try {
+      serialized = JSON.stringify(content)
+    } catch {
+      serialized = `[unserializable:${typeof content}]`
+    }
+    console.warn('[useChat:answer] ⚠️ content 非字符串！typeof=', typeof content, 'value=', serialized?.slice(0, 500))
+  }
   const lastThink = findLastThinking(turn.events)
   if (lastThink) {
     lastThink.becameAnswer = true
   }
-  turn.finalAnswer = (event as AnswerEvent).payload.content
+  turn.finalAnswer = typeof content === 'string' ? content : (() => {
+    try { return JSON.stringify(content) } catch { return String(content) }
+  })()
 }
 
 /** done：finalize 当前轮次，持久化，刷新会话列表。 */

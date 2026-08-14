@@ -228,7 +228,20 @@ export const useChatStore = defineStore('chat', () => {
               becameAnswer: false,
             } as ThinkingBlock)
           }
-          finalAnswer = m.content
+          // 调试 + 防御：后端必须返回字符串 content，若为对象则记录并字符串化，
+          // 避免渲染为 [object Object]
+          if (typeof m.content !== 'string') {
+            let serialized: string
+            try {
+              serialized = JSON.stringify(m.content)
+            } catch {
+              serialized = `[unserializable:${typeof m.content}]`
+            }
+            console.warn('[messagesToTurns] ⚠️ ai content 非字符串（role=%s）typeof=%s value=%s', m.role, typeof m.content, serialized?.slice(0, 300))
+          }
+          finalAnswer = typeof m.content === 'string' ? m.content : (() => {
+            try { return JSON.stringify(m.content) } catch { return String(m.content) }
+          })()
         }
         i++
       }
@@ -327,6 +340,19 @@ export const useChatStore = defineStore('chat', () => {
       try {
         const msg: ServerEvent = JSON.parse(event.data)
         console.debug('[chatStore] WS onmessage: sid=%s, type=%s', sid, msg.type)
+        // 调试：转储流式事件原始 payload，定位 [object Object] 来源。
+        // 仅打印流式相关事件，避免刷屏。
+        if (['token', 'thinking_token', 'thinking_start', 'thinking_end', 'answer', 'done', 'tool_start', 'tool_end'].includes(msg.type)) {
+          const payload = (msg as { payload: unknown }).payload
+          let rendered: string
+          try {
+            rendered = typeof payload === 'string' ? payload : JSON.stringify(payload)
+          } catch {
+            rendered = `[unserializable:${typeof payload}]`
+          }
+          // eslint-disable-next-line no-console
+          console.log(`[ws-stream] ${msg.type} → typeof=${typeof payload}`, rendered?.slice(0, 500))
+        }
         handleEventForChannel(sid, msg)
       } catch (e) {
         console.error('[chatStore] WS message error:', e)

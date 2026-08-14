@@ -69,7 +69,7 @@ async def get_messages(session_id: str, request: Request) -> dict:
         msgs = []
     return {
         "session_id": session_id,
-        "messages": [{"role": m.type, "content": m.content} for m in msgs],
+        "messages": [{"role": m.type, "content": flatten_content(m.content)} for m in msgs],
     }
 
 
