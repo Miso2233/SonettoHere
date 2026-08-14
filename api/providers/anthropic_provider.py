@@ -14,7 +14,11 @@ DEFAULT_BASE_URL = "https://api.anthropic.com"
 
 
 class AnthropicProvider(Provider):
-    """适配 Anthropic 官方 API 的提供商（原生 Messages API，非 OpenAI 兼容协议）。"""
+    """适配 Anthropic 官方 API 的提供商（原生 Messages API，非 OpenAI 兼容协议）。
+
+    ``apply_thinking`` 沿用基类默认（不注入任何参数）：v1 暂不启用其思考模式，
+    ChatAnthropic 默认不思考。
+    """
 
     def create_llm(self, model: str, **kwargs: Any) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
@@ -29,14 +33,9 @@ class AnthropicProvider(Provider):
     async def check_health(self) -> HealthStatus:
         import time
 
-        from anthropic import AsyncAnthropic
-
         start = time.monotonic()
         try:
-            client = AsyncAnthropic(
-                api_key=self.config.api_key,
-                base_url=self.config.base_url or DEFAULT_BASE_URL,
-            )
+            client = self._async_client()
             await client.models.list()
             elapsed = (time.monotonic() - start) * 1000
             return HealthStatus(status="ok", latency_ms=round(elapsed, 1))
@@ -47,3 +46,16 @@ class AnthropicProvider(Provider):
                 latency_ms=round(elapsed, 1),
                 detail=str(exc),
             )
+
+    async def list_models(self) -> list[str]:
+        client = self._async_client()
+        models = await client.models.list()
+        return sorted(m.id for m in models.data)
+
+    def _async_client(self) -> Any:
+        from anthropic import AsyncAnthropic
+
+        return AsyncAnthropic(
+            api_key=self.config.api_key,
+            base_url=self.config.base_url or DEFAULT_BASE_URL,
+        )

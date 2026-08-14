@@ -1,7 +1,5 @@
 """REST API — 提供商 CRUD 与连接测试。"""
 
-from typing import Any
-
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
@@ -42,22 +40,6 @@ class TestConnectionBody(BaseModel):
 
 
 # ── HELPERS ─────────────────────────────────────────────
-
-
-def _build_models_client(provider_type: str, api_key: str, base_url: str) -> Any:
-    """按 provider_type 构建可调 ``models.list()`` 的异步客户端。
-
-    anthropic → ``anthropic.AsyncAnthropic``；其余 → ``openai.AsyncOpenAI``。
-    """
-    if provider_type == "anthropic":
-        from anthropic import AsyncAnthropic
-
-        from api.providers.anthropic_provider import DEFAULT_BASE_URL
-
-        return AsyncAnthropic(api_key=api_key, base_url=base_url or DEFAULT_BASE_URL)
-    from openai import AsyncOpenAI
-
-    return AsyncOpenAI(api_key=api_key, base_url=base_url)
 
 
 def _require_manager() -> ProviderManager:
@@ -222,17 +204,14 @@ async def discover_models(body: TestConnectionBody) -> dict:
     from api.providers.model_context_windows import lookup_context_window
 
     try:
-        client = _build_models_client(
-            body.provider_type, body.api_key, body.base_url
-        )
-        models = await client.models.list()
-        model_names = sorted(m.id for m in models.data)
+        provider = _build_temp_provider(body)
+        model_names = await provider.list_models()
 
         model_context_windows: dict[str, int] = {}
-        for m in models.data:
-            ctx = lookup_context_window(m.id)
+        for name in model_names:
+            ctx = lookup_context_window(name)
             if ctx:
-                model_context_windows[m.id] = ctx
+                model_context_windows[name] = ctx
 
         return {"models": model_names, "model_context_windows": model_context_windows}
     except Exception as exc:
@@ -253,18 +232,15 @@ async def discover_models_for_existing(provider_id: str, request: Request) -> di
         raise HTTPException(status_code=404, detail="Provider not found")
 
     try:
-        client = _build_models_client(
-            config.provider_type, config.api_key, config.base_url
-        )
-        models = await client.models.list()
-        model_names = sorted(m.id for m in models.data)
+        provider = build_provider(config)
+        model_names = await provider.list_models()
 
         # 从 OpenRouter 查找模型上下文窗口
         model_context_windows: dict[str, int] = {}
-        for m in models.data:
-            ctx = lookup_context_window(m.id)
+        for name in model_names:
+            ctx = lookup_context_window(name)
             if ctx:
-                model_context_windows[m.id] = ctx
+                model_context_windows[name] = ctx
 
         # 检查 default_model 是否还在新列表中（仅提示，不做保存）
         warning = None

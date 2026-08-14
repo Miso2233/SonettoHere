@@ -77,6 +77,21 @@ class Provider(ABC):
         """验证提供商 API 连接是否正常。"""
         ...
 
+    @abstractmethod
+    async def list_models(self) -> list[str]:
+        """拉取该提供商可用模型的 ID 列表（配置向导与模型重新发现用）。"""
+        ...
+
+    # ── 能力（子类按需覆盖）──────────────────────────────
+
+    def apply_thinking(self, kwargs: dict, enabled: bool) -> dict:
+        """按需注入思考模式参数，返回注入后的 kwargs。
+
+        支持思考模式的提供商覆盖此方法；默认实现不注入任何参数
+        （如 Anthropic 原生 API v1 暂不启用其思考模式，ChatAnthropic 默认不思考）。
+        """
+        return kwargs
+
 
 def build_provider(config: ProviderConfig) -> Provider:
     """按 provider_type 分发构建 Provider 实例。

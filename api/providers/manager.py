@@ -123,12 +123,11 @@ class ProviderManager:
         """获取默认 provider 的 LLM（惰性缓存）。无可用 provider 时返回 None。
 
         Args:
-            thinking_enabled: 是否对默认 LLM 注入 ``extra_body`` 开启思考模式。
-                默认 ``False``（关闭），规避 DeepSeek 思考模式下工具调用必须完整
-                回传 reasoning_content（思维链）否则 400 的问题；主对话轮次等需要
-                思考模式的场景传 ``True`` 保持开启。仅对 OpenAI 兼容提供商注入——
-                其他厂商（如 Anthropic）不走 ``extra_body``，且 v1 暂不启用其
-                思考模式（ChatAnthropic 默认不思考）。
+            thinking_enabled: 是否对默认 LLM 开启思考模式。通过 ``Provider.apply_thinking``
+                注入厂商对应的思考参数：OpenAI 兼容提供商走 ``extra_body.thinking``，
+                不支持的提供商（如 Anthropic v1）不注入任何参数。默认 ``False``（关闭），
+                规避 DeepSeek 思考模式下工具调用必须完整回传 reasoning_content（思维链）
+                否则 400 的问题；主对话轮次等需要思考模式的场景传 ``True`` 保持开启。
             temperature: LLM 采样温度，默认 0.7。
             streaming: 是否流式，默认 True。
 
@@ -142,11 +141,7 @@ class ProviderManager:
         key = (thinking_enabled, temperature, streaming)
         if key in self._default_llm_cache:
             return self._default_llm_cache[key]
-        if provider.config.provider_type != "anthropic":
-            thinking = {"type": "enabled" if thinking_enabled else "disabled"}
-            extra = dict(kwargs.get("extra_body") or {})
-            extra["thinking"] = thinking
-            kwargs["extra_body"] = extra
+        kwargs = provider.apply_thinking(kwargs, thinking_enabled)
         llm = provider.create_llm(
             provider.default_model,
             temperature=temperature,
