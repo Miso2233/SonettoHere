@@ -5,7 +5,6 @@ from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 
-from api.events import MemorySender
 from api.utils.logger import get_logger
 
 _log = get_logger("ltm-cb")
@@ -20,6 +19,10 @@ class MemoryToolCallback(BaseCallbackHandler):
         turn_id: str,
     ) -> None:
         super().__init__()
+        # 延迟导入：api.events 包初始化会经 session.manager → api.memory 回到本模块，
+        # 顶层导入 MemorySender 会触发 api.events.memory → api.events.transport 的循环。
+        from api.events.memory import MemorySender  # noqa: PLC0415
+
         self._sender = MemorySender.from_session_id(session_id)
         self._turn_id = turn_id
         self._tool_start_time: dict[str, float] = {}

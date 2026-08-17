@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Self
 from fastapi import WebSocket, WebSocketDisconnect
 
 from api.agent import interaction
-from api.session.manager import session_manager
 
 if TYPE_CHECKING:
     from api.session.manager import SessionState
@@ -63,6 +62,10 @@ class WsTransport:
         记忆层等无法直接拿到 ws 和 SessionState 的场景使用此方式。
         会话不存在或 ws 已断开时返回 None。
         """
+        # 延迟导入：api.session.manager 会经 api.memory 拉入整条依赖链，
+        # 顶层导入会与 api.events 包初始化形成循环（events → session → memory → events）。
+        from api.session.manager import session_manager  # noqa: PLC0415
+
         session = session_manager.get(session_id)
         if session is None or session.ws is None:
             return None

@@ -37,6 +37,12 @@ export interface ToolErrorEvent {
   payload: { call_id: string; tool_name: string; error: string }
 }
 
+/** tool_stream — 工具执行过程中的实时输出片段（如 run_python 的逐条 print） */
+export interface ToolStreamEvent {
+  type: 'tool_stream'
+  payload: { call_id: string; tool_name: string; chunk: string }
+}
+
 export interface AnswerEvent {
   type: 'answer'
   payload: { content: string }
@@ -204,6 +210,7 @@ export type ServerEvent =
   | ToolStartEvent
   | ToolEndEvent
   | ToolErrorEvent
+  | ToolStreamEvent
   | AnswerEvent
   | DoneEvent
   | ErrorEvent
@@ -328,6 +335,8 @@ export interface ToolCall {
   status: 'running' | 'done' | 'error'
   callId?: string
   toolData?: Record<string, unknown>
+  /** tool_stream 实时输出缓冲（仅 running 期间有意义，tool_end 后由 output/toolData 接管） */
+  stream?: string
   /** ask_user 交互工具的额外数据 */
   interaction?: AskUserInteraction
 }

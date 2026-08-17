@@ -3,7 +3,7 @@ import type { SessionChannel } from '@/stores/chatStore'
 import { findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction } from '@/stores/chatStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useSessionStore } from '@/stores/sessionStore'
-import type { ServerEvent, ChatTurn, TokenEvent, ThinkingTokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent } from '@/types'
+import type { ServerEvent, ChatTurn, TokenEvent, ThinkingTokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent, ToolStreamEvent } from '@/types'
 
 /** 事件路由处理器签名（turn 已由调用方守卫保证存在）。 */
 type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
@@ -162,6 +162,18 @@ function handleToolError(ch: SessionChannel, _sid: string, turn: ChatTurn, event
   }
 }
 
+/** tool_stream：把实时输出片段追加到匹配工具调用的 stream 缓冲。 */
+function handleToolStream(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
+  const tsEvent = event as ToolStreamEvent
+  // 精确匹配优先（call_id 与 tool_start/end 一致），缺省再按 tool_name 兜底，
+  // 与 tool_end / tool_error 的匹配策略保持一致。
+  const tc = findToolByCallId(turn.events, tsEvent.payload.call_id)
+    ?? findBestMatchingTool(turn.events, tsEvent.payload.tool_name)
+  if (tc) {
+    tc.stream = (tc.stream ?? '') + tsEvent.payload.chunk
+  }
+}
+
 /** answer：标记思考块为 becameAnswer，设置 finalAnswer。 */
 function handleAnswer(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
   const content = (event as AnswerEvent).payload.content
@@ -304,6 +316,7 @@ export const turnHandlers = new Map<string, TurnEventHandler>([
   ['tool_start', handleToolStart],
   ['tool_end', handleToolEnd],
   ['tool_error', handleToolError],
+  ['tool_stream', handleToolStream],
   ['answer', handleAnswer],
   ['done', handleDone],
   ['error', handleError],
