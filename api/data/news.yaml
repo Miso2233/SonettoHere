@@ -1,4 +1,12 @@
 news:
+  - id: "run-python-stream-output"
+    title: "Python 输出实时流式显示"
+    description: "run_python 工具执行代码时，每次 print 的输出都会实时推送并显示在气泡中，运行过程不再是黑盒等待，调试长任务时反馈更直观。"
+    type: "feat"
+    date: "2026-08-17"
+    tags: ["Python", "实时", "流式", "体验"]
+    version: ""
+    pr_number: 292
   - id: "studio-workshop-system"
     title: "工作坊（Studio）模式"
     description: "新增工作坊场景化配置：顶栏选择工作坊后，将 Obsidian 知识库等特定场景的文件夹、推荐工具与工作规则注入系统提示词，AI 按场景工作。侧栏「工作坊」页面支持表单可视化新建/编辑/删除，推荐工具/宏/技能自动补全。"
