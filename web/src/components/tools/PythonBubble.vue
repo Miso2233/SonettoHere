@@ -47,9 +47,14 @@
       </div>
     </template>
 
-    <!-- 运行中 -->
+    <!-- 运行中：有实时输出则流式渲染（tool_stream 逐条累积），否则显示占位文案 -->
     <div v-else-if="toolCall.status === 'running'" class="bubble-running">
-      <span>正在执行代码...</span>
+      <pre
+        v-if="liveStdout"
+        ref="liveOutEl"
+        class="py-stdout"
+      >{{ liveStdout }}</pre>
+      <span v-else>正在执行代码...</span>
     </div>
 
     <!-- 错误 -->
@@ -81,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
 import { highlightPython } from '@/utils/python-highlight'
@@ -94,6 +99,19 @@ const rejectionReason = ref('')
 
 const isConfirmMode = computed(() => {
   return props.toolCall.interaction?.mode === 'confirm'
+})
+
+/** 实时输出缓冲（tool_stream 累积，仅 running 期间有值） */
+const liveStdout = computed(() => props.toolCall.stream ?? '')
+
+// 实时输出容器高度受限（200px），每条新输出到达时滚动到底部
+const liveOutEl = ref<HTMLElement | null>(null)
+watch(liveStdout, () => {
+  void nextTick(() => {
+    if (liveOutEl.value) {
+      liveOutEl.value.scrollTop = liveOutEl.value.scrollHeight
+    }
+  })
 })
 
 const code = computed(() => {

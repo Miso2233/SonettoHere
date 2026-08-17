@@ -35,6 +35,18 @@ class ToolSender(WsTransport):
             payload["code"] = code
         await self._send("ask_user", payload)
 
+    async def tool_stream(self, call_id: str, tool_name: str, chunk: str) -> None:
+        """推送工具执行过程中的实时输出片段（如 run_python 的逐条 print）。
+
+        ``call_id`` 与 tool_start/tool_end 事件一致（均为 LangChain run_id），
+        前端据此精确匹配到对应的工具气泡。
+        """
+        await self._send("tool_stream", {
+            "call_id": call_id,
+            "tool_name": tool_name,
+            "chunk": chunk,
+        })
+
     async def sub_session_created(
         self,
         sub_session_id: str,
