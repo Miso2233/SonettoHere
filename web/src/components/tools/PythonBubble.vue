@@ -48,7 +48,7 @@
     </template>
 
     <!-- 运行中：有实时输出则流式渲染（tool_stream 逐条累积），否则显示占位文案 -->
-    <div v-else-if="toolCall.status === 'running'" class="bubble-running">
+    <div v-else-if="toolCall.status === 'running'" class="bubble-running py-running">
       <pre
         v-if="liveStdout"
         ref="liveOutEl"
@@ -56,23 +56,28 @@
       >{{ liveStdout }}</pre>
       <span v-else>正在执行代码...</span>
 
-      <!-- 中途停止：截止信息输入框 + 停止按钮（确认分支不渲染此区） -->
-      <div class="py-stop-section">
+      <!-- 中途停止：与批准执行菜单同构——截止信息整行在下，按钮右下对齐 -->
+      <div class="py-section py-stop-section">
+        <div class="py-section-header">
+          <span class="py-section-label">✏️ 截止信息（可选）</span>
+        </div>
         <input
           v-model="stopMessage"
           class="py-stop-input"
           type="text"
-          placeholder="输入截止信息（可选），回车或点击停止…"
+          placeholder="输入传给 Agent 的截止信息（可留空），回车或点击停止…"
           :disabled="stopping"
           @keyup.enter="stopExecution"
         />
+      </div>
+      <div class="py-stop-actions">
         <button
-          class="btn-stop"
+          class="btn-action btn-stop"
           :disabled="stopping"
           @click="stopExecution"
         >
           <span v-if="stopping">⏳ 停止中…</span>
-          <span v-else>⏹ 停止</span>
+          <span v-else>⏹ 停止执行</span>
         </button>
       </div>
     </div>
@@ -448,18 +453,21 @@ function copyCode() {
   background: color-mix(in srgb, var(--accent) 90%, #fff);
 }
 
-/* ── 中途停止控制区 ── */
+/* ── 中途停止菜单：与批准执行菜单同构（整行输入在下，按钮右下对齐） ── */
+.py-running {
+  /* 覆盖 shared.css 的 .bubble-running { display: flex }——运行中要展示
+     实时输出 + 停止菜单，必须是纵向堆叠而非横向排列（否则输入区会跑到
+     输出的右侧）。scoped 属性选择器比全局单类选择器优先级更高。 */
+  display: block;
+}
+
 .py-stop-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
+  margin-top: 14px;
 }
 
 .py-stop-input {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 12px;
+  width: 100%;
+  padding: 10px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -483,18 +491,16 @@ function copyCode() {
   opacity: 0.6;
 }
 
+.py-stop-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
 .btn-stop {
-  flex-shrink: 0;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  font-family: inherit;
-  border: 1px solid color-mix(in srgb, #d4766a 40%, transparent);
+  border-color: color-mix(in srgb, #d4766a 40%, transparent);
   background: color-mix(in srgb, #d4766a 10%, transparent);
   color: #d4766a;
-  transition: all 0.15s;
 }
 
 .btn-stop:hover:not(:disabled) {
