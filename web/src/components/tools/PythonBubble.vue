@@ -76,8 +76,8 @@
           :disabled="stopping"
           @click="stopExecution"
         >
-          <span v-if="stopping">⏳ 停止中…</span>
-          <span v-else>⏹ 停止执行</span>
+          <span v-if="stopping">停止中…</span>
+          <span v-else>停止执行</span>
         </button>
       </div>
     </div>
@@ -91,10 +91,7 @@
     <template v-else-if="toolCall.status === 'done'">
       <!-- 中途停止横幅 -->
       <div v-if="isInterrupted" class="py-interrupted-banner">
-        <span class="py-interrupted-icon">⏹</span>
-        <span class="py-interrupted-text">
-          已中途停止{{ userMessageText ? `：${userMessageText}` : '' }}
-        </span>
+        已中途停止{{ userMessageText ? `：${userMessageText}` : '' }}
       </div>
 
       <div class="py-section">
@@ -499,7 +496,7 @@ function copyCode() {
 
 .btn-stop {
   border-color: color-mix(in srgb, #000 40%, transparent);
-  background: color-mix(in srgb, #000 10%, transparent);
+  background: transparent;
   color: #000;
 }
 
@@ -516,21 +513,12 @@ function copyCode() {
 
 /* ── 已中途停止横幅 ── */
 .py-interrupted-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   margin-bottom: 12px;
   padding: 10px 14px;
-  background: color-mix(in srgb, #000 10%, transparent);
   border: 1px solid color-mix(in srgb, #000 35%, transparent);
   border-radius: 8px;
   color: #000;
   font-size: 12px;
   font-weight: 500;
-}
-
-.py-interrupted-icon {
-  font-size: 13px;
-  flex-shrink: 0;
 }
 </style>
