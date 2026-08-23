@@ -498,15 +498,15 @@ function copyCode() {
 }
 
 .btn-stop {
-  border-color: color-mix(in srgb, #d4766a 40%, transparent);
-  background: color-mix(in srgb, #d4766a 10%, transparent);
-  color: #d4766a;
+  border-color: color-mix(in srgb, #000 40%, transparent);
+  background: color-mix(in srgb, #000 10%, transparent);
+  color: #000;
 }
 
 .btn-stop:hover:not(:disabled) {
-  background: #d4766a;
+  background: #000;
   color: #fff;
-  border-color: #d4766a;
+  border-color: #000;
 }
 
 .btn-stop:disabled {
@@ -521,10 +521,10 @@ function copyCode() {
   gap: 8px;
   margin-bottom: 12px;
   padding: 10px 14px;
-  background: color-mix(in srgb, #d4766a 10%, transparent);
-  border: 1px solid color-mix(in srgb, #d4766a 35%, transparent);
+  background: color-mix(in srgb, #000 10%, transparent);
+  border: 1px solid color-mix(in srgb, #000 35%, transparent);
   border-radius: 8px;
-  color: #d4766a;
+  color: #000;
   font-size: 12px;
   font-weight: 500;
 }
