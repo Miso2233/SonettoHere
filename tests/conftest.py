@@ -1,10 +1,25 @@
 """共享 fixtures — FastAPI TestClient、认证 Token、最小测试 app。"""
 
+import asyncio
+import os
+
 import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from api.middleware.auth import AuthMiddleware
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _windows_proactor_policy() -> None:
+    """Windows 上安装 Proactor 事件循环策略（session 级 autouse）。
+
+    Proactor 原生支持 ``asyncio.create_subprocess_exec``，而 Selector 不支持
+    子进程——run_python 子进程隔离执行相关测试依赖此策略。
+    其余平台（posix）无此需求，直接跳过。
+    """
+    if os.name == "nt":
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 
 @pytest.fixture

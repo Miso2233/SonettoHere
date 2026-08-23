@@ -181,6 +181,9 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
     sendUserResponse(d.interactionId, d.response)
   } else if (payload.action === 'skip_memory_search') {
     chatStore.skipMemorySearch(sessionId.value)
+  } else if (payload.action === 'run_python_interrupt') {
+    const d = payload.data as { callId: string; message: string }
+    chatStore.interruptRunPython(sessionId.value, d.callId, d.message ?? '')
   } else if (payload.action === 'undo') {
     handleUndo()
   }

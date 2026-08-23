@@ -628,6 +628,16 @@ export const useChatStore = defineStore('chat', () => {
     } as ClientMessage))
   }
 
+  /** 请求停止某个运行中的 python 子进程（run_python_interrupt），附带用户截止信息。 */
+  function interruptRunPython(sid: string, callId: string, message: string) {
+    const ch = channels.get(sid)
+    if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
+    ch.ws.send(JSON.stringify({
+      type: 'run_python_interrupt',
+      payload: { call_id: callId, message },
+    } as ClientMessage))
+  }
+
   function sendUserResponse(sid: string, interactionId: string, response: string | string[]) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
@@ -681,6 +691,7 @@ export const useChatStore = defineStore('chat', () => {
     send,
     cancel,
     skipMemorySearch,
+    interruptRunPython,
     sendUserResponse,
     removeTurns,
     updateAutoApprove,
