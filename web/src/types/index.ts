@@ -302,7 +302,18 @@ export interface ClearPendingMessage {
   payload: Record<string, never>
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage
+/** run_python_interrupt — 请求停止某个正在运行的 python 子进程并附带截止信息 */
+export interface RunPythonInterruptMessage {
+  type: 'run_python_interrupt'
+  payload: {
+    /** 目标工具调用的 call_id（= run_id，与 tool_start/tool_end 一致） */
+    call_id: string
+    /** 用户输入的截止信息（可选） */
+    message?: string
+  }
+}
+
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage
 
 // === 前端 UI 状态类型 ===
 

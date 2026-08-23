@@ -265,6 +265,28 @@ async def _handle_skip_memory_search(
     return agent_task
 
 
+@ws_event_handler("run_python_interrupt")
+async def _handle_run_python_interrupt(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+) -> asyncio.Task | None:
+    """处理 run_python 中途停止请求：终止对应子进程并传递截止信息。
+
+    不取消 agent_task——工具返回「已中断」结果后 Agent 继续回应。
+    局部导入避免与工具模块的导入顺序耦合。
+    """
+    payload = msg.get("payload", {})
+    call_id = payload.get("call_id", "")
+    message = payload.get("message", "") or ""
+    if call_id:
+        from tools.system.tool_python import interrupt_run
+        interrupt_run(call_id, message)
+    return agent_task
+
+
 @router.websocket("/ws/chat/{session_id}")
 async def websocket_chat(ws: WebSocket, session_id: str) -> None:
     """WebSocket 聊天端点 — 接收消息、派发、生命周期管理。"""

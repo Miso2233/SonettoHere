@@ -200,6 +200,11 @@ def _extract_run_python(
         "tool_type": "run_python",
         "stdout": data.get("output", ""),
     }
+    # 中途停止：interrupted 为真时前端展示「已中途停止」横幅 + user_message
+    if isinstance(data.get("interrupted"), bool):
+        result["interrupted"] = data["interrupted"]
+    if data.get("user_message"):
+        result["user_message"] = data["user_message"]
     if tool_input:
         try:
             input_parsed = ast.literal_eval(tool_input)

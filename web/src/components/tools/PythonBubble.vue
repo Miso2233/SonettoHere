@@ -48,13 +48,38 @@
     </template>
 
     <!-- 运行中：有实时输出则流式渲染（tool_stream 逐条累积），否则显示占位文案 -->
-    <div v-else-if="toolCall.status === 'running'" class="bubble-running">
+    <div v-else-if="toolCall.status === 'running'" class="bubble-running py-running">
       <pre
         v-if="liveStdout"
         ref="liveOutEl"
         class="py-stdout"
       >{{ liveStdout }}</pre>
       <span v-else>正在执行代码...</span>
+
+      <!-- 中途停止：与批准执行菜单同构——截止信息整行在下，按钮右下对齐 -->
+      <div class="py-section py-stop-section">
+        <div class="py-section-header">
+          <span class="py-section-label">✏️ 截止信息（可选）</span>
+        </div>
+        <input
+          v-model="stopMessage"
+          class="py-stop-input"
+          type="text"
+          placeholder="输入传给 Agent 的截止信息（可留空），回车或点击停止…"
+          :disabled="stopping"
+          @keyup.enter="stopExecution"
+        />
+      </div>
+      <div class="py-stop-actions">
+        <button
+          class="btn-action btn-stop"
+          :disabled="stopping"
+          @click="stopExecution"
+        >
+          <span v-if="stopping">停止中…</span>
+          <span v-else>停止执行</span>
+        </button>
+      </div>
     </div>
 
     <!-- 错误 -->
@@ -64,6 +89,11 @@
 
     <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
+      <!-- 中途停止横幅 -->
+      <div v-if="isInterrupted" class="py-interrupted-banner">
+        已中途停止{{ userMessageText ? `：${userMessageText}` : '' }}
+      </div>
+
       <div class="py-section">
         <div class="py-section-header">
           <span class="py-section-label">📝 代码</span>
@@ -96,6 +126,37 @@ const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }):
 
 const submitted = ref(false)
 const rejectionReason = ref('')
+
+// 中途停止状态：点击后置 stopping 禁用输入与按钮，防止重复发送
+const stopping = ref(false)
+const stopMessage = ref('')
+
+// 每个新工具调用重置停止状态（防止组件复用残留）
+watch(() => props.toolCall.callId, () => {
+  stopping.value = false
+  stopMessage.value = ''
+})
+
+const isInterrupted = computed(() => {
+  return props.toolCall.toolData?.interrupted === true
+})
+
+const userMessageText = computed(() => {
+  const m = props.toolCall.toolData?.user_message
+  return typeof m === 'string' && m ? m : ''
+})
+
+function stopExecution() {
+  if (stopping.value || !props.toolCall.callId) return
+  stopping.value = true
+  emit('action', {
+    action: 'run_python_interrupt',
+    data: {
+      callId: props.toolCall.callId,
+      message: stopMessage.value.trim(),
+    },
+  })
+}
 
 const isConfirmMode = computed(() => {
   return props.toolCall.interaction?.mode === 'confirm'
@@ -387,5 +448,77 @@ function copyCode() {
 
 .btn-approve:hover {
   background: color-mix(in srgb, var(--accent) 90%, #fff);
+}
+
+/* ── 中途停止菜单：与批准执行菜单同构（整行输入在下，按钮右下对齐） ── */
+.py-running {
+  /* 覆盖 shared.css 的 .bubble-running { display: flex }——运行中要展示
+     实时输出 + 停止菜单，必须是纵向堆叠而非横向排列（否则输入区会跑到
+     输出的右侧）。scoped 属性选择器比全局单类选择器优先级更高。 */
+  display: block;
+}
+
+.py-stop-section {
+  margin-top: 14px;
+}
+
+.py-stop-input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-primary);
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.py-stop-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.py-stop-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.py-stop-input:disabled {
+  opacity: 0.6;
+}
+
+.py-stop-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.btn-stop {
+  border-color: color-mix(in srgb, #000 40%, transparent);
+  background: transparent;
+  color: #000;
+}
+
+.btn-stop:hover:not(:disabled) {
+  background: #000;
+  color: #fff;
+  border-color: #000;
+}
+
+.btn-stop:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ── 已中途停止横幅 ── */
+.py-interrupted-banner {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, #000 35%, transparent);
+  border-radius: 8px;
+  color: #000;
+  font-size: 12px;
+  font-weight: 500;
 }
 </style>

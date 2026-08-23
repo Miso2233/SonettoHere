@@ -24,6 +24,7 @@ from api.memory.short_term import get_checkpointer
 from langchain_core.language_models.chat_models import BaseChatModel
 from tools.base import format_error
 from tools.network.tool_image_understand import load_image_bytes, get_mime_type
+from tools.system.tool_python import interrupt_all_runs
 from api.utils.logger import get_logger
 
 _log = get_logger("turn")
@@ -416,6 +417,9 @@ async def _execute_agent_turn(
 
     except asyncio.CancelledError:
         interaction.cancel_all()
+        # 兜底：整轮取消时终止所有仍在运行的 python 子进程。
+        # _exec_code_streaming 的 finally 是主要清理路径，这里是幂等兜底。
+        interrupt_all_runs()
         try:
             await _inject_cancel_tool_messages(session, ctx.config, sender)
         except Exception as e:

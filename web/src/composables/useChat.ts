@@ -109,6 +109,11 @@ export function useChat(sessionId: Ref<string>) {
     store.sendUserResponse(sessionId.value, interactionId, response)
   }
 
+  /** 请求停止某个运行中的 python 子进程（run_python_interrupt），附带用户截止信息。 */
+  function interruptRunPython(callId: string, message: string) {
+    store.interruptRunPython(sessionId.value, callId, message)
+  }
+
   function removeTurns(count: number) {
     store.removeTurns(sessionId.value, count)
   }
@@ -117,6 +122,7 @@ export function useChat(sessionId: Ref<string>) {
     connected, isStreaming, turns, currentTurn, pendingMessages, pendingCount,
     error, contextUsage, taskTrackerData,
     send, cancel, sendUserResponse, removeTurns,
+    interruptRunPython,
     privateMode, setPrivateMode,
     skipRecall, setSkipRecall,
     autoApprove, setAutoApprove,
