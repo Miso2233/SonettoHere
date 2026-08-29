@@ -17,6 +17,7 @@ from api.core.health import get_health_report
 from api.providers.manager import init_manager, get_manager
 from api.providers.enrich import enrich_all_providers
 from api.providers.store import ProviderConfigStore
+from api.core.auth import load_or_create_token
 from api.routes import chat, files, images, memory, sessions, balance, providers
 from api.routes import path_whitelist as path_whitelist_router
 from api.routes import persona as persona_router
@@ -108,6 +109,10 @@ async def _load_const_sessions(app: FastAPI):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # 0. 确保认证 Token 提前就绪：Vite dev/build 启动时会读取 auth_token.yaml
+    #    注入 __API_TOKEN__，若后端尚未生成该文件，前端将嵌入空 Token 导致全站 401。
+    load_or_create_token()
+
     # 1. 初始化 Provider 管理器（从 YAML 加载）
     provider_store = ProviderConfigStore()
     provider_manager = init_manager(provider_store)
