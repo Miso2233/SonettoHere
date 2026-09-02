@@ -27,10 +27,6 @@ class FileRenameTool(ToolBase):
     @confirm_execution(
         question="即将重命名/移动文件，是否确认执行？",
         options=["允许重命名", "拒绝"],
-        extra_payload=lambda self, file_path, new_path: {
-            "file_path": file_path,
-            "new_path": new_path,
-        },
         reject_message="用户拒绝重命名文件",
     )
     async def _arun(self, file_path: str = "", new_path: str = "") -> str:

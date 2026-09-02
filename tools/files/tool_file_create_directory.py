@@ -26,9 +26,6 @@ class FileCreateDirectoryTool(ToolBase):
     @confirm_execution(
         question="即将创建以下目录，是否确认执行？",
         options=["允许创建", "拒绝"],
-        extra_payload=lambda self, directory_path: {
-            "directory_path": directory_path,
-        },
         reject_message="用户拒绝创建目录",
     )
     async def _arun(self, directory_path: str = "") -> str:

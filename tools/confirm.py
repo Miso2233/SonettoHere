@@ -18,6 +18,9 @@ ask_qa / single_choice / multi_choice 属于「采集输入」语义（收集后
 设计约定（确认先于逻辑，代码最简）：
 - 每个工具只把**真正执行**的那个异步方法（确认门控后）用本装饰器包装，
   形参即工具入参；方法体先确认放行、再做前置校验与操作，无需拆两段。
+- 确认气泡的载荷 = 被装饰方法的全部命名形参，由 wrapper 把 ``**kwargs``
+  原样转发给 ask_user，前端按工具名选用字段；无需回调构造载荷。因此被装饰
+  方法**必须以关键字参数被调用**，且签名中不含非用户可见的技术参数。
 - 装饰器与确认流程不接触 run_manager / run_id。仅 run_python 的流式执行需要
   run_id：在其**未装饰**的 _arun 入口取出后存入模块级 ContextVar，确认放行后
   的内层方法自行读取（同一 asyncio 任务内 set/read 天然隔离）。
@@ -43,7 +46,6 @@ def confirm_execution(
     *,
     question: str,
     options: list[str],
-    extra_payload: Callable[..., dict[str, Any]] | None = None,
     reject_message: str = "用户拒绝执行",
 ) -> Callable[[AsyncMethod], AsyncMethod]:
     """构造「执行前确认」装饰器。
@@ -51,9 +53,6 @@ def confirm_execution(
     Args:
         question: 发送给 ask_user 的确认问题文本。
         options: ask_user 的按钮选项列表（如 ["执行", "取消"]）。
-        extra_payload: 可选；接收与被装饰方法相同的 (self, args, kwargs)，
-            返回要附带进 ask_user payload 的额外字段（如 run_python 的 code、
-            file 工具的 file_path/content）。入参即被装饰方法的形参，不涉及 run_manager。
         reject_message: 用户拒绝时的错误消息前缀。
 
     Returns:
@@ -76,16 +75,16 @@ def confirm_execution(
 
             interaction_id, future = interaction.register()
 
-            payload: dict[str, Any] = (
-                extra_payload(self, *args, **kwargs) if extra_payload is not None else {}
-            )
+            # 载荷 = 被装饰方法的全部命名形参（即工具入参），原样转发，
+            # 前端按工具名选用所需字段。被装饰方法按关键字调用、签名
+            # 不含 run_manager 等技术参数，因此 kwargs 即用户可见载荷。
             await sender.ask_user(
                 tool_name=self.name,
                 question=question,
                 mode="confirm",
                 options=options,
                 interaction_id=interaction_id,
-                **payload,
+                **kwargs,
             )
 
             try:

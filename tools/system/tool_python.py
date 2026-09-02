@@ -320,7 +320,6 @@ class RunPythonTool(ToolBase):
     @confirm_execution(
         question="即将执行以下 Python 代码，是否确认执行？",
         options=["执行", "取消"],
-        extra_payload=lambda self, code: {"code": code},
         reject_message="用户拒绝执行代码",
     )
     async def _run_after_confirm(self, code: str = "") -> str:
