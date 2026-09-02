@@ -4,9 +4,9 @@
 file_list_directory / file_search / file_edit / file_search_text 的成功与错误路径,
 以及 get_all_tools 注册表断言（包含全部新工具、不含已删除的 file_manage）。
 
-写入/编辑/删除/建目录四个工具已接入执行前确认,改用 async ``_arun`` 全路径测试
+写入/编辑/删除/重命名/建目录五个工具已接入执行前确认,改用 async ``_arun`` 全路径测试
 （以会话级 auto_approve 放行,跳过确认门控直接覆盖前置校验 + 操作逻辑）;
-其余只读/重命名工具保持同步 ``_run`` 测试。
+其余只读工具保持同步 ``_run`` 测试。
 """
 
 import json
@@ -128,15 +128,18 @@ async def test_file_delete_missing(whitelist_tmp: Path) -> None:
     assert "文件不存在" in _error_msg(result)
 
 
-# ── file_rename（保持同步，无确认） ────────────────────────
+# ── file_rename（执行前确认） ──────────────────────────────
 
 
-def test_file_rename(whitelist_tmp: Path) -> None:
+@pytest.mark.asyncio
+async def test_file_rename(whitelist_tmp: Path) -> None:
     src = whitelist_tmp / "old.txt"
     src.write_text("x", encoding="utf-8")
     dst = whitelist_tmp / "new.txt"
 
-    result = FileRenameTool()._run(file_path=str(src), new_path=str(dst))
+    result = await _auto_approve(
+        FileRenameTool()._arun(file_path=str(src), new_path=str(dst))
+    )
     data = _success_data(result)
 
     assert not src.exists()
@@ -144,13 +147,16 @@ def test_file_rename(whitelist_tmp: Path) -> None:
     assert data["new_path"] == str(dst)
 
 
-def test_file_rename_target_exists(whitelist_tmp: Path) -> None:
+@pytest.mark.asyncio
+async def test_file_rename_target_exists(whitelist_tmp: Path) -> None:
     src = whitelist_tmp / "old.txt"
     src.write_text("x", encoding="utf-8")
     dst = whitelist_tmp / "new.txt"
     dst.write_text("y", encoding="utf-8")
 
-    result = FileRenameTool()._run(file_path=str(src), new_path=str(dst))
+    result = await _auto_approve(
+        FileRenameTool()._arun(file_path=str(src), new_path=str(dst))
+    )
     assert "目标已存在" in _error_msg(result)
 
 

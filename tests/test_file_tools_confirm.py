@@ -1,8 +1,8 @@
 """测试四个 file 工具的执行前确认（confirm_execution 门控）。
 
 覆盖手动确认（approve 真正执行 / reject 返回拒绝错误 / sender 不可用 /
-确认载荷断言）、auto_approve 直接放行,对四个工具参数化:
-file_write / file_edit / file_delete / file_create_directory。
+确认载荷断言）、auto_approve 直接放行,对五个写入/破坏性工具参数化:
+file_write / file_edit / file_delete / file_create_directory / file_rename。
 """
 
 import asyncio
@@ -17,6 +17,7 @@ from tools import confirm as confirm_module
 from tools.files.tool_file_create_directory import FileCreateDirectoryTool
 from tools.files.tool_file_delete import FileDeleteTool
 from tools.files.tool_file_edit import FileEditTool
+from tools.files.tool_file_rename import FileRenameTool
 from tools.files.tool_file_write import FileWriteTool
 
 
@@ -108,6 +109,22 @@ TOOL_CASES: list[dict[str, Any]] = [
         "reject_message": "用户拒绝创建目录",
         "side_effect_check": lambda p, approved: (
             (p / "newdir").is_dir() == approved
+        ),
+    },
+    {
+        "name": "file_rename",
+        "call": lambda p: FileRenameTool()._arun(
+            file_path=str(p / "old.txt"), new_path=str(p / "new.txt")
+        ),
+        "setup": lambda p: (p / "old.txt").write_text("x", encoding="utf-8"),
+        "expected_payload": lambda p: {
+            "file_path": str(p / "old.txt"),
+            "new_path": str(p / "new.txt"),
+        },
+        "options": ["允许重命名", "拒绝"],
+        "reject_message": "用户拒绝重命名文件",
+        "side_effect_check": lambda p, approved: (
+            (p / "new.txt").exists() == approved
         ),
     },
     {

@@ -112,7 +112,7 @@ const highlightedCode = computed(() => {
 
 /** 需要文件确认卡片的工具 */
 const FILE_CONFIRM_TOOLS = new Set([
-  'file_write', 'file_edit', 'file_delete', 'file_create_directory',
+  'file_write', 'file_edit', 'file_delete', 'file_create_directory', 'file_rename',
 ])
 const MAX_PREVIEW_CHARS = 500
 const MAX_VISIBLE_EDITS = 5
@@ -125,6 +125,7 @@ const fileLabel = computed(() => {
     case 'file_edit': return '编辑文件'
     case 'file_delete': return '删除文件'
     case 'file_create_directory': return '创建目录'
+    case 'file_rename': return '重命名文件'
     default: return ''
   }
 })
@@ -134,6 +135,7 @@ const fileIcon = computed(() => {
     case 'file_write': return '📝'
     case 'file_edit': return '✂️'
     case 'file_delete': return '🗑️'
+    case 'file_rename': return '🔀'
     default: return '📁'
   }
 })
@@ -152,7 +154,11 @@ const fileNote = computed(() => {
 
 const targetPath = computed(() => {
   const p = payload.value
-  return (p.file_path as string) || (p.directory_path as string) || ''
+  const fp = (p.file_path as string) || (p.directory_path as string) || ''
+  if (props.toolCall.name === 'file_rename' && typeof p.new_path === 'string' && p.new_path) {
+    return `${fp} → ${p.new_path}`
+  }
+  return fp
 })
 
 const payloadContentLength = computed(() => {
