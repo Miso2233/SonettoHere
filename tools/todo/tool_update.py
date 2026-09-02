@@ -55,7 +55,7 @@ class TodoUpdateInput(BaseModel):
     )
 
 
-@get_doc(field_description="设为 true 以获取 Todoist 领域知识文档")
+@get_doc
 class TodoUpdateTool(ToolBase):
     name: str = "todo_update"
     description: str = (

@@ -16,7 +16,7 @@ class TransitRouteInput(BaseModel):
     destination_city: str = Field(default="北京", description="终点城市名称")
 
 
-@get_doc(field_description="设为 true 以获取使用说明和领域知识")
+@get_doc
 class TransitRouteTool(ToolBase):
     name: str = "get_transit_route"
     description: str = (

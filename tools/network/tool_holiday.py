@@ -27,7 +27,7 @@ class HolidayCalendarInput(BaseModel):
     nearby_limit: int = Field(default=7, ge=1, le=30, description="最近节日数量限制")
 
 
-@get_doc(field_description="设为 true 以获取使用说明和领域知识")
+@get_doc
 class HolidayCalendarTool(ToolBase):
     name: str = "holiday_calendar"
     description: str = (

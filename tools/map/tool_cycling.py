@@ -14,7 +14,7 @@ class CyclingRouteInput(BaseModel):
     destination_latitude: str = Field(default="", description="终点纬度")
 
 
-@get_doc(field_description="设为 true 以获取使用说明和领域知识")
+@get_doc
 class CyclingRouteTool(ToolBase):
     name: str = "get_cycling_route"
     description: str = (

@@ -8,11 +8,11 @@
 - ``get_doc=False`` / 缺省时原样转发到真正执行的方法（sync 的 ``_run`` /
   async 的 ``_arun``），既有行为不变；
 - 纯 Command 工具（read_image）也能普通返回文档字符串，无需再包 ToolMessage；
-- ``field_description=`` 参数透传，精确保留各工具原有 schema 文案。
+- 无参装饰器：所有工具的 get_doc 字段统一用默认文案（不再提供 per-tool 覆写，
+  更长引导文案交由同目录 TOOL.md 承载）。
 
-代表工具：sync 用 TodoAddTool（字段描述带自定义文案），
-async 用 AskUserSingleChoiceTool（包装 ``_arun``），
-Command 用 ReadImageTool（本阶段特例）。
+代表工具：sync 用 TodoAddTool，async 用 AskUserSingleChoiceTool
+（包装 ``_arun``），Command 用 ReadImageTool（本阶段特例）。
 """
 
 import pytest
@@ -22,9 +22,6 @@ from tools.network.tool_read_image import ReadImageTool
 from tools.todo.tool_add import TodoAddTool
 
 _DEFAULT_DESC = "设为 true 以获取使用说明"
-_LONG_ADD_DESC = (
-    "设为 true 以获取 Todoist 领域知识文档（首次使用或不确定参数规则时建议先调用）"
-)
 
 
 # ── schema 注入 ────────────────────────────────────────────
@@ -47,18 +44,12 @@ def test_async_tool_injects_get_doc_non_required() -> None:
     assert "options" in fields
 
 
-def test_field_description_override_preserved() -> None:
-    """field_description= 自定义文案精确落到 JSON Schema。"""
-    prop = TodoAddTool().get_input_schema().model_json_schema()["properties"]["get_doc"]
-    assert prop["default"] is False
-    assert prop["description"] == _LONG_ADD_DESC
-
-
-def test_bare_decorator_uses_default_description() -> None:
-    """裸 @get_doc（未传 field_description）用默认文案。"""
-    prop = ReadImageTool().get_input_schema().model_json_schema()["properties"]["get_doc"]
-    assert prop["default"] is False
-    assert prop["description"] == _DEFAULT_DESC
+def test_decorator_uses_default_description() -> None:
+    """@get_doc 不再接受参数，各工具 get_doc 字段统一为默认文案。"""
+    for tool in (TodoAddTool(), ReadImageTool()):
+        prop = tool.get_input_schema().model_json_schema()["properties"]["get_doc"]
+        assert prop["default"] is False
+        assert prop["description"] == _DEFAULT_DESC
 
 
 # ── sync 行为（包装 _run）────────────────────────────────

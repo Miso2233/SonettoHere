@@ -12,7 +12,7 @@ class GeocodeInput(BaseModel):
     )
 
 
-@get_doc(field_description="设为 true 以获取使用说明和领域知识")
+@get_doc
 class GeocodeTool(ToolBase):
     name: str = "geocode_address"
     description: str = (

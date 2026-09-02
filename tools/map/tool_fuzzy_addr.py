@@ -16,7 +16,7 @@ class FuzzyAddressInput(BaseModel):
     page: int = Field(default=1, description="当前页数")
 
 
-@get_doc(field_description="设为 true 以获取使用说明和领域知识")
+@get_doc
 class FuzzyAddressTool(ToolBase):
     name: str = "fuzzy_address_search"
     description: str = (

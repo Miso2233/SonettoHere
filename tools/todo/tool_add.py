@@ -90,7 +90,7 @@ class TodoAddInput(BaseModel):
     )
 
 
-@get_doc(field_description="设为 true 以获取 Todoist 领域知识文档（首次使用或不确定参数规则时建议先调用）")
+@get_doc
 class TodoAddTool(ToolBase):
     name: str = "todo_add"
     description: str = (
