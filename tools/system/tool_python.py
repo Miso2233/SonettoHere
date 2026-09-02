@@ -22,9 +22,9 @@ from pathlib import Path
 from langchain_core.callbacks.manager import AsyncCallbackManagerForToolRun
 from pydantic import BaseModel, Field
 
-from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success, get_safe_builtins
+from tools.confirm import confirm_execution
 
 # 模块级常量：安全 builtins 只构造一次
 _SAFE_BUILTINS = get_safe_builtins()
@@ -309,53 +309,35 @@ class RunPythonTool(ToolBase):
         与 WebSocket 回调 ``on_tool_start`` 收到的 run_id 完全一致，用作
         ``tool_stream`` 事件的 call_id，前端据此与工具气泡精确匹配
         （不依赖 tool_name，并行调用也不会串流），也是中途停止注册表的键。
+
+        get_doc / 空 code 校验在此先行短路，通过后交由 ``@confirm_execution``
+        门控的 ``_run_after_confirm`` 执行确认 + 真实执行。
         """
         if get_doc:
             return self._load_doc()
         if not code:
             return format_error("code 不能为空")
 
+        return await self._run_after_confirm(code=code, run_manager=run_manager)
+
+    @confirm_execution(
+        question="即将执行以下 Python 代码，是否确认执行？",
+        options=["执行", "取消"],
+        extra_payload=lambda self, code, **kw: {"code": code},
+        reject_message="用户拒绝执行代码",
+    )
+    async def _run_after_confirm(
+        self,
+        code: str,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
+    ) -> str:
+        """（由 ``confirm_execution`` 门控）确认通过后执行代码。
+
+        自动执行（auto_approve）与用户 approve 两条路径都会进入本方法，
+        因此需自行按 ``run_id`` 决定是否流式：有 run_id 时经
+        ``ToolSender.from_context()`` 获取发送器实时推送；无 run_id 时退化为
+        进程内一次性捕获。
+        """
         run_id = str(run_manager.run_id) if run_manager and run_manager.run_id else ""
-
-        session_id = interaction.current_session_id.get()
-        if session_id and interaction.get_session_auto_approve(session_id):
-            # 仅当有 run_id 时才获取 sender 尝试流式；否则保持原一次性捕获，
-            # 避免无 run_id 场景（如直接调用）无谓地依赖 WebSocket 上下文。
-            sender = ToolSender.from_context() if run_id else None
-            return await _run_code(code, run_id, sender)
-
-        sender = ToolSender.from_context()
-        if sender is None:
-            return format_error("WebSocket 连接不可用")
-
-        interaction_id, future = interaction.register()
-
-        await sender.ask_user(
-            tool_name=self.name,
-            question="即将执行以下 Python 代码，是否确认执行？",
-            mode="confirm",
-            options=["执行", "取消"],
-            interaction_id=interaction_id,
-            code=code,
-        )
-
-        try:
-            answer = await future
-
-            action = answer
-            reason = ""
-            if isinstance(answer, dict):
-                action = answer.get("action", "")
-                reason = answer.get("reason", "")
-
-            if action == "approve":
-                return await _run_code(code, run_id, sender)
-            else:
-                if reason:
-                    return format_error(f"用户拒绝执行代码。原因：{reason}")
-                return format_error("用户拒绝执行代码")
-
-        except asyncio.CancelledError:
-            return format_error("用户取消了回复")
-        finally:
-            interaction.cleanup(interaction_id)
+        sender = ToolSender.from_context() if run_id else None
+        return await _run_code(code, run_id, sender)

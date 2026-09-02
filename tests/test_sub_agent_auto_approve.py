@@ -21,6 +21,7 @@ from api.agent import interaction
 from api.routes import chat as chat_module
 from api.routes.chat import websocket_chat
 from api.session.manager import session_manager
+from tools import confirm as confirm_module
 from tools.system import tool_python as tool_module
 from tools.system.tool_python import RunPythonTool
 
@@ -91,8 +92,10 @@ async def test_run_python_asks_without_matching_session(monkeypatch):
             self.asked = True
 
     fake_sender = FakeSender()
+    # 确认门控逻辑在 confirm_execution 装饰器中（tools/confirm），
+    # 必须 patch 其命名空间的 ToolSender；tool_module 的 patch 已不影响该分支。
     monkeypatch.setattr(
-        tool_module,
+        confirm_module,
         "ToolSender",
         type("TS", (), {"from_context": staticmethod(lambda: fake_sender)}),
     )

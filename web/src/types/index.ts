@@ -263,12 +263,21 @@ export interface PingMessage {
   payload: Record<string, never>
 }
 
+/** 确认类交互（mode==='confirm'）的用户响应：approve / reject + 可选原因 */
+export interface ConfirmResponse {
+  action: 'approve' | 'reject'
+  reason: string
+}
+
+/** 用户对 ask_user 交互工具的响应（文本 / 选项数组 / 确认动作） */
+export type UserResponse = string | string[] | ConfirmResponse
+
 /** 用户对 ask_user 交互工具的响应 */
 export interface UserResponseMessage {
   type: 'user_response'
   payload: {
     interaction_id: string
-    response: string | string[]
+    response: UserResponse
   }
 }
 

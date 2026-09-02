@@ -3,7 +3,7 @@ import { defineStore } from 'pinia'
 import type {
   ServerEvent, ChatTurn, ToolCall, ThinkingBlock,
   TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent,
-  ClientMessage, TokenEvent, PendingMessage,
+  ClientMessage, TokenEvent, PendingMessage, UserResponse,
   MessageQueuedEvent, PendingConsumedEvent, PendingSyncEvent, PendingCancelledEvent,
 } from '@/types'
 import { buildFlatMessage, parseReferences } from '@/utils/references'
@@ -638,7 +638,7 @@ export const useChatStore = defineStore('chat', () => {
     } as ClientMessage))
   }
 
-  function sendUserResponse(sid: string, interactionId: string, response: string | string[]) {
+  function sendUserResponse(sid: string, interactionId: string, response: UserResponse) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
     const turn = ch.currentTurn
