@@ -29,12 +29,14 @@ class OpenAIProvider(Provider):
         return kwargs
 
     async def check_health(self) -> HealthStatus:
+        import asyncio
         import time
 
         start = time.monotonic()
         try:
-            client = self._async_client()
-            await client.models.list()
+            async with asyncio.timeout(10):
+                client = self._async_client()
+                await client.models.list()
             elapsed = (time.monotonic() - start) * 1000
             return HealthStatus(status="ok", latency_ms=round(elapsed, 1))
         except Exception as exc:
@@ -56,4 +58,5 @@ class OpenAIProvider(Provider):
         return AsyncOpenAI(
             api_key=self.config.api_key,
             base_url=self.config.base_url,
+            timeout=10,
         )

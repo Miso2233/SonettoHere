@@ -175,6 +175,7 @@ class TestListModels:
         assert captured == {
             "api_key": "sk-test",
             "base_url": "https://api.example.com/v1",
+            "timeout": 10,
         }
 
     def test_anthropic_defaults_to_official_base_url(

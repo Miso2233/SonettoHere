@@ -31,12 +31,14 @@ class AnthropicProvider(Provider):
         )
 
     async def check_health(self) -> HealthStatus:
+        import asyncio
         import time
 
         start = time.monotonic()
         try:
-            client = self._async_client()
-            await client.models.list()
+            async with asyncio.timeout(10):
+                client = self._async_client()
+                await client.models.list()
             elapsed = (time.monotonic() - start) * 1000
             return HealthStatus(status="ok", latency_ms=round(elapsed, 1))
         except Exception as exc:
@@ -58,4 +60,5 @@ class AnthropicProvider(Provider):
         return AsyncAnthropic(
             api_key=self.config.api_key,
             base_url=self.config.base_url or DEFAULT_BASE_URL,
+            timeout=10,
         )
