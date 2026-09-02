@@ -9,7 +9,6 @@ import json
 import os
 from typing import Any
 
-from langchain_core.callbacks.manager import AsyncCallbackManagerForToolRun
 from pydantic import BaseModel, Field
 
 from tools.base import (
@@ -23,9 +22,6 @@ from tools.confirm import confirm_execution
 
 
 class FileEditInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     file_path: str = Field(default="", description="文件绝对路径")
     edits: str = Field(
         default="",
@@ -42,30 +38,27 @@ class FileEditTool(ToolBase):
         "对文件进行多笔精确字符串替换（单笔也传入数组）。edits 为 JSON 数组，"
         "old_string 必须与文件内容完全一致（含空白、缩进），不唯一时需设置 replace_all。"
         "仅支持 UTF-8 编码的文本文件。"
-        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 可自由看情况调用]"
     )
     args_schema: type[BaseModel] = FileEditInput
 
-    def _run(self, get_doc: bool = False, file_path: str = "", edits: str = "") -> str:
+    def _run(self, file_path: str = "", edits: str = "") -> str:
         raise NotImplementedError("file_edit 仅支持异步模式，请使用 _arun")
 
-    async def _arun(
-        self,
-        get_doc: bool = False,
-        file_path: str = "",
-        edits: str = "",
-        run_manager: AsyncCallbackManagerForToolRun | None = None,
-    ) -> str:
-        """前置校验通过后交由确认门控执行（编辑文件前需用户放行）。
-
-        get_doc / 空参数 / SonettoBlocker / 白名单 / 文件存在性在此先行短路。
-        """
-        if get_doc:
-            return self._load_doc()
+    @confirm_execution(
+        question="即将对文件应用编辑，是否确认执行？",
+        options=["允许编辑", "拒绝"],
+        extra_payload=lambda self, file_path, edits: {
+            "file_path": file_path,
+            "edits": edits,
+        },
+        reject_message="用户拒绝编辑文件",
+    )
+    async def _arun(self, file_path: str = "", edits: str = "") -> str:
+        """用户确认放行后：校验并执行多笔精确编辑。"""
         if not file_path:
             return format_error("file_path 不能为空")
 
-        # ── SonettoBlocker 安全检查 ────────────────────────────────
         blocked = check_sonetto_blocker(file_path)
         if blocked:
             return format_error(
@@ -74,42 +67,19 @@ class FileEditTool(ToolBase):
                 "请立即停止当前任务，先说明你为什么需要访问该路径，"
                 "再说明下一步打算做什么。"
             )
-        # ────────────────────────────────────────────────────────────
 
-        # ── 路径白名单检查 ──────────────────────────────────────────
         blocked = check_path_whitelisted(file_path)
         if blocked:
             return format_error(blocked)
-        # ────────────────────────────────────────────────────────────
 
         if not os.path.exists(file_path):
             return format_error(f"文件不存在: {file_path}")
         if not os.path.isfile(file_path):
             return format_error(f"不是文件: {file_path}")
 
-        return await self._run_after_confirm(
-            file_path=file_path, edits=edits, run_manager=run_manager
-        )
-
-    @confirm_execution(
-        question="即将对文件应用编辑，是否确认执行？",
-        options=["允许编辑", "拒绝"],
-        extra_payload=lambda self, file_path, edits, **kw: {
-            "file_path": file_path,
-            "edits": edits,
-        },
-        reject_message="用户拒绝编辑文件",
-    )
-    async def _run_after_confirm(
-        self,
-        file_path: str,
-        edits: str,
-        run_manager: AsyncCallbackManagerForToolRun | None = None,
-    ) -> str:
-        """（由 confirm_execution 门控）确认通过后执行多笔精确编辑。"""
         try:
             return self._edit(file_path, edits)
-        except Exception as e:
+        except OSError as e:
             return format_error(str(e))
 
     def _edit(self, file_path: str, edits_json: str) -> str:

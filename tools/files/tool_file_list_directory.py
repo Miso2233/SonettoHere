@@ -8,9 +8,6 @@ from tools.base import ToolBase, check_path_access, format_error, format_success
 
 
 class FileListDirectoryInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     directory_path: str = Field(
         default="", description="目录路径（留空则列出当前目录）"
     )
@@ -20,13 +17,11 @@ class FileListDirectoryTool(ToolBase):
     name: str = "file_list_directory"
     description: str = (
         "列出目录内容（文件与子目录，含大小，目录优先排序）。"
-        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 可自由看情况调用]"
     )
     args_schema: type[BaseModel] = FileListDirectoryInput
 
-    def _run(self, get_doc: bool = False, directory_path: str = "") -> str:
-        if get_doc:
-            return self._load_doc()
+    def _run(self, directory_path: str = "") -> str:
         if not directory_path:
             directory_path = "."
         if not os.path.exists(directory_path):

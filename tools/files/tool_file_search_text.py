@@ -16,9 +16,6 @@ from tools.base import (
 
 
 class FileSearchTextInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     file_path: str = Field(default="", description="文件绝对路径")
     pattern: str = Field(default="", description="搜索模式（支持正则）")
     case_insensitive: bool = Field(default=False, description="搜索时是否忽略大小写")
@@ -28,19 +25,16 @@ class FileSearchTextTool(ToolBase):
     name: str = "file_search_text"
     description: str = (
         "在单个文件内容中进行正则文本搜索，返回每处匹配的行号、列号与匹配文本。"
-        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 可自由看情况调用]"
     )
     args_schema: type[BaseModel] = FileSearchTextInput
 
     def _run(
         self,
-        get_doc: bool = False,
         file_path: str = "",
         pattern: str = "",
         case_insensitive: bool = False,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not file_path:
             return format_error("file_path 不能为空")
 

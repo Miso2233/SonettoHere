@@ -9,9 +9,6 @@ from tools.base import ToolBase, check_path_access, format_error, format_success
 
 
 class FileSearchInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     search_pattern: str = Field(
         default="", description="搜索模式，支持 glob 通配符（如 *.py、**/*.md）"
     )
@@ -28,21 +25,18 @@ class FileSearchTool(ToolBase):
     name: str = "file_search"
     description: str = (
         "使用 glob 通配符在目录中搜索文件。"
-        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 可自由看情况调用]"
     )
     args_schema: type[BaseModel] = FileSearchInput
 
     def _run(
         self,
-        get_doc: bool = False,
         search_pattern: str = "",
         directory_path: str = "",
         recursive: bool = False,
         file_filter: str = "all",
         extension: str = "",
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         return self._search_files(
             search_pattern, directory_path, recursive, file_filter, extension
         )
