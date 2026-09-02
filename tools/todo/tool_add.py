@@ -5,16 +5,13 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.todo.todo_base import TodoAPIHelper
 
 
 class TodoAddInput(BaseModel):
     """添加任务的输入参数"""
 
-    get_doc: bool = Field(
-        default=False,
-        description="设为 true 以获取 Todoist 领域知识文档（首次使用或不确定参数规则时建议先调用）",
-    )
     content: str = Field(default="", description="任务名称/内容，例如'完成项目报告'")
     description: str = Field(
         default="",
@@ -93,6 +90,7 @@ class TodoAddInput(BaseModel):
     )
 
 
+@get_doc
 class TodoAddTool(ToolBase):
     name: str = "todo_add"
     description: str = (
@@ -111,7 +109,6 @@ class TodoAddTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         content: str = "",
         description: str = "",
         due_string: str | None = None,
@@ -132,9 +129,6 @@ class TodoAddTool(ToolBase):
         deadline_date: str | None = None,
         deadline_lang: str | None = None,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
-
         if not content:
             return format_error("content 不能为空，请提供任务名称")
 

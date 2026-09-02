@@ -12,6 +12,12 @@ class FileCreateDirectoryInput(BaseModel):
     directory_path: str = Field(default="", description="要创建的目录路径")
 
 
+@confirm_execution(
+    question="即将创建以下目录，是否确认执行？",
+    approve_text="允许创建",
+    reject_text="拒绝",
+    reject_message="用户拒绝创建目录",
+)
 class FileCreateDirectoryTool(ToolBase):
     name: str = "file_create_directory"
     description: str = (
@@ -23,12 +29,6 @@ class FileCreateDirectoryTool(ToolBase):
     def _run(self, directory_path: str = "") -> str:
         raise NotImplementedError("file_create_directory 仅支持异步模式，请使用 _arun")
 
-    @confirm_execution(
-        question="即将创建以下目录，是否确认执行？",
-        approve_text="允许创建",
-        reject_text="拒绝",
-        reject_message="用户拒绝创建目录",
-    )
     async def _arun(self, directory_path: str = "") -> str:
         """用户确认放行后：校验并创建目录（含父目录）。"""
         if not directory_path:

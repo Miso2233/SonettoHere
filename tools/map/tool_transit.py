@@ -3,13 +3,11 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.map.map_api import parse_transit_response
 
 
 class TransitRouteInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     origin_longitude: str = Field(default="", description="起点经度")
     origin_latitude: str = Field(default="", description="起点纬度")
     destination_longitude: str = Field(default="", description="终点经度")
@@ -18,6 +16,7 @@ class TransitRouteInput(BaseModel):
     destination_city: str = Field(default="北京", description="终点城市名称")
 
 
+@get_doc
 class TransitRouteTool(ToolBase):
     name: str = "get_transit_route"
     description: str = (
@@ -28,7 +27,6 @@ class TransitRouteTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         origin_longitude: str = "",
         origin_latitude: str = "",
         destination_longitude: str = "",
@@ -36,8 +34,6 @@ class TransitRouteTool(ToolBase):
         origin_city: str = "北京",
         destination_city: str = "北京",
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not all(
             [
                 origin_longitude,

@@ -7,17 +7,18 @@ from pydantic import BaseModel, Field
 from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 # 前端自定义文本输入的前缀标记，用于区分「选中的选项」和「用户手写输入」
 _CUSTOM_PREFIX = "__custom__::"
 
 
 class AskUserMultiChoiceInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     question: str = Field(default="", description="需要询问用户的问题")
     options: list[str] = Field(default=[], description="选项列表，用户可勾选多项")
 
 
+@get_doc
 class AskUserMultiChoiceTool(ToolBase):
     name: str = "ask_user_multi_choice"
     description: str = (
@@ -36,12 +37,9 @@ class AskUserMultiChoiceTool(ToolBase):
 
     async def _arun(
         self,
-        get_doc: bool = False,
         question: str = "",
         options: list[str] | None = None,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not question:
             return format_error("question 不能为空")
         if not options:

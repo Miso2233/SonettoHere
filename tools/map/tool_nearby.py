@@ -3,13 +3,11 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.map.map_api import parse_poi_response
 
 
 class NearbySearchInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     location: str = Field(default="", description='中心点坐标，格式为"经度,纬度"')
     keywords: str | None = Field(default=None, description="搜索关键字，如'肯德基'")
     types: str | None = Field(default=None, description="POI类型码，如'050000'（餐饮）")
@@ -19,6 +17,7 @@ class NearbySearchInput(BaseModel):
     page: int = Field(default=1, description="当前页数")
 
 
+@get_doc
 class NearbySearchTool(ToolBase):
     name: str = "nearby_search"
     description: str = (
@@ -29,7 +28,6 @@ class NearbySearchTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         location: str = "",
         keywords: str | None = None,
         types: str | None = None,
@@ -38,8 +36,6 @@ class NearbySearchTool(ToolBase):
         offset: int = 20,
         page: int = 1,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not location:
             return format_error("location 不能为空")
         if not keywords and not types:

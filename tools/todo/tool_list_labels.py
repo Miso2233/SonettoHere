@@ -1,15 +1,17 @@
 """Tool: todo_list_labels — 列出所有标签。"""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.todo.todo_base import TodoAPIHelper
 
 
 class TodoListLabelsInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
+    pass
 
 
+@get_doc
 class TodoListLabelsTool(ToolBase):
     name: str = "todo_list_labels"
     description: str = (
@@ -26,10 +28,7 @@ class TodoListLabelsTool(ToolBase):
             self._helper = TodoAPIHelper(self.client._todoist_token)
         return self._helper
 
-    def _run(self, get_doc: bool = False) -> str:
-        if get_doc:
-            return self._load_doc()
-
+    def _run(self) -> str:
         all_labels = self.helper.get_all_labels()
         label_list = [self.helper.label_to_dict(l) for l in all_labels]
         label_list.sort(key=lambda x: x["name"])

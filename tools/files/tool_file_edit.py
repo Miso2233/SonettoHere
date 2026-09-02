@@ -32,6 +32,12 @@ class FileEditInput(BaseModel):
     )
 
 
+@confirm_execution(
+    question="即将对文件应用编辑，是否确认执行？",
+    approve_text="允许编辑",
+    reject_text="拒绝",
+    reject_message="用户拒绝编辑文件",
+)
 class FileEditTool(ToolBase):
     name: str = "file_edit"
     description: str = (
@@ -45,12 +51,6 @@ class FileEditTool(ToolBase):
     def _run(self, file_path: str = "", edits: str = "") -> str:
         raise NotImplementedError("file_edit 仅支持异步模式，请使用 _arun")
 
-    @confirm_execution(
-        question="即将对文件应用编辑，是否确认执行？",
-        approve_text="允许编辑",
-        reject_text="拒绝",
-        reject_message="用户拒绝编辑文件",
-    )
     async def _arun(self, file_path: str = "", edits: str = "") -> str:
         """用户确认放行后：校验并执行多笔精确编辑。"""
         if not file_path:

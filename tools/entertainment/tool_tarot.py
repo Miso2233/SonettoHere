@@ -7,6 +7,7 @@ import yaml
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 # 从 YAML 数据文件加载 78 张韦特塔罗牌（22 大阿尔卡纳 + 56 小阿尔卡纳）
 _DECK_PATH = Path(__file__).resolve().parent / "tarot_deck.yaml"
@@ -40,11 +41,11 @@ SPREADS = {
 
 
 class TarotInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     question: str = Field(default="", description="占卜问题")
     spread_type: str = Field(default="three", description="牌阵: single/three/celtic")
 
 
+@get_doc
 class TarotTool(ToolBase):
     name: str = "tarot"
     description: str = (
@@ -55,12 +56,9 @@ class TarotTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         question: str = "",
         spread_type: str = "three",
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not question:
             return format_error("占卜问题不能为空")
         if spread_type not in SPREADS:

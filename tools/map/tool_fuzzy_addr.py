@@ -3,13 +3,11 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.map.map_api import parse_poi_response
 
 
 class FuzzyAddressInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     keywords: str = Field(default="", description="搜索关键字，如'北京大学'、'肯德基'")
     city: str | None = Field(default=None, description="限定城市，如'北京'")
     types: str | None = Field(default=None, description="POI类型码，如'050000'（餐饮）")
@@ -18,6 +16,7 @@ class FuzzyAddressInput(BaseModel):
     page: int = Field(default=1, description="当前页数")
 
 
+@get_doc
 class FuzzyAddressTool(ToolBase):
     name: str = "fuzzy_address_search"
     description: str = (
@@ -28,7 +27,6 @@ class FuzzyAddressTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         keywords: str = "",
         city: str | None = None,
         types: str | None = None,
@@ -36,8 +34,6 @@ class FuzzyAddressTool(ToolBase):
         offset: int = 20,
         page: int = 1,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not keywords:
             return format_error("keywords 不能为空")
 

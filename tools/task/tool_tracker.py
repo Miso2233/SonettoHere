@@ -6,6 +6,7 @@ LLM 每次调用传入全量 todos 列表，工具仅做统计和摘要返回。
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 
 class TodoItem(BaseModel):
@@ -15,12 +16,12 @@ class TodoItem(BaseModel):
 
 
 class TaskTrackerInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     todos: list[TodoItem] | None = Field(
         default=None, description="全量任务清单，每次传入完整列表"
     )
 
 
+@get_doc
 class TaskTrackerTool(ToolBase):
     name: str = "task_tracker"
     description: str = (
@@ -31,12 +32,8 @@ class TaskTrackerTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         todos: list[TodoItem] | None = None,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
-
         if not todos:
             return format_error("请传入 todos 参数（全量任务清单）")
 

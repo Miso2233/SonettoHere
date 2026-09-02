@@ -3,14 +3,15 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.todo.todo_base import TodoAPIHelper
 
 
 class TodoQueryInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     task_id: str = Field(default="", description="要查询的任务 ID")
 
 
+@get_doc
 class TodoQueryTool(ToolBase):
     name: str = "todo_query"
     description: str = "根据 task_id 查询 Todoist 中单个任务的详细信息。查不到时用 todo_list 列出全部任务。[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
@@ -24,9 +25,7 @@ class TodoQueryTool(ToolBase):
             self._helper = TodoAPIHelper(self.client._todoist_token)
         return self._helper
 
-    def _run(self, get_doc: bool = False, task_id: str = "") -> str:
-        if get_doc:
-            return self._load_doc()
+    def _run(self, task_id: str = "") -> str:
         if not task_id:
             return format_error("task_id 不能为空")
 

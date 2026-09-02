@@ -5,11 +5,11 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.todo.todo_base import TodoAPIHelper
 
 
 class TodoUpdateInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取 Todoist 领域知识文档")
     task_id: str = Field(default="", description="要更新的任务 ID")
     content: str | None = Field(default=None, description="新的任务名称")
     description: str | None = Field(default=None, description="新的任务描述/备注")
@@ -55,6 +55,7 @@ class TodoUpdateInput(BaseModel):
     )
 
 
+@get_doc
 class TodoUpdateTool(ToolBase):
     name: str = "todo_update"
     description: str = (
@@ -74,7 +75,6 @@ class TodoUpdateTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         task_id: str = "",
         content: str | None = None,
         description: str | None = None,
@@ -95,8 +95,6 @@ class TodoUpdateTool(ToolBase):
         project_name: str | None = None,
         section_name: str | None = None,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not task_id:
             return format_error("task_id 不能为空")
         if priority is not None and priority not in [1, 2, 3, 4]:

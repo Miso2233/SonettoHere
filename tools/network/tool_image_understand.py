@@ -11,6 +11,7 @@ from zai import ZhipuAiClient
 
 from config.settings import get_settings
 from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.get_doc import get_doc
 
 MODEL = "glm-5v-turbo"
 
@@ -53,7 +54,6 @@ def _load_image_bytes(image_source: str) -> tuple[bytes, str]:
 
 
 class ImageUnderstandInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     image_source: str = Field(
         default="",
         description="图片来源: 'local:C:\\path\\to\\image.jpg' 或 'url:https://example.com/photo.png'",
@@ -61,6 +61,7 @@ class ImageUnderstandInput(BaseModel):
     prompt: str = Field(default="请描述这张图片", description="向模型提问的指令")
 
 
+@get_doc
 class ImageUnderstandTool(ToolBase):
     name: str = "analyze_image"
     description: str = (
@@ -74,12 +75,9 @@ class ImageUnderstandTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         image_source: str = "",
         prompt: str = "请描述这张图片",
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not image_source.strip():
             return format_error("image_source 不能为空")
 
