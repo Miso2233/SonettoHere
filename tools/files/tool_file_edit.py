@@ -2,12 +2,14 @@
 
 edits 传入 JSON 数组，单笔替换同样放入数组；每笔按顺序执行，
 old_string 必须与文件内容完全一致（含空白、缩进），不唯一时报错或开启 replace_all。
+执行前需用户确认放行。
 """
 
 import json
 import os
 from typing import Any
 
+from langchain_core.callbacks.manager import AsyncCallbackManagerForToolRun
 from pydantic import BaseModel, Field
 
 from tools.base import (
@@ -17,6 +19,7 @@ from tools.base import (
     format_error,
     format_success,
 )
+from tools.confirm import confirm_execution
 
 
 class FileEditInput(BaseModel):
@@ -44,6 +47,19 @@ class FileEditTool(ToolBase):
     args_schema: type[BaseModel] = FileEditInput
 
     def _run(self, get_doc: bool = False, file_path: str = "", edits: str = "") -> str:
+        raise NotImplementedError("file_edit 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        get_doc: bool = False,
+        file_path: str = "",
+        edits: str = "",
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
+    ) -> str:
+        """前置校验通过后交由确认门控执行（编辑文件前需用户放行）。
+
+        get_doc / 空参数 / SonettoBlocker / 白名单 / 文件存在性在此先行短路。
+        """
         if get_doc:
             return self._load_doc()
         if not file_path:
@@ -71,6 +87,26 @@ class FileEditTool(ToolBase):
         if not os.path.isfile(file_path):
             return format_error(f"不是文件: {file_path}")
 
+        return await self._run_after_confirm(
+            file_path=file_path, edits=edits, run_manager=run_manager
+        )
+
+    @confirm_execution(
+        question="即将对文件应用编辑，是否确认执行？",
+        options=["允许编辑", "拒绝"],
+        extra_payload=lambda self, file_path, edits, **kw: {
+            "file_path": file_path,
+            "edits": edits,
+        },
+        reject_message="用户拒绝编辑文件",
+    )
+    async def _run_after_confirm(
+        self,
+        file_path: str,
+        edits: str,
+        run_manager: AsyncCallbackManagerForToolRun | None = None,
+    ) -> str:
+        """（由 confirm_execution 门控）确认通过后执行多笔精确编辑。"""
         try:
             return self._edit(file_path, edits)
         except Exception as e:

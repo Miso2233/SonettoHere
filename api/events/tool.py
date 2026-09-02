@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from api.events.transport import WsTransport
 
 
@@ -21,9 +23,14 @@ class ToolSender(WsTransport):
         mode: str,
         options: list[str],
         interaction_id: str,
-        code: str | None = None,
+        **extra: Any,
     ) -> None:
-        """向用户提问并等待响应。"""
+        """向用户提问并等待响应。
+
+        ``extra`` 为确认载荷的附加字段,统一并入事件 payload:
+        run_python 的 ``code``、文件工具的 ``file_path`` / ``content`` /
+        ``edits`` / ``directory_path`` 等,前端据此渲染确认气泡内容。
+        """
         payload: dict = {
             "tool_name": tool_name,
             "question": question,
@@ -31,8 +38,7 @@ class ToolSender(WsTransport):
             "options": options,
             "interaction_id": interaction_id,
         }
-        if code is not None:
-            payload["code"] = code
+        payload.update(extra)
         await self._send("ask_user", payload)
 
     async def tool_stream(self, call_id: str, tool_name: str, chunk: str) -> None:

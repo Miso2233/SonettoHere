@@ -296,13 +296,17 @@ function handleAskUser(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
     has_interaction: !!runningTool.interaction,
   } : 'NOT FOUND')
   if (runningTool) {
+    // code 顶层保留（PythonBubble/ConfirmBubble 兼容）；其余载荷并入 payload
+    // 供 ConfirmBubble 渲染文件工具的路径/内容/编辑等确认信息。
+    const { tool_name, question, mode, options, interaction_id, code, ...extra } = ae.payload
     runningTool.interaction = {
-      question: ae.payload.question,
-      mode: ae.payload.mode,
-      options: ae.payload.options,
-      interactionId: ae.payload.interaction_id,
+      question,
+      mode,
+      options,
+      interactionId: interaction_id,
       submitted: false,
-      code: ae.payload.code,
+      code,
+      payload: Object.keys(extra).length > 0 ? extra : undefined,
     }
   }
 }

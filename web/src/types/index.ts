@@ -78,6 +78,8 @@ export interface AskUserEvent {
     options: string[]
     interaction_id: string
     code?: string
+    /** 确认载荷的附加字段（run_python 的 code、文件工具的 file_path/content/edits/directory_path 等） */
+    [key: string]: unknown
   }
 }
 
@@ -344,6 +346,8 @@ export interface AskUserInteraction {
   interactionId: string
   submitted: boolean
   code?: string
+  /** 确认气泡的附加展示载荷（文件工具的 file_path/content/edits/directory_path 等） */
+  payload?: Record<string, unknown>
 }
 
 export interface ToolCall {
