@@ -54,9 +54,13 @@ def get_all_tools() -> list[BaseTool]:
     # Files
     from tools.files.tool_file_read import FileReadTool
     from tools.files.tool_file_write import FileWriteTool
-    from tools.files.tool_file_manage import FileManageTool
+    from tools.files.tool_file_delete import FileDeleteTool
+    from tools.files.tool_file_rename import FileRenameTool
+    from tools.files.tool_file_create_directory import FileCreateDirectoryTool
+    from tools.files.tool_file_list_directory import FileListDirectoryTool
     from tools.files.tool_file_search import FileSearchTool
     from tools.files.tool_file_edit import FileEditTool
+    from tools.files.tool_file_search_text import FileSearchTextTool
 
     # Task
     from tools.task.tool_tracker import TaskTrackerTool
@@ -102,9 +106,13 @@ def get_all_tools() -> list[BaseTool]:
         # Files
         FileReadTool(client=client),
         FileWriteTool(client=client),
-        FileManageTool(client=client),
+        FileDeleteTool(client=client),
+        FileRenameTool(client=client),
+        FileCreateDirectoryTool(client=client),
+        FileListDirectoryTool(client=client),
         FileSearchTool(client=client),
         FileEditTool(client=client),
+        FileSearchTextTool(client=client),
         # Task
         TaskTrackerTool(client=client),
         # SubAgent

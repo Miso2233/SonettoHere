@@ -1,54 +1,9 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <!-- 确认模式：显示代码和选择按钮 -->
-    <template v-if="toolCall.status === 'running' && isConfirmMode && !submitted">
-      <!-- 标题区 -->
-      <div class="py-confirm-header">
-        <span class="py-confirm-icon">⚙️</span>
-        <span class="py-confirm-title">代码执行确认</span>
-      </div>
-
-      <!-- 代码展示区 -->
-      <div class="py-section">
-        <div class="py-section-header">
-          <span class="py-section-label">📝 代码</span>
-          <span class="py-code-length">{{ code.length }} 字符</span>
-        </div>
-        <div class="py-code-block" v-html="highlightedCode"></div>
-      </div>
-
-      <!-- 拒绝原因输入框（可选） -->
-      <div class="py-section py-reason-section">
-        <div class="py-section-header">
-          <span class="py-section-label">✏️ 拒绝原因（可选）</span>
-        </div>
-        <textarea
-          v-model="rejectionReason"
-          class="py-reason-input"
-          placeholder="如果拒绝执行，请在此说明原因（可留空）..."
-          rows="3"
-        ></textarea>
-      </div>
-
-      <!-- 确认按钮 -->
-      <div class="py-confirm-actions">
-        <button
-          class="btn-action btn-reject"
-          @click="submitRejection"
-        >
-          拒绝执行
-        </button>
-        <button
-          class="btn-action btn-approve"
-          @click="submitApproval"
-        >
-          允许执行
-        </button>
-      </div>
-    </template>
-
-    <!-- 运行中：有实时输出则流式渲染（tool_stream 逐条累积），否则显示占位文案 -->
-    <div v-else-if="toolCall.status === 'running'" class="bubble-running py-running">
+    <!-- 运行中：有实时输出则流式渲染（tool_stream 逐条累积），否则显示占位文案。
+         执行前确认门控已由 ToolBubbleRouter 以通用 ConfirmBubble 统一处理，
+         此处不再内联确认块。 -->
+    <div v-if="toolCall.status === 'running'" class="bubble-running py-running">
       <pre
         v-if="liveStdout"
         ref="liveOutEl"
@@ -124,9 +79,6 @@ import { highlightPython } from '@/utils/python-highlight'
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
-const submitted = ref(false)
-const rejectionReason = ref('')
-
 // 中途停止状态：点击后置 stopping 禁用输入与按钮，防止重复发送
 const stopping = ref(false)
 const stopMessage = ref('')
@@ -157,10 +109,6 @@ function stopExecution() {
     },
   })
 }
-
-const isConfirmMode = computed(() => {
-  return props.toolCall.interaction?.mode === 'confirm'
-})
 
 /** 实时输出缓冲（tool_stream 累积，仅 running 期间有值） */
 const liveStdout = computed(() => props.toolCall.stream ?? '')
@@ -208,28 +156,6 @@ const stdoutLineCount = computed(() => {
   return stdout.value.split('\n').length
 })
 
-function submitApproval() {
-  submitted.value = true
-  emit('action', {
-    action: 'user_response',
-    data: {
-      interactionId: props.toolCall.interaction?.interactionId,
-      response: { action: 'approve', reason: '' },
-    },
-  })
-}
-
-function submitRejection() {
-  submitted.value = true
-  emit('action', {
-    action: 'user_response',
-    data: {
-      interactionId: props.toolCall.interaction?.interactionId,
-      response: { action: 'reject', reason: rejectionReason.value.trim() },
-    },
-  })
-}
-
 function copyCode() {
   if (!code.value) return
   navigator.clipboard.writeText(code.value).catch(() => {
@@ -265,12 +191,6 @@ function copyCode() {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
-}
-
-.py-code-length {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-family: 'SF Mono', 'Consolas', monospace;
 }
 
 .py-stdout-lines {
@@ -363,62 +283,6 @@ function copyCode() {
   border-radius: 6px;
 }
 
-.py-confirm-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 10px 14px;
-  background: var(--bg-secondary);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-
-.py-confirm-icon {
-  font-size: 16px;
-}
-
-.py-confirm-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.py-reason-section {
-  margin-bottom: 14px;
-}
-
-.py-reason-input {
-  width: 100%;
-  min-height: 72px;
-  padding: 10px 12px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: 12px;
-  font-family: inherit;
-  color: var(--text-primary);
-  resize: vertical;
-  box-sizing: border-box;
-  transition: border-color 0.15s;
-}
-
-.py-reason-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.py-reason-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.py-confirm-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-top: 8px;
-}
-
 .btn-action {
   padding: 8px 20px;
   border-radius: 8px;
@@ -428,26 +292,6 @@ function copyCode() {
   font-family: inherit;
   transition: all 0.15s;
   border: 1px solid transparent;
-}
-
-.btn-reject {
-  background: var(--bg-secondary);
-  border-color: var(--border);
-  color: var(--text-primary);
-}
-
-.btn-reject:hover {
-  border-color: var(--text-secondary);
-  background: color-mix(in srgb, var(--border) 20%, transparent);
-}
-
-.btn-approve {
-  background: var(--accent);
-  color: #fff;
-}
-
-.btn-approve:hover {
-  background: color-mix(in srgb, var(--accent) 90%, #fff);
 }
 
 /* ── 中途停止菜单：与批准执行菜单同构（整行输入在下，按钮右下对齐） ── */

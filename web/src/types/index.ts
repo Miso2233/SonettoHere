@@ -75,9 +75,11 @@ export interface AskUserEvent {
     tool_name: string
     question: string
     mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm'
-    options: string[]
+    options?: string[]
     interaction_id: string
     code?: string
+    /** 确认载荷的附加字段（run_python 的 code、文件工具的 file_path/content/edits/directory_path 等） */
+    [key: string]: unknown
   }
 }
 
@@ -263,12 +265,21 @@ export interface PingMessage {
   payload: Record<string, never>
 }
 
+/** 确认类交互（mode==='confirm'）的用户响应：approve / reject + 可选原因 */
+export interface ConfirmResponse {
+  action: 'approve' | 'reject'
+  reason: string
+}
+
+/** 用户对 ask_user 交互工具的响应（文本 / 选项数组 / 确认动作） */
+export type UserResponse = string | string[] | ConfirmResponse
+
 /** 用户对 ask_user 交互工具的响应 */
 export interface UserResponseMessage {
   type: 'user_response'
   payload: {
     interaction_id: string
-    response: string | string[]
+    response: UserResponse
   }
 }
 
@@ -331,10 +342,12 @@ export interface ThinkingBlock {
 export interface AskUserInteraction {
   question: string
   mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm'
-  options: string[]
+  options?: string[]
   interactionId: string
   submitted: boolean
   code?: string
+  /** 确认气泡的附加展示载荷（文件工具的 file_path/content/edits/directory_path 等） */
+  payload?: Record<string, unknown>
 }
 
 export interface ToolCall {

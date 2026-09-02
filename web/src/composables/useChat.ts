@@ -1,5 +1,6 @@
 import { computed, watch, type Ref } from 'vue'
 import { useChatStore, findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction, findTurnByBackendId, findRunningMemoryTool } from '@/stores/chatStore'
+import type { UserResponse } from '@/types'
 import type { ParsedRef } from '@/utils/references'
 
 // 向后兼容导出
@@ -105,7 +106,7 @@ export function useChat(sessionId: Ref<string>) {
     store.cancel(sessionId.value)
   }
 
-  function sendUserResponse(interactionId: string, response: string | string[]) {
+  function sendUserResponse(interactionId: string, response: UserResponse) {
     store.sendUserResponse(sessionId.value, interactionId, response)
   }
 

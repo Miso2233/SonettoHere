@@ -105,7 +105,7 @@ import { useChatStore } from '@/stores/chatStore'
 import { health } from '@/composables/useHealth'
 import { useSession } from '@/composables/useSession'
 import type { ParsedRef } from '@/utils/references'
-import type { ProviderConfig } from '@/types'
+import type { ProviderConfig, UserResponse } from '@/types'
 import { computed, onMounted, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
@@ -177,7 +177,7 @@ function onClearPending() {
 
 function handleToolAction(payload: { action: string; data?: unknown }) {
   if (payload.action === 'user_response') {
-    const d = payload.data as { interactionId: string; response: string | string[] }
+    const d = payload.data as { interactionId: string; response: UserResponse }
     sendUserResponse(d.interactionId, d.response)
   } else if (payload.action === 'skip_memory_search') {
     chatStore.skipMemorySearch(sessionId.value)

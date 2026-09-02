@@ -9,60 +9,14 @@
     <SonettoBlockerError
       v-else-if="toolCall.status === 'error'"
       :output="toolCall.output"
-      fallback="编辑操作失败"
+      fallback="文件操作失败"
     />
 
     <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
       <div v-if="toolCall.toolData" class="edit-result">
-        <!-- ===== 替换 ===== -->
+        <!-- ===== 多笔精确编辑（file_edit） ===== -->
         <template v-if="op === 'edit'">
-          <div class="edit-summary success-banner">
-            <span class="banner-icon">&#9998;</span>
-            <div class="banner-text">
-              <div class="banner-title">替换成功</div>
-              <div class="banner-detail">{{ td.file_path }}</div>
-            </div>
-          </div>
-          <div class="edit-meta">
-            <span class="meta-tag">{{ td.replaced_count }} 处匹配已替换</span>
-            <span class="meta-tag" v-if="td.replace_all">全部替换</span>
-          </div>
-          <div class="file-actions">
-            <button class="action-btn" @click="copyPath">复制路径</button>
-          </div>
-        </template>
-
-        <!-- ===== 读取 ===== -->
-        <template v-else-if="op === 'read'">
-          <div class="file-header">
-            <span class="file-icon">&#128196;</span>
-            <div class="file-header-text">
-              <div class="file-name">{{ fileName }}</div>
-              <div class="file-path">{{ td.file_path }}</div>
-            </div>
-          </div>
-          <div class="edit-meta">
-            <span class="meta-tag">共 {{ td.total_lines }} 行</span>
-            <span class="meta-tag" v-if="td.offset > 0">从第 {{ td.offset + 1 }} 行起</span>
-          </div>
-          <div class="file-content" v-if="lines.length > 0">
-            <div v-for="(line, i) in visibleLines" :key="i" class="code-line">
-              <span class="line-num">{{ line.num }}</span>
-              <span class="line-text">{{ line.content }}</span>
-            </div>
-            <div class="lines-footer" v-if="isMoreLines">
-              仅显示前 {{ MAX_VISIBLE_LINES }} 行 / 共 {{ td.total_lines }} 行
-            </div>
-          </div>
-          <div class="file-actions">
-            <button class="action-btn" @click="copyContent">复制内容</button>
-            <button class="action-btn" @click="copyPath">复制路径</button>
-          </div>
-        </template>
-
-        <!-- ===== 多笔编辑 ===== -->
-        <template v-else-if="op === 'multi_edit'">
           <div class="multi-summary" :class="multiClass">
             <span class="multi-icon">{{ multiIcon }}</span>
             <div class="multi-text">
@@ -87,9 +41,12 @@
               <span class="eri-msg">{{ r.message || r.replaced_count + ' 处替换' }}</span>
             </div>
           </div>
+          <div class="file-actions">
+            <button class="action-btn" @click="copyPath">复制路径</button>
+          </div>
         </template>
 
-        <!-- ===== 搜索 ===== -->
+        <!-- ===== 文件内容文本搜索（file_search_text） ===== -->
         <template v-else-if="op === 'search'">
           <div class="search-header">
             <span class="search-icon">&#128269;</span>
@@ -153,22 +110,7 @@ const td = computed<Record<string, any>>(() => {
 
 const op = computed<string>(() => (td.value.operation as string) || '')
 
-// ── Read ──
-const lines = computed<Array<{ num: number; content: string }>>(() => {
-  const raw = td.value.lines
-  return Array.isArray(raw) ? raw : []
-})
-
-const MAX_VISIBLE_LINES = 50
-const visibleLines = computed(() => lines.value.slice(0, MAX_VISIBLE_LINES))
-const isMoreLines = computed(() => (td.value.total_lines as number) > MAX_VISIBLE_LINES)
-
-const fileName = computed(() => {
-  const path = td.value.file_path as string
-  return path?.split(/[/\\]/).pop() || '未知文件'
-})
-
-// ── Multi-edit ──
+// ── 多笔编辑（file_edit） ──
 const multiResults = computed<Array<Record<string, any>>>(() => {
   const raw = td.value.results
   return Array.isArray(raw) ? raw : []
@@ -191,7 +133,7 @@ const multiTitle = computed(() => {
   return `完成 ${success}/${total} 笔编辑，${failed} 笔失败`
 })
 
-// ── Search ──
+// ── 文本搜索（file_search_text） ──
 const matches = computed<Array<{ line_num: number; column: number; match: string }>>(() => {
   const raw = td.value.matches
   return Array.isArray(raw) ? raw : []
@@ -203,7 +145,11 @@ const isMoreMatches = computed(() => (td.value.total_matches as number) > MAX_VI
 
 // ── 标签 ──
 const runningLabel = computed(() => {
-  return '正在编辑文件...'
+  switch (props.toolCall.name) {
+    case 'file_search_text': return '正在搜索文本...'
+    case 'file_edit': return '正在编辑文件...'
+    default: return '正在操作文件...'
+  }
 })
 
 // ── 动作 ──
@@ -212,13 +158,6 @@ function copyPath() {
   if (!path) return
   navigator.clipboard.writeText(path)
   emit('action', { action: 'copy-path', data: { path } })
-}
-
-function copyContent() {
-  const content = td.value.content as string | undefined
-  if (!content) return
-  navigator.clipboard.writeText(content)
-  emit('action', { action: 'copy-content', data: { length: content.length } })
 }
 </script>
 
@@ -240,49 +179,6 @@ function copyContent() {
   color: var(--text-secondary);
 }
 
-.bubble-error {
-  font-size: 13px;
-  color: #b91c1c;
-  padding: 4px 0;
-}
-
-/* ── 成功横幅 ── */
-.success-banner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: #e8f5e9;
-  border: 1px solid #b8d8b8;
-  border-radius: 8px;
-}
-
-.banner-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-}
-
-.banner-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  flex: 1;
-}
-
-.banner-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #2d5a2d;
-}
-
-.banner-detail {
-  font-size: 11px;
-  color: #3d7a3d;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  word-break: break-all;
-}
-
 /* ── 元信息标签 ── */
 .edit-meta {
   display: flex;
@@ -297,93 +193,6 @@ function copyContent() {
   background: var(--bg-secondary);
   color: var(--text-secondary);
   font-weight: 500;
-}
-
-/* ── 文件头 ── */
-.file-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.file-icon {
-  font-size: 22px;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
-.file-header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  flex: 1;
-}
-
-.file-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-primary);
-  word-break: break-all;
-}
-
-.file-path {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-family: 'SF Mono', 'Consolas', monospace;
-  word-break: break-all;
-  opacity: 0.8;
-}
-
-/* ── 代码内容 ── */
-.file-content {
-  background: var(--bg-primary);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  max-height: 320px;
-  overflow-y: auto;
-  font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.code-line {
-  display: flex;
-  padding: 0 0;
-  min-height: 22px;
-}
-
-.code-line:hover {
-  background: var(--bg-secondary);
-}
-
-.line-num {
-  display: inline-block;
-  min-width: 44px;
-  padding: 0 10px 0 12px;
-  color: var(--text-secondary);
-  text-align: right;
-  user-select: none;
-  opacity: 0.5;
-  font-size: 11px;
-  border-right: 1px solid var(--border);
-  margin-right: 10px;
-  line-height: 1.6;
-}
-
-.line-text {
-  padding: 1px 0;
-  white-space: pre;
-  color: var(--text-primary);
-}
-
-.lines-footer {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-style: italic;
-  text-align: center;
-  padding: 6px 0;
-  border-top: 1px solid var(--border);
 }
 
 /* ── 多笔编辑 ── */
@@ -477,7 +286,7 @@ function copyContent() {
   word-break: break-word;
 }
 
-/* ── 搜索 ── */
+/* ── 文本搜索 ── */
 .search-header {
   display: flex;
   align-items: flex-start;
@@ -557,6 +366,15 @@ function copyContent() {
   background: rgba(255, 255, 255, 0.05);
   padding: 1px 4px;
   border-radius: 3px;
+}
+
+.lines-footer {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+  text-align: center;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
 }
 
 .no-result {
