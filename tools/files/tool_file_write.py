@@ -26,7 +26,8 @@ class FileWriteTool(ToolBase):
 
     @confirm_execution(
         question="即将写入以下内容到文件，是否确认执行？",
-        options=["允许写入", "拒绝"],
+        approve_text="允许写入",
+        reject_text="拒绝",
         reject_message="用户拒绝写入文件",
     )
     async def _arun(self, file_path: str = "", content: str = "") -> str:

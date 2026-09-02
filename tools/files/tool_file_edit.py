@@ -47,7 +47,8 @@ class FileEditTool(ToolBase):
 
     @confirm_execution(
         question="即将对文件应用编辑，是否确认执行？",
-        options=["允许编辑", "拒绝"],
+        approve_text="允许编辑",
+        reject_text="拒绝",
         reject_message="用户拒绝编辑文件",
     )
     async def _arun(self, file_path: str = "", edits: str = "") -> str:

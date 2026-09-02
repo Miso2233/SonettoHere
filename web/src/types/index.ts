@@ -75,7 +75,7 @@ export interface AskUserEvent {
     tool_name: string
     question: string
     mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm'
-    options: string[]
+    options?: string[]
     interaction_id: string
     code?: string
     /** 确认载荷的附加字段（run_python 的 code、文件工具的 file_path/content/edits/directory_path 等） */
@@ -342,7 +342,7 @@ export interface ThinkingBlock {
 export interface AskUserInteraction {
   question: string
   mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm'
-  options: string[]
+  options?: string[]
   interactionId: string
   submitted: boolean
   code?: string

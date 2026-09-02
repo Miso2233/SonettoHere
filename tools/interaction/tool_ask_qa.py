@@ -37,7 +37,7 @@ class AskUserQATool(ToolBase):
 
         interaction_id, future = interaction.register()
 
-        await sender.ask_user(self.name, question, "qa", [], interaction_id)
+        await sender.ask_user(self.name, question, "qa", interaction_id)
 
         try:
             answer = await future

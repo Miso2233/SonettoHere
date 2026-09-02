@@ -53,7 +53,7 @@ class AskUserSingleChoiceTool(ToolBase):
 
         interaction_id, future = interaction.register()
 
-        await sender.ask_user(self.name, question, "single_choice", options, interaction_id)
+        await sender.ask_user(self.name, question, "single_choice", interaction_id, options)
 
         try:
             answer = await future

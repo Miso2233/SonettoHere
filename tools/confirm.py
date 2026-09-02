@@ -21,6 +21,8 @@ ask_qa / single_choice / multi_choice 属于「采集输入」语义（收集后
 - 确认气泡的载荷 = 被装饰方法的全部命名形参，由 wrapper 把 ``**kwargs``
   原样转发给 ask_user，前端按工具名选用字段；无需回调构造载荷。因此被装饰
   方法**必须以关键字参数被调用**，且签名中不含非用户可见的技术参数。
+- 允许/拒绝两个按钮的文案由 ``approve_text`` / ``reject_text`` 声明并随载荷
+  下发，前端据此渲染按钮；不依赖采集输入用的通用 ``options`` 列表。
 - 装饰器与确认流程不接触 run_manager / run_id。仅 run_python 的流式执行需要
   run_id：在其**未装饰**的 _arun 入口取出后存入模块级 ContextVar，确认放行后
   的内层方法自行读取（同一 asyncio 任务内 set/read 天然隔离）。
@@ -45,15 +47,17 @@ AsyncMethod = Callable[..., Any]
 def confirm_execution(
     *,
     question: str,
-    options: list[str],
+    approve_text: str = "允许执行",
+    reject_text: str = "拒绝执行",
     reject_message: str = "用户拒绝执行",
 ) -> Callable[[AsyncMethod], AsyncMethod]:
     """构造「执行前确认」装饰器。
 
     Args:
         question: 发送给 ask_user 的确认问题文本。
-        options: ask_user 的按钮选项列表（如 ["执行", "取消"]）。
-        reject_message: 用户拒绝时的错误消息前缀。
+        approve_text: 允许按钮的文案，默认 "允许执行"。
+        reject_text: 拒绝按钮的文案，默认 "拒绝执行"。
+        reject_message: 用户拒绝时返回的错误消息前缀（独立于拒绝按钮文案）。
 
     Returns:
         一个装饰器，包装异步方法，使其先经过确认门控。
@@ -75,15 +79,16 @@ def confirm_execution(
 
             interaction_id, future = interaction.register()
 
-            # 载荷 = 被装饰方法的全部命名形参（即工具入参），原样转发，
-            # 前端按工具名选用所需字段。被装饰方法按关键字调用、签名
-            # 不含 run_manager 等技术参数，因此 kwargs 即用户可见载荷。
+            # 载荷 = 两个按钮文案 + 被装饰方法的全部命名形参（即工具入参），
+            # 原样转发，前端按工具名选用展示字段。被装饰方法按关键字调用、
+            # 签名不含 run_manager 等技术参数，因此 kwargs 即用户可见载荷。
             await sender.ask_user(
                 tool_name=self.name,
                 question=question,
                 mode="confirm",
-                options=options,
                 interaction_id=interaction_id,
+                approve_text=approve_text,
+                reject_text=reject_text,
                 **kwargs,
             )
 

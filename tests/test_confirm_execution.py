@@ -53,7 +53,7 @@ def _capture_register(monkeypatch: pytest.MonkeyPatch, recorded: dict[str, Any])
 
 @pytest.mark.asyncio
 async def test_confirm_approve_executes_code(monkeypatch: pytest.MonkeyPatch) -> None:
-    """用户 approve 后执行代码；ask_user 载荷携带 code / mode / options / tool_name。"""
+    """用户 approve 后执行代码；ask_user 载荷携带 code / mode / approve_text / reject_text / tool_name。"""
     interaction.current_session_id.set("")  # 非 auto_approve → 走手动确认
 
     fake = FakeSender()
@@ -66,7 +66,8 @@ async def test_confirm_approve_executes_code(monkeypatch: pytest.MonkeyPatch) ->
 
     assert fake.asked_kwargs is not None
     assert fake.asked_kwargs["mode"] == "confirm"
-    assert fake.asked_kwargs["options"] == ["执行", "取消"]
+    assert fake.asked_kwargs["approve_text"] == "执行"
+    assert fake.asked_kwargs["reject_text"] == "取消"
     assert fake.asked_kwargs["code"] == "print('approved')"
     assert fake.asked_kwargs["tool_name"] == "run_python"
 

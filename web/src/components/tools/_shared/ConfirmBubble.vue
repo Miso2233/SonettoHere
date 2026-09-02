@@ -66,10 +66,10 @@
 
       <div class="confirm-actions">
         <button class="btn-action btn-reject" @click="submitRejection">
-          拒绝执行
+          {{ rejectText }}
         </button>
         <button class="btn-action btn-approve" @click="submitApproval">
-          允许执行
+          {{ approveText }}
         </button>
       </div>
     </div>
@@ -102,6 +102,16 @@ watch(() => props.toolCall.callId, () => {
 const question = computed(() => props.toolCall.interaction?.question ?? '')
 const code = computed(() => props.toolCall.interaction?.code ?? '')
 const payload = computed(() => props.toolCall.interaction?.payload ?? {})
+
+// 允许/拒绝按钮文案：优先取后端 approve_text/reject_text，缺省回退通用措辞
+const approveText = computed(() => {
+  const t = payload.value.approve_text
+  return typeof t === 'string' && t ? t : '允许执行'
+})
+const rejectText = computed(() => {
+  const t = payload.value.reject_text
+  return typeof t === 'string' && t ? t : '拒绝执行'
+})
 
 const highlightedCode = computed(() => {
   if (!code.value) return ''

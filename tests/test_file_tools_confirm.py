@@ -81,7 +81,8 @@ TOOL_CASES: list[dict[str, Any]] = [
             "file_path": str(p / "a.txt"),
             "content": "hi",
         },
-        "options": ["允许写入", "拒绝"],
+        "approve_text": "允许写入",
+        "reject_text": "拒绝",
         "reject_message": "用户拒绝写入文件",
         "side_effect_check": lambda p, approved: (
             (p / "a.txt").exists() == approved
@@ -92,7 +93,8 @@ TOOL_CASES: list[dict[str, Any]] = [
         "call": lambda p: FileDeleteTool()._arun(file_path=str(p / "a.txt")),
         "setup": lambda p: (p / "a.txt").write_text("x", encoding="utf-8"),
         "expected_payload": lambda p: {"file_path": str(p / "a.txt")},
-        "options": ["允许删除", "拒绝"],
+        "approve_text": "允许删除",
+        "reject_text": "拒绝",
         "reject_message": "用户拒绝删除文件",
         "side_effect_check": lambda p, approved: (
             (p / "a.txt").exists() == (not approved)
@@ -105,7 +107,8 @@ TOOL_CASES: list[dict[str, Any]] = [
         ),
         "setup": lambda p: None,
         "expected_payload": lambda p: {"directory_path": str(p / "newdir")},
-        "options": ["允许创建", "拒绝"],
+        "approve_text": "允许创建",
+        "reject_text": "拒绝",
         "reject_message": "用户拒绝创建目录",
         "side_effect_check": lambda p, approved: (
             (p / "newdir").is_dir() == approved
@@ -121,7 +124,8 @@ TOOL_CASES: list[dict[str, Any]] = [
             "file_path": str(p / "old.txt"),
             "new_path": str(p / "new.txt"),
         },
-        "options": ["允许重命名", "拒绝"],
+        "approve_text": "允许重命名",
+        "reject_text": "拒绝",
         "reject_message": "用户拒绝重命名文件",
         "side_effect_check": lambda p, approved: (
             (p / "new.txt").exists() == approved
@@ -137,7 +141,8 @@ TOOL_CASES: list[dict[str, Any]] = [
             "file_path": str(p / "a.txt"),
             "edits": _edit_json(),
         },
-        "options": ["允许编辑", "拒绝"],
+        "approve_text": "允许编辑",
+        "reject_text": "拒绝",
         "reject_message": "用户拒绝编辑文件",
         "side_effect_check": lambda p, approved: (
             (p / "a.txt").read_text(encoding="utf-8") == ("FOO" if approved else "foo")
@@ -156,7 +161,7 @@ TOOL_CASES: list[dict[str, Any]] = [
 async def test_confirm_approve_executes(
     whitelist_tmp: Path, monkeypatch: pytest.MonkeyPatch, case: dict[str, Any]
 ) -> None:
-    """用户 approve 后真正执行；ask_user 载荷携带 mode/options/附加字段。"""
+    """用户 approve 后真正执行；ask_user 载荷携带 mode/按钮文案/附加字段。"""
     interaction.current_session_id.set("")  # 非 auto_approve → 走手动确认
     case["setup"](whitelist_tmp)
 
@@ -171,7 +176,8 @@ async def test_confirm_approve_executes(
     assert fake.asked_kwargs is not None
     assert fake.asked_kwargs["mode"] == "confirm"
     assert fake.asked_kwargs["tool_name"] == case["name"]
-    assert fake.asked_kwargs["options"] == case["options"]
+    assert fake.asked_kwargs["approve_text"] == case["approve_text"]
+    assert fake.asked_kwargs["reject_text"] == case["reject_text"]
     for key, value in case["expected_payload"](whitelist_tmp).items():
         assert fake.asked_kwargs[key] == value
 

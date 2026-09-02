@@ -26,7 +26,8 @@ class FileDeleteTool(ToolBase):
 
     @confirm_execution(
         question="即将删除以下路径，是否确认执行？此操作不可撤销。",
-        options=["允许删除", "拒绝"],
+        approve_text="允许删除",
+        reject_text="拒绝",
         reject_message="用户拒绝删除文件",
     )
     async def _arun(self, file_path: str = "") -> str:
