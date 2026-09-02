@@ -156,10 +156,10 @@ async def test_auto_approve_bypasses_ask(monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 def test_arun_signature_advertises_run_manager() -> None:
-    """_arun 未被装饰、签名保留 run_manager,LangChain 才能注入;装饰方法保留 __wrapped__。"""
+    """_arun 经类装饰器包装但 wraps 保留签名（run_manager 仍被 LangChain 注入），并保留 __wrapped__。"""
     sig = inspect.signature(RunPythonTool._arun)
     assert "run_manager" in sig.parameters
-    assert RunPythonTool._run_after_confirm.__wrapped__ is not None
+    assert RunPythonTool._arun.__wrapped__ is not None
 
 
 @pytest.mark.asyncio
@@ -172,7 +172,7 @@ async def test_langchain_injects_run_manager_through_decorator(
     interaction.set_session_auto_approve(sid, True)
 
     fake = FakeSender()
-    # 流式路径由 tool_python 命名空间读取 ToolSender（内层 _run_after_confirm）
+    # 流式路径由 tool_python 命名空间读取 ToolSender（_arun 内读取）
     monkeypatch.setattr(
         tool_module,
         "ToolSender",

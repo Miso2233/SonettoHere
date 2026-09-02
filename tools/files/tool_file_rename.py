@@ -13,6 +13,12 @@ class FileRenameInput(BaseModel):
     new_path: str = Field(default="", description="目标路径（重命名或移动后）")
 
 
+@confirm_execution(
+    question="即将重命名/移动文件，是否确认执行？",
+    approve_text="允许重命名",
+    reject_text="拒绝",
+    reject_message="用户拒绝重命名文件",
+)
 class FileRenameTool(ToolBase):
     name: str = "file_rename"
     description: str = (
@@ -24,12 +30,6 @@ class FileRenameTool(ToolBase):
     def _run(self, file_path: str = "", new_path: str = "") -> str:
         raise NotImplementedError("file_rename 仅支持异步模式，请使用 _arun")
 
-    @confirm_execution(
-        question="即将重命名/移动文件，是否确认执行？",
-        approve_text="允许重命名",
-        reject_text="拒绝",
-        reject_message="用户拒绝重命名文件",
-    )
     async def _arun(self, file_path: str = "", new_path: str = "") -> str:
         """用户确认放行后：校验并重命名/移动。"""
         if not file_path:

@@ -13,6 +13,12 @@ class FileDeleteInput(BaseModel):
     file_path: str = Field(default="", description="要删除的文件或目录绝对路径")
 
 
+@confirm_execution(
+    question="即将删除以下路径，是否确认执行？此操作不可撤销。",
+    approve_text="允许删除",
+    reject_text="拒绝",
+    reject_message="用户拒绝删除文件",
+)
 class FileDeleteTool(ToolBase):
     name: str = "file_delete"
     description: str = (
@@ -24,12 +30,6 @@ class FileDeleteTool(ToolBase):
     def _run(self, file_path: str = "") -> str:
         raise NotImplementedError("file_delete 仅支持异步模式，请使用 _arun")
 
-    @confirm_execution(
-        question="即将删除以下路径，是否确认执行？此操作不可撤销。",
-        approve_text="允许删除",
-        reject_text="拒绝",
-        reject_message="用户拒绝删除文件",
-    )
     async def _arun(self, file_path: str = "") -> str:
         """用户确认放行后：校验并删除文件或目录。"""
         if not file_path:

@@ -16,7 +16,6 @@ import io
 import os
 import subprocess
 import sys
-from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,11 +64,6 @@ class _ExecHandle:
 # 运行中 run_python 注册表：run_id → 执行句柄。
 # 全部操作都发生在同一事件循环线程（ws handler / agent task），无需加锁。
 _exec_runs: dict[str, _ExecHandle] = {}
-
-# 当前 run_python 调用的 run_id：由 _arun 入口自 run_manager 取出后存入，
-# 供确认门控放行后的执行读取（tool_stream 的 call_id 与中断注册表键）。
-# ContextVar 随 asyncio 任务隔离：每次调用各自 set/read，互不串扰。
-_current_run_id: ContextVar[str] = ContextVar("current_run_id", default="")
 
 
 def interrupt_run(call_id: str, message: str = "") -> bool:
@@ -288,6 +282,12 @@ class RunPythonInput(BaseModel):
     code: str = Field(default="", description="要执行的 Python 代码，支持多行")
 
 
+@confirm_execution(
+    question="即将执行以下 Python 代码，是否确认执行？",
+    approve_text="执行",
+    reject_text="取消",
+    reject_message="用户拒绝执行代码",
+)
 class RunPythonTool(ToolBase):
     name: str = "run_python"
     description: str = (
@@ -304,35 +304,21 @@ class RunPythonTool(ToolBase):
         code: str = "",
         run_manager: AsyncCallbackManagerForToolRun | None = None,
     ) -> str:
-        """LangChain 异步入口。
+        """（用户确认放行后）LangChain 异步入口：校验并执行。
 
-        ``run_manager`` 仅在此取出 run_id（流式推送与中途停止需要），
-        **不进入确认门控**；取毕存入 ``_current_run_id``，由确认放行后的
-        ``_run_after_confirm`` 读取。run_manager 由 LangChain 自动注入——
-        仅当 ``_arun`` 声明该形参时才会传入，其 run_id 与 WebSocket 回调
-        ``on_tool_start`` 收到的 run_id 一致，用作 ``tool_stream`` 的 call_id
-        （前端据此精确匹配气泡）与中断注册表键。
-        """
-        run_id = str(run_manager.run_id) if run_manager and run_manager.run_id else ""
-        _current_run_id.set(run_id)
-        return await self._run_after_confirm(code=code)
+        本方法经类装饰器 confirm_execution 包装：确认门控在方法体之外先执行，
+        auto_approve 或用户 approve 之后才进入本方法体。
 
-    @confirm_execution(
-        question="即将执行以下 Python 代码，是否确认执行？",
-        approve_text="执行",
-        reject_text="取消",
-        reject_message="用户拒绝执行代码",
-    )
-    async def _run_after_confirm(self, code: str = "") -> str:
-        """（用户确认放行后）校验并执行。
-
-        自动执行（auto_approve）与用户 approve 两条路径都会进入本方法，
-        因此按 ``_current_run_id`` 决定是否流式：有 run_id 时经
-        ``ToolSender.from_context()`` 实时推送；无 run_id 时退化为
-        进程内一次性捕获。
+        ``run_manager`` 在此取出 run_id（流式推送与中途停止需要）。confirm
+        会把 run_manager 等**技术参数**从确认气泡载荷中剔除、批准后仍原样透传
+        进本方法；LangChain 仅在 ``_arun`` 签名声明 run_manager 时才注入，其
+        run_id 与 WebSocket 回调 ``on_tool_start`` 收到的 run_id 一致，用作
+        ``tool_stream`` 的 call_id（前端据此精确匹配气泡）与中断注册表键。
         """
         if not code:
             return format_error("code 不能为空")
-        run_id = _current_run_id.get()
+        run_id = str(run_manager.run_id) if run_manager and run_manager.run_id else ""
+        # 有 run_id 时经 ToolSender 实时流式推送；无 run_id（未声明 run_manager
+        # 或直接调用未传）时退化为进程内一次性捕获。
         sender = ToolSender.from_context() if run_id else None
         return await _run_code(code, run_id, sender)
