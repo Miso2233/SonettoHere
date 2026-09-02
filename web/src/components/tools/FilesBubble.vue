@@ -229,8 +229,10 @@ const previewLineCount = computed(() => MAX_PREVIEW_LINES)
 
 // ── 文件列表 ──
 const items = computed<Array<{ name: string; type: string; size_bytes?: number }>>(() => {
-  const raw = td.value.items as Array<Record<string, unknown>> | undefined
-  return Array.isArray(raw) ? raw : []
+  const raw = td.value.items
+  return Array.isArray(raw)
+    ? (raw as Array<{ name: string; type: string; size_bytes?: number }>)
+    : []
 })
 
 const MAX_VISIBLE_ITEMS = 20
@@ -259,7 +261,10 @@ const runningLabel = computed(() => {
     case 'file_read': return '正在读取文件...'
     case 'file_write': return '正在写入文件...'
     case 'file_search': return '正在搜索文件...'
-    case 'file_manage': return '正在管理文件...'
+    case 'file_list_directory': return '正在列出目录...'
+    case 'file_delete': return '正在删除文件...'
+    case 'file_rename': return '正在重命名文件...'
+    case 'file_create_directory': return '正在创建目录...'
     default: return '正在操作文件...'
   }
 })

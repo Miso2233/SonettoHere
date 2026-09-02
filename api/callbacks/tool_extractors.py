@@ -267,181 +267,160 @@ def _extract_file_write(
     }
 
 
-# ── 文件管理 ────────────────────────────────────────────────────────────
+# ── 文件管理（拆解后的单一职责工具）────────────────────────────────────
 
-@register("file_manage")
-def _extract_file_manage(
+@register("file_delete")
+def _extract_file_delete(
     _tool_name: str,
     parsed: dict[str, Any],
-    tool_input: str | None = None,
+    _tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """按 operation (delete_file / rename_file / create_directory) 返回不同字段。"""
+    """删除文件或目录。"""
     data = _get_data(parsed)
     if data is None:
         return None
-
-    operation = ""
-    if tool_input:
-        try:
-            input_parsed = ast.literal_eval(tool_input)
-        except (ValueError, SyntaxError, TypeError):
-            pass
-        else:
-            if isinstance(input_parsed, dict):
-                operation = str(input_parsed.get("operation", "") or "")
-
-    if operation == "delete_file":
-        return {
-            "operation": "delete_file",
-            "file_path": data.get("file_path", ""),
-            "message": data.get("message", ""),
-        }
-
-    if operation == "rename_file":
-        return {
-            "operation": "rename_file",
-            "file_path": data.get("old_path", data.get("file_path", "")),
-            "new_path": data.get("new_path", ""),
-            "message": data.get("message", ""),
-        }
-
-    if operation == "create_directory":
-        return {
-            "operation": "create_directory",
-            "directory_path": data.get("directory_path", ""),
-            "message": data.get("message", ""),
-        }
-
-    return None
+    return {
+        "operation": "delete_file",
+        "file_path": data.get("file_path", ""),
+        "message": data.get("message", ""),
+    }
 
 
-# ── 文件搜索 ────────────────────────────────────────────────────────────
+@register("file_rename")
+def _extract_file_rename(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """重命名/移动路径。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "operation": "rename_file",
+        "file_path": data.get("old_path", data.get("file_path", "")),
+        "new_path": data.get("new_path", ""),
+        "message": data.get("message", ""),
+    }
+
+
+@register("file_create_directory")
+def _extract_file_create_directory(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """创建目录。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "operation": "create_directory",
+        "directory_path": data.get("directory_path", ""),
+        "message": data.get("message", ""),
+    }
+
+
+@register("file_list_directory")
+def _extract_file_list_directory(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """列出目录内容。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    directory = data.get("directory", "")
+    items_raw = data.get("items", [])
+    items = []
+    for item in items_raw if isinstance(items_raw, list) else []:
+        items.append({
+            "name": item.get("name", ""),
+            "type": "directory" if item.get("is_dir") else "file",
+            "size_bytes": item.get("size", 0),
+        })
+    return {
+        "operation": "list_directory",
+        "directory_path": directory,
+        "total_items": data.get("count", len(items)),
+        "items": items,
+    }
+
+
+# ── 文件搜索（glob 通配符搜索）────────────────────────────────────────
 
 @register("file_search")
 def _extract_file_search(
     _tool_name: str,
     parsed: dict[str, Any],
-    tool_input: str | None = None,
+    _tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """按 operation (list_directory / search_files) 返回不同字段。"""
+    """glob 通配符搜索文件。"""
     data = _get_data(parsed)
     if data is None:
         return None
-
-    operation = ""
-    if tool_input:
-        try:
-            input_parsed = ast.literal_eval(tool_input)
-        except (ValueError, SyntaxError, TypeError):
-            pass
-        else:
-            if isinstance(input_parsed, dict):
-                operation = str(input_parsed.get("operation", "") or "")
-
-    if operation == "list_directory":
-        directory = data.get("directory", "")
-        items_raw = data.get("items", [])
-        items = []
-        for item in items_raw if isinstance(items_raw, list) else []:
-            items.append({
-                "name": item.get("name", ""),
-                "type": "directory" if item.get("is_dir") else "file",
-                "size_bytes": item.get("size", 0),
-            })
-        return {
-            "operation": "list_directory",
-            "directory_path": directory,
-            "total_items": data.get("count", len(items)),
-            "items": items,
-        }
-
-    if operation == "search_files":
-        directory = data.get("search_directory", "")
-        items_raw = data.get("found_files", [])
-        items = []
-        for item in items_raw if isinstance(items_raw, list) else []:
-            items.append({
-                "name": item.get("name", ""),
-                "type": "directory" if item.get("is_dir") else "file",
-                "size_bytes": item.get("size", 0),
-            })
-        return {
-            "operation": "search_files",
-            "search_pattern": data.get("search_pattern", ""),
-            "search_directory": directory,
-            "total_items": data.get("count", len(items)),
-            "items": items,
-        }
-
-    return None
+    directory = data.get("search_directory", "")
+    items_raw = data.get("found_files", [])
+    items = []
+    for item in items_raw if isinstance(items_raw, list) else []:
+        items.append({
+            "name": item.get("name", ""),
+            "type": "directory" if item.get("is_dir") else "file",
+            "size_bytes": item.get("size", 0),
+        })
+    return {
+        "operation": "search_files",
+        "search_pattern": data.get("search_pattern", ""),
+        "search_directory": directory,
+        "total_items": data.get("count", len(items)),
+        "items": items,
+    }
 
 
-# ── 文件精确编辑 ────────────────────────────────────────────────────────
+# ── 文件精确编辑（多笔替换）────────────────────────────────────────────
 
 @register("file_edit")
 def _extract_file_edit(
     _tool_name: str,
     parsed: dict[str, Any],
-    tool_input: str | None = None,
+    _tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """按 operation 返回不同字段：edit → old/new/replaced_count；read → lines；search → matches。"""
+    """多笔精确替换：返回批量结果统计。"""
     data = _get_data(parsed)
     if data is None:
         return None
+    results = data.get("results", [])
+    return {
+        "operation": "edit",
+        "file_path": data.get("file_path", ""),
+        "total_edits": data.get("total_edits", 0),
+        "success_count": data.get("success_count", 0),
+        "failed_count": data.get("failed_count", 0),
+        "results": results,
+    }
 
-    operation = ""
-    if tool_input:
-        try:
-            input_parsed = ast.literal_eval(tool_input)
-        except (ValueError, SyntaxError, TypeError):
-            pass
-        else:
-            if isinstance(input_parsed, dict):
-                operation = str(input_parsed.get("operation", "") or "")
 
-    if operation == "edit":
-        return {
-            "operation": "edit",
-            "file_path": data.get("file_path", ""),
-            "replaced_count": data.get("replaced_count", 0),
-            "replace_all": data.get("replace_all", False),
-            "message": data.get("message", ""),
-        }
+# ── 文件文本搜索（文件内容正则匹配）────────────────────────────────────
 
-    if operation == "read":
-        lines = data.get("lines", [])
-        return {
-            "operation": "read",
-            "file_path": data.get("file_path", ""),
-            "total_lines": data.get("total_lines", 0),
-            "offset": data.get("offset", 0),
-            "content": data.get("content", ""),
-            "line_count": len(lines),
-            "lines": lines,
-        }
-
-    if operation == "multi_edit":
-        results = data.get("results", [])
-        return {
-            "operation": "multi_edit",
-            "file_path": data.get("file_path", ""),
-            "total_edits": data.get("total_edits", 0),
-            "success_count": data.get("success_count", 0),
-            "failed_count": data.get("failed_count", 0),
-            "results": results,
-        }
-
-    if operation == "search":
-        matches = data.get("matches", [])
-        return {
-            "operation": "search",
-            "file_path": data.get("file_path", ""),
-            "pattern": data.get("pattern", ""),
-            "total_matches": data.get("total_matches", 0),
-            "matches": matches,
-        }
-
-    return None
+@register("file_search_text")
+def _extract_file_search_text(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """文件内容正则文本搜索。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    matches = data.get("matches", [])
+    return {
+        "operation": "search",
+        "file_path": data.get("file_path", ""),
+        "pattern": data.get("pattern", ""),
+        "total_matches": data.get("total_matches", 0),
+        "matches": matches,
+    }
 
 # ── 塔罗占卜 ───────────────────────────────────────────────────────────
 
