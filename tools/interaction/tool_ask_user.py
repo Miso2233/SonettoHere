@@ -3,13 +3,14 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 
 class AskUserInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     question: str = Field(default="", description="需要询问用户的问题")
 
 
+@get_doc
 class AskUserTool(ToolBase):
     name: str = "ask_user_for_info"
     description: str = (
@@ -18,9 +19,7 @@ class AskUserTool(ToolBase):
     )
     args_schema: type[BaseModel] = AskUserInput
 
-    def _run(self, get_doc: bool = False, question: str = "") -> str:
-        if get_doc:
-            return self._load_doc()
+    def _run(self, question: str = "") -> str:
         if not question:
             return format_error("question 不能为空")
 

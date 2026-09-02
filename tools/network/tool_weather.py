@@ -7,12 +7,10 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 
 class WeatherInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     city: str = Field(default="", description="城市名称，如'北京'、'Shanghai'")
     adcode: str = Field(default="", description="行政区划代码，如'110000'")
     extended: bool = Field(
@@ -143,6 +141,7 @@ def _summarize_minutely(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@get_doc(field_description="设为 true 以获取使用说明和领域知识")
 class WeatherTool(ToolBase):
     name: str = "get_current_weather"
     description: str = (
@@ -153,7 +152,6 @@ class WeatherTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         city: str = "",
         adcode: str = "",
         extended: bool = False,
@@ -163,9 +161,6 @@ class WeatherTool(ToolBase):
         indices: bool = False,
         lang: str = "zh",
     ) -> str:
-        if get_doc:
-            return self._load_doc()
-
         try:
             result = self.client.uapi.misc.get_misc_weather(
                 city=city,

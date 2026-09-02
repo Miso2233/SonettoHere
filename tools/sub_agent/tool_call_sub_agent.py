@@ -8,13 +8,13 @@ from pydantic import BaseModel, Field
 from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_success, format_error
+from tools.get_doc import get_doc
 from api.utils.logger import get_logger
 
 _log = get_logger("call_sub_agent")
 
 
 class CallSubAgentInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     task: str = Field(
         default="", description="需要子 Agent 处理的任务描述（完整用户提示词）"
     )
@@ -32,6 +32,7 @@ _sub_call_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
 _MAX_SUB_CALL_DEPTH = 2
 
 
+@get_doc
 class CallSubAgentTool(ToolBase):
     name: str = "call_sub_agent"
     description: str = (
@@ -45,9 +46,7 @@ class CallSubAgentTool(ToolBase):
     def _run(self, get_doc: bool = False, task: str = "", name: str = "") -> str:
         raise NotImplementedError("call_sub_agent 仅支持异步模式")
 
-    async def _arun(self, get_doc: bool = False, task: str = "", name: str = "") -> str:
-        if get_doc:
-            return self._load_doc()
+    async def _arun(self, task: str = "", name: str = "") -> str:
         if not task.strip():
             return format_error("task 不能为空")
 

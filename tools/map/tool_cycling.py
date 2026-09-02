@@ -3,19 +3,18 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.map.map_api import parse_cycling_response
 
 
 class CyclingRouteInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     origin_longitude: str = Field(default="", description="起点经度")
     origin_latitude: str = Field(default="", description="起点纬度")
     destination_longitude: str = Field(default="", description="终点经度")
     destination_latitude: str = Field(default="", description="终点纬度")
 
 
+@get_doc(field_description="设为 true 以获取使用说明和领域知识")
 class CyclingRouteTool(ToolBase):
     name: str = "get_cycling_route"
     description: str = (
@@ -26,14 +25,11 @@ class CyclingRouteTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         origin_longitude: str = "",
         origin_latitude: str = "",
         destination_longitude: str = "",
         destination_latitude: str = "",
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not all(
             [
                 origin_longitude,

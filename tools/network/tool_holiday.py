@@ -3,12 +3,10 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 
 class HolidayCalendarInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     date: str = Field(
         default="", description="按天查询，格式 YYYY-MM-DD（与 month/year 三选一）"
     )
@@ -29,6 +27,7 @@ class HolidayCalendarInput(BaseModel):
     nearby_limit: int = Field(default=7, ge=1, le=30, description="最近节日数量限制")
 
 
+@get_doc(field_description="设为 true 以获取使用说明和领域知识")
 class HolidayCalendarTool(ToolBase):
     name: str = "holiday_calendar"
     description: str = (
@@ -39,7 +38,6 @@ class HolidayCalendarTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         date: str = "",
         month: str = "",
         year: str = "",
@@ -48,8 +46,6 @@ class HolidayCalendarTool(ToolBase):
         include_nearby: bool = False,
         nearby_limit: int = 7,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
         if not date and not month and not year:
             return format_error("必须提供 date、month 或 year 参数之一")
 

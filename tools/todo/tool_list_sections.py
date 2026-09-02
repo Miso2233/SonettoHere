@@ -3,17 +3,18 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.todo.todo_base import TodoAPIHelper
 
 
 class TodoListSectionsInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     project_name: str | None = Field(
         default=None,
         description="按项目名筛选。不传则列出所有项目的分区",
     )
 
 
+@get_doc
 class TodoListSectionsTool(ToolBase):
     name: str = "todo_list_sections"
     description: str = (
@@ -31,10 +32,7 @@ class TodoListSectionsTool(ToolBase):
             self._helper = TodoAPIHelper(self.client._todoist_token)
         return self._helper
 
-    def _run(self, get_doc: bool = False, project_name: str | None = None) -> str:
-        if get_doc:
-            return self._load_doc()
-
+    def _run(self, project_name: str | None = None) -> str:
         if project_name:
             pid = self.helper.get_project_id(project_name)
             if pid is None:

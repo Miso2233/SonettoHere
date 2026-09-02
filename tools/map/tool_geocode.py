@@ -3,17 +3,16 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 
 
 class GeocodeInput(BaseModel):
-    get_doc: bool = Field(
-        default=False, description="设为 true 以获取使用说明和领域知识"
-    )
     address: str = Field(
         default="", description="详细地址字符串，如'北京市海淀区中关村大街'"
     )
 
 
+@get_doc(field_description="设为 true 以获取使用说明和领域知识")
 class GeocodeTool(ToolBase):
     name: str = "geocode_address"
     description: str = (
@@ -23,9 +22,7 @@ class GeocodeTool(ToolBase):
     )
     args_schema: type[BaseModel] = GeocodeInput
 
-    def _run(self, get_doc: bool = False, address: str = "") -> str:
-        if get_doc:
-            return self._load_doc()
+    def _run(self, address: str = "") -> str:
         if not address:
             return format_error("address 不能为空")
 

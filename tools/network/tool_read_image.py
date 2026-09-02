@@ -15,10 +15,10 @@ from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
 from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.get_doc import get_doc
 
 
 class ReadImageInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     image_path: str = Field(
         default="",
         description="本地图片的绝对路径，如 C:\\Users\\...\\photo.jpg",
@@ -26,6 +26,7 @@ class ReadImageInput(BaseModel):
     tool_call_id: Annotated[str, InjectedToolCallId] = ""
 
 
+@get_doc
 class ReadImageTool(ToolBase):
     name: str = "read_image"
     description: str = (
@@ -40,18 +41,9 @@ class ReadImageTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         image_path: str = "",
         tool_call_id: str = "",
     ) -> Command:
-        if get_doc:
-            # get_doc 模式返回加载文档说明
-            return Command(update={
-                "messages": [
-                    ToolMessage(content=self._load_doc(), tool_call_id=tool_call_id),
-                ],
-            })
-
         if not image_path:
             return Command(update={
                 "messages": [

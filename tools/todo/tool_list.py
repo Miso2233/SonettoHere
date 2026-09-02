@@ -3,11 +3,11 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.get_doc import get_doc
 from tools.todo.todo_base import TodoAPIHelper
 
 
 class TodoListInput(BaseModel):
-    get_doc: bool = Field(default=False, description="设为 true 以获取使用说明")
     project_name: str | None = Field(
         default=None,
         description="按项目名筛选。先通过 todo_list_projects 确认项目名",
@@ -39,6 +39,7 @@ class TodoListInput(BaseModel):
     )
 
 
+@get_doc
 class TodoListTool(ToolBase):
     name: str = "todo_list"
     description: str = (
@@ -57,7 +58,6 @@ class TodoListTool(ToolBase):
 
     def _run(
         self,
-        get_doc: bool = False,
         project_name: str | None = None,
         section_name: str | None = None,
         label: str | None = None,
@@ -65,9 +65,6 @@ class TodoListTool(ToolBase):
         ids: list[str] | None = None,
         limit: int | None = None,
     ) -> str:
-        if get_doc:
-            return self._load_doc()
-
         try:
             api = self.helper.api
         except ValueError as e:
