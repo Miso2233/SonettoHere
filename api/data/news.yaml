@@ -1,4 +1,12 @@
 news:
+  - id: "edit-result-diff-display"
+    title: "编辑结果气泡显示替换内容"
+    description: "文件编辑工具执行完成后，结果气泡中每笔编辑都会以红绿对照方式显示替换前后的内容，与确认气泡所见一致，编辑结果一目了然。"
+    type: "feat"
+    date: "2026-09-03"
+    tags: ["文件编辑", "Diff", "体验"]
+    version: ""
+    pr_number: 299
   - id: "run-python-mid-run-stop"
     title: "Python 执行可中途停止"
     description: "run_python 工具运行中可随时点击「停止」并附上截止信息，子进程会被彻底终止，Agent 结合已产生的输出与截止信息继续回应。长任务运行过程真正可控，不再只能干等或整轮取消。"
