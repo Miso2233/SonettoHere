@@ -50,6 +50,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   ask_user_single_choice: '选择意见',
   ask_user_multi_choice: '多选',
   task_tracker: '任务追踪',
+  await_background: '等待后台结果',
 
   /* Memory */
   list_memories: '记忆列表',
