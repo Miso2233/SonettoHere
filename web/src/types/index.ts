@@ -370,6 +370,8 @@ export interface BackgroundTaskInfo {
   /** 后台任务索引（与 background_update 事件的 index 对应） */
   index: number
   status: 'running' | 'completed' | 'failed'
+  /** spawn 时记录的工具入参（已剔除 background 字段） */
+  args?: Record<string, unknown>
   /** 终态时的结果预览 */
   resultPreview?: string
   elapsedS?: number

@@ -1,5 +1,11 @@
 <template>
-  <BubbleChrome :tool-call="toolCall">
+  <!-- 完成态且拿到原工具的结构化数据：直接镜像渲染原工具的专属气泡 -->
+  <component
+    v-if="mirrorComponent && mirrorData"
+    :is="mirrorComponent"
+    :tool-call="mirrorCall"
+  />
+  <BubbleChrome v-else :tool-call="toolCall">
     <div v-if="toolCall.status === 'running' || toolCall.status === 'awaiting_user'" class="await-waiting">
       <span class="spinner"></span>
       <span>{{ waitingText }}</span>
@@ -19,6 +25,7 @@
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
+import { getBubbleComponent } from './registry'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 
@@ -50,4 +57,43 @@ const timeoutHint = computed((): string => {
 })
 
 const resultText = computed((): string => props.toolCall.output ?? '')
+
+// ── 完成态镜像：复用原工具的专属气泡 ──────────────────────
+
+/** 后端在完成态 tool_data 中标注的原工具名（original_tool） */
+const originalTool = computed((): string | null => {
+  if (props.toolCall.status !== 'done') return null
+  const td = props.toolCall.toolData as { original_tool?: unknown } | undefined
+  return typeof td?.original_tool === 'string' && td.original_tool ? td.original_tool : null
+})
+
+const mirrorComponent = computed(() =>
+  originalTool.value ? getBubbleComponent(originalTool.value) : null
+)
+
+/** 剔除镜像标记字段后的原工具结构化数据；为空则回退通用结果展示 */
+const mirrorData = computed((): Record<string, unknown> | null => {
+  if (!originalTool.value || !props.toolCall.toolData) return null
+  const rest: Record<string, unknown> = { ...props.toolCall.toolData }
+  delete rest['original_tool']
+  delete rest['original_elapsed_s']
+  return Object.keys(rest).length > 0 ? rest : null
+})
+
+/** 镜像气泡：换成原工具名 + 完成徽章（后台 #N）+ 后台任务真实耗时 */
+const mirrorCall = computed((): ToolCall => {
+  const originalElapsed = props.toolCall.toolData?.['original_elapsed_s']
+  return {
+    ...props.toolCall,
+    name: originalTool.value ?? props.toolCall.name,
+    status: 'done',
+    toolData: mirrorData.value ?? undefined,
+    elapsed:
+      typeof originalElapsed === 'number' ? originalElapsed : props.toolCall.elapsed,
+    background:
+      parsedIndex.value !== null
+        ? { index: parsedIndex.value, status: 'completed' }
+        : props.toolCall.background,
+  }
+})
 </script>

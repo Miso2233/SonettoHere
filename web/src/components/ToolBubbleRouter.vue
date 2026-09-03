@@ -6,6 +6,12 @@
     :tool-call="toolCall"
     @action="handleAction"
   />
+  <!-- 后台 spawn 门控：background=true 的调用立即返回索引（无业务结果），
+       专属气泡拿到空 toolData 会渲染成空框架，统一渲染后台卡片 -->
+  <BackgroundSpawnCard
+    v-else-if="isBackgroundSpawn"
+    :tool-call="toolCall"
+  />
   <component
     :is="bubbleComponent"
     v-else-if="bubbleComponent"
@@ -20,6 +26,7 @@ import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import ToolCallCard from './ToolCallCard.vue'
 import ConfirmBubble from './tools/_shared/ConfirmBubble.vue'
+import BackgroundSpawnCard from './tools/_shared/BackgroundSpawnCard.vue'
 import { getBubbleComponent } from './tools/registry'
 
 const props = defineProps<{ toolCall: ToolCall }>()
@@ -30,6 +37,14 @@ const isConfirmPending = computed(() =>
   props.toolCall.status === 'awaiting_user'
   && props.toolCall.interaction?.mode === 'confirm'
   && !props.toolCall.interaction.submitted
+)
+
+/**
+ * 后台 spawn 门控：background=true 的调用气泡本身已 done（返回值只有任务
+ * 索引信封，无业务数据），统一渲染后台卡片；后台任务的终态由徽章体现。
+ */
+const isBackgroundSpawn = computed(() =>
+  props.toolCall.status === 'done' && !!props.toolCall.background
 )
 
 const bubbleComponent = computed(() => {

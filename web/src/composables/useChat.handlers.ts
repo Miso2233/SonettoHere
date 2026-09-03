@@ -133,11 +133,15 @@ function handleToolEnd(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
     tc.status = 'done'
     if (teEvent.payload.tool_data) {
       tc.toolData = teEvent.payload.tool_data
-      // @background 工具的 spawn 信封 → 挂后台任务附属状态（徽章数据源，
-      // 终态由 background_update 事件推进）
+      // @background 工具的 spawn 信封 → 挂后台任务附属状态（卡片数据源，
+      // 含入参元数据；终态由 background_update 事件推进）
       const bg = teEvent.payload.tool_data['background']
       if (bg && typeof bg === 'object' && typeof (bg as { index?: unknown }).index === 'number') {
-        tc.background = { index: (bg as { index: number }).index, status: 'running' }
+        const bgInfo = bg as { index: number; args?: unknown }
+        tc.background = { index: bgInfo.index, status: 'running' }
+        if (bgInfo.args && typeof bgInfo.args === 'object') {
+          tc.background.args = bgInfo.args as Record<string, unknown>
+        }
       }
       // await_background 等待态：记录正在等待的后台任务索引
       const awaitIndex = teEvent.payload.tool_data['await_index']
