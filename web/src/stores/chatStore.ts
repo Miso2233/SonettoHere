@@ -11,7 +11,7 @@ import type { ParsedRef } from '@/utils/references'
 import { getToken } from '@/api'
 import { sessionsApi } from '@/api/sessions'
 import { memoryHandlers, type MemoryEventType } from '@/composables/useChat.memory'
-import { turnHandlers } from '@/composables/useChat.handlers'
+import { turnHandlers, handleBackgroundUpdate } from '@/composables/useChat.handlers'
 
 const TIME_SUFFIX_RE = /（\d{4}-\d{2}-\d{2} \w{3} \d{2}:\d{2}）$/
 export const TURNS_KEY_PREFIX = 'sonetto_turns_'
@@ -441,6 +441,13 @@ export const useChatStore = defineStore('chat', () => {
       return
     }
 
+    // 后台任务终态：turn 可能已 done 归档，必须在 currentTurn 守卫之前处理，
+    // 沿已归档轮按 background.index 回溯定位气泡（同 memoryHandlers 模式）
+    if (event.type === 'background_update') {
+      handleBackgroundUpdate(ch, sid, event)
+      return
+    }
+
     // 排队消息事件：在 turn 守卫之前处理（可能 currentTurn 尚为 null）
     if (event.type === 'message_queued') {
       const me = event as MessageQueuedEvent
@@ -646,6 +653,8 @@ export const useChatStore = defineStore('chat', () => {
       for (const ev of turn.events) {
         if (ev.kind === 'tool' && ev.interaction?.interactionId === interactionId) {
           ev.interaction.submitted = true
+          // 用户已回应：等待用户 → 恢复执行中（approve 后真实执行继续）
+          ev.status = 'running'
           break
         }
       }

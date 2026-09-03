@@ -3,7 +3,7 @@ import type { SessionChannel } from '@/stores/chatStore'
 import { findLastThinking, findToolByCallId, findBestMatchingTool, findFirstRunningToolForInteraction } from '@/stores/chatStore'
 import { useChatStore } from '@/stores/chatStore'
 import { useSessionStore } from '@/stores/sessionStore'
-import type { ServerEvent, ChatTurn, TokenEvent, ThinkingTokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent, ToolStreamEvent } from '@/types'
+import type { ServerEvent, ChatTurn, TokenEvent, ThinkingTokenEvent, AnswerEvent, ErrorEvent, DoneEvent, AskUserEvent, ToolStreamEvent, BackgroundUpdateEvent, ToolCall, TurnEvent } from '@/types'
 
 /** 事件路由处理器签名（turn 已由调用方守卫保证存在）。 */
 type TurnEventHandler = (ch: SessionChannel, sid: string, turn: ChatTurn, event: ServerEvent) => void
@@ -133,6 +133,17 @@ function handleToolEnd(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
     tc.status = 'done'
     if (teEvent.payload.tool_data) {
       tc.toolData = teEvent.payload.tool_data
+      // @background 工具的 spawn 信封 → 挂后台任务附属状态（徽章数据源，
+      // 终态由 background_update 事件推进）
+      const bg = teEvent.payload.tool_data['background']
+      if (bg && typeof bg === 'object' && typeof (bg as { index?: unknown }).index === 'number') {
+        tc.background = { index: (bg as { index: number }).index, status: 'running' }
+      }
+      // await_background 等待态：记录正在等待的后台任务索引
+      const awaitIndex = teEvent.payload.tool_data['await_index']
+      if (typeof awaitIndex === 'number') {
+        tc.awaitIndex = awaitIndex
+      }
       if (teEvent.payload.tool_name === 'task_tracker' && teEvent.payload.tool_data) {
         ch.taskTrackerData = teEvent.payload.tool_data as Record<string, unknown>
       }
@@ -308,7 +319,49 @@ function handleAskUser(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
       code,
       payload: Object.keys(extra).length > 0 ? extra : undefined,
     }
+    // 挂起等用户 ≠ 执行中：转入独立状态（气泡渲染暂停图标，非 spinner）
+    runningTool.status = 'awaiting_user'
   }
+}
+
+/**
+ * background_update：后台任务终态（completed/failed）到达。
+ *
+ * 由 chatStore 在 currentTurn 守卫**之前**调用——turn 可能已经 done 归档，
+ * 此时需沿 ch.turns 按 background.index 回溯定位发起 spawn 的工具气泡
+ * （与 memoryHandlers 按 turn_id 回溯同一模式）。找不到则静默丢弃
+ * （页面刷新后气泡重建为匿名 done，无 background.index 可匹配）。
+ */
+export function handleBackgroundUpdate(ch: SessionChannel, _sid: string, event: ServerEvent): void {
+  const payload = (event as BackgroundUpdateEvent).payload
+  const target = findBackgroundToolByIndex(ch, payload.index)
+  if (!target) {
+    console.log('[useChat] background_update: 未找到匹配气泡（可能已刷新）, index=', payload.index)
+    return
+  }
+  target.background = {
+    ...target.background,
+    index: payload.index,
+    status: payload.status,
+    resultPreview: payload.result_preview || target.background?.resultPreview,
+    elapsedS: payload.elapsed_s,
+  }
+}
+
+/** 按 background.index 查找 spawn 气泡：先当前轮，再已归档轮（时间倒序）。 */
+function findBackgroundToolByIndex(ch: SessionChannel, index: number): ToolCall | undefined {
+  const sources: TurnEvent[][] = []
+  if (ch.currentTurn) sources.push(ch.currentTurn.events)
+  for (const t of ch.turns) sources.push(t.events)
+  for (const events of sources) {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const e = events[i]
+      if (e.kind === 'tool' && e.background?.index === index) {
+        return e as ToolCall
+      }
+    }
+  }
+  return undefined
 }
 
 /** 事件路由处理器注册表。 */

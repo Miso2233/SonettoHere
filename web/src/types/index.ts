@@ -43,6 +43,20 @@ export interface ToolStreamEvent {
   payload: { call_id: string; tool_name: string; chunk: string }
 }
 
+/** background_update — 后台任务状态变化（@background 工具返回索引后的终态） */
+export interface BackgroundUpdateEvent {
+  type: 'background_update'
+  payload: {
+    /** 后台任务索引（spawn 时返回给 LLM 的 task_index） */
+    index: number
+    status: 'completed' | 'failed'
+    tool_name: string
+    /** 截断的结果预览 */
+    result_preview: string
+    elapsed_s: number
+  }
+}
+
 export interface AnswerEvent {
   type: 'answer'
   payload: { content: string }
@@ -213,6 +227,7 @@ export type ServerEvent =
   | ToolEndEvent
   | ToolErrorEvent
   | ToolStreamEvent
+  | BackgroundUpdateEvent
   | AnswerEvent
   | DoneEvent
   | ErrorEvent
@@ -350,19 +365,34 @@ export interface AskUserInteraction {
   payload?: Record<string, unknown>
 }
 
+/** @background 工具 spawn 出的后台任务在气泡上的附属状态 */
+export interface BackgroundTaskInfo {
+  /** 后台任务索引（与 background_update 事件的 index 对应） */
+  index: number
+  status: 'running' | 'completed' | 'failed'
+  /** 终态时的结果预览 */
+  resultPreview?: string
+  elapsedS?: number
+}
+
 export interface ToolCall {
   kind: 'tool'
   name: string
   input: string
   output: string | null
   elapsed: number | null
-  status: 'running' | 'done' | 'error'
+  /** awaiting_user：挂在 ask_user 交互上等待用户（confirm/qa/choice 全家族） */
+  status: 'running' | 'awaiting_user' | 'done' | 'error'
   callId?: string
   toolData?: Record<string, unknown>
   /** tool_stream 实时输出缓冲（仅 running 期间有意义，tool_end 后由 output/toolData 接管） */
   stream?: string
   /** ask_user 交互工具的额外数据 */
   interaction?: AskUserInteraction
+  /** @background spawn 的后台任务附属状态（气泡本身已 done，任务独立演进） */
+  background?: BackgroundTaskInfo
+  /** await_background 气泡等待的后台任务索引 */
+  awaitIndex?: number
 }
 
 /** 后台记忆 consumer 的 CRUD 工具调用（渲染在轮次底部小字区） */
