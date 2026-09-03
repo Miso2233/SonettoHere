@@ -105,6 +105,8 @@ export interface SubSessionCreatedEvent {
     parent_session_id: string | null
     task: string
     name: string
+    /** @background 后台 spawn 的子 Agent：前端不切换用户视图 */
+    detached?: boolean
   }
 }
 

@@ -75,6 +75,8 @@ export interface SessionChannel {
   initialized: boolean
   _awaitingToolName: string | null
   parentSessionId: string | null
+  /** @background 后台 spawn 的子 Agent：完成时不自动切回父会话 */
+  detached: boolean
   privateMode: boolean
   skipRecall: boolean
   autoApprove: boolean
@@ -141,6 +143,7 @@ export const useChatStore = defineStore('chat', () => {
         initialized: false,
         _awaitingToolName: null,
         parentSessionId: null,
+        detached: false,
         privateMode: false,
         skipRecall: false,
         autoApprove: false,
@@ -529,6 +532,9 @@ export const useChatStore = defineStore('chat', () => {
 
     const subCh = getOrCreateChannel(subId)
     subCh.parentSessionId = event.payload.parent_session_id
+    // @background 后台 spawn 的子 Agent：不切换用户视图（完成也不拽回），
+    // 仅建立子 WS 连接驱动子轮启动；用户可手动点开查看过程
+    subCh.detached = event.payload.detached === true
     subCh.isStreaming = true
     subCh.currentTurn = {
       id: crypto.randomUUID(),
@@ -538,7 +544,9 @@ export const useChatStore = defineStore('chat', () => {
       memoryEvents: [],
       finalAnswer: null,
     }
-    sessionStore.switchSession(subId)
+    if (!subCh.detached) {
+      sessionStore.switchSession(subId)
+    }
   }
 
   // ── 发送消息 ──
