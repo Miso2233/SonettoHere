@@ -34,6 +34,7 @@
         <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" :has-vision="selectedModelHasVision" />
         <StudioSelector :studio-name="studioName" @change="setStudioName" />
         <TaskTrackerBar :data="taskTrackerData as any" @dismiss="dismissTaskTracker" />
+        <BackgroundTrackerBar :data="backgroundTracker" />
     </header>
 
     <ChatWindow
@@ -100,6 +101,7 @@ import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import StudioSelector from '@/components/StudioSelector.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TaskTrackerBar from '@/components/TaskTrackerBar.vue'
+import BackgroundTrackerBar from '@/components/BackgroundTrackerBar.vue'
 import { useChat } from '@/composables/useChat'
 import { useChatStore } from '@/stores/chatStore'
 import { health } from '@/composables/useHealth'
@@ -109,7 +111,7 @@ import type { ProviderConfig, UserResponse } from '@/types'
 import { computed, onMounted, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, pendingMessages, error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove, studioName, setStudioName } =
+const { connected, isStreaming, turns, currentTurn, pendingMessages, error, contextUsage, taskTrackerData, backgroundTracker, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove, studioName, setStudioName } =
   useChat(sessionId)
 const chatStore = useChatStore()
 

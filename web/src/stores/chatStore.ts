@@ -69,6 +69,8 @@ export interface SessionChannel {
   error: string | null
   contextUsage: ContextUsage | null
   taskTrackerData: Record<string, unknown> | null
+  /** 后台任务跟踪（@background spawn）：index → 任务概要，顶栏 BackgroundTrackerBar 数据源 */
+  backgroundTracker: Map<number, { toolName: string; status: 'running' | 'completed' | 'failed' }>
   reconnectTimer: ReturnType<typeof setTimeout> | null
   initialized: boolean
   _awaitingToolName: string | null
@@ -134,6 +136,7 @@ export const useChatStore = defineStore('chat', () => {
         error: null,
         contextUsage: null,
         taskTrackerData: null,
+        backgroundTracker: new Map(),
         reconnectTimer: null,
         initialized: false,
         _awaitingToolName: null,

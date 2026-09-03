@@ -142,6 +142,8 @@ function handleToolEnd(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
         if (bgInfo.args && typeof bgInfo.args === 'object') {
           tc.background.args = bgInfo.args as Record<string, unknown>
         }
+        // 同步登记到会话级后台跟踪器（顶栏 BackgroundTrackerBar）
+        ch.backgroundTracker.set(bgInfo.index, { toolName: teEvent.payload.tool_name, status: 'running' })
       }
       // await_background 等待态：记录正在等待的后台任务索引
       const awaitIndex = teEvent.payload.tool_data['await_index']
@@ -349,6 +351,13 @@ export function handleBackgroundUpdate(ch: SessionChannel, _sid: string, event: 
     status: payload.status,
     resultPreview: payload.result_preview || target.background?.resultPreview,
     elapsedS: payload.elapsed_s,
+  }
+  // 同步会话级后台跟踪器（顶栏徽章可能在已归档轮上，跟踪器统一由事件驱动）
+  const tracked = ch.backgroundTracker.get(payload.index)
+  if (tracked) {
+    tracked.status = payload.status
+  } else {
+    ch.backgroundTracker.set(payload.index, { toolName: payload.tool_name, status: payload.status })
   }
 }
 
