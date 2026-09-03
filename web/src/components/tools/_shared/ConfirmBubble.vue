@@ -1,7 +1,7 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
     <!-- 确认表单：question + 可选代码 + 拒绝原因 + 允许/拒绝 -->
-    <div v-if="toolCall.status === 'running' && !submitted" class="confirm-body">
+    <div v-if="isActive && !submitted" class="confirm-body">
       <div class="confirm-header">
         <span class="confirm-icon">⚙️</span>
         <span class="confirm-title">{{ question || '执行确认' }}</span>
@@ -77,7 +77,7 @@
     </div>
 
     <!-- 已提交（防重复）占位：本地 submitted 置位后、路由切换前的瞬态 -->
-    <div v-else-if="toolCall.status === 'running' && submitted" class="confirm-waiting">
+    <div v-else-if="isActive && submitted" class="confirm-waiting">
       <span>已提交，等待回复...</span>
     </div>
   </BubbleChrome>
@@ -95,6 +95,11 @@ const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }):
 
 const submitted = ref(false)
 const rejectionReason = ref('')
+
+/** 等待用户期间（awaiting_user）及提交瞬态（短暂回退 running）均视为活跃 */
+const isActive = computed(() =>
+  props.toolCall.status === 'running' || props.toolCall.status === 'awaiting_user'
+)
 
 // 每个新工具调用重置提交状态（防止组件复用残留）
 watch(() => props.toolCall.callId, () => {
