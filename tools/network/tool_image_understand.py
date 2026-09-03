@@ -11,6 +11,7 @@ from zai import ZhipuAiClient
 
 from config.settings import get_settings
 from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.background import background
 from tools.get_doc import get_doc
 
 MODEL = "glm-5v-turbo"
@@ -62,6 +63,7 @@ class ImageUnderstandInput(BaseModel):
 
 
 @get_doc
+@background
 class ImageUnderstandTool(ToolBase):
     name: str = "analyze_image"
     description: str = (

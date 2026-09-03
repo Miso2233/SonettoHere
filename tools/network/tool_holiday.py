@@ -3,6 +3,7 @@
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.background import background
 from tools.get_doc import get_doc
 
 
@@ -28,6 +29,7 @@ class HolidayCalendarInput(BaseModel):
 
 
 @get_doc
+@background
 class HolidayCalendarTool(ToolBase):
     name: str = "holiday_calendar"
     description: str = (

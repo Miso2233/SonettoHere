@@ -24,6 +24,7 @@ from pydantic import BaseModel, Field
 
 from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success, get_safe_builtins
+from tools.background import background
 from tools.confirm import confirm_execution
 
 # 模块级常量：安全 builtins 只构造一次
@@ -288,6 +289,7 @@ class RunPythonInput(BaseModel):
     reject_text="取消",
     reject_message="用户拒绝执行代码",
 )
+@background
 class RunPythonTool(ToolBase):
     name: str = "run_python"
     description: str = (

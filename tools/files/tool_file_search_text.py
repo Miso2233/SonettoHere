@@ -13,6 +13,7 @@ from tools.base import (
     format_error,
     format_success,
 )
+from tools.background import background
 
 
 class FileSearchTextInput(BaseModel):
@@ -21,6 +22,7 @@ class FileSearchTextInput(BaseModel):
     case_insensitive: bool = Field(default=False, description="搜索时是否忽略大小写")
 
 
+@background
 class FileSearchTextTool(ToolBase):
     name: str = "file_search_text"
     description: str = (
