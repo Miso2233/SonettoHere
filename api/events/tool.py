@@ -62,13 +62,19 @@ class ToolSender(WsTransport):
         parent_session_id: str | None,
         task: str,
         name: str,
+        detached: bool = False,
     ) -> None:
-        """通知前端子会话已创建（sub-agent）。"""
+        """通知前端子会话已创建（sub-agent）。
+
+        ``detached`` 为 true 表示该子 Agent 经 @background 后台 spawn：前端
+        仍需连接子会话 WS 以驱动子轮启动，但不切换用户视图。
+        """
         await self._send("sub_session_created", {
             "sub_session_id": sub_session_id,
             "parent_session_id": parent_session_id,
             "task": task,
             "name": name,
+            "detached": detached,
         })
 
     async def background_update(

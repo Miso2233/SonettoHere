@@ -27,16 +27,23 @@
     class SomeTool(ToolBase):
         ...
 
-适用范围：仅长耗时工具（网络搜索/抓取、代码执行、大目录扫描、视觉模型
-调用等）。ask_user 系列（值就在于阻塞等用户）、call_sub_agent（已有自身
-的 sub-session 机制）、read_image 等返回 Command 的工具不适用。
+适用范围：长耗时工具（网络搜索/抓取、代码执行、大目录扫描、视觉模型
+调用）与子 Agent 调用（call_sub_agent——其结果 Future 由子会话自身轮次
+resolve，与父轮解耦，后台化天然可行；工具侧配套 detached 等待语义）。
+ask_user 系列（值就在于阻塞等用户）、read_image 等返回 Command 的工具
+不适用。
+
+被装饰工具经 ``background_mode`` ContextVar 感知自身是否运行在 detached
+任务中（spawn 时在新任务上下文内置位），用于分支化后台专属语义（如
+call_sub_agent 的等待超时与 detached 事件标记）。
 """
 
 from __future__ import annotations
 
+import contextvars
 import functools
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Coroutine
 from typing import Any
 
 from pydantic import Field
@@ -55,6 +62,12 @@ DEFAULT_DESCRIPTION = (
 )
 
 ToolClass = type[BaseTool]
+
+# 当前协程是否运行在 detached 后台任务中（spawn 时在新任务上下文内置位）。
+# 被装饰工具据此分支化后台专属语义；同步调用路径恒为 False。
+background_mode: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "background_mode", default=False
+)
 
 
 def _args_summary(kwargs: dict[str, Any]) -> str:
@@ -101,7 +114,7 @@ def background(cls: ToolClass) -> ToolClass:
                 )
 
             task = background_registry.get_registry(session_id).register(
-                orig(self, *args, **kwargs),
+                _spawn_coro(orig, self, args, kwargs),
                 tool_name=self.name,
                 args_summary=_args_summary(kwargs),
             )
@@ -119,6 +132,22 @@ def background(cls: ToolClass) -> ToolClass:
         },
         wrap_method=make_wrapper,
     )
+
+
+def _spawn_coro(
+    orig: Callable[..., Any], self: Any, args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> Coroutine[Any, Any, Any]:
+    """构造 detached 任务协程：新任务上下文内置位后台模式标记后执行原方法。
+
+    set 发生在新任务自身运行时（协程首次执行），不污染发起调用的上下文，
+    后续同步工具调用读到的 background_mode 仍为 False。
+    """
+
+    async def runner() -> Any:
+        background_mode.set(True)
+        return await orig(self, *args, **kwargs)
+
+    return runner()
 
 
 def _format_spawn_result(task_index: int) -> str:

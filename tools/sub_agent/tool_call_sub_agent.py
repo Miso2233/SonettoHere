@@ -8,10 +8,15 @@ from pydantic import BaseModel, Field
 from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_success, format_error
+from tools.background import background, background_mode
 from tools.get_doc import get_doc
 from api.utils.logger import get_logger
 
 _log = get_logger("call_sub_agent")
+
+# 后台模式下的等待上限：子会话轮次由前端连接驱动，前端未连接（断网/关页）
+# 时结果 Future 永不 resolve，detached 任务必须干净失败而非永久挂起。
+_SUB_WAIT_TIMEOUT_S = 1800
 
 
 class CallSubAgentInput(BaseModel):
@@ -33,6 +38,7 @@ _MAX_SUB_CALL_DEPTH = 2
 
 
 @get_doc
+@background
 class CallSubAgentTool(ToolBase):
     name: str = "call_sub_agent"
     description: str = (
@@ -92,8 +98,10 @@ class CallSubAgentTool(ToolBase):
         sub = sm.create_sub_session(task=task)
         _log.info("sub-session created: %s", sub.session_id)
 
-        # 2. 通知前端（通过主 WS）
-        _log.debug("sending sub_session_created via WS")
+        # 2. 通知前端（通过主 WS）；后台 spawn 时携带 detached 标记，
+        #    前端不切换用户视图（仅建立子 WS 连接以驱动子轮启动）
+        detached = background_mode.get(False)
+        _log.debug("sending sub_session_created via WS (detached=%s)", detached)
         sender = ToolSender.from_context()
         if sender is not None:
             await sender.sub_session_created(
@@ -101,13 +109,22 @@ class CallSubAgentTool(ToolBase):
                 parent_session_id=parent_session_id,
                 task=task,
                 name=name[:100] if name else "",
+                detached=detached,
             )
         _log.debug("sub_session_created sent, awaiting pending_result...")
 
         # 3. 等待 sub-agent 执行完成
         #    sub-agent 由前端连接 sub-session WS 后自动启动并返回结果
         try:
-            final_answer = await sub.pending_future
+            if detached:
+                # 后台模式：父轮已结束、本协程 detached 运行，等待必须有上限——
+                # 前端未连接（断网/关页）时 future 永不 resolve，须干净失败。
+                # shield 防止 wait_for 超时隐式取消 future，取消由下方显式执行。
+                final_answer = await asyncio.wait_for(
+                    asyncio.shield(sub.pending_future), _SUB_WAIT_TIMEOUT_S
+                )
+            else:
+                final_answer = await sub.pending_future
             _log.info("pending_result resolved, answer len=%d", len(final_answer))
 
             _log.debug("returning success")
@@ -117,11 +134,25 @@ class CallSubAgentTool(ToolBase):
                     "answer": final_answer,
                 }
             )
+        except asyncio.TimeoutError:
+            _log.info("background wait timeout: sub=%s", sub.session_id)
+            # 子会话未被前端启动（或执行超 30 分钟）：终止子轮、标记失败，
+            # 后台任务以明确错误结束（用户可重新发起）
+            sub.cancel_active_task()
+            sub.fail_pending("子会话未被启动（前端未连接）或执行超时")
+            return format_error(
+                "子 Agent 未能完成：子会话未被启动（前端未连接）或执行超过 30 分钟"
+            )
         except asyncio.CancelledError:
-            _log.info("cancelled")
-            # 主 Agent 被取消 → 取消 sub-agent
+            _log.info("cancelled (detached=%s)", detached)
+            # 取消来源：同步模式 = 父轮取消（CancelledError 打进 await）；
+            # 后台模式 = 父会话删除 → cancel_session 取消 detached 任务。
             sub.cancel_active_task()
             sub.cancel_pending()
+            if detached:
+                # 后台任务被取消必须 re-raise：吞掉会让注册表把本任务
+                # 误记为 completed（返回值被当作正常结果存储）
+                raise
             return format_error("主任务被取消，子 Agent 已终止")
         except Exception as e:
             _log.error("error: %s", e, exc_info=True)
