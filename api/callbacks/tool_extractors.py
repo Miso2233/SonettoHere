@@ -4,6 +4,7 @@
 """
 
 import ast
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -384,20 +385,59 @@ def _extract_file_search(
 def _extract_file_edit(
     _tool_name: str,
     parsed: dict[str, Any],
-    _tool_input: str | None = None,
+    tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """多笔精确替换：返回批量结果统计。"""
+    """多笔精确替换：返回批量结果统计 + 每笔 old/new（供前端结果气泡渲染 diff）。"""
     data = _get_data(parsed)
     if data is None:
         return None
     results = data.get("results", [])
+
+    # 从完整入参中解析 edits，按 index 回填 old_string/new_string。
+    # tool_start 推送的 input 被截断到 500 字符，此处收到的是未截断的原始入参；
+    # langchain-core 传入的 input_str 为 str(dict)（单引号，需 literal_eval），
+    # 个别路径为 JSON 字符串，两种格式都兼容（与 _extract_run_python 一致）。
+    edits_by_index: dict[int, dict[str, str]] = {}
+    if tool_input:
+        args: Any = None
+        for parser in (json.loads, ast.literal_eval):
+            try:
+                args = parser(tool_input)
+                break
+            except (ValueError, SyntaxError, TypeError):
+                continue
+        if isinstance(args, dict):
+            raw_edits = args.get("edits", "")
+            try:
+                edit_list = json.loads(raw_edits) if isinstance(raw_edits, str) else raw_edits
+            except (json.JSONDecodeError, TypeError):
+                edit_list = None
+            if isinstance(edit_list, list):
+                for i, edit in enumerate(edit_list):
+                    if isinstance(edit, dict):
+                        old = edit.get("old_string", "")
+                        new = edit.get("new_string", "")
+                        if isinstance(old, str) and isinstance(new, str):
+                            edits_by_index[i] = {"old_string": old, "new_string": new}
+
+    enriched: list[Any] = []
+    for r in results:
+        if not isinstance(r, dict):
+            enriched.append(r)
+            continue
+        item = dict(r)
+        pair = edits_by_index.get(item.get("index", -1))
+        if pair:
+            item.update(pair)
+        enriched.append(item)
+
     return {
         "operation": "edit",
         "file_path": data.get("file_path", ""),
         "total_edits": data.get("total_edits", 0),
         "success_count": data.get("success_count", 0),
         "failed_count": data.get("failed_count", 0),
-        "results": results,
+        "results": enriched,
     }
 
 

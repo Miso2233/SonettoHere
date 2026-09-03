@@ -41,10 +41,12 @@
             <span class="confirm-section-label">✂️ {{ editsList.length }} 笔编辑</span>
           </div>
           <div class="confirm-edits-block">
-            <div v-for="(e, i) in visibleEdits" :key="i" class="edit-pair">
-              <div class="edit-line edit-old">− {{ e.old_string }}</div>
-              <div class="edit-line edit-new">+ {{ e.new_string }}</div>
-            </div>
+            <EditDiffPair
+              v-for="(e, i) in visibleEdits"
+              :key="i"
+              :old-string="e.old_string"
+              :new-string="e.new_string"
+            />
             <div v-if="editsList.length > MAX_VISIBLE_EDITS" class="edit-more">
               …等 {{ editsList.length }} 笔
             </div>
@@ -85,6 +87,7 @@
 import { computed, ref, watch } from 'vue'
 import type { ConfirmResponse, ToolCall } from '@/types'
 import BubbleChrome from './BubbleChrome.vue'
+import EditDiffPair from './EditDiffPair.vue'
 import { highlightPython } from '@/utils/python-highlight'
 
 const props = defineProps<{ toolCall: ToolCall }>()
@@ -412,25 +415,13 @@ function submitRejection() {
   overflow-y: auto;
 }
 
-.edit-pair {
-  padding: 4px 0;
+.confirm-edits-block :deep(.edit-pair) {
   border-bottom: 1px dashed var(--border);
 }
 
-.edit-pair:last-child {
+.confirm-edits-block :deep(.edit-pair:last-child) {
   border-bottom: none;
 }
-
-.edit-line {
-  font-family: 'SF Mono', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.edit-old { color: #c0392b; }
-.edit-new { color: #2e7d32; }
 
 .edit-more {
   font-size: 11px;
