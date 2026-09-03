@@ -1,124 +1,73 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
-    <!-- 运行中 -->
     <div v-if="toolCall.status === 'running'" class="bubble-running">
       <span>{{ isDateMode ? '查询节日...' : '查询日历...' }}</span>
     </div>
 
-    <!-- 错误 -->
     <div v-else-if="toolCall.status === 'error'" class="bubble-error">
       {{ toolCall.output || '查询失败' }}
     </div>
 
-    <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
-      <div v-if="hasData" class="holiday-result">
+      <div v-if="hasData" class="hb">
+        <!-- 顶栏：日期/时段 + 统计（同 tavily 查询栏） -->
+        <div class="hb-bar">
+          <span class="hb-title">{{ titleText }}</span>
+          <span class="hb-stats">{{ statsText }}</span>
+        </div>
 
-        <!-- ===== 日期模式：当日 + 附近节日 ===== -->
-        <template v-if="isDateMode">
-          <!-- 主日期卡片 -->
-          <div class="holiday-hero">
-            <div class="hero-date">
-              <span class="hero-month">{{ dateMonth }}</span>
-              <span class="hero-day">{{ dateDay }}</span>
-            </div>
-            <div class="hero-info">
-              <div class="hero-weekday">{{ dateWeekday }}</div>
-              <div class="hero-lunar" v-if="td.lunar_date">{{ td.lunar_date }}</div>
-              <div class="hero-term" v-if="td.solar_term">{{ td.solar_term }}</div>
-            </div>
+        <!-- 日期模式：大日期行 -->
+        <div v-if="isDateMode" class="hb-hero">
+          <span class="hb-day-num">{{ dateDay }}</span>
+          <div class="hb-day-info">
+            <div class="hb-weekday">{{ dateWeekday }}</div>
+            <div v-if="lunarLine" class="hb-day-sub">{{ lunarLine }}</div>
           </div>
+          <span v-if="dayTone" class="hb-day-tag" :class="dayTone">{{ dayLabel }}</span>
+        </div>
 
-          <!-- 节日事件列表 -->
-          <div v-if="holidayItems.length" class="holiday-items">
-            <div v-for="(item, i) in holidayItems" :key="i" class="holiday-item" :class="'type-' + typeClass(item.type)">
-              <div class="hi-body">
-                <div class="hi-name">{{ item.name }}</div>
-                <div class="hi-meta">
-                  <span class="hi-type" :class="'type-' + typeClass(item.type)">{{ typeLabel(item.type) }}</span>
-                  <span v-if="item.date" class="hi-date">{{ item.date }}</span>
-                  <span v-if="item.is_workday" class="hi-badge badge-workday">调休上班</span>
-                </div>
+        <!-- 节日列表（同 tavily 结果项） -->
+        <div v-if="holidayItems.length" class="hb-list">
+          <div v-for="(item, i) in holidayItems" :key="i" class="hb-item">
+            <span class="hb-rank">{{ i + 1 }}</span>
+            <div class="hb-item-body">
+              <div class="hb-item-head">
+                <span class="hb-name">{{ item.name }}</span>
+                <span class="hb-tag" :class="{ strong: isLegal(item.type) }">{{ typeLabel(item.type) }}</span>
+                <span v-if="item.is_workday" class="hb-tag">调休上班</span>
               </div>
+              <div v-if="item.date" class="hb-item-date">{{ item.date }}</div>
             </div>
           </div>
+        </div>
+        <div v-else-if="!isDateMode" class="hb-empty">该时段暂无节日</div>
 
-          <!-- 日期详情（干支、节气等信息） -->
-          <div v-if="firstDay && (firstDay.ganzhi_year || firstDay.solar_term || firstDay.solar_festival || firstDay.lunar_festival)" class="holiday-day-detail">
-            <div class="detail-title">当日详情</div>
-            <div class="detail-grid">
-              <div v-if="firstDay.solar_festival" class="detail-cell">
-                <span class="dc-label">公历节日</span>
-                <span class="dc-value">{{ firstDay.solar_festival }}</span>
-              </div>
-              <div v-if="firstDay.lunar_festival" class="detail-cell">
-                <span class="dc-label">农历节日</span>
-                <span class="dc-value">{{ firstDay.lunar_festival }}</span>
-              </div>
-              <div v-if="firstDay.solar_term" class="detail-cell">
-                <span class="dc-label">节气</span>
-                <span class="dc-value">{{ firstDay.solar_term }}</span>
-              </div>
-              <div v-if="firstDay.ganzhi_year" class="detail-cell">
-                <span class="dc-label">干支</span>
-                <span class="dc-value">{{ firstDay.ganzhi_year }}年 {{ firstDay.ganzhi_month }}月 {{ firstDay.ganzhi_day }}日</span>
-              </div>
-            </div>
-          </div>
+        <!-- 当日干支/节气（灰色信息行） -->
+        <div v-if="ganzhiLine" class="hb-meta-row">
+          <span class="hb-meta-label">干支</span>
+          <span class="hb-meta-value">{{ ganzhiLine }}</span>
+        </div>
 
-          <!-- 附近节日 -->
-          <div v-if="nearbyPrev.length || nearbyNext.length" class="holiday-nearby">
-            <div class="nearby-title">附近节日</div>
-            <div v-if="nearbyPrev.length" class="nearby-group">
-              <div class="nearby-direction">⬅ 之前</div>
-              <div class="nearby-list">
-                <div v-for="(nb, i) in nearbyPrev" :key="'p'+i" class="nearby-item">
-                  <span class="nb-date">{{ nb.date }}</span>
-                  <span class="nb-events">{{ nb.eventNames }}</span>
-                </div>
-              </div>
-            </div>
-            <div v-if="nearbyNext.length" class="nearby-group">
-              <div class="nearby-direction">之后 ➡</div>
-              <div class="nearby-list">
-                <div v-for="(nb, i) in nearbyNext" :key="'n'+i" class="nearby-item">
-                  <span class="nb-date">{{ nb.date }}</span>
-                  <span class="nb-events">{{ nb.eventNames }}</span>
-                </div>
-              </div>
+        <!-- 附近节日 -->
+        <div v-if="nearbyPrev.length || nearbyNext.length" class="hb-nearby">
+          <div v-if="nearbyPrev.length" class="hb-nearby-group">
+            <div class="hb-nearby-label">← 之前</div>
+            <div v-for="(nb, i) in nearbyPrev" :key="'p' + i" class="hb-nearby-item">
+              <span class="hb-nb-date">{{ nb.date }}</span>
+              <span class="hb-nb-events">{{ nb.eventNames }}</span>
             </div>
           </div>
-        </template>
-
-        <!-- ===== 月/年模式：节日列表 ===== -->
-        <template v-else>
-          <div class="holiday-period-header">
-            <span class="period-icon">📆</span>
-            <span class="period-title">{{ periodTitle }}</span>
-          </div>
-          <div v-if="td.total_days" class="period-summary">
-            <span class="ps-item">共 {{ td.total_days }} 天</span>
-            <span v-if="td.rest_days" class="ps-item">休息 {{ td.rest_days }} 天</span>
-            <span v-if="td.workdays" class="ps-item">工作 {{ td.workdays }} 天</span>
-            <span v-if="td.holiday_events" class="ps-item">{{ td.holiday_events }} 个节日</span>
-          </div>
-          <div v-if="holidayItems.length" class="holiday-items">
-            <div v-for="(item, i) in holidayItems" :key="i" class="holiday-item" :class="'type-' + typeClass(item.type)">
-              <div class="hi-body">
-                <div class="hi-name">{{ item.name }}</div>
-                <div class="hi-meta">
-                  <span class="hi-type" :class="'type-' + typeClass(item.type)">{{ typeLabel(item.type) }}</span>
-                  <span v-if="item.date" class="hi-date">{{ item.date }}</span>
-                </div>
-              </div>
+          <div v-if="nearbyNext.length" class="hb-nearby-group">
+            <div class="hb-nearby-label">之后 →</div>
+            <div v-for="(nb, i) in nearbyNext" :key="'n' + i" class="hb-nearby-item">
+              <span class="hb-nb-date">{{ nb.date }}</span>
+              <span class="hb-nb-events">{{ nb.eventNames }}</span>
             </div>
           </div>
-          <div v-else class="holiday-empty">该时段暂无节日信息</div>
-        </template>
+        </div>
       </div>
 
-      <!-- 降级 -->
-      <div v-else class="raw-output">{{ displayOutput }}</div>
+      <div v-else class="hb-raw">{{ fallback }}</div>
     </template>
   </BubbleChrome>
 </template>
@@ -129,9 +78,7 @@ import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
-const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
-// ── 数据源 ──
 const td = computed<Record<string, any>>(() => {
   if (props.toolCall.toolData) return props.toolCall.toolData as Record<string, any>
   if (props.toolCall.output) {
@@ -147,29 +94,70 @@ const hasData = computed(() => Object.keys(td.value).length > 0)
 
 // ── 查询模式 ──
 const isDateMode = computed(() => td.value.mode === 'day')
-const periodTitle = computed(() => td.value.month || td.value.year || '日历')
 
-// ── 日期解析 ──
 const rawDate = computed(() => td.value.date || '')
-const dateMonth = computed(() => {
-  const d = rawDate.value
-  if (!d) return ''
-  const parts = d.split('-')
-  return parts.length >= 2 ? `${parts[0]}年${parts[1]}月` : d
+
+const titleText = computed(() => {
+  if (isDateMode.value) return rawDate.value || '日历'
+  if (td.value.month) return String(td.value.month)
+  if (td.value.year) return `${td.value.year}年`
+  return '日历'
 })
+
+const statsText = computed(() => {
+  if (isDateMode.value) {
+    const parts: string[] = []
+    if (td.value.weekday) parts.push(String(td.value.weekday))
+    if (td.value.solar_term) parts.push(String(td.value.solar_term))
+    return parts.join(' · ')
+  }
+  const parts: string[] = []
+  if (td.value.total_days) parts.push(`共 ${td.value.total_days} 天`)
+  if (td.value.rest_days) parts.push(`休息 ${td.value.rest_days} 天`)
+  if (td.value.workdays) parts.push(`工作 ${td.value.workdays} 天`)
+  if (td.value.holiday_events) parts.push(`${td.value.holiday_events} 个节日`)
+  return parts.join(' · ')
+})
+
+// ── 日期模式主行 ──
 const dateDay = computed(() => {
   const d = rawDate.value
-  if (!d) return ''
   const parts = d.split('-')
   return parts.length >= 3 ? parts[2] : d
 })
 const dateWeekday = computed(() => td.value.weekday || '')
 
-// ── 取 days[0] 的丰富信息 ──
 const firstDay = computed<Record<string, any> | null>(() => {
   const days = td.value.days
   return Array.isArray(days) && days.length > 0 ? days[0] : null
 })
+
+const lunarLine = computed(() => {
+  const first = firstDay.value
+  if (!first) return td.value.lunar_date || ''
+  const lunar = first.lunar_date || `${first.lunar_month ?? ''}${first.lunar_day ?? ''}`.trim()
+  return lunar || ''
+})
+
+const ganzhiLine = computed(() => {
+  const first = firstDay.value
+  if (!first?.ganzhi_year) return ''
+  const parts = [`${first.ganzhi_year}年`]
+  if (first.ganzhi_month) parts.push(`${first.ganzhi_month}月`)
+  if (first.ganzhi_day) parts.push(`${first.ganzhi_day}日`)
+  return parts.join(' ')
+})
+
+// ── 当日休息/工作标记（黑白撞色：休息=黑底白字，调休上班=黑边框） ──
+const dayTone = computed((): 'rest' | 'work' | '' => {
+  const first = firstDay.value
+  if (!first) return ''
+  if (first.is_rest_day) return 'rest'
+  if (first.is_holiday === false && (first.ganzhi_year || td.value.weekday)) return 'work'
+  return ''
+})
+
+const dayLabel = computed(() => (dayTone.value === 'rest' ? '休息日' : '工作日'))
 
 // ── 节日事件列表 ──
 const holidayItems = computed<Array<Record<string, any>>>(() => {
@@ -177,7 +165,7 @@ const holidayItems = computed<Array<Record<string, any>>>(() => {
   return Array.isArray(items) ? items : []
 })
 
-// ── 附近节日（结构: {previous: [{date, events:[{name,type,date}]}], next: [...]}） ──
+// ── 附近节日 ──
 const nearbyPrev = computed<Array<{ date: string; eventNames: string }>>(() => {
   const nb = td.value.nearby
   if (!nb || typeof nb !== 'object') return []
@@ -198,14 +186,6 @@ const nearbyNext = computed<Array<{ date: string; eventNames: string }>>(() => {
   }))
 })
 
-// ── 类型工具 ──
-function typeClass(type: string): string {
-  if (!type) return 'other'
-  if (type.startsWith('legal')) return 'legal'
-  if (type === 'solar' || type === 'lunar' || type === 'term') return type
-  return 'other'
-}
-
 function typeLabel(type: string): string {
   switch (type) {
     case 'legal_rest': return '法定假日'
@@ -218,331 +198,225 @@ function typeLabel(type: string): string {
   }
 }
 
-// ── 降级 ──
-const displayOutput = computed(() => {
-  if (props.toolCall.output) {
-    return props.toolCall.output.length > 500
-      ? props.toolCall.output.slice(0, 500) + '...'
-      : props.toolCall.output
-  }
-  return null
-})
+function isLegal(type: string): boolean {
+  return typeof type === 'string' && type.startsWith('legal')
+}
+
+const fallback = computed(() =>
+  props.toolCall.output
+    ? (props.toolCall.output.length > 500 ? props.toolCall.output.slice(0, 500) + '…' : props.toolCall.output)
+    : null
+)
 </script>
 
 <style scoped>
-/* ── 运行中 ── */
+/* ── 布局常量（与 Tavily 系列一致：黑白撞色 + 灰阶） ── */
 .bubble-running {
+  padding: 12px 0;
+  font-size: 13px;
+  color: #888;
+}
+.bubble-error {
+  padding: 8px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.hb {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+/* ── 顶栏（同 tavily 查询栏） ── */
+.hb-bar {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 0;
-  font-size: 13px;
-  color: var(--text-secondary);
+  padding: 10px 14px;
+  background: #f5f5f5;
+  border-radius: 6px;
+  flex-wrap: wrap;
 }
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.bubble-error {
-  font-size: 13px;
-  color: #b91c1c;
-  padding: 4px 0;
-}
-
-/* ── 主容器 ── */
-.holiday-result {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 4px 0;
-}
-
-/* ── 日期主卡片 ── */
-.holiday-hero {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px;
-  background: linear-gradient(135deg, #d4145a, #fbb03b);
-  border-radius: 12px;
-  color: #fff;
-  box-shadow: var(--shadow-md);
-}
-
-.hero-date {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.hero-month {
-  font-size: 13px;
+.hb-title {
+  font-size: 14px;
   font-weight: 600;
-  opacity: 0.9;
+  color: #000;
+  font-variant-numeric: tabular-nums;
+}
+.hb-stats {
+  margin-left: auto;
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.hero-day {
-  font-size: 48px;
+/* ── 日期模式 hero 行 ── */
+.hb-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px;
+}
+.hb-day-num {
+  font-size: 40px;
   font-weight: 700;
   line-height: 1;
-  margin-top: 2px;
+  color: #000;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
-
-.hero-info {
-  flex: 1;
-}
-
-.hero-weekday {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.hero-lunar {
-  font-size: 13px;
-  opacity: 0.85;
-}
-
-.hero-term {
-  font-size: 13px;
-  opacity: 0.85;
-  margin-top: 2px;
-}
-
-/* ── 节日列表 ── */
-.holiday-items {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.holiday-item {
-  display: flex;
-  gap: 12px;
-  padding: 10px 12px;
-  background: var(--bg-primary);
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  border-left: 3px solid #888;
-}
-
-.holiday-item.type-legal { border-left-color: #d4145a; }
-.holiday-item.type-solar { border-left-color: #f39c12; }
-.holiday-item.type-lunar { border-left-color: #8e44ad; }
-.holiday-item.type-term { border-left-color: #27ae60; }
-
-.hi-body {
+.hb-day-info {
   flex: 1;
   min-width: 0;
 }
-
-.hi-name {
+.hb-weekday {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.4;
+  color: #000;
 }
-
-.hi-meta {
-  display: flex;
-  gap: 6px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-  align-items: center;
+.hb-day-sub {
+  font-size: 12px;
+  color: #888;
+  margin-top: 2px;
 }
-
-.hi-type {
+.hb-day-tag {
   font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 2px;
   font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 3px;
-  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.hb-day-tag.rest {
+  background: #000;
+  color: #fff;
+}
+.hb-day-tag.work {
+  border: 1px solid #ccc;
+  color: #555;
 }
 
-.hi-type.type-legal { background: #fde8e8; color: #c0392b; }
-.hi-type.type-solar { background: #fef5e7; color: #d35400; }
-.hi-type.type-lunar { background: #f0e8f5; color: #7d3c98; }
-.hi-type.type-term { background: #e8f5e9; color: #27ae60; }
-
-.hi-date {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-
-.hi-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-.badge-workday {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-/* ── 日期详情网格 ── */
-.holiday-day-detail {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--bg-primary);
-}
-
-.detail-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-
-.detail-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.detail-cell {
-  flex: 1;
-  min-width: 120px;
+/* ── 节日列表（同 tavily 结果项） ── */
+.hb-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 10px;
-  background: var(--bg-secondary);
-  border-radius: 6px;
+  gap: 8px;
 }
-
-.dc-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.dc-value {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-/* ── 统计摘要 ── */
-.period-summary {
+.hb-item {
   display: flex;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  transition: border-color .15s;
+}
+.hb-item:hover { border-color: #000; }
+
+.hb-rank {
+  font-size: 11px;
+  font-weight: 700;
+  color: #000;
+  flex-shrink: 0;
+  min-width: 18px;
+  text-align: center;
+  margin-top: 2px;
+}
+.hb-item-body {
+  flex: 1;
+  min-width: 0;
+}
+.hb-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex-wrap: wrap;
 }
-
-.ps-item {
+.hb-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  line-height: 1.4;
+}
+.hb-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border: 1px solid #ccc;
+  border-radius: 2px;
+  color: #555;
+  font-weight: 600;
+}
+.hb-item-date {
   font-size: 11px;
-  padding: 2px 8px;
+  color: #888;
+  margin-top: 2px;
+}
+
+/* ── 当日干支（灰色信息行） ── */
+.hb-meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  padding: 6px 12px;
+  background: #fafafa;
   border-radius: 4px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-weight: 500;
+}
+.hb-meta-row .hb-meta-label {
+  color: #999;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.hb-meta-value {
+  color: #333;
+  font-family: 'SF Mono', 'Consolas', monospace;
 }
 
 /* ── 附近节日 ── */
-.holiday-nearby {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--bg-primary);
+.hb-nearby-group + .hb-nearby-group {
+  margin-top: 8px;
 }
-
-.nearby-title {
+.hb-nearby-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-}
-
-.nearby-group {
-  margin-bottom: 6px;
-}
-
-.nearby-group:last-child {
-  margin-bottom: 0;
-}
-
-.nearby-direction {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
+  color: #999;
   margin-bottom: 4px;
 }
-
-.nearby-list {
+.hb-nearby-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.nearby-item {
-  display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
+  padding: 3px 2px;
   font-size: 13px;
-  color: var(--text-primary);
-  padding: 3px 6px;
-  border-radius: 4px;
-  background: var(--bg-secondary);
 }
-
-.nb-date {
+.hb-nb-date {
+  font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 11px;
-  font-weight: 600;
-  color: var(--accent);
+  font-weight: 700;
+  color: #000;
   white-space: nowrap;
 }
-
-.nb-events {
-  color: var(--text-primary);
+.hb-nb-events {
+  color: #444;
 }
 
-/* ── 月/年模式 ── */
-.holiday-period-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-primary);
-  padding: 4px 0;
-}
-
-.period-icon { font-size: 20px; }
-
-.holiday-empty {
+/* ── 空态 / 降级 ── */
+.hb-empty {
   text-align: center;
-  padding: 24px;
-  color: var(--text-secondary);
+  padding: 28px 16px;
+  color: #999;
   font-size: 13px;
 }
-
-/* ── 降级 ── */
-.raw-output {
+.hb-raw {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: var(--text-primary);
+  color: #333;
   white-space: pre-wrap;
   word-break: break-word;
-  margin: 0;
   padding: 8px 12px;
-  background: var(--bg-primary);
-  border-radius: 6px;
+  background: #fafafa;
+  border-radius: 4px;
 }
 </style>
