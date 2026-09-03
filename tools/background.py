@@ -58,14 +58,19 @@ ToolClass = type[BaseTool]
 
 
 def _args_summary(kwargs: dict[str, Any]) -> str:
-    """构造后台任务入参摘要（剔除技术性 kwargs），供列表展示与前端提示。"""
+    """构造后台任务入参摘要（剔除技术性 kwargs），供列表展示与前端提示。
+
+    截断上限与 WebSocket 回调 on_tool_start 的入参截断一致（500 字符）：
+    该摘要会在 await_background 完成时作为原工具入参重新分发给提取器
+    （run_python 的 code 等长字段依赖它），不宜过短。
+    """
     payload = {
         name: value for name, value in kwargs.items() if name not in INJECTED_KWARGS
     }
     try:
-        return json.dumps(payload, ensure_ascii=False, default=str)[:200]
+        return json.dumps(payload, ensure_ascii=False, default=str)[:500]
     except (TypeError, ValueError):
-        return str(payload)[:200]
+        return str(payload)[:500]
 
 
 def background(cls: ToolClass) -> ToolClass:

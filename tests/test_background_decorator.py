@@ -294,7 +294,7 @@ async def test_confirm_stacks_outer(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_callback_extracts_background_envelope() -> None:
-    """on_tool_end 对 spawn 信封输出 background 徽章数据，优先于按工具提取器。"""
+    """on_tool_end 对 spawn 信封输出 background 卡片数据（含入参），优先于按工具提取器。"""
     from api.callbacks.websocket_callback import WebSocketCallback
 
     spawn_output = json.dumps(
@@ -305,10 +305,72 @@ def test_callback_extracts_background_envelope() -> None:
     )
     tool_data = WebSocketCallback._extract_tool_data("tavily_search", spawn_output)
     assert tool_data == {
-        "background": {"index": 7, "status": "running", "tool_name": "tavily_search"}
+        "background": {
+            "index": 7,
+            "status": "running",
+            "tool_name": "tavily_search",
+            "args": {},
+        }
     }
+
+    # 入参元数据：剔除 background 字段后随 tool_data 下发
+    tool_data = WebSocketCallback._extract_tool_data(
+        "tavily_search",
+        spawn_output,
+        tool_input='{"query": ".latest AI news", "background": true}',
+    )
+    assert tool_data is not None
+    assert tool_data["background"]["args"] == {"query": ".latest AI news"}
 
     # 非信封输出仍走按工具注册的提取器
     normal_output = json.dumps({"success": True, "data": {"query": "x", "results": []}})
     tool_data = WebSocketCallback._extract_tool_data("tavily_search", normal_output)
     assert tool_data is not None and "query" in tool_data
+
+
+@pytest.mark.asyncio
+async def test_callback_enriches_await_with_original_extractor() -> None:
+    """await_background 完成态：tool_data 携带 original_tool + 原工具提取结果。"""
+    sid = _setup_session()
+    try:
+        registry = bg.get_registry(sid)
+
+        async def done() -> str:
+            return json.dumps(
+                {
+                    "success": True,
+                    "data": {
+                        "query": "q",
+                        "answer": "a",
+                        "results": [{"url": "u", "title": "t", "content": "c", "score": 1}],
+                        "response_time": 0.1,
+                    },
+                }
+            )
+
+        index = registry.register(
+            done(), tool_name="tavily_search", args_summary='{"query": "q"}'
+        ).index
+        await registry.await_result(index, 5)
+
+        from api.callbacks.websocket_callback import WebSocketCallback
+
+        cb = WebSocketCallback(sender=object())
+        tool_input = str({"index": index, "timeout_seconds": 180})
+        tool_data = cb._enrich_await_tool_data(tool_input, registry.get(index).result, None)
+
+        assert tool_data is not None
+        assert tool_data["original_tool"] == "tavily_search"
+        assert tool_data["query"] == "q"
+        assert isinstance(tool_data["results"], list)
+        assert "original_elapsed_s" in tool_data
+
+        # 等待态信封（含 task_index）不被富化，保持原提取
+        waiting_output = json.dumps(
+            {"success": True, "data": {"task_index": index, "status": "running"}}
+        )
+        tool_data = cb._enrich_await_tool_data(tool_input, waiting_output, {"keep": 1})
+        assert tool_data == {"keep": 1}
+    finally:
+        bg.cancel_session(sid)
+        interaction.current_session_id.set("")

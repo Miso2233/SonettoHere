@@ -61,6 +61,8 @@ class BackgroundTask:
     result: str = ""
     future: asyncio.Future[str] = field(default_factory=asyncio.Future)
     task: asyncio.Task[None] | None = None
+    # 进入终态时的执行耗时（秒）；elapsed() 随时间增长，终态后以本字段为准
+    duration_s: float | None = None
 
     def elapsed(self) -> float:
         """任务从创建到现在的秒数。"""
@@ -119,6 +121,7 @@ class BackgroundTaskRegistry:
             bt.status = "failed"
             bt.result = format_error(f"后台任务执行失败: {e}")
         finally:
+            bt.duration_s = bt.elapsed()
             if not bt.future.done():
                 bt.future.set_result(bt.result)
             await self._notify(bt)
@@ -138,7 +141,7 @@ class BackgroundTaskRegistry:
                 status=bt.status,
                 tool_name=bt.tool_name,
                 result_preview=_preview(bt.result),
-                elapsed_s=bt.elapsed(),
+                elapsed_s=bt.duration_s if bt.duration_s is not None else bt.elapsed(),
             )
         except Exception:
             _log.exception(
@@ -163,9 +166,11 @@ class BackgroundTaskRegistry:
             {
                 "index": bt.index,
                 "tool_name": bt.tool_name,
-                "args_summary": bt.args_summary,
+                "args_summary": bt.args_summary[:120],
                 "status": bt.status,
-                "elapsed_s": round(bt.elapsed(), 1),
+                "elapsed_s": round(
+                    bt.duration_s if bt.duration_s is not None else bt.elapsed(), 1
+                ),
             }
             for bt in sorted(self._tasks.values(), key=lambda t: t.index)
         ]
