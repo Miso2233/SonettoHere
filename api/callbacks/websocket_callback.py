@@ -1,5 +1,6 @@
 """WebSocket 回调 — 将 LangChain 事件转为结构化 JSON 推送到前端。"""
 
+import ast
 import json
 import time
 from typing import Any
@@ -71,6 +72,20 @@ def _extract_content(output: Any) -> str:
     return output
 
 
+def _parse_tool_input(tool_input: str | None) -> dict[str, Any] | None:
+    """宽松解析工具入参（langchain 主要传 str(dict)，兼容 JSON 字符串）。"""
+    if not tool_input:
+        return None
+    for parser in (json.loads, ast.literal_eval):
+        try:
+            parsed = parser(tool_input)
+        except (ValueError, SyntaxError, TypeError):
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
 class WebSocketCallback(BaseCallbackHandler):
     def __init__(self, sender: CallbackSender):
         super().__init__()
@@ -108,6 +123,28 @@ class WebSocketCallback(BaseCallbackHandler):
             parsed = json.loads(out_str)
         except (json.JSONDecodeError, TypeError):
             return None
+
+        # @background 工具的 spawn 返回（任务索引信封）优先于按工具注册的
+        # 提取器：信封里没有业务数据，若落入 tavily_search 等提取器会把
+        # 空信封误解析成一份假业务结果。此处统一转成前端后台卡片数据，
+        # 并携带剔除 background 字段后的工具入参（前端展示"提交了什么"）。
+        data = parsed.get("data") if isinstance(parsed, dict) else None
+        if isinstance(data, dict) and data.get("background"):
+            input_dict = _parse_tool_input(tool_input)
+            args: dict[str, Any] = (
+                {k: v for k, v in input_dict.items() if k != "background"}
+                if input_dict
+                else {}
+            )
+            return {
+                "background": {
+                    "index": data.get("task_index"),
+                    "status": "running",
+                    "tool_name": tool_name,
+                    "args": args,
+                }
+            }
+
         return _dispatch(tool_name, parsed, tool_input)
 
     async def on_llm_start(
@@ -156,6 +193,50 @@ class WebSocketCallback(BaseCallbackHandler):
         truncated_input = input_str[:500] if len(input_str) > 500 else input_str
         await self._sender.tool_start(run_id, tool_name, truncated_input)
 
+    @staticmethod
+    def _enrich_await_tool_data(
+        tool_input: str | None, out_str: str, tool_data: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """await_background 完成态：用原工具的提取器解析真实结果。
+
+        完成态的输出是**原工具**的输出信封（无 task_index/tasks 字段），按
+        后台任务注册表中记录的原工具名与入参重新分发提取器，前端 await
+        气泡据此复用原工具的专属气泡渲染。等待态 / 列表态 / 查不到原任务
+        时保持原提取不变（前端回退通用结果展示）。
+        """
+        try:
+            parsed = json.loads(out_str)
+        except (json.JSONDecodeError, TypeError):
+            return tool_data
+        if not isinstance(parsed, dict) or parsed.get("success") is not True:
+            return tool_data
+        data = parsed.get("data")
+        if not isinstance(data, dict) or "task_index" in data:
+            return tool_data  # 等待态信封，非真实结果
+
+        input_dict = _parse_tool_input(tool_input)
+        raw_index = input_dict.get("index") if input_dict else None
+        if not isinstance(raw_index, int) or raw_index <= 0:
+            return tool_data
+
+        # 延迟导入：回调模块先于 api.agent 初始化，规避导入环
+        from api.agent import background as bg_registry  # noqa: PLC0415
+        from api.agent import interaction  # noqa: PLC0415
+
+        session_id = interaction.current_session_id.get()
+        registry = bg_registry.find_registry(session_id) if session_id else None
+        bt = registry.get(raw_index) if registry else None
+        if bt is None:
+            return tool_data
+
+        enriched: dict[str, Any] = {"original_tool": bt.tool_name}
+        if bt.duration_s is not None:
+            enriched["original_elapsed_s"] = round(bt.duration_s, 1)
+        inner = _dispatch(bt.tool_name, parsed, bt.args_summary)
+        if isinstance(inner, dict):
+            enriched.update(inner)
+        return enriched
+
     async def on_tool_end(self, output: str, **kwargs: Any) -> None:
         run_id = str(kwargs.get("run_id", ""))
         elapsed = time.time() - self._tool_start_time.pop(run_id, time.time())
@@ -183,8 +264,11 @@ class WebSocketCallback(BaseCallbackHandler):
             pass
         # ──────────────────────────────────────────────────────────
 
-        # 提取工具专属结构化数据
+        # 提取工具专属结构化数据；await_background 完成态额外用原工具
+        # 提取器解析真实结果（供前端镜像渲染原工具气泡）
         tool_data = self._extract_tool_data(tool_name, output, tool_input)
+        if tool_name == "await_background":
+            tool_data = self._enrich_await_tool_data(tool_input, out_str, tool_data)
 
         if len(out_str) > 300:
             out_str = out_str[:300] + f"... (共 {len(out_str)} 字符)"

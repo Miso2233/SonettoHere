@@ -6,6 +6,7 @@ import os
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.background import background
 
 
 class FileSearchInput(BaseModel):
@@ -21,6 +22,7 @@ class FileSearchInput(BaseModel):
     extension: str = Field(default="", description="扩展名过滤，如 '.py'")
 
 
+@background
 class FileSearchTool(ToolBase):
     name: str = "file_search"
     description: str = (

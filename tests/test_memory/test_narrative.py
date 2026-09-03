@@ -1,12 +1,14 @@
-"""memory/long_term.py 测试。"""
+"""memory/long_term.py + memory/consumer.py 测试。"""
 
 import asyncio
 import re
 from pathlib import Path
+from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+import api.memory.consumer as consumer
 import api.memory.long_term as long_term
 from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 from api.memory.long_term import LongTermMemory
@@ -15,15 +17,21 @@ from api.memory.long_term import LongTermMemory
 # ── 测试辅助 ──────────────────────────────────────────────────
 
 
-def _fake_agent_factory(entries_setup=None):
+def _fake_agent_factory(
+    entries_setup: Callable[[], None] | None = None,
+    done_event: asyncio.Event | None = None,
+):
     """构建 mock agent，其 ainvoke 会先执行 entries_setup 再返回。
 
     entries_setup 用于在"Agent 调用工具"后模拟 YamlMemoryManager 的条目变化。
+    done_event 若提供，则在 ainvoke 完成时 set，供测试事件驱动地等待消费完成。
     """
 
-    async def fake_ainvoke(_input, config=None):
+    async def fake_ainvoke(_input: object, config: dict[str, Any] | None = None) -> dict[str, Any]:
         if entries_setup:
             entries_setup()
+        if done_event is not None:
+            done_event.set()
         return {"messages": []}
 
     agent = MagicMock()
@@ -31,7 +39,15 @@ def _fake_agent_factory(entries_setup=None):
     return agent
 
 
-def _assert_file_contains(path: Path, text: str):
+async def _wait_for_event(event: asyncio.Event, timeout: float = 5.0) -> None:
+    """等待事件置位，超时抛出断言错误（替代固定 sleep 的确定化等待）。"""
+    try:
+        await asyncio.wait_for(event.wait(), timeout=timeout)
+    except asyncio.TimeoutError as e:
+        raise AssertionError(f"等待事件超时（{timeout}s），消费者未按预期处理消息") from e
+
+
+def _assert_file_contains(path: Path, text: str) -> None:
     """断言 memory.yaml 文件包含指定文本。"""
     content = path.read_text(encoding="utf-8")
     assert text in content, f"文件中未找到 '{text}'，实际内容: {content}"
@@ -54,15 +70,15 @@ def _populate_mm(path: Path, items: list[tuple[str, str]]) -> None:
 
 
 class TestFormatMessages:
-    """_format_messages 单元测试。"""
+    """consumer._format_messages 单元测试。"""
 
     def test_empty_list(self):
-        result = long_term._format_messages([])
+        result = consumer._format_messages([])
         assert result == ""
 
     def test_single_message(self):
         msgs = [{"role": "user", "content": "你好"}]
-        result = long_term._format_messages(msgs)
+        result = consumer._format_messages(msgs)
         assert result == "[user]: 你好"
 
     def test_multiple_messages(self):
@@ -70,13 +86,13 @@ class TestFormatMessages:
             {"role": "user", "content": "查天气"},
             {"role": "assistant", "content": "今天晴"},
         ]
-        result = long_term._format_messages(msgs)
+        result = consumer._format_messages(msgs)
         expected = "[user]: 查天气\n[assistant]: 今天晴"
         assert result == expected
 
     def test_missing_role_defaults_to_unknown(self):
         msgs = [{"content": "hello"}]
-        result = long_term._format_messages(msgs)
+        result = consumer._format_messages(msgs)
         assert result == "[unknown]: hello"
 
     def test_tool_messages_filtered_out(self):
@@ -86,14 +102,14 @@ class TestFormatMessages:
             {"role": "tool", "content": "天气数据..."},
             {"role": "assistant", "content": "回复"},
         ]
-        result = long_term._format_messages(msgs)
+        result = consumer._format_messages(msgs)
         assert "[tool]" not in result
         assert "[user]: 你好" in result
         assert "[assistant]: 回复" in result
 
     def test_non_string_content(self):
         msgs = [{"role": "user", "content": 42}]
-        result = long_term._format_messages(msgs)
+        result = consumer._format_messages(msgs)
         assert result == "[user]: 42"
 
 
@@ -131,17 +147,17 @@ class TestFormatNarrative:
 
 
 class TestFormatEntriesForTool:
-    """_format_entries_for_tool 格式化测试。"""
+    """consumer._format_entries_for_tool 格式化测试。"""
 
     def test_empty(self):
-        assert long_term._format_entries_for_tool([]) == "（暂无记忆条目）"
+        assert consumer._format_entries_for_tool([]) == "（暂无记忆条目）"
 
     def test_with_entries(self):
         items = [
             {"id": "uuid-1", "description": "A", "theme": "身份"},
             {"id": "uuid-2", "description": "B", "theme": "音乐"},
         ]
-        result = long_term._format_entries_for_tool(items)
+        result = consumer._format_entries_for_tool(items)
         assert "## 身份" in result
         assert "  [uuid-1] A" in result
         assert "## 音乐" in result
@@ -151,7 +167,7 @@ class TestFormatEntriesForTool:
         items = [
             {"id": "x", "description": "A", "theme": "健康"},
         ]
-        result = long_term._format_entries_for_tool(items)
+        result = consumer._format_entries_for_tool(items)
         assert "## 健康" in result
         assert "  [x] A" in result
 
@@ -160,16 +176,19 @@ class TestFormatEntriesForTool:
 
 
 class TestCrudTools:
-    """CRUD 工具函数单元测试。"""
+    """consumer CRUD 工具函数单元测试。"""
 
     def _make_mm(self, tmp_path: Path) -> YamlMemoryManager:
         mm = YamlMemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
-        long_term.set_current_mm(mm)
+        consumer.set_current_mm(mm)
         return mm
+
+    def teardown_method(self):
+        consumer.set_current_mm(None)
 
     def test_create_memory(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        result = long_term.create_memory.invoke(
+        result = consumer.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "身份"}
         )
         assert "已创建 [" in result
@@ -181,7 +200,7 @@ class TestCrudTools:
 
     def test_create_memory_custom_section_preserved(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        result = long_term.create_memory.invoke(
+        result = consumer.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "健康"}
         )
         assert "已创建 [" in result
@@ -191,7 +210,7 @@ class TestCrudTools:
 
     def test_create_memory_empty_section_fallback(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        result = long_term.create_memory.invoke(
+        result = consumer.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "   "}
         )
         assert "已创建 [" in result
@@ -200,7 +219,7 @@ class TestCrudTools:
 
     def test_create_memory_id_is_hex(self, tmp_path):
         self._make_mm(tmp_path)
-        result = long_term.create_memory.invoke(
+        result = consumer.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "身份"}
         )
         # Extract ID from result string
@@ -211,27 +230,26 @@ class TestCrudTools:
 
     def test_read_memories_empty(self, tmp_path):
         mm = YamlMemoryManager(yaml_file=str(tmp_path / "memory.yaml"))
-        long_term.set_current_mm(mm)
-        result = long_term.read_memories.invoke({})
+        consumer.set_current_mm(mm)
+        result = consumer.read_memories.invoke({})
         assert "暂无记忆条目" in result
 
     def test_read_memories_with_entries(self, tmp_path):
         mm = self._make_mm(tmp_path)
         mm.add(description="A", theme="身份")
         mm.add(description="B", theme="音乐")
-        result = long_term.read_memories.invoke({})
+        result = consumer.read_memories.invoke({})
         assert "## 身份" in result
         assert "## 音乐" in result
 
     def test_update_memory_success(self, tmp_path):
         mm = self._make_mm(tmp_path)
         item_id = mm.add(description="旧内容", theme="身份")
-        result = long_term.update_memory.invoke(
+        result = consumer.update_memory.invoke(
             {
                 "id": item_id,
                 "content": "新内容",
                 "reason": "信息过时，需要更新",
-                "origin_content": "旧内容",
             }
         )
         assert "已更新" in result
@@ -240,12 +258,11 @@ class TestCrudTools:
 
     def test_update_memory_not_found(self, tmp_path):
         self._make_mm(tmp_path)
-        result = long_term.update_memory.invoke(
+        result = consumer.update_memory.invoke(
             {
                 "id": "nonexistent-id",
                 "content": "x",
                 "reason": "测试",
-                "origin_content": "不存在",
             }
         )
         assert "错误" in result
@@ -253,11 +270,10 @@ class TestCrudTools:
     def test_delete_memory_success(self, tmp_path):
         mm = self._make_mm(tmp_path)
         item_id = mm.add(description="删除我", theme="身份")
-        result = long_term.delete_memory.invoke(
+        result = consumer.delete_memory.invoke(
             {
                 "id": item_id,
                 "reason": "信息已过时",
-                "origin_content": "删除我",
             }
         )
         assert "已删除" in result
@@ -265,11 +281,10 @@ class TestCrudTools:
 
     def test_delete_memory_not_found(self, tmp_path):
         self._make_mm(tmp_path)
-        result = long_term.delete_memory.invoke(
+        result = consumer.delete_memory.invoke(
             {
                 "id": "nonexistent-id",
                 "reason": "测试",
-                "origin_content": "不存在",
             }
         )
         assert "错误" in result
@@ -329,10 +344,10 @@ class TestLongTermMemory:
     """LongTermMemory 异步单元测试。"""
 
     def setup_method(self):
-        long_term.set_current_mm(None)
+        consumer.set_current_mm(None)
 
     def teardown_method(self):
-        long_term.set_current_mm(None)
+        consumer.set_current_mm(None)
 
     # ── get_narrative（实例方法） ──────────────────────────────
 
@@ -368,7 +383,7 @@ class TestLongTermMemory:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -387,7 +402,7 @@ class TestLongTermMemory:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
 
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
@@ -404,10 +419,10 @@ class TestLongTermMemory:
         path = tmp_path / "memory.yaml"
 
         def agent_populates_entries():
-            long_term._current_mm.add(description="Miso 是一名学生。", theme="身份")
+            consumer._current_mm.add(description="Miso 是一名学生。", theme="身份")
 
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -429,7 +444,7 @@ class TestLongTermMemory:
             captured_prompt.append(kwargs.get("system_prompt", ""))
             return _fake_agent_factory()
 
-        monkeypatch.setattr(long_term, "create_agent", capture_agent)
+        monkeypatch.setattr(consumer, "create_agent", capture_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -455,14 +470,14 @@ class TestLongTermMemory:
             captured_prompt.append(kwargs.get("system_prompt", ""))
 
             def update_entries():
-                mm = long_term._current_mm
+                mm = consumer._current_mm
                 for item in mm.show():
                     mm.delete(item["id"])
                 mm.add(description="更新后的记忆内容。", theme="身份")
 
             return _fake_agent_factory(entries_setup=update_entries)
 
-        monkeypatch.setattr(long_term, "create_agent", capture_agent)
+        monkeypatch.setattr(consumer, "create_agent", capture_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -483,6 +498,7 @@ class TestLongTermMemory:
 
         captured_prompts = []
         call_count = [0]
+        turn_consumed = asyncio.Event()
 
         def capture_agent(**kwargs):
             captured_prompts.append(kwargs.get("system_prompt", ""))
@@ -490,26 +506,27 @@ class TestLongTermMemory:
             if call_count[0] == 1:
 
                 def setup1():
-                    long_term._current_mm.add(description="第一轮记忆。", theme="身份")
+                    consumer._current_mm.add(description="第一轮记忆。", theme="身份")
 
-                return _fake_agent_factory(entries_setup=setup1)
+                return _fake_agent_factory(entries_setup=setup1, done_event=turn_consumed)
             else:
 
                 def setup2():
-                    mm = long_term._current_mm
+                    mm = consumer._current_mm
                     mm.add(description="第一轮记忆。", theme="身份")
                     mm.add(description="第二轮补充。", theme="身份")
 
                 return _fake_agent_factory(entries_setup=setup2)
 
-        monkeypatch.setattr(long_term, "create_agent", capture_agent)
+        monkeypatch.setattr(consumer, "create_agent", capture_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         ltm.start()
 
         await ltm.send_history([{"role": "user", "content": "我叫Miso"}])
-        await asyncio.sleep(0.05)
+        # 事件驱动等待：第一轮被消费者处理完再发第二轮
+        await _wait_for_event(turn_consumed)
 
         await ltm.send_history([{"role": "user", "content": "我住北京"}])
         await ltm.stop()
@@ -524,12 +541,12 @@ class TestLongTermMemory:
         """Agent 调用失败时不抛异常。"""
         path = tmp_path / "memory.yaml"
 
-        async def failing_ainvoke(_input):
+        async def failing_ainvoke(_input: object) -> dict[str, Any]:
             raise RuntimeError("API 错误")
 
         fake_agent = MagicMock()
         fake_agent.ainvoke = AsyncMock(side_effect=failing_ainvoke)
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -551,7 +568,7 @@ class TestLongTermMemory:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -571,7 +588,7 @@ class TestLongTermMemory:
         _populate_mm(path, [("原始记忆。", "身份")])
 
         fake_agent = _fake_agent_factory()
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -589,11 +606,11 @@ class TestLongTermMemory:
         path = tmp_path / "memory.yaml"
 
         fake_agent = _fake_agent_factory(
-            entries_setup=lambda: long_term._current_mm.add(
+            entries_setup=lambda: consumer._current_mm.add(
                 description="记忆。", theme="身份"
             )
         )
-        monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
+        monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
 
         monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())

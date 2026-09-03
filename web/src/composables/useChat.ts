@@ -48,6 +48,12 @@ export function useChat(sessionId: Ref<string>) {
   const error = computed(() => activeChannelRef.value.error)
   const contextUsage = computed(() => activeChannelRef.value.contextUsage)
   const taskTrackerData = computed(() => activeChannelRef.value.taskTrackerData)
+  /** 后台任务跟踪数据（顶栏 BackgroundTrackerBar）：Map → 排序数组（响应式透出） */
+  const backgroundTracker = computed(() =>
+    Array.from(activeChannelRef.value.backgroundTracker.entries())
+      .map(([index, t]) => ({ index, ...t }))
+      .sort((a, b) => a.index - b.index)
+  )
   const privateMode = computed(() => activeChannelRef.value.privateMode)
   const skipRecall = computed(() => activeChannelRef.value.skipRecall)
   const autoApprove = computed(() => activeChannelRef.value.autoApprove)
@@ -121,7 +127,7 @@ export function useChat(sessionId: Ref<string>) {
 
   return {
     connected, isStreaming, turns, currentTurn, pendingMessages, pendingCount,
-    error, contextUsage, taskTrackerData,
+    error, contextUsage, taskTrackerData, backgroundTracker,
     send, cancel, sendUserResponse, removeTurns,
     interruptRunPython,
     privateMode, setPrivateMode,

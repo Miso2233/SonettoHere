@@ -1075,3 +1075,60 @@ def _extract_memory_generic(
         if field in data:
             result[field] = data[field]
     return result if result else None
+
+# ── 子 Agent ────────────────────────────────────────────────────────────
+
+@register("call_sub_agent")
+def _extract_call_sub_agent(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 tool_type=sub_agent, sub_session_id, name/task（若上游携带）, answer。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "tool_type": "sub_agent",
+        "sub_session_id": data.get("sub_session_id", ""),
+        "answer": data.get("answer", ""),
+    }
+
+# ── 后台任务查看 / 等待 ────────────────────────────────────────────────
+
+@register("list_background")
+def _extract_list_background(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 tool_type=background_list, total, running, tasks（索引/工具名/状态/耗时）。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "tool_type": "background_list",
+        "total": data.get("count", 0),
+        "running": data.get("running", 0),
+        "tasks": data.get("tasks", []),
+    }
+
+@register("await_background")
+def _extract_await_background(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """等待态（超时仍运行）返回 await_index/await_status。
+
+    完成态透传的是后台任务的真实工具输出（无 task_index 字段），返回 None
+    走通用卡片展示结果。
+    """
+    data = _get_data(parsed)
+    if data is None or "task_index" not in data:
+        return None
+    return {
+        "await_index": data.get("task_index"),
+        "await_status": data.get("status", ""),
+        "elapsed_s": data.get("elapsed_s", 0),
+    }

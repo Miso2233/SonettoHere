@@ -70,3 +70,24 @@ class ToolSender(WsTransport):
             "task": task,
             "name": name,
         })
+
+    async def background_update(
+        self,
+        index: int,
+        status: str,
+        tool_name: str,
+        result_preview: str = "",
+        elapsed_s: float = 0.0,
+    ) -> None:
+        """推送后台任务状态变化（@background 工具返回索引之后的终态）。
+
+        ``index`` 为 spawn 时返回给 LLM 的任务索引，前端据此匹配发起调用的
+        工具气泡上的后台徽章；``result_preview`` 为截断的结果预览。
+        """
+        await self._send("background_update", {
+            "index": index,
+            "status": status,
+            "tool_name": tool_name,
+            "result_preview": result_preview,
+            "elapsed_s": round(elapsed_s, 1),
+        })

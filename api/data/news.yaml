@@ -1,4 +1,12 @@
 news:
+  - id: "background-tools"
+    title: "工具可后台运行，Agent 并行推进"
+    description: "长耗时工具（网络搜索、文件搜索、Python 执行、图片理解、子 Agent）现支持后台运行：调用立即返回任务索引，顶栏跟踪器显示后台任务进度，Agent 可继续其他工作并用 await_background 取回结果，结果气泡完整还原工具输出。另有独立的 Sub-Agent 黑白风格结果气泡与节假日气泡重设计。"
+    type: "feat"
+    date: "2026-09-03"
+    tags: ["后台运行", "子 Agent", "并行"]
+    version: ""
+    pr_number: 301
   - id: "edit-result-diff-display"
     title: "编辑结果气泡显示替换内容"
     description: "文件编辑工具执行完成后，结果气泡中每笔编辑都会以红绿对照方式显示替换前后的内容，与确认气泡所见一致，编辑结果一目了然。"

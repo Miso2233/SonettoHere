@@ -7,6 +7,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from tools.base import ToolBase, format_error, format_success
+from tools.background import background
 from tools.get_doc import get_doc
 
 
@@ -142,6 +143,7 @@ def _summarize_minutely(data: dict[str, Any]) -> dict[str, Any]:
 
 
 @get_doc
+@background
 class WeatherTool(ToolBase):
     name: str = "get_current_weather"
     description: str = (

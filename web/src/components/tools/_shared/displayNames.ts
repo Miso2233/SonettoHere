@@ -45,11 +45,13 @@ const DISPLAY_NAMES: Record<string, string> = {
   get_cycling_route: '骑行路线',
   tarot: '塔罗牌',
   ask_user: '询问用户',
-  ask_user_for_info: '询问用户',
   ask_user_qa: '询问用户',
   ask_user_single_choice: '选择意见',
   ask_user_multi_choice: '多选',
   task_tracker: '任务追踪',
+  call_sub_agent: 'Sub-Agent',
+  await_background: '等待后台结果',
+  list_background: '后台任务列表',
 
   /* Memory */
   list_memories: '记忆列表',

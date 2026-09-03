@@ -1,29 +1,46 @@
-"""LongTermMemory 集成测试 — 模拟 CLI 完整流程。
+"""LongTermMemory + MemoryConsumer 集成测试 — 模拟 CLI 完整流程。
 
 验证: 对话历史 → CRUD Agent → memory.yaml 写入 的端到端路径。
 """
 
 import asyncio
+from typing import Any, Callable
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import api.memory.long_term as long_term
+import api.memory.consumer as consumer
 from api.memory.long_term import LongTermMemory
 from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 
 
-def _make_fake_agent(entries_setup=None):
-    """构建 mock agent，ainvoke 时执行 entries_setup 修改当前 MemoryManager。"""
+def _make_fake_agent(
+    entries_setup: Callable[[], None] | None = None,
+    done_event: asyncio.Event | None = None,
+):
+    """构建 mock agent，ainvoke 时执行 entries_setup 修改当前 MemoryManager。
 
-    async def fake_ainvoke(_input, config=None):
+    done_event 若提供，则在 ainvoke 完成时 set，供测试事件驱动地等待消费完成。
+    """
+
+    async def fake_ainvoke(_input: object, config: dict[str, Any] | None = None) -> dict[str, Any]:
         if entries_setup:
             entries_setup()
+        if done_event is not None:
+            done_event.set()
         return {"messages": []}
 
     agent = MagicMock()
     agent.ainvoke = AsyncMock(side_effect=fake_ainvoke)
     return agent
+
+
+async def _wait_for_event(event: asyncio.Event, timeout: float = 5.0) -> None:
+    """等待事件置位，超时抛出断言错误（替代固定 sleep 的确定化等待）。"""
+    try:
+        await asyncio.wait_for(event.wait(), timeout=timeout)
+    except asyncio.TimeoutError as e:
+        raise AssertionError(f"等待事件超时（{timeout}s），消费者未按预期处理消息") from e
 
 
 @pytest.mark.asyncio
@@ -39,42 +56,45 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
 
     call_count = [0]
     captured_prompts = []
+    # 每轮完成事件预创建，避免等待时尚未创建导致 IndexError
+    turn_done: list[asyncio.Event] = [asyncio.Event() for _ in range(3)]
 
     def agent_factory(**kwargs):
         call_count[0] += 1
         captured_prompts.append(kwargs.get("system_prompt", ""))
+        done = turn_done[call_count[0] - 1]
 
         if call_count[0] == 1:
 
             def setup1():
-                long_term._current_mm.add(
+                consumer._current_mm.add(
                     description="第1轮记忆：用户打了招呼。", theme="身份"
                 )
 
-            return _make_fake_agent(entries_setup=setup1)
+            return _make_fake_agent(entries_setup=setup1, done_event=done)
         elif call_count[0] == 2:
 
             def setup2():
-                mm = long_term._current_mm
+                mm = consumer._current_mm
                 mm.add(description="第1轮记忆：用户打了招呼。", theme="身份")
                 mm.add(
                     description="第2轮补充：用户叫Miso，在北京学习网络安全。",
                     theme="身份",
                 )
 
-            return _make_fake_agent(entries_setup=setup2)
+            return _make_fake_agent(entries_setup=setup2, done_event=done)
         else:
 
             def setup3():
-                mm = long_term._current_mm
+                mm = consumer._current_mm
                 for item in mm.show():
                     mm.delete(item["id"])
                 mm.add(description=f"第{call_count[0]}轮记忆：已更新。", theme="身份")
 
-            return _make_fake_agent(entries_setup=setup3)
+            return _make_fake_agent(entries_setup=setup3, done_event=done)
 
-    monkeypatch.setattr(long_term, "create_agent", agent_factory)
-    monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
+    monkeypatch.setattr(consumer, "create_agent", agent_factory)
+    monkeypatch.setattr("api.memory.long_term.get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
     # ── 初始化管线 ──
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
@@ -86,7 +106,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
         {"role": "assistant", "content": "你好！请说，我在听。"},
     ]
     await ltm.send_history(turn1)
-    await asyncio.sleep(0.05)
+    await _wait_for_event(turn_done[0])
 
     # ── 第二轮对话 ──
     turn2 = [
@@ -95,7 +115,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
         {"role": "assistant", "content": "好的Miso，我记住了！"},
     ]
     await ltm.send_history(turn2)
-    await asyncio.sleep(0.05)
+    await _wait_for_event(turn_done[1])
 
     # ── 第三轮对话 ──
     turn3 = [
@@ -135,15 +155,15 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
     def agent_factory(**kwargs):
         def setup():
             processed_count[0] += 1
-            long_term._current_mm.add(
+            consumer._current_mm.add(
                 description=f"记忆{processed_count[0]}。",
                 theme="身份",
             )
 
         return _make_fake_agent(entries_setup=setup)
 
-    monkeypatch.setattr(long_term, "create_agent", agent_factory)
-    monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
+    monkeypatch.setattr(consumer, "create_agent", agent_factory)
+    monkeypatch.setattr("api.memory.long_term.get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
     ltm.start()
@@ -170,15 +190,15 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
     """验证 send_history 不等待消费者完成，瞬时返回。"""
     path = tmp_path / "memory.yaml"
 
-    async def slow_ainvoke(_input, config=None):
+    async def slow_ainvoke(_input: object, config: dict[str, Any] | None = None) -> dict[str, Any]:
         await asyncio.sleep(0.1)
-        long_term._current_mm.add(description="慢慢来。", theme="身份")
+        consumer._current_mm.add(description="慢慢来。", theme="身份")
         return {"messages": []}
 
     fake_agent = MagicMock()
     fake_agent.ainvoke = AsyncMock(side_effect=slow_ainvoke)
-    monkeypatch.setattr(long_term, "create_agent", lambda **kw: fake_agent)
-    monkeypatch.setattr(long_term, "get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
+    monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
+    monkeypatch.setattr("api.memory.long_term.get_manager", lambda: MagicMock(get_default_llm=lambda: MagicMock()))
 
     ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
     ltm.start()

@@ -3,10 +3,22 @@
     <div class="tool-header" @click="toggle" role="button" :aria-expanded="isOpen">
       <span class="tool-icon">
         <span v-if="toolCall.status === 'running'" class="spinner-sm"></span>
+        <span v-else-if="toolCall.status === 'awaiting_user'" class="pause-icon-sm">&#9208;</span>
         <span v-else-if="toolCall.status === 'done'">&#10003;</span>
         <span v-else>&#10007;</span>
       </span>
       <span class="tool-name">{{ toolCall.name }}</span>
+      <span
+        v-if="toolCall.background"
+        class="bg-badge"
+        :class="toolCall.background.status"
+        :title="toolCall.background.resultPreview || ''"
+      >
+        <span v-if="toolCall.background.status === 'running'" class="bg-dot"></span>
+        <template v-else-if="toolCall.background.status === 'completed'">&#10003;</template>
+        <template v-else>&#10007;</template>
+        后台 #{{ toolCall.background.index }}
+      </span>
       <span class="tool-elapsed" v-if="toolCall.elapsed !== null">
         {{ toolCall.elapsed }}s
       </span>
@@ -139,7 +151,7 @@ const outputDisplay = computed<SectionDisplay>(() => {
 
 // ── Expand / collapse ──
 function toggle() {
-  if (props.toolCall.status === 'running') return
+  if (props.toolCall.status === 'running' || props.toolCall.status === 'awaiting_user') return
   isOpen.value = !isOpen.value
 }
 
@@ -155,7 +167,7 @@ watch(isOpen, (open) => {
 })
 
 watch(() => props.toolCall.status, (s) => {
-  if (s === 'running') {
+  if (s === 'running' || s === 'awaiting_user') {
     isOpen.value = true
   }
 })
@@ -181,8 +193,55 @@ watch(() => props.toolCall.output, () => {
 .tool-card.running {
   border-color: var(--accent-light);
 }
+.tool-card.awaiting_user {
+  border-color: #fcd34d;
+}
 .tool-card.error {
   border-color: #fecaca;
+}
+.pause-icon-sm {
+  color: #b45309;
+  font-size: 10px;
+}
+/* 后台任务徽章（与 tools/_shared/shared.css 的 .bg-badge 同款） */
+.bg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+.bg-badge.running {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.bg-badge.completed {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+.bg-badge.failed {
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.bg-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: bg-breathe 1.4s ease-in-out infinite;
+}
+@keyframes bg-breathe {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
 }
 .tool-header {
   padding: 8px 14px;

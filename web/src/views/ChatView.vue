@@ -33,7 +33,10 @@
         </div>
         <ContextUsageBadge :usage="contextUsage" :selected-model="selectedModelName" :has-vision="selectedModelHasVision" />
         <StudioSelector :studio-name="studioName" @change="setStudioName" />
-        <TaskTrackerBar :data="taskTrackerData as any" @dismiss="dismissTaskTracker" />
+        <div class="header-trackers">
+          <TaskTrackerBar :data="taskTrackerData as any" @dismiss="dismissTaskTracker" />
+          <BackgroundTrackerBar :data="backgroundTracker" />
+        </div>
     </header>
 
     <ChatWindow
@@ -100,6 +103,7 @@ import ContextUsageBadge from '@/components/ContextUsageBadge.vue'
 import StudioSelector from '@/components/StudioSelector.vue'
 import StatusBadge from '@/components/StatusBadge.vue'
 import TaskTrackerBar from '@/components/TaskTrackerBar.vue'
+import BackgroundTrackerBar from '@/components/BackgroundTrackerBar.vue'
 import { useChat } from '@/composables/useChat'
 import { useChatStore } from '@/stores/chatStore'
 import { health } from '@/composables/useHealth'
@@ -109,7 +113,7 @@ import type { ProviderConfig, UserResponse } from '@/types'
 import { computed, onMounted, ref } from 'vue'
 
 const { sessionId, sessions } = useSession()
-const { connected, isStreaming, turns, currentTurn, pendingMessages, error, contextUsage, taskTrackerData, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove, studioName, setStudioName } =
+const { connected, isStreaming, turns, currentTurn, pendingMessages, error, contextUsage, taskTrackerData, backgroundTracker, send, cancel, sendUserResponse, removeTurns, privateMode, setPrivateMode, skipRecall, setSkipRecall, autoApprove, setAutoApprove, studioName, setStudioName } =
   useChat(sessionId)
 const chatStore = useChatStore()
 
@@ -215,6 +219,15 @@ async function handleUndo() {
   padding: 12px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-card);
+}
+/* 两个跟踪器成组右对齐、彼此紧贴（子项自带的 margin-left:auto 在
+   收缩容器内不生效，auto 推右由本容器统一承担） */
+.header-trackers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .sub-agent-bar-wrapper {
   padding: 6px 24px 8px;

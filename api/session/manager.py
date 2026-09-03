@@ -17,6 +17,17 @@ from api.utils.logger import get_logger
 _log = get_logger("manager")
 
 
+def _cancel_background_tasks(session_id: str) -> None:
+    """会话删除/过期时取消其全部后台任务，防止注册表泄漏。
+
+    延迟导入：api.agent.background 依赖 api.events，与 api.memory 的导入链
+    存在初始化顺序约束，函数级导入在首次调用（运行期）执行即可规避。
+    """
+    from api.agent import background as agent_background  # noqa: PLC0415
+
+    agent_background.cancel_session(session_id)
+
+
 # ── 子数据类：会话元信息 ──────────────────────────────────────────
 
 @dataclass
@@ -451,6 +462,7 @@ class SessionManager:
         if session_id in self._sessions:
             del self._sessions[session_id]
             _delete_memory_thread(session_id)
+            _cancel_background_tasks(session_id)
             return True
         return False
 
@@ -494,6 +506,7 @@ class SessionManager:
         for sid in expired:
             del self._sessions[sid]
             _delete_memory_thread(sid)
+            _cancel_background_tasks(sid)
         return len(expired)
 
 

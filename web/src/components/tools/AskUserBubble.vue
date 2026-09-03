@@ -1,12 +1,12 @@
 <template>
   <BubbleChrome :tool-call="toolCall">
     <!-- 等待交互数据到达 -->
-    <div v-if="toolCall.status === 'running' && !submitted && !interactionData.interactionId" class="ask-waiting">
+    <div v-if="isActive && !submitted && !interactionData.interactionId" class="ask-waiting">
       <span>等待询问...</span>
     </div>
 
-    <!-- 运行中：展示交互表单 -->
-    <div v-else-if="toolCall.status === 'running' && !submitted && interactionData.interactionId" class="ask-body">
+    <!-- 等待用户：展示交互表单 -->
+    <div v-else-if="isActive && !submitted && interactionData.interactionId" class="ask-body">
       <p class="ask-question">{{ interactionData.question }}</p>
 
       <!-- QA 模式：自由文本输入 -->
@@ -118,7 +118,7 @@
     </div>
 
     <!-- 已提交，等待回复 -->
-    <div v-else-if="toolCall.status === 'running' && submitted" class="ask-waiting">
+    <div v-else-if="isActive && submitted" class="ask-waiting">
       <span>已提交，等待回复...</span>
     </div>
 
@@ -185,6 +185,11 @@ const interactionData = computed(() => {
       }
   return result
 })
+
+/** 等待用户/已提交期间（awaiting_user 或短暂回退的 running）均视为活跃 */
+const isActive = computed(() =>
+  props.toolCall.status === 'running' || props.toolCall.status === 'awaiting_user'
+)
 
 /** 工具完成时从 output JSON 解析出 { question, answer } */
 const doneData = computed(() => {

@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success
-from tools.get_doc import get_doc
 
 # 前端自定义文本输入的前缀标记，用于区分「选中的选项」和「用户手写输入」
 _CUSTOM_PREFIX = "__custom__::"
@@ -18,18 +17,16 @@ class AskUserSingleChoiceInput(BaseModel):
     options: list[str] = Field(default=[], description="选项列表，用户从中选一项")
 
 
-@get_doc
 class AskUserSingleChoiceTool(ToolBase):
     name: str = "ask_user_single_choice"
     description: str = (
         "向用户提供多个选项，用户从中选择一项。用于需要用户做选择的场景。"
-        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 可自由看情况调用]"
     )
     args_schema: type[BaseModel] = AskUserSingleChoiceInput
 
     def _run(
         self,
-        get_doc: bool = False,
         question: str = "",
         options: list[str] | None = None,
     ) -> str:

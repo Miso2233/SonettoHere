@@ -64,6 +64,8 @@ def get_all_tools() -> list[BaseTool]:
 
     # Task
     from tools.task.tool_tracker import TaskTrackerTool
+    from tools.task.tool_await import AwaitBackgroundTool
+    from tools.task.tool_list import ListBackgroundTool
 
     # SubAgent
     from tools.sub_agent.tool_call_sub_agent import CallSubAgentTool
@@ -115,6 +117,8 @@ def get_all_tools() -> list[BaseTool]:
         FileSearchTextTool(client=client),
         # Task
         TaskTrackerTool(client=client),
+        AwaitBackgroundTool(client=client),
+        ListBackgroundTool(client=client),
         # SubAgent
         CallSubAgentTool(client=client),
         # Interaction
