@@ -103,7 +103,7 @@
               :key="i"
               class="item-row"
             >
-              <span class="item-icon">{{ item.type === 'directory' ? '&#128193;' : '&#128196;' }}</span>
+              <span class="item-icon">{{ item.type === 'directory' ? '📁' : '📄' }}</span>
               <span class="item-name">{{ item.name }}</span>
               <span class="item-size" v-if="item.size_bytes != null">{{ formatSize(item.size_bytes) }}</span>
             </div>

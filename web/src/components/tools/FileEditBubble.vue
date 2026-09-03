@@ -36,9 +36,17 @@
               class="edit-result-item"
               :class="r.status"
             >
-              <span class="eri-icon">{{ r.status === 'ok' ? '&#10003;' : '&#10007;' }}</span>
-              <span class="eri-index">#{{ i + 1 }}</span>
-              <span class="eri-msg">{{ r.message || r.replaced_count + ' 处替换' }}</span>
+              <div class="eri-head">
+                <span class="eri-icon">{{ r.status === 'ok' ? '✓' : '✗' }}</span>
+                <span class="eri-index">#{{ i + 1 }}</span>
+                <span class="eri-msg">{{ r.message || r.replaced_count + ' 处替换' }}</span>
+              </div>
+              <EditDiffPair
+                v-if="r.old_string"
+                class="eri-diff"
+                :old-string="r.old_string"
+                :new-string="r.new_string || ''"
+              />
             </div>
           </div>
           <div class="file-actions">
@@ -91,6 +99,7 @@
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
+import EditDiffPair from './_shared/EditDiffPair.vue'
 import SonettoBlockerError from './_shared/SonettoBlockerError.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
@@ -122,7 +131,7 @@ const multiClass = computed(() => {
 })
 
 const multiIcon = computed(() => {
-  return (td.value.failed_count as number) > 0 ? '&#9888;' : '&#10003;'
+  return (td.value.failed_count as number) > 0 ? '⚠' : '✓'
 })
 
 const multiTitle = computed(() => {
@@ -248,16 +257,26 @@ function copyPath() {
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 0;
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
 }
 
 .edit-result-item {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 2px;
   padding: 5px 10px;
   font-size: 13px;
+}
+
+.eri-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eri-diff {
+  margin-left: 24px;
 }
 
 .edit-result-item.ok {
