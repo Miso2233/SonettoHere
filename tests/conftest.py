@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from starlette.testclient import TestClient
 
 from api.middleware.auth import AuthMiddleware
+from api.middleware import auth as auth_middleware
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -29,7 +30,7 @@ def auth_token() -> str:
 
 
 @pytest.fixture
-def minimal_app(auth_token: str) -> FastAPI:
+def minimal_app(auth_token: str, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     """创建一个最小化的 FastAPI app 用于测试 AuthMiddleware。
 
     包含：
@@ -57,7 +58,11 @@ def minimal_app(auth_token: str) -> FastAPI:
     async def ws_endpoint():
         return {"status": "ws"}
 
-    app.state.auth_token = auth_token
+    # AuthMiddleware 自 #244 起直接调用 load_or_create_token() 鉴权
+    # （不再读 app.state.auth_token）。此处将其替换为返回固定测试 Token，
+    # 使"正确 token → 200"的用例可断言，同时避免测试读写真实的
+    # config/auth_token.yaml。
+    monkeypatch.setattr(auth_middleware, "load_or_create_token", lambda: auth_token)
     app.add_middleware(AuthMiddleware)
     return app
 

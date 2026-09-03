@@ -56,11 +56,12 @@ class TestAuthMiddleware:
 
 
 class TestAuthMiddlewareNoToken:
-    """app.state.auth_token 为 None 时的行为。"""
+    """load_or_create_token 未返回有效 Token 时的行为。"""
 
-    def test_empty_auth_token_returns_401(self, client):
-        """app.state.auth_token 为 None → 401。"""
-        # 覆盖 fixture：设置 auth_token 为 None
-        client.app.state.auth_token = None
+    def test_empty_auth_token_returns_401(self, client, monkeypatch):
+        """后端未配置 Token（load_or_create_token 返回 None）→ 一律 401。"""
+        monkeypatch.setattr(
+            "api.middleware.auth.load_or_create_token", lambda: None
+        )
         resp = client.get("/api/test", headers={"X-Sonetto-Token": "any-token"})
         assert resp.status_code == 401
