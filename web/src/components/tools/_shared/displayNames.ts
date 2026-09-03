@@ -50,7 +50,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   ask_user_single_choice: '选择意见',
   ask_user_multi_choice: '多选',
   task_tracker: '任务追踪',
-  call_sub_agent: '子 Agent',
+  call_sub_agent: 'Sub-Agent',
   await_background: '等待后台结果',
   list_background: '后台任务列表',
 

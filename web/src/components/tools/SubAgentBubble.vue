@@ -17,7 +17,9 @@
 
         <div class="sa-answer">
           <div class="sa-answer-label">回答</div>
-          <div class="sa-answer-body">{{ answerText }}</div>
+          <div class="sa-answer-body">
+            <RenderMarkdown :content="answerText" />
+          </div>
         </div>
       </div>
 
@@ -30,6 +32,7 @@
 import { computed } from 'vue'
 import type { ToolCall } from '@/types'
 import BubbleChrome from './_shared/BubbleChrome.vue'
+import RenderMarkdown from '@/components/RenderMarkdown.vue'
 
 const props = defineProps<{ toolCall: ToolCall }>()
 
@@ -120,8 +123,29 @@ const fallback = computed(() =>
   font-size: 13px;
   color: #222;
   line-height: 1.7;
-  white-space: pre-wrap;
   word-break: break-word;
+}
+/* RenderMarkdown 在浅灰块内的排版收敛（同 ToolCallCard 的 compact 覆盖策略） */
+.sa-answer-body :deep(.markdown-body) {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.sa-answer-body :deep(.markdown-body > *:first-child) {
+  margin-top: 0;
+}
+.sa-answer-body :deep(.markdown-body > *:last-child) {
+  margin-bottom: 0;
+}
+.sa-answer-body :deep(.markdown-body pre) {
+  font-size: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin: 6px 0;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.sa-answer-body :deep(.markdown-body code) {
+  font-size: 12px;
 }
 
 /* ── 降级 ── */
