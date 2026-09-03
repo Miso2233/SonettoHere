@@ -11,14 +11,14 @@
 - 无参装饰器：所有工具的 get_doc 字段统一用默认文案（不再提供 per-tool 覆写，
   更长引导文案交由同目录 TOOL.md 承载）。
 
-代表工具：sync 用 TodoAddTool，async 用 AskUserSingleChoiceTool
+代表工具：sync 用 TodoAddTool，async 用 CallSubAgentTool
 （包装 ``_arun``），Command 用 ReadImageTool（本阶段特例）。
 """
 
 import pytest
 
-from tools.interaction.tool_single_choice import AskUserSingleChoiceTool
 from tools.network.tool_read_image import ReadImageTool
+from tools.sub_agent.tool_call_sub_agent import CallSubAgentTool
 from tools.todo.tool_add import TodoAddTool
 
 _DEFAULT_DESC = "设为 true 以获取使用说明"
@@ -38,10 +38,10 @@ def test_sync_tool_injects_get_doc_non_required() -> None:
 
 def test_async_tool_injects_get_doc_non_required() -> None:
     """async 工具（包装 _arun）同样注入 schema。"""
-    fields = AskUserSingleChoiceTool().get_input_schema().model_fields
+    fields = CallSubAgentTool().get_input_schema().model_fields
     assert "get_doc" in fields
     assert fields["get_doc"].is_required() is False
-    assert "options" in fields
+    assert "task" in fields
 
 
 def test_decorator_uses_default_description() -> None:
@@ -83,7 +83,7 @@ def test_sync_without_get_doc_forwards_to_logic() -> None:
 @pytest.mark.asyncio
 async def test_async_get_doc_short_circuits() -> None:
     """async 工具 get_doc=True → 返回 _load_doc() 文档。"""
-    tool = AskUserSingleChoiceTool()
+    tool = CallSubAgentTool()
     result = await tool._arun(get_doc=True)
     assert result == tool._load_doc()
 
@@ -91,8 +91,8 @@ async def test_async_get_doc_short_circuits() -> None:
 @pytest.mark.asyncio
 async def test_async_get_doc_false_forwards_to_logic() -> None:
     """async 工具 get_doc=False → 原样转发到真实 _arun 校验逻辑。"""
-    tool = AskUserSingleChoiceTool()
-    result = await tool._arun(get_doc=False, question="", options=["a"])
+    tool = CallSubAgentTool()
+    result = await tool._arun(get_doc=False, task="")
     assert "不能为空" in result
 
 

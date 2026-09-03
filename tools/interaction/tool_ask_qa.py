@@ -7,23 +7,21 @@ from pydantic import BaseModel, Field
 from api.agent import interaction
 from api.events import ToolSender
 from tools.base import ToolBase, format_error, format_success
-from tools.get_doc import get_doc
 
 
 class AskUserQAInput(BaseModel):
     question: str = Field(default="", description="需要询问用户的问题")
 
 
-@get_doc
 class AskUserQATool(ToolBase):
     name: str = "ask_user_qa"
     description: str = (
         "向用户提问并等待文字回复。用于需要用户自由输入信息的场景。"
-        "[调用积极性: 可自由看情况调用] [get_doc: 仅在发生错误时 get_doc]"
+        "[调用积极性: 可自由看情况调用]"
     )
     args_schema: type[BaseModel] = AskUserQAInput
 
-    def _run(self, get_doc: bool = False, question: str = "") -> str:
+    def _run(self, question: str = "") -> str:
         raise NotImplementedError("ask_user_qa 仅支持异步模式")
 
     async def _arun(self, question: str = "") -> str:

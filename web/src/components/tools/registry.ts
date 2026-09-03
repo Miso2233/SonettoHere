@@ -57,7 +57,6 @@ const registry: Record<string, Component> = {
   'read_image': ReadImageBubble,
   'tavily_search': TavilySearchBubble,
   'tavily_extract': TavilyExtractBubble,
-  'ask_user_for_info': AskUserBubble,
   'ask_user_qa': AskUserBubble,
   'ask_user_single_choice': AskUserBubble,
   'ask_user_multi_choice': AskUserBubble,
