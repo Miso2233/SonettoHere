@@ -86,3 +86,19 @@ def test_extractor_shapes_list_envelope() -> None:
         "running": 1,
         "tasks": parsed["data"]["tasks"],
     }
+
+
+def test_extractor_shapes_sub_agent_envelope() -> None:
+    """call_sub_agent 提取器：sub_session_id + answer（供镜像气泡渲染）。"""
+    from api.callbacks.tool_extractors import _dispatch
+
+    parsed = {
+        "success": True,
+        "data": {"sub_session_id": "abc123", "answer": "子 Agent 的回答"},
+    }
+    out = _dispatch("call_sub_agent", parsed)
+    assert out == {
+        "tool_type": "sub_agent",
+        "sub_session_id": "abc123",
+        "answer": "子 Agent 的回答",
+    }

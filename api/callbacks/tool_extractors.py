@@ -1076,6 +1076,24 @@ def _extract_memory_generic(
             result[field] = data[field]
     return result if result else None
 
+# ── 子 Agent ────────────────────────────────────────────────────────────
+
+@register("call_sub_agent")
+def _extract_call_sub_agent(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 tool_type=sub_agent, sub_session_id, name/task（若上游携带）, answer。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "tool_type": "sub_agent",
+        "sub_session_id": data.get("sub_session_id", ""),
+        "answer": data.get("answer", ""),
+    }
+
 # ── 后台任务查看 / 等待 ────────────────────────────────────────────────
 
 @register("list_background")
