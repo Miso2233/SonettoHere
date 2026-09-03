@@ -14,6 +14,7 @@ import TavilySearchBubble from './TavilySearchBubble.vue'
 import TavilyExtractBubble from './TavilyExtractBubble.vue'
 import AskUserBubble from './AskUserBubble.vue'
 import AwaitBubble from './AwaitBubble.vue'
+import BackgroundListBubble from './BackgroundListBubble.vue'
 import MemoryBubble from './MemoryBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
@@ -31,6 +32,7 @@ const registry: Record<string, Component> = {
   'todo_list_labels': TodoBubble,
   'task_tracker': TaskTrackerBubble,
   'await_background': AwaitBubble,
+  'list_background': BackgroundListBubble,
   'run_python': PythonBubble,
   'file_read': FilesBubble,
   'file_write': FilesBubble,
