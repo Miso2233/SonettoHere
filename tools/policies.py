@@ -29,7 +29,7 @@ from typing import Callable
 # langchain 可能注入、以及策略自身消耗的技术性 kwargs——永远不该进
 # ask_user 确认载荷（用户可见字段之外的实现细节）。
 INJECTED_KWARGS: frozenset[str] = frozenset({
-    "run_manager", "config", "callbacks", "get_doc",
+    "run_manager", "config", "callbacks", "get_doc", "background",
 })
 
 
@@ -73,6 +73,7 @@ def enrich_tool_class(
     *,
     schema_fields: dict[str, tuple[type, Field]] | None = None,
     wrap_method: Callable[[Callable], Callable] | None = None,
+    method_name: str | None = None,
 ) -> type[BaseTool]:
     """返回一个（必要时新建的）pydantic 子类，应用两类增强：
 
@@ -83,6 +84,11 @@ def enrich_tool_class(
     故始终返回 ``type(name, (cls,), namespace)``。继承链上再套一层策略
     （如 get_doc 叠在 confirm 之上）得到的是子类套子类，天然构成
     外层→内层→核心 的调用链。
+
+    ``method_name`` 可显式指定要包装的方法名，覆盖默认的 ``exec_method_name``
+    解析（如 background 装饰器强制包装 ``_arun``，使纯同步工具也能以
+    ``asyncio.create_task`` 方式后台化——同步工具未覆写 ``_arun`` 时，该名字
+    解析到 langchain 的默认实现，其内部经线程池执行 ``_run``）。
     """
     if not schema_fields and wrap_method is None:
         return cls
@@ -92,7 +98,7 @@ def enrich_tool_class(
         for name, (typ, field) in schema_fields.items():
             new_input = add_input_field(new_input, name, typ, field)
 
-    method_name = exec_method_name(cls)
+    method_name = method_name or exec_method_name(cls)
     orig = getattr(cls, method_name)
 
     namespace: dict[str, object] = {
