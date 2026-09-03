@@ -1076,7 +1076,24 @@ def _extract_memory_generic(
             result[field] = data[field]
     return result if result else None
 
-# ── 后台任务等待 ────────────────────────────────────────────────────────
+# ── 后台任务查看 / 等待 ────────────────────────────────────────────────
+
+@register("list_background")
+def _extract_list_background(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 tool_type=background_list, total, running, tasks（索引/工具名/状态/耗时）。"""
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    return {
+        "tool_type": "background_list",
+        "total": data.get("count", 0),
+        "running": data.get("running", 0),
+        "tasks": data.get("tasks", []),
+    }
 
 @register("await_background")
 def _extract_await_background(

@@ -99,22 +99,14 @@ async def test_no_tasks_returns_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_list_mode() -> None:
-    """index=0 列出全部任务：索引、工具名、状态、耗时。"""
+async def test_index_below_one_rejected_by_schema() -> None:
+    """index=0 已移交 list_background 工具；await 的 schema 拒绝非正整数索引。"""
     sid = _setup_session()
     try:
-        registry = bg.get_registry(sid)
-        first = _spawn_slow(registry, 0, "done-1")
-        _spawn_never(registry)
-        await registry.await_result(first, 5)  # 确保 completed 已回写
+        bg.get_registry(sid)
 
-        result = await AwaitBackgroundTool().arun({"index": 0})
-        parsed = json.loads(result)
-        assert parsed["success"] is True
-        assert parsed["data"]["count"] == 2
-        statuses = {t["status"] for t in parsed["data"]["tasks"]}
-        assert statuses == {"completed", "running"}
-        assert parsed["data"]["tasks"][0]["tool_name"] == "probe"
+        with pytest.raises(Exception, match="index"):
+            await AwaitBackgroundTool().arun({"index": 0})
     finally:
         bg.cancel_session(sid)
         interaction.current_session_id.set("")

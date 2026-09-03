@@ -211,8 +211,8 @@ class WebSocketCallback(BaseCallbackHandler):
         if not isinstance(parsed, dict) or parsed.get("success") is not True:
             return tool_data
         data = parsed.get("data")
-        if not isinstance(data, dict) or "task_index" in data or "tasks" in data:
-            return tool_data  # 等待态 / 列表态信封，非真实结果
+        if not isinstance(data, dict) or "task_index" in data:
+            return tool_data  # 等待态信封，非真实结果
 
         input_dict = _parse_tool_input(tool_input)
         raw_index = input_dict.get("index") if input_dict else None
