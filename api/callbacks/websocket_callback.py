@@ -108,6 +108,20 @@ class WebSocketCallback(BaseCallbackHandler):
             parsed = json.loads(out_str)
         except (json.JSONDecodeError, TypeError):
             return None
+
+        # @background 工具的 spawn 返回（任务索引信封）优先于按工具注册的
+        # 提取器：信封里没有业务数据，若落入 tavily_search 等提取器会把
+        # 空信封误解析成一份假业务结果。此处统一转成前端后台徽章数据。
+        data = parsed.get("data") if isinstance(parsed, dict) else None
+        if isinstance(data, dict) and data.get("background"):
+            return {
+                "background": {
+                    "index": data.get("task_index"),
+                    "status": "running",
+                    "tool_name": tool_name,
+                }
+            }
+
         return _dispatch(tool_name, parsed, tool_input)
 
     async def on_llm_start(
