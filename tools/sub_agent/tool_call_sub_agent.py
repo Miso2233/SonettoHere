@@ -98,8 +98,8 @@ class CallSubAgentTool(ToolBase):
         sub = sm.create_sub_session(task=task)
         _log.info("sub-session created: %s", sub.session_id)
 
-        # 2. 通知前端（通过主 WS）；后台 spawn 时携带 detached 标记，
-        #    前端不切换用户视图（仅建立子 WS 连接以驱动子轮启动）
+        # 2. 通知前端（通过主 WS）：前端建立子 WS 连接以驱动子轮启动，
+        #    用户视图不切换（子会话由用户手动点开查看）
         detached = background_mode.get(False)
         _log.debug("sending sub_session_created via WS (detached=%s)", detached)
         sender = ToolSender.from_context()
@@ -109,7 +109,6 @@ class CallSubAgentTool(ToolBase):
                 parent_session_id=parent_session_id,
                 task=task,
                 name=name[:100] if name else "",
-                detached=detached,
             )
         _log.debug("sub_session_created sent, awaiting pending_result...")
 

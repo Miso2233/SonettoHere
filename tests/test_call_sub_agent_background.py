@@ -99,9 +99,6 @@ async def test_background_spawn_and_resolve(monkeypatch: pytest.MonkeyPatch) -> 
         assert parsed["data"]["background"] is True
         index = parsed["data"]["task_index"]
 
-        # detached 标记已随事件下发
-        assert _CURRENT_FAKE[-1].created[0]["detached"] is True
-
         # 模拟子轮完成：resolve 子会话的 pending future
         sub_id = _CURRENT_FAKE[-1].created[0]["sub_session_id"]
         sub = _get_session_manager().get(sub_id)
@@ -141,9 +138,6 @@ async def test_background_wait_timeout_fails_cleanly(
         bt = await registry.await_result(index, 5)
         assert bt is not None and bt.status == "completed"  # 工具正常返回错误信封
         assert "未被启动" in bt.result
-
-        # 子会话 future 已被标记失败，子轮任务已取消
-        assert _CURRENT_FAKE[-1].created[0]["detached"] is True
     finally:
         for kw in _CURRENT_FAKE[-1].created:
             _get_session_manager().delete(kw["sub_session_id"])
@@ -181,17 +175,16 @@ async def test_background_cancelled_reraises(
 
 
 @pytest.mark.asyncio
-async def test_sync_mode_resolves_and_reports_not_detached(
+async def test_sync_mode_resolves_and_returns(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """同步模式：等待 resolve 返回结果，事件 detached 为 False。"""
+    """同步模式回归：裸等待 resolve 后返回结果（行为不变）。"""
     sid = _setup(monkeypatch)
     try:
         task = asyncio.create_task(CallSubAgentTool().arun({"task": "x"}))
         await asyncio.sleep(0.1)  # 进入裸 await
 
         created = _CURRENT_FAKE[-1].created[0]
-        assert created["detached"] is False
 
         sub = _get_session_manager().get(created["sub_session_id"])
         assert sub is not None

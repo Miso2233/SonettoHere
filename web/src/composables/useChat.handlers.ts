@@ -276,10 +276,6 @@ function handleDone(ch: SessionChannel, sid: string, turn: ChatTurn, event: Serv
   }
   // 轮次结束，刷新会话列表以更新 message_count
   void useSessionStore().refreshSessions()
-  // 子 Agent 完成 → 自动切回主会话（@background 后台 spawn 的不拽回）
-  if (ch.parentSessionId && !ch.detached) {
-    setTimeout(() => useSessionStore().switchSession(ch.parentSessionId!), 500)
-  }
 }
 
 /** error：清除流式状态，设置错误信息。 */
