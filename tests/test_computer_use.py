@@ -16,8 +16,10 @@ from tools.computer import _screen as screen
 from tools.computer.tool_click import ClickTool
 from tools.computer.tool_key import KeyTool
 from tools.computer.tool_screenshot import ScreenshotTool
+from tools.computer.tool_scroll import Point, ScrollTool
 from tools.computer.tool_type import TypeTool
 from tools.computer.tool_virtual_click import VirtualClickTool
+from tools.computer.tool_wait import WaitTool
 
 # ── 共享能力：纯函数 ─────────────────────────────────────────
 
@@ -414,3 +416,106 @@ def test_key_tool_rejects_empty_keys() -> None:
     parsed = json.loads(tool_msg.content)
     assert parsed["success"] is False
     assert "不能为空" in parsed["error"]
+
+
+# ── scroll / ScrollTool（真实滚动）───────────────────────────
+
+
+class _FakeScrollBoard:
+    """记录 scroll / hscroll 调用的假 pyautogui 对象。"""
+
+    def __init__(self) -> None:
+        self.scrolls: list[tuple[int, int | None, int | None]] = []
+        self.hscrolls: list[tuple[int, int | None, int | None]] = []
+
+    def scroll(self, clicks: int, x=None, y=None) -> None:
+        self.scrolls.append((clicks, x, y))
+
+    def hscroll(self, clicks: int, x=None, y=None) -> None:
+        self.hscrolls.append((clicks, x, y))
+
+
+def test_scroll_direction_mapping(monkeypatch) -> None:
+    fake = _FakeScrollBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.scroll("up", 2)
+    screen.scroll("down", 3)
+    screen.scroll("left", 4)
+    screen.scroll("right", 5)
+
+    assert fake.scrolls == [(2, None, None), (-3, None, None)]
+    assert fake.hscrolls == [(-4, None, None), (5, None, None)]
+
+
+def test_scroll_tool_returns_confirmation_without_screenshot(monkeypatch) -> None:
+    calls: list[tuple[str, int, int | None, int | None]] = []
+
+    def _fake_scroll(
+        direction: str, amount: int, x: int | None = None, y: int | None = None
+    ) -> None:
+        calls.append((direction, amount, x, y))
+
+    monkeypatch.setattr(screen, "scroll", _fake_scroll)
+
+    command = ScrollTool()._run_impl(
+        scroll_direction="down", scroll_amount=2, tool_call_id="call-s"
+    )
+
+    assert calls == [("down", 2, None, None)]
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "scroll"
+    assert data["data"]["scroll_direction"] == "down"
+    assert data["data"]["scroll_amount"] == 2
+    # 只返回确认，不注入截图
+    assert len((command.update or {})["messages"]) == 1
+
+
+def test_scroll_tool_with_coordinate_maps_to_screen(monkeypatch) -> None:
+    calls: list[tuple[str, int, int | None, int | None]] = []
+
+    def _fake_scroll(
+        direction: str, amount: int, x: int | None = None, y: int | None = None
+    ) -> None:
+        calls.append((direction, amount, x, y))
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "scroll", _fake_scroll)
+
+    command = ScrollTool()._run_impl(
+        scroll_direction="up",
+        scroll_amount=1,
+        coordinate=Point(x=960, y=540),
+        tool_call_id="call-sc",
+    )
+
+    assert calls == [("up", 1, 1280, 800)]
+    data = json.loads(_command_tool_message(command).content)
+    assert data["data"]["coordinate_screen"] == {"x": 1280, "y": 800}
+
+
+# ── WaitTool（等待）────────────────────────────────────────────
+
+
+def test_wait_tool_sleeps_duration(monkeypatch) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: slept.append(s))
+
+    command = WaitTool()._run_impl(duration=2.5, tool_call_id="call-w")
+
+    assert slept == [2.5]
+    data = json.loads(_command_tool_message(command).content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "wait"
+    assert data["data"]["duration"] == 2.5
+    assert len((command.update or {})["messages"]) == 1
+
+
+def test_wait_tool_rejects_non_positive_duration() -> None:
+    command = WaitTool()._run_impl(duration=-1, tool_call_id="call-w2")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "大于 0" in parsed["error"]

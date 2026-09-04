@@ -11,8 +11,10 @@
 - **`computer_click`（真实点击）** —— 对系统执行一次**真实物理鼠标点击**（移动光标并按下）。支持按键 `button`（`left`/`middle`/`right`，默认 `left`）与点击次数 `clicks`（1 单击/2 双击/3 三击，默认 1）；点击结束后等待 0.1s 截取点击后的**未标注**画面注入。
 - **`computer_type`（输入文本）** —— 把文本输入到当前聚焦的输入框（真实系统动作）。文本**统一经剪贴板粘贴**（写入剪贴板 → Ctrl/Cmd+V），任意文本含中文均支持、内容按字面粘入（`\n`/`\r` 不会触发回车），并尽力还原用户剪贴板。
 - **`computer_key`（击键）** —— 对当前聚焦窗口执行一次**真实按键/快捷键**。输入单个键名（`Return`/`Esc`/`F5`/`Space`/箭头键等）或 `+` 连接组合（`ctrl+s`、`alt+Tab`、`ctrl+shift+esc`、`ctrl+c`…）。
+- **`computer_scroll`（滚动）** —— 在真实屏幕执行真实滚轮滚动。参数 `scroll_direction`（up/down/left/right）、`scroll_amount`（滚动量），可选 `coordinate`（1920x1080 画布坐标作落点，先移光标再滚）。只执行动作并返回确认；查看滚动后内容请调 `computer_screenshot`。
+- **`computer_wait`（等待）** —— 暂停 `duration` 秒（0<秒≤60），不做真实操作；用于等动画/加载完成。只返回确认。
 
-所有工具截图均**只注入上下文、不落盘**。
+截图类工具（截屏/点击/输入/击键）画面**只注入上下文、不落盘**。
 
 ## 典型用途
 - **虚拟点击用于预演**：先 `computer_screenshot` 观察画面 → `computer_virtual_click(x, y)` 得到带标记图，无副作用地核对坐标是否命中目标。

@@ -201,6 +201,31 @@ def press_keys(combo: str) -> None:
         raise ScreenError(f"按键 {combo!r} 失败：{exc}") from exc
 
 
+def scroll(
+    direction: str,
+    amount: int,
+    x: int | None = None,
+    y: int | None = None,
+) -> None:
+    """在真实屏幕上按 *direction* 滚动 *amount*（可指定落点像素，缺省为当前光标处）。
+
+    direction 取 up/down/left/right；垂直滚动用 pyautogui.scroll（正数向上），
+    水平滚动用 pyautogui.hscroll（正数向右）。*x*/*y* 为真实屏幕像素坐标，传入时
+    会先移动光标到该处再滚动。
+    """
+    pg = _pyautogui()
+    try:
+        if direction in ("up", "down"):
+            clicks = amount if direction == "up" else -amount
+            pg.scroll(clicks, x, y)
+        elif direction == "left":
+            pg.hscroll(-amount, x, y)
+        else:  # "right"
+            pg.hscroll(amount, x, y)
+    except Exception as exc:
+        raise ScreenError(f"滚动（{direction} {amount}）失败：{exc}") from exc
+
+
 def to_canvas_image(img: Image.Image) -> Image.Image:
     """把截图线性缩放到 1920x1080 逻辑画布 —— 像素即模型坐标空间。"""
     return img.resize((CANVAS_WIDTH, CANVAS_HEIGHT), Image.LANCZOS)
