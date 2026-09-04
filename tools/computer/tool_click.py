@@ -2,9 +2,7 @@
 
 与 computer_virtual_click（虚拟点击，仅标注不做操作）是**两个不同工具**。
 本工具（computer_click）会真实移动系统光标并在指定坐标按下左键，点击结束后
-等待 0.1s 再截取**未标注**的屏幕画面，注入 LLM 上下文并落盘到工程内
-git 不跟踪的临时目录 —— 返回值字段集合与 computer_virtual_click 完全一致
-（仅 action 取值不同、画面不带标记）。
+等待 0.1s 再截取**未标注**的屏幕画面注入 LLM 上下文。截图不落盘保存。
 """
 
 import time
@@ -60,9 +58,8 @@ class ClickTool(ToolBase):
         "（会真实移动鼠标光标并按下左键，触发应用的真实行为）。"
         "坐标必须是基于 1920x1080 逻辑画布输出的整数（x: 0..1920，y: 0..1080，"
         "原点在画布左上角），后端会线性映射回真实像素并执行。点击结束后等待 0.1s "
-        "再截取点击后的屏幕（**不叠加标记**），把画面注入上下文供确认，同时把该截图"
-        "保存到工程 .computer_use/ 目录（返回 saved_file）。返回值字段集合与 "
-        "computer_virtual_click（虚拟点击，仅标注不做操作）完全一致，仅 action "
+        "再截取点击后的屏幕（**不叠加标记**），把画面注入上下文供确认。返回值字段"
+        "集合与 computer_virtual_click（虚拟点击，仅标注不做操作）一致，仅 action "
         "取值不同。如需先无副作用地核对落点是否命中，应先用 computer_virtual_click "
         "标注试算。"
         "[调用积极性: 用户明确要求/确认后需要在系统里真实按下某个按钮、图标、菜单项时"
@@ -87,7 +84,7 @@ class ClickTool(ToolBase):
         except screen.ScreenError as exc:
             return _error_command(tool_call_id, str(exc))
 
-        # 点击结束后等待 0.1s，再截取点击后的屏幕（不叠加标记）
+        # 点击结束后等待 0.1s，再截取点击后的屏幕（不叠加标记、不落盘）
         time.sleep(0.1)
 
         try:
@@ -104,12 +101,6 @@ class ClickTool(ToolBase):
             f"已执行一次真实左键点击：画布坐标 ({x}, {y})"
             f"（对应真实像素 {native_x}, {native_y}）。"
         )
-        saved_file = ""
-        try:
-            filename = screen.new_filename("computer_click")
-            saved_file = str(screen.save_tmp_image(canvas, filename))
-        except OSError as exc:
-            message += f" 标注截图保存失败：{exc}"
 
         return Command(
             update={
@@ -121,7 +112,6 @@ class ClickTool(ToolBase):
                             "click_canvas": {"x": x, "y": y},
                             "click_screen": {"x": native_x, "y": native_y},
                             "screen_size": {"width": width, "height": height},
-                            "saved_file": saved_file,
                             "image_bytes": len(png_bytes),
                         }),
                         tool_call_id=tool_call_id,

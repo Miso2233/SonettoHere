@@ -49,9 +49,6 @@ api/data/const-sessions/
 botpy.log
 *.dll
 extracted/
-
-# Computer-use 标注截图临时产物（每次虚拟点击生成，不纳入版本库）
-.computer_use/
 config/personas/USER.md
 config/personas/SOUL.md
 config/personas/MEMORY.md

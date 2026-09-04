@@ -58,20 +58,6 @@ def test_image_to_data_url() -> None:
     assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
 
 
-def test_new_filename_unique() -> None:
-    names = {screen.new_filename("computer_click") for _ in range(100)}
-    assert len(names) == 100
-    assert all(n.startswith("computer_click_") and n.endswith(".png") for n in names)
-
-
-def test_save_tmp_image_writes_file(tmp_path) -> None:
-    img = Image.new("RGB", (32, 32), "white")
-    screen._TMP_ROOT = tmp_path  # type: ignore[attr-defined]
-    saved = screen.save_tmp_image(img, "computer_click_x.png")
-    assert saved == (tmp_path / "computer_click_x.png").resolve()
-    assert saved.exists()
-
-
 # ── ScreenshotTool ──────────────────────────────────────────
 
 
@@ -122,7 +108,7 @@ def _forbid_pyautogui(*_args, **_kwargs):
     raise AssertionError("虚拟点击不应触碰 pyautogui（不得移动鼠标 / 触发系统点击）")
 
 
-def test_virtual_click_annotates_without_physical_action(monkeypatch, tmp_path) -> None:
+def test_virtual_click_annotates_without_physical_action(monkeypatch) -> None:
     # 虚拟点击不得触碰任何物理动作：pyautogui 与真实点击原语调用即失败
     monkeypatch.setattr(screen, "_pyautogui", _forbid_pyautogui)
     monkeypatch.setattr(screen, "real_click_at", _forbid_pyautogui)
@@ -130,11 +116,6 @@ def test_virtual_click_annotates_without_physical_action(monkeypatch, tmp_path) 
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
-    monkeypatch.setattr(
-        screen, "new_filename", lambda _p: "computer_virtual_click_ts.png"
-    )
-    saved = (tmp_path / "computer_virtual_click_ts.png").resolve()
-    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
 
     command = VirtualClickTool()._run_impl(x=960, y=800, tool_call_id="call-2")
 
@@ -145,7 +126,6 @@ def test_virtual_click_annotates_without_physical_action(monkeypatch, tmp_path) 
     assert data["data"]["click_canvas"] == {"x": 960, "y": 800}
     # click_screen 仅是映射回显，供后续真实执行参考，本身不触发任何动作
     assert data["data"]["click_screen"] == {"x": 1280, "y": 1185}
-    assert data["data"]["saved_file"] == str(saved)
     assert "未执行任何真实鼠标操作" in data["data"]["message"]
 
     # 注入画面为 PNG data_url，画布层已画好标记（标记像素由
@@ -169,9 +149,7 @@ def test_virtual_click_rejects_out_of_canvas(monkeypatch) -> None:
 # ── ClickTool（真实点击：会真正调用 real_click_at）────────
 
 
-def test_real_click_performs_click_and_returns_plain_screenshot(
-    monkeypatch, tmp_path
-) -> None:
+def test_real_click_performs_click_and_returns_plain_screenshot(monkeypatch) -> None:
     clicks: list[tuple[int, int]] = []
 
     monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
@@ -181,11 +159,6 @@ def test_real_click_performs_click_and_returns_plain_screenshot(
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
-    monkeypatch.setattr(
-        screen, "new_filename", lambda _p: "computer_click_ts.png"
-    )
-    saved = (tmp_path / "computer_click_ts.png").resolve()
-    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
 
     command = ClickTool()._run_impl(x=960, y=800, tool_call_id="call-4")
 
@@ -198,7 +171,7 @@ def test_real_click_performs_click_and_returns_plain_screenshot(
     assert data["data"]["action"] == "real_click"
     assert data["data"]["click_canvas"] == {"x": 960, "y": 800}
     assert data["data"]["click_screen"] == {"x": 1280, "y": 1185}
-    assert data["data"]["saved_file"] == str(saved)
+    assert "saved_file" not in data["data"]
 
     human = (command.update or {})["messages"][1]
     image_block = human.content[1]
@@ -212,14 +185,12 @@ def test_real_click_performs_click_and_returns_plain_screenshot(
     assert decoded.getpixel((960, 800)) == (255, 255, 255)
 
 
-def test_virtual_and_real_click_share_return_shape(monkeypatch, tmp_path) -> None:
+def test_virtual_and_real_click_share_return_shape(monkeypatch) -> None:
     monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
     monkeypatch.setattr(screen, "real_click_at", lambda _x, _y: None)
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
-    monkeypatch.setattr(screen, "new_filename", lambda p: f"{p}.png")
-    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, fn: tmp_path / fn)
 
     virt_data = json.loads(
         _command_tool_message(
@@ -270,9 +241,7 @@ def test_type_text_always_pastes_via_clipboard(monkeypatch) -> None:
         assert fake.hotkeys == [(modifier, "v")]
 
 
-def test_type_tool_types_text_then_returns_plain_screenshot(
-    monkeypatch, tmp_path
-) -> None:
+def test_type_tool_types_text_then_returns_plain_screenshot(monkeypatch) -> None:
     typed: list[str] = []
 
     monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
@@ -280,9 +249,6 @@ def test_type_tool_types_text_then_returns_plain_screenshot(
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
-    monkeypatch.setattr(screen, "new_filename", lambda _p: "computer_type_ts.png")
-    saved = (tmp_path / "computer_type_ts.png").resolve()
-    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
 
     command = TypeTool()._run_impl(text="hello", tool_call_id="call-5")
     assert typed == ["hello"]
@@ -293,7 +259,7 @@ def test_type_tool_types_text_then_returns_plain_screenshot(
     assert data["data"]["action"] == "type"
     assert data["data"]["text"] == "hello"
     assert data["data"]["char_count"] == 5
-    assert data["data"]["saved_file"] == str(saved)
+    assert "saved_file" not in data["data"]
 
     human = (command.update or {})["messages"][1]
     image_block = human.content[1]
@@ -380,9 +346,7 @@ def test_press_keys_rejects_unknown_key(monkeypatch) -> None:
     assert fake.calls == []
 
 
-def test_key_tool_presses_then_returns_plain_screenshot(
-    monkeypatch, tmp_path
-) -> None:
+def test_key_tool_presses_then_returns_plain_screenshot(monkeypatch) -> None:
     pressed: list[str] = []
 
     monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
@@ -390,9 +354,6 @@ def test_key_tool_presses_then_returns_plain_screenshot(
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
-    monkeypatch.setattr(screen, "new_filename", lambda _p: "computer_key_ts.png")
-    saved = (tmp_path / "computer_key_ts.png").resolve()
-    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
 
     command = KeyTool()._run_impl(keys="ctrl+s", tool_call_id="call-7")
     assert pressed == ["ctrl+s"]
@@ -402,7 +363,7 @@ def test_key_tool_presses_then_returns_plain_screenshot(
     assert data["success"] is True
     assert data["data"]["action"] == "key"
     assert data["data"]["keys"] == "ctrl+s"
-    assert data["data"]["saved_file"] == str(saved)
+    assert "saved_file" not in data["data"]
 
     human = (command.update or {})["messages"][1]
     image_block = human.content[1]

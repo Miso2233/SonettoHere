@@ -3,8 +3,7 @@
 与 computer_click 同类：执行的是真实系统动作。文本**统一经剪贴板粘贴**
 （pyperclip 写入 → Ctrl/Cmd+V），支持任意文本含中文；内容按字面粘入
 （`\\n`/`\\r` 不会触发独立回车），粘贴后尽力还原用户原剪贴板。输入结束后
-等待 0.1s 截取**未标注**的屏幕画面，注入 LLM 上下文并落盘到工程内 git 不跟踪
-的临时目录。
+等待 0.1s 截取**未标注**的屏幕画面注入 LLM 上下文。截图不落盘保存。
 """
 
 import time
@@ -50,8 +49,7 @@ class TypeTool(ToolBase):
         "**统一经剪贴板粘贴**（写入剪贴板 → Ctrl/Cmd+V），支持任意文本含中文，"
         "内容按字面粘入（\\n/\\r 不会触发回车）；粘贴后尽力还原用户原剪贴板。"
         "调用前应确保目标输入框已聚焦（必要时先用 computer_click 点一下）。"
-        "输入结束后等待 0.1s 截取**未标注**的输入后画面注入上下文供确认，同时把"
-        "该截图保存到工程 .computer_use/ 目录（返回 saved_file）。"
+        "输入结束后等待 0.1s 截取**未标注**的输入后画面注入上下文供确认。"
         "[调用积极性: 需要在搜索框/输入框/对话框等已聚焦控件中输入文本（含中文）时"
         "使用；光标位置不定时先 computer_screenshot 观察并 computer_click 定位。]"
     )
@@ -71,7 +69,7 @@ class TypeTool(ToolBase):
         except screen.ScreenError as exc:
             return _error_command(tool_call_id, str(exc))
 
-        # 输入结束后等待 0.1s，再截取输入后的屏幕（不叠加标记）
+        # 输入结束后等待 0.1s，再截取输入后的屏幕（不叠加标记、不落盘）
         time.sleep(0.1)
 
         try:
@@ -87,12 +85,6 @@ class TypeTool(ToolBase):
         message = (
             f"已通过剪贴板粘贴把文本（{len(text)} 个字符）输入到当前输入框。"
         )
-        saved_file = ""
-        try:
-            filename = screen.new_filename("computer_type")
-            saved_file = str(screen.save_tmp_image(canvas, filename))
-        except OSError as exc:
-            message += f" 截图保存失败：{exc}"
 
         return Command(
             update={
@@ -104,7 +96,6 @@ class TypeTool(ToolBase):
                             "text": text,
                             "char_count": len(text),
                             "screen_size": {"width": width, "height": height},
-                            "saved_file": saved_file,
                             "image_bytes": len(png_bytes),
                         }),
                         tool_call_id=tool_call_id,

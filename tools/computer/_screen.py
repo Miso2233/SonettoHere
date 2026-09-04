@@ -1,11 +1,13 @@
-"""Computer-use 底层能力：屏幕捕获、逻辑画布映射、标注与临时落盘。
+"""Computer-use 底层能力：屏幕捕获、逻辑画布映射、图像标注与按键原语。
 
-与 read_image 同思路 —— 把"当前屏幕"以 base64 图片流注入 LLM 上下文；
-区别仅是图片来源从本地文件换成实时截屏。截屏 / 画布坐标映射 / 画标注 / 落盘
-均为无副作用能力；唯一会产生真实系统动作的是 ``real_click_at``（移动光标并
-点击），它**仅供**独立的「真实点击」工具（``computer_click``）调用 ——
-纯截屏（``computer_screenshot``）与虚拟点击（``computer_virtual_click``，
-仅标注坐标、不做真实操作）绝不触碰它。
+与 read_image 同思路 —— 把"当前屏幕"以 base64 图片流注入 LLM 上下文；截图按需
+即时生成，**不落盘保存**（调试期结束，不再产生截图文件）。
+
+能力分两类：
+- 无副作用：截屏、画布坐标映射、画标注、PNG 编码；
+- 真实系统动作：``real_click_at``（物理点击）、``type_text``（剪贴板粘贴输入）、
+  ``press_keys``（按键/快捷键）—— 仅供对应的真实操作工具调用；
+  纯截屏 / 虚拟点击等零副作用路径绝不触碰它们。
 
 坐标约定
 --------
@@ -21,8 +23,6 @@ import base64
 import io
 import sys
 import time
-from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw
@@ -30,9 +30,6 @@ from PIL import Image, ImageDraw
 # 逻辑画布：交给 LLM 的统一坐标空间
 CANVAS_WIDTH = 1920
 CANVAS_HEIGHT = 1080
-
-# 标注截图的落盘目录：工程根下的 .computer_use/（git 不跟踪，见 .gitignore）
-_TMP_ROOT = Path(__file__).resolve().parents[2] / ".computer_use"
 
 # 点击标注的准星颜色（RGB）
 MARKER_COLOR = (237, 28, 36)
@@ -242,17 +239,3 @@ def draw_click_marker(img: Image.Image, cx: int, cy: int) -> Image.Image:
     draw.line((cx, cy - arm, cx, cy + arm), fill=MARKER_COLOR, width=2)
     draw.ellipse((cx - 4, cy - 4, cx + 4, cy + 4), fill=MARKER_COLOR)
     return img
-
-
-def new_filename(prefix: str) -> str:
-    """生成形如 ``{prefix}_YYYYmmdd_HHMMSS_ffffff.png`` 的唯一文件名（本地时间）。"""
-    stamp = datetime.now(UTC).astimezone().strftime("%Y%m%d_%H%M%S_%f")
-    return f"{prefix}_{stamp}.png"
-
-
-def save_tmp_image(img: Image.Image, filename: str) -> Path:
-    """把标注截图写入工程内 git 不跟踪目录，返回绝对路径；目录不存在则创建。"""
-    _TMP_ROOT.mkdir(parents=True, exist_ok=True)
-    path = _TMP_ROOT / filename
-    img.save(path, format="PNG")
-    return path.resolve()

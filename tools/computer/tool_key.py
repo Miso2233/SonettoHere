@@ -2,7 +2,7 @@
 
 输入形如 "Return"、"ctrl+s"、"alt+Tab"，解析后触发真实键盘事件。与
 computer_click / computer_type 同类，属真实系统动作；结束后等待 0.1s 截取
-**未标注**屏幕画面注入 LLM 上下文并落盘到工程内 git 不跟踪的临时目录。
+**未标注**屏幕画面注入 LLM 上下文。截图不落盘保存。
 """
 
 import time
@@ -49,9 +49,8 @@ class KeyTool(ToolBase):
         "输入单个键名（如 Return、Esc、F5、Space、Tab、箭头键）或 + 连接的组合"
         "（如 ctrl+s 保存、alt+Tab 切换窗口、ctrl+shift+esc 打开任务管理器、"
         "ctrl+c / ctrl+v / ctrl+a / ctrl+z 等）。执行结束后等待 0.1s 截取"
-        "**未标注**画面注入上下文供确认，同时把该截图保存到工程 .computer_use/ "
-        "目录（返回 saved_file）。需要输入一段文本用 computer_type，需要逐点点击"
-        "用 computer_click。"
+        "**未标注**画面注入上下文供确认。需要输入一段文本用 computer_type，需要"
+        "逐点点击用 computer_click。"
         "[调用积极性: 需要触发回车/取消/保存/复制粘贴/切换窗口等单个键或快捷键时"
         "使用；光标位置或焦点不定时先 computer_screenshot 观察定位。]"
     )
@@ -70,7 +69,7 @@ class KeyTool(ToolBase):
         except screen.ScreenError as exc:
             return _error_command(tool_call_id, str(exc))
 
-        # 按键结束后等待 0.1s，再截取屏幕（不叠加标记）
+        # 按键结束后等待 0.1s，再截取屏幕（不叠加标记、不落盘）
         time.sleep(0.1)
 
         try:
@@ -84,12 +83,6 @@ class KeyTool(ToolBase):
         data_url, png_bytes = screen.image_to_data_url(canvas)
 
         message = f"已按下按键/快捷键 {keys!r}。"
-        saved_file = ""
-        try:
-            filename = screen.new_filename("computer_key")
-            saved_file = str(screen.save_tmp_image(canvas, filename))
-        except OSError as exc:
-            message += f" 截图保存失败：{exc}"
 
         return Command(
             update={
@@ -100,7 +93,6 @@ class KeyTool(ToolBase):
                             "message": message,
                             "keys": keys,
                             "screen_size": {"width": width, "height": height},
-                            "saved_file": saved_file,
                             "image_bytes": len(png_bytes),
                         }),
                         tool_call_id=tool_call_id,
