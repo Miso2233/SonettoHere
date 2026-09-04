@@ -1,41 +1,19 @@
-"""background — 「后台运行」工具类装饰器。
+"""background — 「后台运行」类装饰器。
 
-把「长耗时操作转入后台、立即返回任务索引」的能力从工具方法中抽离：
+往工具类的 ``args_schema`` 注入非必填 ``background: bool = False`` 字段，并把
+``_arun`` 包一层：``background=True`` 时不等待真实执行体完成，将其作为独立
+``asyncio.Task`` 交给后台任务注册表（api/agent/background.py）运行，本调用立即
+返回统一的任务索引；调用方之后用 ``await_background`` 工具按索引取回结果。
+``background=False``（或缺省）时直通，行为与未装饰一致。
 
-- 类装饰器往工具的 args_schema 注入非必填 ``background: bool = False`` 字段；
-- 强制包装 ``_arun``（见下），``background=False`` 时原样直通（与未装饰行为
-  完全一致）；``background=True`` 时把真实执行体交给后台任务注册表
-  （api/agent/background.py）spawn 为独立 asyncio.Task，调用本身立即返回
-  统一格式的任务索引，agent 之后用 await_background 工具按索引取回结果。
+后台任务运行在 detached 上下文中：spawn 时把 ``background_mode`` ContextVar 置位，
+被装饰工具可据此分支后台专属语义。
 
-双模式支持——同步与异步工具都可装饰：
+用法：
 
-- langchain 的调用最终都走 ``_arun``（子类覆写了 ``_arun`` 时），未覆写时
-  ``_arun`` 即 ``BaseTool._arun`` 默认实现——其内部经线程池执行 ``_run``。
-  因此强制包装 ``_arun`` 后，async 工具 spawn 的是真实 ``_arun``，同步工具
-  spawn 的是「线程池里的 ``_run``」，两条路径统一为同一段 spawn 代码，
-  事件循环均不被阻塞，也无需 run_coroutine_threadsafe。
-- 包装经 ``functools.wraps`` 保留原签名：async 工具签名声明的 ``run_manager``
-  仍会被 langchain 注入并随 kwargs 透传进后台任务（run_python 的流式推送
-  与 run_id 链路因此保持不变）。
-
-用法与叠加顺序：
-
-    @get_doc                 # 最外层：get_doc=True 读文档时不 spawn
-    @confirm_execution(...)  # 审批先于 spawn
     @background
     class SomeTool(ToolBase):
-        ...
-
-适用范围：长耗时工具（网络搜索/抓取、代码执行、大目录扫描、视觉模型
-调用）与子 Agent 调用（call_sub_agent——其结果 Future 由子会话自身轮次
-resolve，与父轮解耦，后台化天然可行；工具侧配套 detached 等待语义）。
-ask_user 系列（值就在于阻塞等用户）、read_image 等返回 Command 的工具
-不适用。
-
-被装饰工具经 ``background_mode`` ContextVar 感知自身是否运行在 detached
-任务中（spawn 时在新任务上下文内置位），用于分支化后台专属语义（如
-call_sub_agent 的等待超时与 detached 事件标记）。
+        async def _arun(self, ...): ...
 """
 
 from __future__ import annotations
@@ -102,8 +80,7 @@ def background(cls: ToolClass) -> ToolClass:
             run_background = bool(kwargs.pop("background", False))
 
             if not run_background:
-                # 直通：sync 工具此时即 BaseTool._arun 默认实现（线程池跑
-                # _run），与未装饰时的行为完全一致。
+                # background=False：直接执行，与未装饰时一致。
                 return await orig(self, *args, **kwargs)
 
             session_id = interaction.current_session_id.get()
@@ -124,8 +101,7 @@ def background(cls: ToolClass) -> ToolClass:
 
     return enrich_tool_class(
         cls,
-        # enrich 恒包装 _arun（见 tools/policies.py）：sync 工具未覆写 _arun 时取
-        # BaseTool._arun 默认实现，其内部线程池执行 _run，spawn 该协程即后台化且零阻塞。
+        # enrich 注入 background 字段并包装 _arun（机制见 tools/policies.py）。
         schema_fields={
             "background": (bool, Field(default=False, description=DEFAULT_DESCRIPTION)),
         },
@@ -136,11 +112,7 @@ def background(cls: ToolClass) -> ToolClass:
 def _spawn_coro(
     orig: Callable[..., Any], self: Any, args: tuple[Any, ...], kwargs: dict[str, Any]
 ) -> Coroutine[Any, Any, Any]:
-    """构造 detached 任务协程：新任务上下文内置位后台模式标记后执行原方法。
-
-    set 发生在新任务自身运行时（协程首次执行），不污染发起调用的上下文，
-    后续同步工具调用读到的 background_mode 仍为 False。
-    """
+    """构造 detached 任务协程：在任务自身上下文里置位后台标记后执行原方法。"""
 
     async def runner() -> Any:
         background_mode.set(True)

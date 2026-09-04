@@ -1,14 +1,15 @@
 """类装饰器（confirm_execution / get_doc / background）共享的底层原语。
 
-仓库里的工具已全部统一为「真身 ``async def _arun``」形态，因此这些装饰器
-无需再判断执行方法是 ``_run`` 还是 ``_arun`` —— 一律包装 ``_arun``、只产出
-async wrapper。本模块收敛这类「类级增强」所需的 pydantic / langchain 细节。
+统一约定：工具类只实现 ``async def _arun``，装饰器也一律只包装 ``_arun``。
 
-框架事实（pydantic 2.x）：字段默认值在类创建时被捕获，事后改 ``cls.args_schema``
-或 ``model_fields["args_schema"].default`` 都不生效；要追加/覆写字段只能返回一个
-**pydantic 新子类**，在其命名空间里用 ``__annotations__`` 重声明 ``args_schema``。
+本模块提供两个原语：
+- ``get_args_schema``：读取工具当前的 Input 模型；
+- ``enrich_tool_class``：给工具类注入 schema 字段、包装 ``_arun``，返回其新子类。
+
+机制（pydantic 2.x 在类创建时捕获字段默认值，事后改写不生效）：要追加/覆写
+``args_schema`` 只能返回新子类，在其命名空间里用 ``__annotations__`` 重声明；
 追加字段用 ``create_model(orig.__name__, __base__=orig, ...)`` 生成携带新字段的
-Input 模型，保留原字段与校验（兼容已含 ``Annotated[..., InjectedToolCallId]``
+Input 模型（保留原字段与校验，兼容含 ``Annotated[..., InjectedToolCallId]``
 的模型）。
 """
 
@@ -74,17 +75,13 @@ def enrich_tool_class(
     schema_fields: dict[str, FieldSpec] | None = None,
     wrap_method: Callable[[Callable[..., Any]], Callable[..., Any]] | None = None,
 ) -> type[BaseTool]:
-    """对工具类应用两类「类级增强」，返回它的一个新子类（纯函数，不改原类）：
+    """对工具类应用两类「类级增强」，返回其新子类（纯函数，不改原类）：
 
-    - ``schema_fields``：向 args_schema 注入策略开关字段；
+    - ``schema_fields``：向 args_schema 注入开关字段；
     - ``wrap_method``：把 ``_arun`` 替换为包装结果。
 
-    ``_arun`` 一定可取（覆写即真实异步体；未覆写时取 ``BaseTool._arun`` 默认实现，
-    其内部经线程池执行 ``_run``），故无需解析 sync/async。
-
-    每次调用都新建子类：叠加策略（get_doc 叠在 confirm / background 之上）天然构成
-    外层→内层→核心 的调用链。重复应用同一策略会再包一层（方法被二次包装），
-    属调用方责任，本函数不做隐式去重。
+    始终新建子类，叠加多个增强即子类套子类、外层包装内层。``_arun`` 必可取：
+    未覆写时是 ``BaseTool._arun`` 默认实现（其内部经线程池执行 ``_run``）。
     """
     namespace: dict[str, object] = {
         "__module__": cls.__module__,
