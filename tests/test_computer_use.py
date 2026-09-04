@@ -150,20 +150,23 @@ def test_virtual_click_rejects_out_of_canvas(monkeypatch) -> None:
 
 
 def test_real_click_performs_click_and_returns_plain_screenshot(monkeypatch) -> None:
-    clicks: list[tuple[int, int]] = []
+    calls: list[dict[str, int | str]] = []
+
+    def _fake_real_click(
+        x: int, y: int, button: str = "left", clicks: int = 1
+    ) -> None:
+        calls.append({"x": x, "y": y, "button": button, "clicks": clicks})
 
     monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
-    monkeypatch.setattr(
-        screen, "real_click_at", lambda x, y: clicks.append((x, y)) or None
-    )
+    monkeypatch.setattr(screen, "real_click_at", _fake_real_click)
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
 
     command = ClickTool()._run_impl(x=960, y=800, tool_call_id="call-4")
 
-    # 真实点击确实落到了映射后的真实像素
-    assert clicks == [(1280, 1185)]
+    # 默认左键单击，真实点击确实落到映射后的真实像素
+    assert calls == [{"x": 1280, "y": 1185, "button": "left", "clicks": 1}]
 
     tool_msg = _command_tool_message(command)
     data = json.loads(tool_msg.content)
@@ -171,6 +174,8 @@ def test_real_click_performs_click_and_returns_plain_screenshot(monkeypatch) -> 
     assert data["data"]["action"] == "real_click"
     assert data["data"]["click_canvas"] == {"x": 960, "y": 800}
     assert data["data"]["click_screen"] == {"x": 1280, "y": 1185}
+    assert data["data"]["button"] == "left"
+    assert data["data"]["clicks"] == 1
     assert "saved_file" not in data["data"]
 
     human = (command.update or {})["messages"][1]
@@ -185,9 +190,35 @@ def test_real_click_performs_click_and_returns_plain_screenshot(monkeypatch) -> 
     assert decoded.getpixel((960, 800)) == (255, 255, 255)
 
 
-def test_virtual_and_real_click_share_return_shape(monkeypatch) -> None:
+def test_real_click_accepts_button_and_double(monkeypatch) -> None:
+    calls: list[dict[str, int | str]] = []
+
+    def _fake_real_click(
+        x: int, y: int, button: str = "left", clicks: int = 1
+    ) -> None:
+        calls.append({"x": x, "y": y, "button": button, "clicks": clicks})
+
     monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
-    monkeypatch.setattr(screen, "real_click_at", lambda _x, _y: None)
+    monkeypatch.setattr(screen, "real_click_at", _fake_real_click)
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    command = ClickTool()._run_impl(
+        x=10, y=20, button="right", clicks=2, tool_call_id="call-x"
+    )
+
+    # 右键双击：映射后像素 (13, 30)，button/clicks 正确透传
+    assert calls == [{"x": 13, "y": 30, "button": "right", "clicks": 2}]
+    data = json.loads(_command_tool_message(command).content)
+    assert data["success"] is True
+    assert data["data"]["button"] == "right"
+    assert data["data"]["clicks"] == 2
+
+
+def test_virtual_and_real_click_return_shape_relationship(monkeypatch) -> None:
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "real_click_at", lambda *_a, **_k: None)
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
@@ -203,10 +234,10 @@ def test_virtual_and_real_click_share_return_shape(monkeypatch) -> None:
         ).content
     )["data"]
 
-    # 返回值结构完全一致（action / message 值不同，字段集合相同）
-    assert set(real_data) == set(virt_data)
+    # real 在虚拟点击的基础字段上追加 button/clicks，仍是超集
     assert real_data["action"] == "real_click"
     assert virt_data["action"] == "virtual_click"
+    assert set(virt_data) <= set(real_data)
 
 
 # ── type_text / TypeTool（统一经剪贴板粘贴输入）─────────────────

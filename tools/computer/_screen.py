@@ -78,16 +78,19 @@ def logical_screen_size() -> tuple[int, int]:
     return int(width), int(height)
 
 
-def real_click_at(x: int, y: int) -> None:
-    """在真实屏幕像素 (x, y) 处执行一次真实左键点击（移动光标并按下）。
+def real_click_at(
+    x: int, y: int, button: str = "left", clicks: int = 1
+) -> None:
+    """在真实屏幕像素 (x, y) 处执行一次真实点击（移动光标并按下）。
 
+    *button*: left / middle / right；*clicks*: 1 单击、2 双击、3 三击。
     仅供独立的「真实点击」工具（``computer_click``）调用；虚拟点击
     （``computer_virtual_click``）绝不调用本函数，以保持其零副作用语义。
     """
     pg = _pyautogui()
     try:
         pg.moveTo(x, y, duration=0.15)
-        pg.click()
+        pg.click(clicks=clicks, interval=0.1, button=button)
     except Exception as exc:
         raise ScreenError(f"真实点击 ({x}, {y}) 失败：{exc}") from exc
 
