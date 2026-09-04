@@ -1,8 +1,9 @@
-"""Tool: computer_type — 键盘输入：把字符串逐字符真实敲入当前聚焦的输入框。
+"""Tool: computer_type — 键盘输入：把文本输入到当前聚焦的输入框。
 
-与 computer_click 同类：执行的是真实系统动作（触发真实键盘事件）。仅支持
-ASCII 可打印字符；输入结束后等待 0.1s 截取**未标注**的屏幕画面，注入 LLM
-上下文并落盘到工程内 git 不跟踪的临时目录。
+与 computer_click 同类：执行的是真实系统动作。纯 ASCII 文本走逐字符真实键盘
+事件；含中文等非 ASCII 时整段自动改用剪贴板粘贴（支持任意文本，粘贴后尽力还原
+用户原剪贴板）。输入结束后等待 0.1s 截取**未标注**的屏幕画面，注入 LLM 上下文
+并落盘到工程内 git 不跟踪的临时目录。
 """
 
 import time
@@ -22,8 +23,8 @@ class TypeInput(BaseModel):
     text: str = Field(
         min_length=1,
         description=(
-            "要输入的字符串（ASCII 可打印字符与空格；换行按回车、Tab 按制表键）。"
-            "中文等非 ASCII 字符不支持，请改用其它输入方式"
+            "要输入的文本：纯 ASCII 时逐字符真实敲键（换行按回车、Tab 按制表键）；"
+            "含中文等非 ASCII 时整段经剪贴板粘贴（任意文本均支持，内容按字面粘贴）"
         ),
     )
     tool_call_id: Annotated[str, InjectedToolCallId] = ""
@@ -45,14 +46,15 @@ def _error_command(tool_call_id: str, message: str) -> Command:
 class TypeTool(ToolBase):
     name: str = "computer_type"
     description: str = (
-        "键盘输入：把 *text* 逐字符真实敲入当前聚焦的输入框（触发真实键盘事件）。"
-        "调用前应确保目标输入框已处于聚焦状态（必要时先用 computer_click 点一下）。"
-        "仅支持 ASCII 可打印字符与空格；换行/回车（\\n、\\r）会触发 Enter、\\t 触发 Tab，"
-        "中文字符不支持，需改用剪贴板粘贴等其它方式。输入结束后等待 0.1s 截取"
-        "**未标注**的输入后画面注入上下文供确认，同时把该截图保存到工程 "
-        ".computer_use/ 目录（返回 saved_file）。"
-        "[调用积极性: 需要在搜索框/输入框/对话框等已聚焦控件中输入文本时使用；"
-        "光标位置不定时先 computer_screenshot 观察并 computer_click 定位。]"
+        "键盘输入：把 *text* 输入到当前聚焦的输入框（真实系统动作）。"
+        "纯 ASCII 文本走逐字符真实键盘事件（换行/回车 \\n、\\r 触发 Enter、\\t 触发 "
+        "Tab）；**含中文等非 ASCII 时整段自动改用剪贴板粘贴**（支持任意文本，"
+        "内容按字面粘贴，此时换行不会触发回车），粘贴后尽力还原用户原剪贴板。"
+        "调用前应确保目标输入框已聚焦（必要时先用 computer_click 点一下）。"
+        "输入结束后等待 0.1s 截取**未标注**的输入后画面注入上下文供确认，同时把"
+        "该截图保存到工程 .computer_use/ 目录（返回 saved_file）。"
+        "[调用积极性: 需要在搜索框/输入框/对话框等已聚焦控件中输入文本（含中文）时"
+        "使用；光标位置不定时先 computer_screenshot 观察并 computer_click 定位。]"
     )
     args_schema: type[BaseModel] = TypeInput
 
@@ -83,7 +85,10 @@ class TypeTool(ToolBase):
 
         data_url, png_bytes = screen.image_to_data_url(canvas)
 
-        message = f"已向当前输入框逐字符输入文本（{len(text)} 个字符）。"
+        message = (
+            f"已将文本（{len(text)} 个字符）输入到当前输入框"
+            "（ASCII 逐字符敲键；含中文等非 ASCII 时经剪贴板粘贴）。"
+        )
         saved_file = ""
         try:
             filename = screen.new_filename("computer_type")

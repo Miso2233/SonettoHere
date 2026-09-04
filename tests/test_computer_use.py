@@ -7,8 +7,8 @@ computer_virtual_click 是「虚拟点击」，须保证全程不触碰真实鼠
 import base64
 import io
 import json
+import sys
 
-import pytest
 from langchain_core.messages import ToolMessage
 from PIL import Image
 
@@ -254,6 +254,16 @@ class _FakeKeyboard:
         self.presses.append(key)
 
 
+class _FakePasteKeyboard:
+    """记录粘贴热键（Ctrl/Cmd+V）的假 pyautogui 对象。"""
+
+    def __init__(self) -> None:
+        self.hotkeys: list[tuple[str, ...]] = []
+
+    def hotkey(self, *keys: str) -> None:
+        self.hotkeys.append(keys)
+
+
 def test_type_text_char_by_char_with_special_keys(monkeypatch) -> None:
     fake = _FakeKeyboard()
     monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
@@ -265,11 +275,34 @@ def test_type_text_char_by_char_with_special_keys(monkeypatch) -> None:
     assert fake.presses == ["enter", "tab"]
 
 
-def test_type_text_rejects_non_ascii(monkeypatch) -> None:
-    monkeypatch.setattr(screen, "_pyautogui", lambda: object())
+def test_type_text_uses_clipboard_for_non_ascii(monkeypatch) -> None:
+    """含中文等非 ASCII → 整段走剪贴板粘贴，并尽力还原原剪贴板。"""
+    fake = _FakePasteKeyboard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+    writes: list[str] = []
+    monkeypatch.setattr(screen, "_clipboard_set_text", writes.append)
+    monkeypatch.setattr(screen, "_clipboard_get_text", lambda: "原剪贴板内容")
 
-    with pytest.raises(screen.ScreenError, match="不支持字符"):
-        screen.type_text("中文 hello")
+    screen.type_text("hello你好 world")
+
+    # 剪贴板先写入目标文本，粘贴后再还原原内容
+    assert writes == ["hello你好 world", "原剪贴板内容"]
+    modifier = "command" if sys.platform == "darwin" else "ctrl"
+    assert fake.hotkeys == [(modifier, "v")]
+
+
+def test_type_text_keyboard_path_for_pure_ascii(monkeypatch) -> None:
+    """纯 ASCII（含换行/Tab）不走剪贴板，保持逐字符敲键。"""
+    fake = _FakeKeyboard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+    called: list[str] = []
+    monkeypatch.setattr(screen, "_clipboard_set_text", lambda t: called.append(t))
+
+    screen.type_text("Hi!\n\t@")
+
+    assert called == []  # 未触碰剪贴板
+    assert fake.writes == ["H", "i", "!", "@"]
+    assert fake.presses == ["enter", "tab"]
 
 
 def test_type_tool_types_text_then_returns_plain_screenshot(

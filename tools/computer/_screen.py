@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import base64
 import io
+import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -93,13 +95,70 @@ def real_click_at(x: int, y: int) -> None:
         raise ScreenError(f"真实点击 ({x}, {y}) 失败：{exc}") from exc
 
 
-def type_text(text: str) -> None:
-    """把 *text* 逐字符真实敲入当前聚焦的输入框（仅支持 ASCII 可打印字符）。
+def _keyboard_typable(ch: str) -> bool:
+    """判断单个字符能否通过真实键盘逐字符输入（ASCII 可打印 / 换行 / Tab）。"""
+    if ch in "\n\r\t":
+        return True
+    return 32 <= ord(ch) <= 126
 
-    对每个字符逐个触发键盘按下/抬起；换行/回车映射为 Enter、Tab 映射为 Tab。
-    非 ASCII（如中文）无法用真实按键直接输入，直接报错以免静默漏字符 ——
-    这类内容应改用剪贴板粘贴等其它输入方式。
+
+def _clipboard_get_text() -> str | None:
+    """读取系统剪贴板文本；读不到（剪贴板为空 / 非文本 / 异常）返回 None。"""
+    try:
+        import pyperclip
+    except Exception as exc:  # pragma: no cover - 依赖缺失时才会走到
+        raise ScreenError(
+            "剪贴板依赖 pyperclip 不可用，无法粘贴输入。请安装：pip install pyperclip"
+        ) from exc
+    try:
+        return pyperclip.paste()
+    except Exception:  # noqa: BLE001 - 读取剪贴板是尽力而为：失败即视为无旧内容
+        return None
+
+
+def _clipboard_set_text(text: str) -> None:
+    """把 *text* 写入系统剪贴板。"""
+    try:
+        import pyperclip
+    except Exception as exc:  # pragma: no cover - 依赖缺失时才会走到
+        raise ScreenError(
+            "剪贴板依赖 pyperclip 不可用，无法粘贴输入。请安装：pip install pyperclip"
+        ) from exc
+    try:
+        pyperclip.copy(text)
+    except Exception as exc:
+        raise ScreenError(f"写入剪贴板失败：{exc}") from exc
+
+
+def _paste_via_clipboard(text: str) -> None:
+    """剪贴板兜底输入：写入剪贴板 → Ctrl/Cmd+V 粘贴 → 尽力还原原剪贴板。
+
+    用于包含中文等非 ASCII 字符的整段文本（真实按键无法直接输入这些字符）。
     """
+    previous = _clipboard_get_text()
+    _clipboard_set_text(text)
+    try:
+        pg = _pyautogui()
+        modifier = "command" if sys.platform == "darwin" else "ctrl"
+        pg.hotkey(modifier, "v")
+        # 留出时间让目标应用消费粘贴内容后再还原剪贴板，避免其读到被还原的旧值
+        time.sleep(0.3)
+    finally:
+        if previous is not None:
+            _clipboard_set_text(previous)
+
+
+def type_text(text: str) -> None:
+    """把 *text* 输入到当前聚焦控件。
+
+    - 纯 ASCII 可打印字符（含换行/回车→Enter、Tab→Tab）：逐字符真实键盘事件；
+    - 含中文等非 ASCII：整段改用剪贴板粘贴（支持任意文本），内容按字面粘贴
+      （此时换行不会触发回车），并尽力还原用户原剪贴板。
+    """
+    if not all(_keyboard_typable(ch) for ch in text):
+        _paste_via_clipboard(text)
+        return
+
     pg = _pyautogui()
     special = {"\n": "enter", "\r": "enter", "\t": "tab"}
     for ch in text:
@@ -109,11 +168,6 @@ def type_text(text: str) -> None:
             except Exception as exc:
                 raise ScreenError(f"键盘按键 {special[ch]!r} 失败：{exc}") from exc
             continue
-        if not 32 <= ord(ch) <= 126:
-            raise ScreenError(
-                f"computer_type 不支持字符 {ch!r}（仅支持 ASCII 可打印字符与空格；"
-                "中文字符请改用剪贴板粘贴等其它输入方式）"
-            )
         try:
             pg.write(ch, interval=0.0)
         except Exception as exc:

@@ -27,6 +27,7 @@ dependencies = [
     "playwright>=1.40.0",
     "Pillow>=10.0.0",
     "pyautogui>=0.9.54",
+    "pyperclip>=1.8.0",
     "portalocker>=3.0.0",
     "pyyaml>=6.0",
     "yamale>=5.0",
