@@ -2,6 +2,9 @@
 
 from unittest.mock import MagicMock, PropertyMock
 
+import pytest
+
+from tests.test_todo.helpers import apaginate
 from tools.todo.tool_list_projects import TodoListProjectsTool
 
 
@@ -13,7 +16,8 @@ def _make_tool(mock_api, mock_client):
 
 
 class TestListProjects:
-    def test_returns_all_fields(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_returns_all_fields(self, mock_api, mock_client):
         p = MagicMock()
         p.id = "p1"
         p.name = "Work"
@@ -30,10 +34,10 @@ class TestListProjects:
         p.is_inbox_project = False
         p.workspace_id = "ws1"
         p.folder_id = None
-        mock_api.get_projects.return_value = [[p]]
+        mock_api.get_projects = apaginate([[p]])
 
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False)
+        result = await tool._arun(get_doc=False)
 
         assert "success" in result
         assert "project_id" in result

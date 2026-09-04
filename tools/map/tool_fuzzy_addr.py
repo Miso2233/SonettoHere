@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.get_doc import get_doc
 from tools.map.map_api import parse_poi_response
 
@@ -25,7 +25,7 @@ class FuzzyAddressTool(ToolBase):
     )
     args_schema: type[BaseModel] = FuzzyAddressInput
 
-    def _run(
+    async def _arun(
         self,
         keywords: str = "",
         city: str | None = None,
@@ -52,7 +52,7 @@ class FuzzyAddressTool(ToolBase):
             if citylimit:
                 params["citylimit"] = "true"
 
-            data = self.client.amap_request("/v3/place/text", params)
+            data = await off_thread(self.client.amap_request, "/v3/place/text", params)
             result = parse_poi_response(data)
 
             if result["status"] == "1":

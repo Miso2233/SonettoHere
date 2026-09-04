@@ -5,7 +5,13 @@ import os
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 from tools.background import background
 
 
@@ -31,7 +37,7 @@ class FileSearchTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileSearchInput
 
-    def _run(
+    async def _arun(
         self,
         search_pattern: str = "",
         directory_path: str = "",
@@ -39,8 +45,13 @@ class FileSearchTool(ToolBase):
         file_filter: str = "all",
         extension: str = "",
     ) -> str:
-        return self._search_files(
-            search_pattern, directory_path, recursive, file_filter, extension
+        return await off_thread(
+            self._search_files,
+            search_pattern,
+            directory_path,
+            recursive,
+            file_filter,
+            extension,
         )
 
     def _search_files(

@@ -3,7 +3,7 @@
 from typing import Any
 
 from pydantic import BaseModel, Field
-from tavily import TavilyClient
+from tavily import AsyncTavilyClient
 
 from tools.base import ToolBase, format_success, format_error
 from tools.background import background
@@ -55,20 +55,20 @@ class TavilySearchTool(ToolBase):
     args_schema: type[BaseModel] = TavilySearchInput
 
     # 注意: client 字段被 ToolBase 占用（SharedAPIClient），这里用 _tavily 代替
-    _tavily: TavilyClient | None = None
+    _tavily: AsyncTavilyClient | None = None
 
     @property
-    def _tavily_client(self) -> TavilyClient:
+    def _tavily_client(self) -> AsyncTavilyClient:
         if self._tavily is None:
             from config.settings import get_settings
 
             key = get_settings().tavily_api_key
             if not key:
                 raise ValueError("TAVILY_API_KEY 未配置，请在 .env 中设置")
-            self._tavily = TavilyClient(api_key=key)
+            self._tavily = AsyncTavilyClient(api_key=key)
         return self._tavily
 
-    def _run(self, **kwargs: Any) -> str:
+    async def _arun(self, **kwargs: Any) -> str:
         try:
             query = kwargs.get("query", "")
             max_results = kwargs.get("max_results", 5)
@@ -94,7 +94,7 @@ class TavilySearchTool(ToolBase):
             if exclude_domains is not None:
                 params["exclude_domains"] = exclude_domains
 
-            result = self._tavily_client.search(**params)
+            result = await self._tavily_client.search(**params)
 
             # Tavily 返回格式: { query, answer, results: [...], response_time }
             return format_success(

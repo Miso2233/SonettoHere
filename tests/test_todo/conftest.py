@@ -23,9 +23,9 @@ def mock_client():
 
 
 @pytest.fixture
-def helper(mock_api):
+def helper(mock_api, mock_client):
     """TodoAPIHelper with mocked api property."""
-    h = TodoAPIHelper("fake-token")
+    h = TodoAPIHelper(mock_client)
     type(h).api = PropertyMock(return_value=mock_api)
     return h
 

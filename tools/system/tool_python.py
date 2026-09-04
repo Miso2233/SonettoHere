@@ -298,9 +298,6 @@ class RunPythonTool(ToolBase):
     )
     args_schema: type[BaseModel] = RunPythonInput
 
-    def _run(self, code: str = "") -> str:
-        raise NotImplementedError("run_python 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         code: str = "",

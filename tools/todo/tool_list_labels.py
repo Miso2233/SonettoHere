@@ -25,11 +25,11 @@ class TodoListLabelsTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self) -> str:
-        all_labels = self.helper.get_all_labels()
+    async def _arun(self) -> str:
+        all_labels = await self.helper.get_all_labels()
         label_list = [self.helper.label_to_dict(l) for l in all_labels]
         label_list.sort(key=lambda x: x["name"])
 

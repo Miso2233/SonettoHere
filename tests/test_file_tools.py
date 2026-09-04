@@ -185,11 +185,12 @@ async def test_file_create_directory_empty(whitelist_tmp: Path) -> None:
 # ── file_list_directory（保持同步） ────────────────────────
 
 
-def test_file_list_directory(whitelist_tmp: Path) -> None:
+@pytest.mark.asyncio
+async def test_file_list_directory(whitelist_tmp: Path) -> None:
     (whitelist_tmp / "a.txt").write_text("a", encoding="utf-8")
     (whitelist_tmp / "sub").mkdir()
 
-    result = FileListDirectoryTool()._run(directory_path=str(whitelist_tmp))
+    result = await FileListDirectoryTool()._arun(directory_path=str(whitelist_tmp))
     data = _success_data(result)
 
     assert data["count"] == 2
@@ -197,14 +198,15 @@ def test_file_list_directory(whitelist_tmp: Path) -> None:
     assert data["dir_count"] == 1
 
 
-# ── file_search（glob，保持同步） ──────────────────────────
+# ── file_search（glob，后台化，仅异步） ────────────────────
 
 
-def test_file_search_glob(whitelist_tmp: Path) -> None:
+@pytest.mark.asyncio
+async def test_file_search_glob(whitelist_tmp: Path) -> None:
     (whitelist_tmp / "a.txt").write_text("a", encoding="utf-8")
     (whitelist_tmp / "b.py").write_text("b", encoding="utf-8")
 
-    result = FileSearchTool()._run(
+    result = await FileSearchTool()._arun(
         search_pattern="*.txt", directory_path=str(whitelist_tmp)
     )
     data = _success_data(result)
@@ -270,21 +272,23 @@ async def test_file_edit_no_match(whitelist_tmp: Path) -> None:
 # ── file_search_text（保持同步） ───────────────────────────
 
 
-def test_file_search_text(whitelist_tmp: Path) -> None:
+@pytest.mark.asyncio
+async def test_file_search_text(whitelist_tmp: Path) -> None:
     p = whitelist_tmp / "a.txt"
     p.write_text("line1 alpha\nline2 beta\nalpha again", encoding="utf-8")
 
-    result = FileSearchTextTool()._run(file_path=str(p), pattern="alpha")
+    result = await FileSearchTextTool()._arun(file_path=str(p), pattern="alpha")
     data = _success_data(result)
 
     assert data["total_matches"] == 2
 
 
-def test_file_search_text_bad_regex(whitelist_tmp: Path) -> None:
+@pytest.mark.asyncio
+async def test_file_search_text_bad_regex(whitelist_tmp: Path) -> None:
     p = whitelist_tmp / "a.txt"
     p.write_text("hello", encoding="utf-8")
 
-    result = FileSearchTextTool()._run(file_path=str(p), pattern="[unclosed")
+    result = await FileSearchTextTool()._arun(file_path=str(p), pattern="[unclosed")
     assert "正则表达式错误" in _error_msg(result)
 
 

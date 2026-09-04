@@ -70,10 +70,10 @@ class TodoUpdateTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(
+    async def _arun(
         self,
         task_id: str = "",
         content: str | None = None,
@@ -106,14 +106,14 @@ class TodoUpdateTool(ToolBase):
             return format_error(str(e))
 
         try:
-            current_task = api.get_task(task_id)
+            current_task = await api.get_task(task_id)
 
             # ── 移动逻辑：project 和/或 section ──
             move_kwargs: dict[str, str] = {}
             section_target_project: str | None = None
 
             if project_name:
-                pid = self.helper.get_project_id(project_name)
+                pid = await self.helper.get_project_id(project_name)
                 if pid is None:
                     return format_error(
                         f"项目 '{project_name}' 不存在。请先调用 todo_list_projects 查看可用项目"
@@ -124,17 +124,17 @@ class TodoUpdateTool(ToolBase):
 
             if section_name:
                 ctx_project = section_target_project or current_task.project_id
-                sid = self.helper.get_section_id(section_name, ctx_project)
+                sid = await self.helper.get_section_id(section_name, ctx_project)
                 if sid is None:
+                    ctx_name = await self.helper.get_project_name(ctx_project)
                     return format_error(
-                        f"项目 '{self.helper.get_project_name(ctx_project)}'"
-                        f" 下不存在分区 '{section_name}'"
+                        f"项目 '{ctx_name}' 下不存在分区 '{section_name}'"
                     )
                 # section 隐式关联了 project，传 section_id 即可
                 move_kwargs["section_id"] = sid
 
             if move_kwargs:
-                api.move_task(task_id=task_id, **move_kwargs)
+                await api.move_task(task_id=task_id, **move_kwargs)
 
             # ── 字段更新 ──
             parsed_due_date = None
@@ -149,7 +149,7 @@ class TodoUpdateTool(ToolBase):
                 self.helper.parse_deadline(deadline_date) if deadline_date else None
             )
 
-            task = api.update_task(
+            task = await api.update_task(
                 task_id=task_id,
                 content=content,
                 description=description,
@@ -168,6 +168,6 @@ class TodoUpdateTool(ToolBase):
                 deadline_date=deadline_date_obj,
                 deadline_lang=deadline_lang,
             )
-            return format_success(self.helper.task_to_dict(task))
+            return format_success(await self.helper.task_to_dict(task))
         except Exception as e:
             return format_error(f"任务不存在或更新失败: {e}")

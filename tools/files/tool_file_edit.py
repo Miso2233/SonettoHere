@@ -17,6 +17,7 @@ from tools.base import (
     check_sonetto_blocker,
     format_error,
     format_success,
+    off_thread,
 )
 from tools.confirm import confirm_execution
 
@@ -48,11 +49,12 @@ class FileEditTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileEditInput
 
-    def _run(self, file_path: str = "", edits: str = "") -> str:
-        raise NotImplementedError("file_edit 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, file_path: str = "", edits: str = "") -> str:
-        """用户确认放行后：校验并执行多笔精确编辑。"""
+        """用户确认放行后：离环执行校验与编辑。"""
+        return await off_thread(self._run_impl, file_path, edits)
+
+    def _run_impl(self, file_path: str = "", edits: str = "") -> str:
+        """校验并执行多笔精确编辑。"""
         if not file_path:
             return format_error("file_path 不能为空")
 

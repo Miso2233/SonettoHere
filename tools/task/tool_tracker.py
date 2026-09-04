@@ -30,7 +30,7 @@ class TaskTrackerTool(ToolBase):
     )
     args_schema: type[BaseModel] = TaskTrackerInput
 
-    def _run(
+    async def _arun(
         self,
         todos: list[TodoItem] | None = None,
     ) -> str:

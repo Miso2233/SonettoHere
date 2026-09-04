@@ -1,39 +1,44 @@
-"""Todoist API 共享封装（内部依赖，不是 Tool）。"""
+"""Todoist API 共享封装（内部依赖，不是 Tool）。
+
+全 Todo 工具共用 ``SharedAPIClient.todoist`` 这一个 ``TodoistAPIAsync`` 实例，
+helper 方法均为 async（其分页方法返回 ``AsyncResultsPaginator``，用
+``async for page in await api.get_*()`` 展平）。
+"""
 
 from datetime import date, datetime
 
-from todoist_api_python.api import TodoistAPI
+from todoist_api_python.api_async import TodoistAPIAsync
 from todoist_api_python.models import Label, Project, Section, Task
+
+from tools.base import SharedAPIClient
 
 
 class TodoAPIHelper:
-    """封装 Todoist API 的通用方法，供各 Todo Tool 调用。"""
+    """封装 Todoist async API 的通用方法，供各 Todo Tool 调用。"""
 
-    def __init__(self, token: str):
-        self._api: TodoistAPI | None = None
-        self._token = token
+    def __init__(self, client: SharedAPIClient):
+        self._client = client
 
     @property
-    def api(self) -> TodoistAPI:
-        if self._api is None:
-            if not self._token:
-                raise ValueError("未找到 Todoist API Token")
-            self._api = TodoistAPI(self._token)
-        return self._api
+    def api(self) -> TodoistAPIAsync:
+        """共享 Todoist async 客户端（无 client/token 缺失时抛 ValueError）。"""
+        if self._client is None:
+            raise ValueError("未找到 Todoist API Token")
+        return self._client.todoist
 
     # ── 项目 ──
 
-    def get_project_id(self, project_name: str) -> str | None:
+    async def get_project_id(self, project_name: str) -> str | None:
         """按名称查找 project ID（大小写不敏感）。"""
-        for projects in self.api.get_projects():
+        async for projects in await self.api.get_projects():
             for project in projects:
                 if project.name.lower() == project_name.lower():
                     return project.id
         return None
 
-    def get_project_name(self, project_id: str) -> str:
+    async def get_project_name(self, project_id: str) -> str:
         """按 ID 查找项目名称，未找到返回 'Inbox'。"""
-        for projects in self.api.get_projects():
+        async for projects in await self.api.get_projects():
             for project in projects:
                 if project.id == project_id:
                     return project.name
@@ -41,53 +46,55 @@ class TodoAPIHelper:
 
     # ── 分区 ──
 
-    def get_section_id(self, section_name: str, project_id: str) -> str | None:
+    async def get_section_id(self, section_name: str, project_id: str) -> str | None:
         """按名称和所属项目查找 section ID。"""
-        for sections in self.api.get_sections(project_id=project_id):
+        async for sections in await self.api.get_sections(project_id=project_id):
             for section in sections:
                 if section.name.lower() == section_name.lower():
                     return section.id
         return None
 
-    def get_section_name(self, section_id: str, project_id: str | None = None) -> str | None:
+    async def get_section_name(
+        self, section_id: str, project_id: str | None = None
+    ) -> str | None:
         """按 ID 查找 section 名称。传入 project_id 可缩小搜索范围。"""
-        for sections in self.api.get_sections(project_id=project_id):
+        async for sections in await self.api.get_sections(project_id=project_id):
             for section in sections:
                 if section.id == section_id:
                     return section.name
         return None
 
-    def find_section_global(self, section_name: str) -> tuple[str, str] | None:
+    async def find_section_global(self, section_name: str) -> tuple[str, str] | None:
         """在所有项目中查找指定名称的 section，返回 (project_id, section_id)。"""
-        for sections in self.api.get_sections():
+        async for sections in await self.api.get_sections():
             for section in sections:
                 if section.name.lower() == section_name.lower():
                     return section.project_id, section.id
         return None
 
-    def get_sections_by_project(self, project_name: str) -> list[Section]:
+    async def get_sections_by_project(self, project_name: str) -> list[Section]:
         """按项目名获取所有分区列表。"""
-        pid = self.get_project_id(project_name)
+        pid = await self.get_project_id(project_name)
         if pid is None:
             return []
         result: list[Section] = []
-        for sections in self.api.get_sections(project_id=pid):
+        async for sections in await self.api.get_sections(project_id=pid):
             result.extend(sections)
         return result
 
-    def get_all_sections(self) -> list[Section]:
+    async def get_all_sections(self) -> list[Section]:
         """获取所有项目的所有分区。"""
         result: list[Section] = []
-        for sections in self.api.get_sections():
+        async for sections in await self.api.get_sections():
             result.extend(sections)
         return result
 
     # ── 标签 ──
 
-    def get_all_labels(self) -> list[Label]:
+    async def get_all_labels(self) -> list[Label]:
         """获取所有标签。"""
         result: list[Label] = []
-        for labels in self.api.get_labels():
+        async for labels in await self.api.get_labels():
             result.extend(labels)
         return result
 
@@ -138,7 +145,7 @@ class TodoAPIHelper:
 
     # ── 统一序列化 ──
 
-    def task_to_dict(self, task: Task) -> dict:
+    async def task_to_dict(self, task: Task) -> dict:
         """Task → 完整响应字典。供 add / update / query / list / add_quick 统一使用。"""
         due_dict: dict | None = None
         if task.due:
@@ -169,10 +176,10 @@ class TodoAPIHelper:
             "content": task.content,
             "description": task.description,
             "project_id": task.project_id,
-            "project_name": self.get_project_name(task.project_id),
+            "project_name": await self.get_project_name(task.project_id),
             "section_id": task.section_id,
             "section_name": (
-                self.get_section_name(task.section_id, task.project_id)
+                await self.get_section_name(task.section_id, task.project_id)
                 if task.section_id
                 else None
             ),
@@ -211,13 +218,13 @@ class TodoAPIHelper:
             "folder_id": project.folder_id,
         }
 
-    def section_to_dict(self, section: Section) -> dict:
+    async def section_to_dict(self, section: Section) -> dict:
         """Section → 响应字典。"""
         return {
             "section_id": section.id,
             "name": section.name,
             "project_id": section.project_id,
-            "project_name": self.get_project_name(section.project_id),
+            "project_name": await self.get_project_name(section.project_id),
             "order": section.order,
             "is_collapsed": section.is_collapsed,
         }

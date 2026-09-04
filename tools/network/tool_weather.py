@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.background import background
 from tools.get_doc import get_doc
 
@@ -152,7 +152,7 @@ class WeatherTool(ToolBase):
     )
     args_schema: type[BaseModel] = WeatherInput
 
-    def _run(
+    async def _arun(
         self,
         city: str = "",
         adcode: str = "",
@@ -164,7 +164,8 @@ class WeatherTool(ToolBase):
         lang: str = "zh",
     ) -> str:
         try:
-            result = self.client.uapi.misc.get_misc_weather(
+            result = await off_thread(
+                self.client.uapi.misc.get_misc_weather,
                 city=city,
                 adcode=adcode,
                 extended=extended,

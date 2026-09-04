@@ -4,7 +4,13 @@ import os
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 
 
 class FileReadInput(BaseModel):
@@ -20,7 +26,10 @@ class FileReadTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileReadInput
 
-    def _run(self, file_path: str = "") -> str:
+    async def _arun(self, file_path: str = "") -> str:
+        return await off_thread(self._run_impl, file_path)
+
+    def _run_impl(self, file_path: str = "") -> str:
         if not file_path:
             return format_error("读取文件需要提供 file_path")
 

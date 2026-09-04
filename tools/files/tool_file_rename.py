@@ -4,7 +4,13 @@ import os
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 from tools.confirm import confirm_execution
 
 
@@ -27,11 +33,12 @@ class FileRenameTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileRenameInput
 
-    def _run(self, file_path: str = "", new_path: str = "") -> str:
-        raise NotImplementedError("file_rename 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, file_path: str = "", new_path: str = "") -> str:
-        """用户确认放行后：校验并重命名/移动。"""
+        """用户确认放行后：离环执行校验与重命名。"""
+        return await off_thread(self._run_impl, file_path, new_path)
+
+    def _run_impl(self, file_path: str = "", new_path: str = "") -> str:
+        """校验并重命名/移动。"""
         if not file_path:
             return format_error("重命名需要提供 file_path")
         if not new_path:

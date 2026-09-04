@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.get_doc import get_doc
 from tools.map.map_api import parse_poi_response
 
@@ -26,7 +26,7 @@ class NearbySearchTool(ToolBase):
     )
     args_schema: type[BaseModel] = NearbySearchInput
 
-    def _run(
+    async def _arun(
         self,
         location: str = "",
         keywords: str | None = None,
@@ -56,7 +56,7 @@ class NearbySearchTool(ToolBase):
             if types:
                 params["types"] = types
 
-            data = self.client.amap_request("/v3/place/around", params)
+            data = await off_thread(self.client.amap_request, "/v3/place/around", params)
             result = parse_poi_response(data)
 
             if result["status"] == "1":

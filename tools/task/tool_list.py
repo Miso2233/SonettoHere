@@ -22,9 +22,6 @@ class ListBackgroundTool(ToolBase):
     )
     args_schema: type[BaseModel] = ListBackgroundInput
 
-    def _run(self) -> str:
-        raise NotImplementedError("list_background 仅支持异步模式，请使用 _arun")
-
     async def _arun(self) -> str:
         """返回全部后台任务概要（供 agent 发现索引与查看进度）。"""
         session_id = interaction.current_session_id.get()

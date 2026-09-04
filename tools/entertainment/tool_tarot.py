@@ -54,7 +54,7 @@ class TarotTool(ToolBase):
     )
     args_schema: type[BaseModel] = TarotInput
 
-    def _run(
+    async def _arun(
         self,
         question: str = "",
         spread_type: str = "three",

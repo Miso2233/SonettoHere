@@ -4,7 +4,13 @@ import os
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 from tools.confirm import confirm_execution
 
 
@@ -26,11 +32,12 @@ class FileCreateDirectoryTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileCreateDirectoryInput
 
-    def _run(self, directory_path: str = "") -> str:
-        raise NotImplementedError("file_create_directory 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, directory_path: str = "") -> str:
-        """用户确认放行后：校验并创建目录（含父目录）。"""
+        """用户确认放行后：离环执行校验与创建目录。"""
+        return await off_thread(self._run_impl, directory_path)
+
+    def _run_impl(self, directory_path: str = "") -> str:
+        """校验并创建目录（含父目录）。"""
         if not directory_path:
             return format_error("创建目录需要提供 directory_path")
 

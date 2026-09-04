@@ -1,7 +1,10 @@
 """todo_add 工具测试。"""
 
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
+import pytest
+
+from tests.test_todo.helpers import apaginate
 from tools.todo.tool_add import TodoAddTool
 
 
@@ -14,25 +17,29 @@ def _make_tool(mock_api, mock_client):
 
 
 class TestValidation:
-    def test_get_doc_returns_doc(self, mock_client):
+    @pytest.mark.asyncio
+    async def test_get_doc_returns_doc(self, mock_client):
         """get_doc=True → 不调 API，返回文档。"""
         tool = TodoAddTool(client=mock_client)
-        result = tool._run(get_doc=True)
+        result = await tool._arun(get_doc=True)
         assert "本 Tool 暂无文档" in result or "Todoist" in result
 
-    def test_empty_content_returns_error(self, mock_client):
+    @pytest.mark.asyncio
+    async def test_empty_content_returns_error(self, mock_client):
         tool = TodoAddTool(client=mock_client)
-        result = tool._run(get_doc=False, content="")
+        result = await tool._arun(get_doc=False, content="")
         assert "不能为空" in result
 
-    def test_invalid_priority_returns_error(self, mock_client):
+    @pytest.mark.asyncio
+    async def test_invalid_priority_returns_error(self, mock_client):
         tool = TodoAddTool(client=mock_client)
-        result = tool._run(get_doc=False, content="test", priority=5)
+        result = await tool._arun(get_doc=False, content="test", priority=5)
         assert "无效" in result
 
 
 class TestCreateTask:
-    def test_basic_create(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_basic_create(self, mock_api, mock_client):
         """最基本创建：仅传 content。"""
         mock_task = MagicMock()
         mock_task.id = "new123"
@@ -53,22 +60,23 @@ class TestCreateTask:
         mock_task.creator_id = "u1"
         mock_task.is_completed = False
         mock_task.url = None
-        mock_api.add_task.return_value = mock_task
+        mock_api.add_task = AsyncMock(return_value=mock_task)
 
         # Mock project + section lookups
         p = type("FakeProject", (), {"id": "inbox_id", "name": "Inbox"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
 
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False, content="Hello")
+        result = await tool._arun(get_doc=False, content="Hello")
 
         assert '"success": true' in result or "success" in result
         mock_api.add_task.assert_called_once()
         kwargs = mock_api.add_task.call_args[1]
         assert kwargs["content"] == "Hello"
 
-    def test_create_with_all_basic_fields(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_create_with_all_basic_fields(self, mock_api, mock_client):
         """创建时传所有基本字段。"""
         mock_task = MagicMock()
         mock_task.id = "new456"
@@ -89,15 +97,15 @@ class TestCreateTask:
         mock_task.creator_id = "u1"
         mock_task.is_completed = False
         mock_task.url = None
-        mock_api.add_task.return_value = mock_task
+        mock_api.add_task = AsyncMock(return_value=mock_task)
 
         p1 = type("FakeProject", (), {"id": "proj123", "name": "My Project"})()
         s1 = type("FakeSection", (), {"id": "sec789", "name": "Backlog", "project_id": "proj123"})()
-        mock_api.get_projects.return_value = [[p1]]
-        mock_api.get_sections.return_value = [[s1]]
+        mock_api.get_projects = apaginate([[p1]])
+        mock_api.get_sections = apaginate([[s1]])
 
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(
+        result = await tool._arun(
             get_doc=False,
             content="Test task",
             description="A description",
@@ -123,79 +131,85 @@ class TestCreateTask:
         assert kwargs["assignee_id"] == "user2"
         assert kwargs["order"] == 5
 
-    def test_create_with_due_date(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_create_with_due_date(self, mock_api, mock_client):
         """due_date 被正确解析为 date 对象。"""
         mock_task = MagicMock()
         mock_task.id = "t1"
-        mock_api.add_task.return_value = mock_task
+        mock_api.add_task = AsyncMock(return_value=mock_task)
         p = type("FakeProject", (), {"id": "p1", "name": "Inbox"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
 
         tool = _make_tool(mock_api, mock_client)
-        tool._run(get_doc=False, content="Test", due_date="2026-07-15")
+        await tool._arun(get_doc=False, content="Test", due_date="2026-07-15")
 
         kwargs = mock_api.add_task.call_args[1]
         from datetime import date
         assert kwargs["due_date"] == date(2026, 7, 15)
 
-    def test_create_with_labels(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_create_with_labels(self, mock_api, mock_client):
         """labels 列表被正确传递。"""
         mock_task = MagicMock()
         mock_task.id = "t1"
-        mock_api.add_task.return_value = mock_task
+        mock_api.add_task = AsyncMock(return_value=mock_task)
         p = type("FakeProject", (), {"id": "p1", "name": "Inbox"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
 
         tool = _make_tool(mock_api, mock_client)
-        tool._run(get_doc=False, content="Test", labels=["urgent", "work"])
+        await tool._arun(get_doc=False, content="Test", labels=["urgent", "work"])
 
         kwargs = mock_api.add_task.call_args[1]
         assert kwargs["labels"] == ["urgent", "work"]
 
-    def test_create_with_duration(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_create_with_duration(self, mock_api, mock_client):
         """duration / duration_unit 被传入。"""
         mock_task = MagicMock()
         mock_task.id = "t1"
-        mock_api.add_task.return_value = mock_task
+        mock_api.add_task = AsyncMock(return_value=mock_task)
         p = type("FakeProject", (), {"id": "p1", "name": "Inbox"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
 
         tool = _make_tool(mock_api, mock_client)
-        tool._run(get_doc=False, content="Test", duration=30, duration_unit="minute")
+        await tool._arun(get_doc=False, content="Test", duration=30, duration_unit="minute")
 
         kwargs = mock_api.add_task.call_args[1]
         assert kwargs["duration"] == 30
         assert kwargs["duration_unit"] == "minute"
 
-    def test_create_with_deadline(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_create_with_deadline(self, mock_api, mock_client):
         """deadline_date 被解析为 date 对象。"""
         mock_task = MagicMock()
         mock_task.id = "t1"
-        mock_api.add_task.return_value = mock_task
+        mock_api.add_task = AsyncMock(return_value=mock_task)
         p = type("FakeProject", (), {"id": "p1", "name": "Inbox"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
 
         tool = _make_tool(mock_api, mock_client)
-        tool._run(get_doc=False, content="Test", deadline_date="2026-08-01")
+        await tool._arun(get_doc=False, content="Test", deadline_date="2026-08-01")
 
         from datetime import date
         kwargs = mock_api.add_task.call_args[1]
         assert kwargs["deadline_date"] == date(2026, 8, 1)
 
-    def test_nonexistent_project_returns_error(self, mock_api, mock_client):
-        mock_api.get_projects.return_value = [[]]
+    @pytest.mark.asyncio
+    async def test_nonexistent_project_returns_error(self, mock_api, mock_client):
+        mock_api.get_projects = apaginate([[]])
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False, content="Test", project_name="Nope")
+        result = await tool._arun(get_doc=False, content="Test", project_name="Nope")
         assert "不存在" in result
 
-    def test_nonexistent_section_returns_error(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_nonexistent_section_returns_error(self, mock_api, mock_client):
         p = type("FakeProject", (), {"id": "p1", "name": "MyProject"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False, content="Test", project_name="MyProject", section_name="Nope")
+        result = await tool._arun(get_doc=False, content="Test", project_name="MyProject", section_name="Nope")
         assert "不存在" in result

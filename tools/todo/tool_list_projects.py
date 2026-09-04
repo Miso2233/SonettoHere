@@ -22,17 +22,17 @@ class TodoListProjectsTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self) -> str:
+    async def _arun(self) -> str:
         try:
             api = self.helper.api
         except ValueError as e:
             return format_error(str(e))
 
         all_projects = []
-        for projects in api.get_projects():
+        async for projects in await api.get_projects():
             all_projects.extend(projects)
 
         project_list = [self.helper.project_to_dict(p) for p in all_projects]

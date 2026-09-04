@@ -2,6 +2,9 @@
 
 from datetime import date, datetime
 
+import pytest
+
+from tests.test_todo.helpers import apaginate
 from tools.todo.todo_base import TodoAPIHelper
 
 
@@ -58,115 +61,129 @@ class TestParseDatetime:
 
 
 class TestGetProjectId:
-    def test_found(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_found(self, helper, mock_api):
         p = type("FakeProject", (), {"id": "p1", "name": "Work"})()
-        mock_api.get_projects.return_value = [[p]]
+        mock_api.get_projects = apaginate([[p]])
 
-        result = helper.get_project_id("Work")
+        result = await helper.get_project_id("Work")
         assert result == "p1"
 
-    def test_case_insensitive(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_case_insensitive(self, helper, mock_api):
         p = type("FakeProject", (), {"id": "p1", "name": "Work"})()
-        mock_api.get_projects.return_value = [[p]]
+        mock_api.get_projects = apaginate([[p]])
 
-        result = helper.get_project_id("work")
+        result = await helper.get_project_id("work")
         assert result == "p1"
 
-    def test_not_found(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_not_found(self, helper, mock_api):
         p = type("FakeProject", (), {"id": "p1", "name": "Work"})()
-        mock_api.get_projects.return_value = [[p]]
+        mock_api.get_projects = apaginate([[p]])
 
-        result = helper.get_project_id("Nope")
+        result = await helper.get_project_id("Nope")
         assert result is None
 
 
 class TestGetProjectName:
-    def test_found(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_found(self, helper, mock_api):
         p = type("FakeProject", (), {"id": "p1", "name": "Work"})()
-        mock_api.get_projects.return_value = [[p]]
+        mock_api.get_projects = apaginate([[p]])
 
-        result = helper.get_project_name("p1")
+        result = await helper.get_project_name("p1")
         assert result == "Work"
 
-    def test_not_found_returns_inbox(self, helper, mock_api):
-        mock_api.get_projects.return_value = [[]]
-        result = helper.get_project_name("nope")
+    @pytest.mark.asyncio
+    async def test_not_found_returns_inbox(self, helper, mock_api):
+        mock_api.get_projects = apaginate([[]])
+        result = await helper.get_project_name("nope")
         assert result == "Inbox"
 
 
 class TestGetSectionId:
-    def test_found(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_found(self, helper, mock_api):
         s = type("FakeSection", (), {"id": "s1", "name": "Backlog", "project_id": "p1"})()
-        mock_api.get_sections.return_value = [[s]]
+        mock_api.get_sections = apaginate([[s]])
 
-        result = helper.get_section_id("Backlog", "p1")
+        result = await helper.get_section_id("Backlog", "p1")
         assert result == "s1"
 
-    def test_case_insensitive(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_case_insensitive(self, helper, mock_api):
         s = type("FakeSection", (), {"id": "s1", "name": "Backlog", "project_id": "p1"})()
-        mock_api.get_sections.return_value = [[s]]
+        mock_api.get_sections = apaginate([[s]])
 
-        result = helper.get_section_id("backlog", "p1")
+        result = await helper.get_section_id("backlog", "p1")
         assert result == "s1"
 
-    def test_not_found(self, helper, mock_api):
-        mock_api.get_sections.return_value = [[]]
-        result = helper.get_section_id("Nope", "p1")
+    @pytest.mark.asyncio
+    async def test_not_found(self, helper, mock_api):
+        mock_api.get_sections = apaginate([[]])
+        result = await helper.get_section_id("Nope", "p1")
         assert result is None
 
 
 class TestGetSectionName:
-    def test_found(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_found(self, helper, mock_api):
         s = type("FakeSection", (), {"id": "s1", "name": "Backlog", "project_id": "p1"})()
-        mock_api.get_sections.return_value = [[s]]
+        mock_api.get_sections = apaginate([[s]])
 
-        result = helper.get_section_name("s1")
+        result = await helper.get_section_name("s1")
         assert result == "Backlog"
 
-    def test_not_found(self, helper, mock_api):
-        mock_api.get_sections.return_value = [[]]
-        result = helper.get_section_name("nope")
+    @pytest.mark.asyncio
+    async def test_not_found(self, helper, mock_api):
+        mock_api.get_sections = apaginate([[]])
+        result = await helper.get_section_name("nope")
         assert result is None
 
 
 class TestFindSectionGlobal:
-    def test_found(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_found(self, helper, mock_api):
         s = type("FakeSection", (), {"id": "s1", "name": "Backlog", "project_id": "p1"})()
-        mock_api.get_sections.return_value = [[s]]
+        mock_api.get_sections = apaginate([[s]])
 
-        result = helper.find_section_global("Backlog")
+        result = await helper.find_section_global("Backlog")
         assert result == ("p1", "s1")
 
-    def test_not_found(self, helper, mock_api):
-        mock_api.get_sections.return_value = [[]]
-        result = helper.find_section_global("Nope")
+    @pytest.mark.asyncio
+    async def test_not_found(self, helper, mock_api):
+        mock_api.get_sections = apaginate([[]])
+        result = await helper.find_section_global("Nope")
         assert result is None
 
 
 class TestGetAllLabels:
-    def test_returns_flat_list(self, helper, mock_api):
+    @pytest.mark.asyncio
+    async def test_returns_flat_list(self, helper, mock_api):
         l1 = type("FakeLabel", (), {"id": "l1", "name": "urgent", "color": "red",
                                      "order": 1, "is_favorite": False})()
         l2 = type("FakeLabel", (), {"id": "l2", "name": "work", "color": "blue",
                                      "order": 2, "is_favorite": False})()
-        mock_api.get_labels.return_value = [[l1], [l2]]
+        mock_api.get_labels = apaginate([[l1], [l2]])
 
-        result = helper.get_all_labels()
+        result = await helper.get_all_labels()
         assert len(result) == 2
         assert result[0].name == "urgent"
         assert result[1].name == "work"
 
 
 class TestTaskToDict:
-    def test_all_fields_present(self, helper, mock_task, mock_api):
-        mock_api.get_projects.return_value = [
+    @pytest.mark.asyncio
+    async def test_all_fields_present(self, helper, mock_task, mock_api):
+        mock_api.get_projects = apaginate([
             [type("FakeProject", (), {"id": "proj123", "name": "Work"})()]
-        ]
-        mock_api.get_sections.return_value = [
+        ])
+        mock_api.get_sections = apaginate([
             [type("FakeSection", (), {"id": "sec789", "name": "Backlog", "project_id": "proj123"})()]
-        ]
+        ])
 
-        result = helper.task_to_dict(mock_task)
+        result = await helper.task_to_dict(mock_task)
 
         assert result["task_id"] == "task999"
         assert result["content"] == "Test task"
@@ -203,11 +220,12 @@ class TestProjectToDict:
 
 
 class TestSectionToDict:
-    def test_all_fields_present(self, helper, mock_section, mock_api):
-        mock_api.get_projects.return_value = [
+    @pytest.mark.asyncio
+    async def test_all_fields_present(self, helper, mock_section, mock_api):
+        mock_api.get_projects = apaginate([
             [type("FakeProject", (), {"id": "proj123", "name": "Work"})()]
-        ]
-        result = helper.section_to_dict(mock_section)
+        ])
+        result = await helper.section_to_dict(mock_section)
         assert result["section_id"] == "sec789"
         assert result["name"] == "Backlog"
         assert result["project_name"] == "Work"

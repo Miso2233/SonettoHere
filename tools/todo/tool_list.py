@@ -53,10 +53,10 @@ class TodoListTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(
+    async def _arun(
         self,
         project_name: str | None = None,
         section_name: str | None = None,
@@ -74,7 +74,7 @@ class TodoListTool(ToolBase):
         kwargs: dict = {}
 
         if project_name:
-            pid = self.helper.get_project_id(project_name)
+            pid = await self.helper.get_project_id(project_name)
             if pid is None:
                 return format_success({"total": 0, "tasks": []})
             kwargs["project_id"] = pid
@@ -82,7 +82,7 @@ class TodoListTool(ToolBase):
         if section_name:
             if project_name:
                 # 已知项目上下文
-                sid = self.helper.get_section_id(
+                sid = await self.helper.get_section_id(
                     section_name, kwargs.get("project_id", "")
                 )
                 if sid is None:
@@ -90,7 +90,7 @@ class TodoListTool(ToolBase):
                 kwargs["section_id"] = sid
             else:
                 # 跨项目查找
-                result = self.helper.find_section_global(section_name)
+                result = await self.helper.find_section_global(section_name)
                 if result is None:
                     return format_success({"total": 0, "tasks": []})
                 kwargs["section_id"] = result[1]
@@ -105,10 +105,10 @@ class TodoListTool(ToolBase):
             kwargs["limit"] = limit
 
         all_tasks = []
-        for tasks in api.get_tasks(**kwargs):
+        async for tasks in await api.get_tasks(**kwargs):
             all_tasks.extend(tasks)
 
-        task_list = [self.helper.task_to_dict(t) for t in all_tasks]
+        task_list = [await self.helper.task_to_dict(t) for t in all_tasks]
         task_list.sort(key=lambda x: x["task_id"])
 
         return format_success({"total": len(task_list), "tasks": task_list})

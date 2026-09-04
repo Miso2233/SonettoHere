@@ -29,21 +29,21 @@ class TodoListSectionsTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self, project_name: str | None = None) -> str:
+    async def _arun(self, project_name: str | None = None) -> str:
         if project_name:
-            pid = self.helper.get_project_id(project_name)
+            pid = await self.helper.get_project_id(project_name)
             if pid is None:
                 return format_error(
                     f"项目 '{project_name}' 不存在。请先调用 todo_list_projects 查看可用项目"
                 )
-            all_sections = self.helper.get_sections_by_project(project_name)
+            all_sections = await self.helper.get_sections_by_project(project_name)
         else:
-            all_sections = self.helper.get_all_sections()
+            all_sections = await self.helper.get_all_sections()
 
-        section_list = [self.helper.section_to_dict(s) for s in all_sections]
+        section_list = [await self.helper.section_to_dict(s) for s in all_sections]
         section_list.sort(key=lambda x: x["section_id"])
 
         return format_success({"total": len(section_list), "sections": section_list})
