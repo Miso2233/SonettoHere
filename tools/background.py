@@ -124,9 +124,8 @@ def background(cls: ToolClass) -> ToolClass:
 
     return enrich_tool_class(
         cls,
-        # 强制包装 _arun：sync 工具的 _arun 即 BaseTool._arun 默认实现
-        # （内部线程池执行 _run），spawn 该协程即完成后台化且零阻塞。
-        method_name="_arun",
+        # enrich 恒包装 _arun（见 tools/policies.py）：sync 工具未覆写 _arun 时取
+        # BaseTool._arun 默认实现，其内部线程池执行 _run，spawn 该协程即后台化且零阻塞。
         schema_fields={
             "background": (bool, Field(default=False, description=DEFAULT_DESCRIPTION)),
         },

@@ -11,14 +11,12 @@ auto mode 信号统一取自会话级 auto_approve（interaction._settings，由
 层写入），对**所有受装饰工具一致生效**，无需逐个传参。
 
 作为「针对工具类」的装饰器，与 @get_doc（tools/get_doc.py）共用类装饰器框架
-（tools/policies.py 的 ``enrich_tool_class``）：解析 langchain 真正会调用的异步
-执行方法（``_arun``，同步 ``_run`` 无法承载异步确认），在其外层包一层同构
-wrapper，并通过 ``functools.wraps`` 保留原签名。因此：
+（tools/policies.py 的 ``enrich_tool_class``）：enrich 恒把 ``_arun`` 包一层
+async wrapper（``functools.wraps`` 保留原签名）。因此：
 
 - 装饰目标是**工具类**而非单个方法；可与其它类装饰器叠层。与 get_doc 同用时
   必须 ``@get_doc`` 在**外层**、本装饰器在内层：``get_doc=True`` 读文档时在本
   装饰器（ask_user）之前短路，不弹确认框；顺序反转则读文档也会先弹确认。
-- 仅支持异步执行工具：装饰到只覆写同步 ``_run`` 的类在导入期抛 TypeError。
 - 确认气泡载荷 = 被装饰方法（除 INJECTED_KWARGS 技术参数：run_manager / config
   / callbacks / get_doc 外）的全部命名形参，由 wrapper 从 ``**kwargs`` 剔除技术
   参数后构造，原样转发给 ask_user。langchain 始终以**纯关键字**调用执行方法
@@ -41,7 +39,6 @@ from __future__ import annotations
 
 import asyncio
 import functools
-import inspect
 from collections.abc import Callable
 from typing import Any
 
@@ -79,14 +76,6 @@ def confirm_execution(
 
     def decorator(target: ToolClass) -> ToolClass:
         def make_wrapper(orig: Callable[..., Any]) -> Callable[..., Any]:
-            # 确认依赖异步 ask_user，同步 _run 无法承载：在 enrich_tool_class
-            # 内部解析执行方法后、生成子类前校验，非异步工具导入期即 fail-fast。
-            if not inspect.iscoroutinefunction(orig):
-                raise TypeError(
-                    "confirm_execution 仅支持异步执行工具（须覆写 async _arun）；"
-                    f"{target.__name__} 的真实执行方法是同步的 {orig.__name__}"
-                )
-
             @functools.wraps(orig)
             async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
                 # 自动执行：会话级 auto_approve 开启时直接放行，不打扰用户。

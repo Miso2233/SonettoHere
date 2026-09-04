@@ -33,7 +33,6 @@
 from __future__ import annotations
 
 import functools
-import inspect
 from collections.abc import Callable
 from typing import Any
 
@@ -60,13 +59,6 @@ def get_doc(cls: ToolClass) -> ToolClass:
     """
 
     def make_wrapper(orig: Callable[..., Any]) -> Callable[..., Any]:
-        # 全工具 arun 化后只存在 async 执行方法；同步方法属配置错误，导入期即报错。
-        if not inspect.iscoroutinefunction(orig):
-            raise TypeError(
-                f"@get_doc 仅支持覆写 async _arun 的工具；"
-                f"{orig.__name__} 不是协程函数"
-            )
-
         @functools.wraps(orig)
         async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             if kwargs.pop("get_doc", False):
