@@ -1,38 +1,21 @@
-"""confirm_execution — 「执行前确认」工具类装饰器。
+"""confirm_execution — 「执行前确认」类装饰器。
 
-把「执行危险操作前先征得用户同意」的门控逻辑从工具方法中抽离：
+把「执行危险操作前先征得用户同意」的门控逻辑从工具方法中抽离，包装工具的
+``_arun``：
 
-- 会话开启自动执行（auto_approve）时直接放行，不打扰用户；
-- 否则要求 WebSocket 连接可用，通过 ask_user(mode="confirm") 弹出确认，
-  用户 approve 后调用被装饰方法，reject 返回统一拒绝错误；
-- 用户中途取消（CancelledError）返回统一取消错误；注册的交互在 finally 清理。
+- 会话级 auto_approve 开启时直接放行，不打扰用户；
+- 否则经 WebSocket ``ask_user(mode="confirm")`` 请求确认，approve 后才执行原方法，
+  reject 返回统一拒绝错误，用户中途取消返回统一取消错误；
+- 确认期间注册的交互在 finally 清理。
 
-auto mode 信号统一取自会话级 auto_approve（interaction._settings，由 WebSocket
-层写入），对**所有受装饰工具一致生效**，无需逐个传参。
+确认气泡载荷取原方法的用户可见命名参数（已剔除 INJECTED_KWARGS 技术参数）；
+批准后含技术参数的完整 ``**kwargs`` 原样透传给原方法。
 
-作为「针对工具类」的装饰器，与 @get_doc（tools/get_doc.py）共用类装饰器框架
-（tools/policies.py 的 ``enrich_tool_class``）：enrich 恒把 ``_arun`` 包一层
-async wrapper（``functools.wraps`` 保留原签名）。因此：
+用法（作用于工具类，携带参数）：
 
-- 装饰目标是**工具类**而非单个方法；可与其它类装饰器叠层。与 get_doc 同用时
-  必须 ``@get_doc`` 在**外层**、本装饰器在内层：``get_doc=True`` 读文档时在本
-  装饰器（ask_user）之前短路，不弹确认框；顺序反转则读文档也会先弹确认。
-- 确认气泡载荷 = 被装饰方法（除 INJECTED_KWARGS 技术参数：run_manager / config
-  / callbacks / get_doc 外）的全部命名形参，由 wrapper 从 ``**kwargs`` 剔除技术
-  参数后构造，原样转发给 ask_user。langchain 始终以**纯关键字**调用执行方法
-  （输入经 args_schema 校验后透传），故 kwargs 即用户可见入参，前端按工具名选用
-  字段。因此被装饰方法必须以关键字参数被调用、且不含非用户可见的注入注解
-  （InjectedToolCallId 等不在 INJECTED_KWARGS 内，会漏进载荷）。
-- 被装饰方法签名可声明 ``run_manager`` 等技术形参（langchain 仅当签名声明时才
-  注入）。wrapper 批准后把含技术参数的完整 ``**kwargs`` **原样透传**给原方法
-  （只从载荷副本剔除，绝不在 kwargs 上 pop）——run_id 等仅在批准后由原方法取出
-  使用，同一 asyncio 任务内 set/read 天然隔离，确认等待期间 langchain run 保持
-  开启、run_id 不可变，无副作用。
-
-适用范围：run_python 及 5 个破坏性/写入 file 工具（file_write / file_edit /
-file_delete / file_create_directory / file_rename）——仅这些执行前需放行的工具。
-ask_qa / single_choice / multi_choice 属于「采集输入」语义（收集后继续，而非
-确认后放行），不适用。
+    @confirm_execution(question="即将执行危险操作，是否继续？")
+    class SomeTool(ToolBase):
+        async def _arun(self, ...): ...
 """
 
 from __future__ import annotations
