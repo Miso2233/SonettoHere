@@ -51,6 +51,15 @@ def get_all_tools() -> list[BaseTool]:
     from tools.network.tool_read_image import ReadImageTool
     from tools.network.tavily import TavilySearchTool, TavilyExtractTool
 
+    # Computer（屏幕操作，仅多模态识图模式交付给 LLM）
+    from tools.computer.tool_screenshot import ScreenshotTool
+    from tools.computer.tool_click import ClickTool
+    from tools.computer.tool_virtual_click import VirtualClickTool
+    from tools.computer.tool_type import TypeTool
+    from tools.computer.tool_key import KeyTool
+    from tools.computer.tool_scroll import ScrollTool
+    from tools.computer.tool_wait import WaitTool
+
     # Files
     from tools.files.tool_file_read import FileReadTool
     from tools.files.tool_file_write import FileWriteTool
@@ -105,6 +114,14 @@ def get_all_tools() -> list[BaseTool]:
         ReadImageTool(client=client),
         TavilySearchTool(client=client),
         TavilyExtractTool(client=client),
+        # Computer
+        ScreenshotTool(client=client),
+        ClickTool(client=client),
+        VirtualClickTool(client=client),
+        TypeTool(client=client),
+        KeyTool(client=client),
+        ScrollTool(client=client),
+        WaitTool(client=client),
         # Files
         FileReadTool(client=client),
         FileWriteTool(client=client),

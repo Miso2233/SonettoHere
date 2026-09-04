@@ -20,6 +20,9 @@ tavily-python>=0.7.0
 tiktoken>=0.7.0
 httpx>=0.27.0
 moviepy>=1.0.3
+Pillow>=10.0.0
+pyautogui>=0.9.54
+pyperclip>=1.8.0
 zai-sdk
 fastapi>=0.110.0
 uvicorn[standard]>=0.27.0

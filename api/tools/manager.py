@@ -43,19 +43,28 @@ class ToolManager:
         "update_memory", "delete_memory", "merge_memories",
     })
 
+    # 依赖模型视觉能力（识图模式）才交付的工具，与 read_image 同步启用/剔除。
+    # 模型不具备多模态视觉时一律过滤（改用外部分析工具 analyze_image 兜底）。
+    _VISION_TOOL_NAMES = frozenset({
+        "read_image", "computer_screenshot", "computer_click",
+        "computer_virtual_click", "computer_type", "computer_key",
+        "computer_scroll", "computer_wait",
+    })
+
     def get_all(self, multimodal: bool = False) -> list[BaseTool]:
         """返回合并后的完整工具列表（消费方主要用这个）。
 
         Args:
             multimodal: 当前 LLM 是否支持多模态。
-                        True → 保留 read_image，过滤 analyze_image；
-                        False → 保留 analyze_image，过滤 read_image。
+                        True → 保留全部识图工具（read_image 与 computer_* 系列），
+                               过滤 analyze_image；
+                        False → 保留 analyze_image，过滤全部识图工具。
         """
         tools = self.native_tools + self.mcp_tools
         if multimodal:
             tools = [t for t in tools if t.name != "analyze_image"]
         else:
-            tools = [t for t in tools if t.name != "read_image"]
+            tools = [t for t in tools if t.name not in self._VISION_TOOL_NAMES]
         return [t for t in tools if t.name not in self._MEMORY_TOOL_NAMES]
 
     async def reload_mcp(self) -> list[BaseTool]:

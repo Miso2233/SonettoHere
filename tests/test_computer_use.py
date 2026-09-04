@@ -1,0 +1,521 @@
+"""computer use 系列：共享能力纯函数 + 两个工具流程的单测。
+
+不在测试中真截屏 / 真移动鼠标 —— 屏幕相关入口一律 monkeypatch；
+computer_virtual_click 是「虚拟点击」，须保证全程不触碰真实鼠标/系统点击。
+"""
+
+import base64
+import io
+import json
+import sys
+
+from langchain_core.messages import ToolMessage
+from PIL import Image
+
+from tools.computer import _screen as screen
+from tools.computer.tool_click import ClickTool
+from tools.computer.tool_key import KeyTool
+from tools.computer.tool_screenshot import ScreenshotTool
+from tools.computer.tool_scroll import Point, ScrollTool
+from tools.computer.tool_type import TypeTool
+from tools.computer.tool_virtual_click import VirtualClickTool
+from tools.computer.tool_wait import WaitTool
+
+# ── 共享能力：纯函数 ─────────────────────────────────────────
+
+
+def test_canvas_to_screen_scaling_and_clamp() -> None:
+    assert screen.canvas_to_screen(0, 0, 2560, 1600) == (0, 0)
+    assert screen.canvas_to_screen(960, 540, 2560, 1600) == (1280, 800)
+    assert screen.canvas_to_screen(1920, 1080, 2560, 1600) == (2559, 1599)
+    # 与真实屏幕同尺寸时映射保持恒等
+    assert screen.canvas_to_screen(100, 200, 1920, 1080) == (100, 200)
+
+
+def test_canvas_to_screen_scales_in_both_axes() -> None:
+    # 2560x1600 为 16:10：横纵缩放比不同也需各自线性正确
+    nx, ny = screen.canvas_to_screen(1920, 540, 2560, 1600)
+    assert nx == 2559
+    assert ny == 800
+
+
+def test_to_canvas_image_fixed_canvas_size() -> None:
+    img = Image.new("RGB", (2560, 1600), "white")
+    canvas = screen.to_canvas_image(img)
+    assert canvas.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+
+
+def test_draw_click_marker_paints_center_pixel() -> None:
+    img = Image.new("RGB", (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT), "white")
+    cx, cy = 100, 80
+    screen.draw_click_marker(img, cx, cy)
+    assert img.getpixel((cx, cy)) == screen.MARKER_COLOR
+    assert img.getpixel((cx + screen.CANVAS_WIDTH // 2, cy)) == (255, 255, 255)
+
+
+def test_image_to_data_url() -> None:
+    img = Image.new("RGB", (8, 8), "white")
+    data_url, png_bytes = screen.image_to_data_url(img)
+    assert data_url.startswith("data:image/png;base64,")
+    assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
+
+
+# ── ScreenshotTool ──────────────────────────────────────────
+
+
+def _command_tool_message(command) -> ToolMessage:
+    for msg in (command.update or {}).get("messages", []):
+        if isinstance(msg, ToolMessage):
+            return msg
+    raise AssertionError("Command 中缺少 ToolMessage")
+
+
+def test_screenshot_tool_flows_image_to_model(monkeypatch) -> None:
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+
+    command = ScreenshotTool()._run_impl("call-1")
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "screenshot"
+    assert data["data"]["screen_size"] == {"width": 2560, "height": 1600}
+
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    assert image_block["type"] == "image_url"
+    assert image_block["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+def test_screenshot_tool_returns_error_when_capture_fails(monkeypatch) -> None:
+    def boom():
+        raise screen.ScreenError("全屏截图失败：no display")
+
+    monkeypatch.setattr(screen, "capture_screen", boom)
+
+    command = ScreenshotTool()._run_impl("call-1")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "no display" in parsed["error"]
+
+
+# ── VirtualClickTool（虚拟点击，不得有任何真实动作）───────────
+
+
+def _forbid_pyautogui(*_args, **_kwargs):
+    raise AssertionError("虚拟点击不应触碰 pyautogui（不得移动鼠标 / 触发系统点击）")
+
+
+def test_virtual_click_annotates_without_physical_action(monkeypatch) -> None:
+    # 虚拟点击不得触碰任何物理动作：pyautogui 与真实点击原语调用即失败
+    monkeypatch.setattr(screen, "_pyautogui", _forbid_pyautogui)
+    monkeypatch.setattr(screen, "real_click_at", _forbid_pyautogui)
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    command = VirtualClickTool()._run_impl(x=960, y=800, tool_call_id="call-2")
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "virtual_click"
+    assert data["data"]["click_canvas"] == {"x": 960, "y": 800}
+    # click_screen 仅是映射回显，供后续真实执行参考，本身不触发任何动作
+    assert data["data"]["click_screen"] == {"x": 1280, "y": 1185}
+    assert "未执行任何真实鼠标操作" in data["data"]["message"]
+
+    # 注入画面为 PNG data_url，画布层已画好标记（标记像素由
+    # test_draw_click_marker_paints_center_pixel 单独覆盖）
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    assert image_block["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+def test_virtual_click_rejects_out_of_canvas(monkeypatch) -> None:
+    monkeypatch.setattr(screen, "_pyautogui", _forbid_pyautogui)
+    monkeypatch.setattr(screen, "real_click_at", _forbid_pyautogui)
+
+    command = VirtualClickTool()._run_impl(x=5000, y=10, tool_call_id="call-3")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "越界" in parsed["error"]
+
+
+# ── ClickTool（真实点击：会真正调用 real_click_at）────────
+
+
+def test_real_click_performs_click_and_returns_plain_screenshot(monkeypatch) -> None:
+    calls: list[dict[str, int | str]] = []
+
+    def _fake_real_click(
+        x: int, y: int, button: str = "left", clicks: int = 1
+    ) -> None:
+        calls.append({"x": x, "y": y, "button": button, "clicks": clicks})
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "real_click_at", _fake_real_click)
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    command = ClickTool()._run_impl(x=960, y=800, tool_call_id="call-4")
+
+    # 默认左键单击，真实点击确实落到映射后的真实像素
+    assert calls == [{"x": 1280, "y": 1185, "button": "left", "clicks": 1}]
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "real_click"
+    assert data["data"]["click_canvas"] == {"x": 960, "y": 800}
+    assert data["data"]["click_screen"] == {"x": 1280, "y": 1185}
+    assert data["data"]["button"] == "left"
+    assert data["data"]["clicks"] == 1
+    assert "saved_file" not in data["data"]
+
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    data_url = image_block["image_url"]["url"]
+    assert data_url.startswith("data:image/png;base64,")
+
+    # 真实点击画面为**未标注**的 1920x1080 原图：点击点颜色未被标记覆盖
+    raw = base64.b64decode(data_url.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw)).convert("RGB")
+    assert decoded.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+    assert decoded.getpixel((960, 800)) == (255, 255, 255)
+
+
+def test_real_click_accepts_button_and_double(monkeypatch) -> None:
+    calls: list[dict[str, int | str]] = []
+
+    def _fake_real_click(
+        x: int, y: int, button: str = "left", clicks: int = 1
+    ) -> None:
+        calls.append({"x": x, "y": y, "button": button, "clicks": clicks})
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "real_click_at", _fake_real_click)
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    command = ClickTool()._run_impl(
+        x=10, y=20, button="right", clicks=2, tool_call_id="call-x"
+    )
+
+    # 右键双击：映射后像素 (13, 30)，button/clicks 正确透传
+    assert calls == [{"x": 13, "y": 30, "button": "right", "clicks": 2}]
+    data = json.loads(_command_tool_message(command).content)
+    assert data["success"] is True
+    assert data["data"]["button"] == "right"
+    assert data["data"]["clicks"] == 2
+
+
+def test_virtual_and_real_click_return_shape_relationship(monkeypatch) -> None:
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "real_click_at", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    virt_data = json.loads(
+        _command_tool_message(
+            VirtualClickTool()._run_impl(x=10, y=10, tool_call_id="a")
+        ).content
+    )["data"]
+    real_data = json.loads(
+        _command_tool_message(
+            ClickTool()._run_impl(x=10, y=10, tool_call_id="b")
+        ).content
+    )["data"]
+
+    # real 在虚拟点击的基础字段上追加 button/clicks，仍是超集
+    assert real_data["action"] == "real_click"
+    assert virt_data["action"] == "virtual_click"
+    assert set(virt_data) <= set(real_data)
+
+
+# ── type_text / TypeTool（统一经剪贴板粘贴输入）─────────────────
+
+
+class _FakePasteKeyboard:
+    """记录粘贴热键（Ctrl/Cmd+V）的假 pyautogui 对象。"""
+
+    def __init__(self) -> None:
+        self.hotkeys: list[tuple[str, ...]] = []
+
+    def hotkey(self, *keys: str) -> None:
+        self.hotkeys.append(keys)
+
+
+def test_type_text_always_pastes_via_clipboard(monkeypatch) -> None:
+    """纯 ASCII 与含中文的文本都统一经剪贴板粘贴，并尽力还原原剪贴板。"""
+    monkeypatch.setattr("time.sleep", lambda _s: None)
+
+    for case in ("hello", "你好 world", "abc\n\t123"):
+        fake = _FakePasteKeyboard()
+        writes: list[str] = []
+        monkeypatch.setattr(screen, "_pyautogui", lambda f=fake: f)
+        monkeypatch.setattr(screen, "_clipboard_set_text", writes.append)
+        monkeypatch.setattr(screen, "_clipboard_get_text", lambda: "原剪贴板内容")
+
+        screen.type_text(case)
+
+        # 单一路径：写目标文本 → Ctrl/Cmd+V → 还原原剪贴板（无逐字符敲键分支）
+        assert writes == [case, "原剪贴板内容"]
+        modifier = "command" if sys.platform == "darwin" else "ctrl"
+        assert fake.hotkeys == [(modifier, "v")]
+
+
+def test_type_tool_types_text_then_returns_plain_screenshot(monkeypatch) -> None:
+    typed: list[str] = []
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "type_text", lambda text: typed.append(text))
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    command = TypeTool()._run_impl(text="hello", tool_call_id="call-5")
+    assert typed == ["hello"]
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "type"
+    assert data["data"]["text"] == "hello"
+    assert data["data"]["char_count"] == 5
+    assert "saved_file" not in data["data"]
+
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    data_url = image_block["image_url"]["url"]
+    assert data_url.startswith("data:image/png;base64,")
+
+    # 输入后回传**未标注**原图：中心点未被标记覆盖
+    raw = base64.b64decode(data_url.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw)).convert("RGB")
+    assert decoded.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+    assert decoded.getpixel((960, 800)) == (255, 255, 255)
+
+
+def test_type_tool_rejects_empty_text() -> None:
+    command = TypeTool()._run_impl(text="", tool_call_id="call-6")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "不能为空" in parsed["error"]
+
+
+# ── press_keys / KeyTool（击键，真实按键/快捷键）──────────────
+
+
+class _FakeKeyBoard:
+    """带 KEYBOARD_KEYS 白名单并记录 hotkey 调用的假 pyautogui 对象。"""
+
+    KEYBOARD_KEYS = (
+        "enter", "tab", "esc", "delete", "space", "up", "down", "left", "right",
+        "home", "end", "pageup", "pagedown", "insert", "f5", "win", "command",
+        "ctrl", "alt", "shift", "capslock", "a", "s", "z", "0", "9",
+    )
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def hotkey(self, *keys: str) -> None:
+        self.calls.append(list(keys))
+
+
+def _assert_screen_error(fn) -> None:
+    try:
+        fn()
+    except screen.ScreenError:
+        return
+    raise AssertionError("期望 ScreenError，但未抛出")
+
+
+def test_press_keys_single_and_combos(monkeypatch) -> None:
+    fake = _FakeKeyBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.press_keys("Return")
+    screen.press_keys("ctrl+s")
+    screen.press_keys("alt+Tab")
+    screen.press_keys("ctrl+shift+esc")
+
+    assert fake.calls == [
+        ["enter"],
+        ["ctrl", "s"],
+        ["alt", "tab"],
+        ["ctrl", "shift", "esc"],
+    ]
+
+
+def test_press_keys_aliases_and_meta(monkeypatch) -> None:
+    fake = _FakeKeyBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.press_keys("Escape")
+    screen.press_keys("arrowup")
+    screen.press_keys("super+s")
+
+    meta = "command" if sys.platform == "darwin" else "win"
+    assert fake.calls == [["esc"], ["up"], [meta, "s"]]
+
+
+def test_press_keys_rejects_unknown_key(monkeypatch) -> None:
+    fake = _FakeKeyBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    _assert_screen_error(lambda: screen.press_keys("doesnotexist+s"))
+    _assert_screen_error(lambda: screen.press_keys("ctrl++s"))
+    assert fake.calls == []
+
+
+def test_key_tool_presses_then_returns_plain_screenshot(monkeypatch) -> None:
+    pressed: list[str] = []
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "press_keys", lambda combo: pressed.append(combo))
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+
+    command = KeyTool()._run_impl(keys="ctrl+s", tool_call_id="call-7")
+    assert pressed == ["ctrl+s"]
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "key"
+    assert data["data"]["keys"] == "ctrl+s"
+    assert "saved_file" not in data["data"]
+
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    data_url = image_block["image_url"]["url"]
+    assert data_url.startswith("data:image/png;base64,")
+
+    # 击键后回传**未标注**原图：中心点未被标记覆盖
+    raw = base64.b64decode(data_url.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw)).convert("RGB")
+    assert decoded.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+    assert decoded.getpixel((960, 800)) == (255, 255, 255)
+
+
+def test_key_tool_rejects_empty_keys() -> None:
+    command = KeyTool()._run_impl(keys="   ", tool_call_id="call-8")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "不能为空" in parsed["error"]
+
+
+# ── scroll / ScrollTool（真实滚动）───────────────────────────
+
+
+class _FakeScrollBoard:
+    """记录 scroll / hscroll 调用的假 pyautogui 对象。"""
+
+    def __init__(self) -> None:
+        self.scrolls: list[tuple[int, int | None, int | None]] = []
+        self.hscrolls: list[tuple[int, int | None, int | None]] = []
+
+    def scroll(self, clicks: int, x=None, y=None) -> None:
+        self.scrolls.append((clicks, x, y))
+
+    def hscroll(self, clicks: int, x=None, y=None) -> None:
+        self.hscrolls.append((clicks, x, y))
+
+
+def test_scroll_direction_mapping(monkeypatch) -> None:
+    fake = _FakeScrollBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.scroll("up", 2)
+    screen.scroll("down", 3)
+    screen.scroll("left", 4)
+    screen.scroll("right", 5)
+
+    assert fake.scrolls == [(2, None, None), (-3, None, None)]
+    assert fake.hscrolls == [(-4, None, None), (5, None, None)]
+
+
+def test_scroll_tool_returns_confirmation_without_screenshot(monkeypatch) -> None:
+    calls: list[tuple[str, int, int | None, int | None]] = []
+
+    def _fake_scroll(
+        direction: str, amount: int, x: int | None = None, y: int | None = None
+    ) -> None:
+        calls.append((direction, amount, x, y))
+
+    monkeypatch.setattr(screen, "scroll", _fake_scroll)
+
+    command = ScrollTool()._run_impl(
+        scroll_direction="down", scroll_amount=2, tool_call_id="call-s"
+    )
+
+    assert calls == [("down", 2, None, None)]
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "scroll"
+    assert data["data"]["scroll_direction"] == "down"
+    assert data["data"]["scroll_amount"] == 2
+    # 只返回确认，不注入截图
+    assert len((command.update or {})["messages"]) == 1
+
+
+def test_scroll_tool_with_coordinate_maps_to_screen(monkeypatch) -> None:
+    calls: list[tuple[str, int, int | None, int | None]] = []
+
+    def _fake_scroll(
+        direction: str, amount: int, x: int | None = None, y: int | None = None
+    ) -> None:
+        calls.append((direction, amount, x, y))
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "scroll", _fake_scroll)
+
+    command = ScrollTool()._run_impl(
+        scroll_direction="up",
+        scroll_amount=1,
+        coordinate=Point(x=960, y=540),
+        tool_call_id="call-sc",
+    )
+
+    assert calls == [("up", 1, 1280, 800)]
+    data = json.loads(_command_tool_message(command).content)
+    assert data["data"]["coordinate_screen"] == {"x": 1280, "y": 800}
+
+
+# ── WaitTool（等待）────────────────────────────────────────────
+
+
+def test_wait_tool_sleeps_duration(monkeypatch) -> None:
+    slept: list[float] = []
+    monkeypatch.setattr("time.sleep", lambda s: slept.append(s))
+
+    command = WaitTool()._run_impl(duration=2.5, tool_call_id="call-w")
+
+    assert slept == [2.5]
+    data = json.loads(_command_tool_message(command).content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "wait"
+    assert data["data"]["duration"] == 2.5
+    assert len((command.update or {})["messages"]) == 1
+
+
+def test_wait_tool_rejects_non_positive_duration() -> None:
+    command = WaitTool()._run_impl(duration=-1, tool_call_id="call-w2")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "大于 0" in parsed["error"]
