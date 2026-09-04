@@ -34,6 +34,12 @@ class TaskTrackerTool(ToolBase):
         self,
         todos: list[TodoItem] | None = None,
     ) -> str:
+        raise NotImplementedError("task_tracker 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        todos: list[TodoItem] | None = None,
+    ) -> str:
         if not todos:
             return format_error("请传入 todos 参数（全量任务清单）")
 

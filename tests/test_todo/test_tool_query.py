@@ -1,7 +1,10 @@
 """todo_query 工具测试。"""
 
-from unittest.mock import MagicMock, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock
 
+import pytest
+
+from tests.test_todo.helpers import apaginate
 from tools.todo.tool_query import TodoQueryTool
 
 
@@ -13,18 +16,21 @@ def _make_tool(mock_api, mock_client):
 
 
 class TestQuery:
-    def test_empty_task_id_returns_error(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_empty_task_id_returns_error(self, mock_api, mock_client):
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False, task_id="")
+        result = await tool._arun(get_doc=False, task_id="")
         assert "不能为空" in result
 
-    def test_nonexistent_task_returns_error(self, mock_api, mock_client):
-        mock_api.get_task.side_effect = Exception("not found")
+    @pytest.mark.asyncio
+    async def test_nonexistent_task_returns_error(self, mock_api, mock_client):
+        mock_api.get_task = AsyncMock(side_effect=Exception("not found"))
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False, task_id="nope")
+        result = await tool._arun(get_doc=False, task_id="nope")
         assert "不存在" in result
 
-    def test_successful_query_returns_dict(self, mock_api, mock_client):
+    @pytest.mark.asyncio
+    async def test_successful_query_returns_dict(self, mock_api, mock_client):
         t = MagicMock()
         t.id = "t1"
         t.content = "Task"
@@ -44,12 +50,12 @@ class TestQuery:
         t.creator_id = "u1"
         t.is_completed = False
         t.url = None
-        mock_api.get_task.return_value = t
+        mock_api.get_task = AsyncMock(return_value=t)
         p = type("FakeProject", (), {"id": "p1", "name": "Work"})()
-        mock_api.get_projects.return_value = [[p]]
-        mock_api.get_sections.return_value = [[]]
+        mock_api.get_projects = apaginate([[p]])
+        mock_api.get_sections = apaginate([[]])
 
         tool = _make_tool(mock_api, mock_client)
-        result = tool._run(get_doc=False, task_id="t1")
+        result = await tool._arun(get_doc=False, task_id="t1")
         assert "success" in result
         assert "task_id" in result

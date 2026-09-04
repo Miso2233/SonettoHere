@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.background import background
 from tools.get_doc import get_doc
 
@@ -38,7 +38,10 @@ class HolidayCalendarTool(ToolBase):
     )
     args_schema: type[BaseModel] = HolidayCalendarInput
 
-    def _run(
+    def _run(self, **kwargs: object) -> str:
+        raise NotImplementedError("holiday_calendar 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
         self,
         date: str = "",
         month: str = "",
@@ -52,7 +55,8 @@ class HolidayCalendarTool(ToolBase):
             return format_error("必须提供 date、month 或 year 参数之一")
 
         try:
-            result = self.client.uapi.misc.get_misc_holiday_calendar(
+            result = await off_thread(
+                self.client.uapi.misc.get_misc_holiday_calendar,
                 date=date,
                 month=month,
                 year=year,

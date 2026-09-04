@@ -11,7 +11,7 @@
 - 无参装饰器：所有工具的 get_doc 字段统一用默认文案（不再提供 per-tool 覆写，
   更长引导文案交由同目录 TOOL.md 承载）。
 
-代表工具：sync 用 TodoAddTool，async 用 CallSubAgentTool
+代表工具：TodoAddTool（已异步化，包装 ``_arun``）与 CallSubAgentTool
 （包装 ``_arun``），Command 用 ReadImageTool（本阶段特例）。
 """
 
@@ -52,28 +52,31 @@ def test_decorator_uses_default_description() -> None:
         assert prop["description"] == _DEFAULT_DESC
 
 
-# ── sync 行为（包装 _run）────────────────────────────────
+# ── async 行为（包装 _arun，TodoAddTool 已异步化）─────────
 
 
-def test_sync_get_doc_short_circuits() -> None:
+@pytest.mark.asyncio
+async def test_todo_add_get_doc_short_circuits() -> None:
     """get_doc=True → 返回 _load_doc() 文档，不触达业务逻辑。"""
     tool = TodoAddTool()
-    result = tool._run(get_doc=True)
+    result = await tool._arun(get_doc=True)
     assert result == tool._load_doc()
     assert "Todoist" in result or "本 Tool 暂无文档" in result
 
 
-def test_sync_get_doc_false_forwards_to_logic() -> None:
+@pytest.mark.asyncio
+async def test_todo_add_get_doc_false_forwards_to_logic() -> None:
     """get_doc=False → 原样转发，校验逻辑照常执行。"""
     tool = TodoAddTool()
-    result = tool._run(get_doc=False, content="")
+    result = await tool._arun(get_doc=False, content="")
     assert "不能为空" in result
 
 
-def test_sync_without_get_doc_forwards_to_logic() -> None:
+@pytest.mark.asyncio
+async def test_todo_add_without_get_doc_forwards_to_logic() -> None:
     """不传 get_doc（缺省 False）→ 同样转发。"""
     tool = TodoAddTool()
-    result = tool._run(content="")
+    result = await tool._arun(content="")
     assert "不能为空" in result
 
 
@@ -99,20 +102,22 @@ async def test_async_get_doc_false_forwards_to_logic() -> None:
 # ── read_image 特例（Command 工具普通返回文档）────────────
 
 
-def test_read_image_get_doc_returns_plain_string() -> None:
+@pytest.mark.asyncio
+async def test_read_image_get_doc_returns_plain_string() -> None:
     """get_doc 走普通字符串返回（不再包 Command/ToolMessage）。"""
     tool = ReadImageTool()
-    result = tool._run(get_doc=True)
+    result = await tool._arun(get_doc=True)
     assert isinstance(result, str)
     assert result == tool._load_doc()
 
 
-def test_read_image_normal_path_still_returns_command() -> None:
+@pytest.mark.asyncio
+async def test_read_image_normal_path_still_returns_command() -> None:
     """正常路径（get_doc=False）仍返回 Command 注入消息流，未受影响。"""
     from langgraph.types import Command
 
     tool = ReadImageTool()
-    result = tool._run(image_path="")
+    result = await tool._arun(image_path="")
     assert isinstance(result, Command)
     assert "不能为空" in result.update["messages"][0].content  # type: ignore[union-attr]
 

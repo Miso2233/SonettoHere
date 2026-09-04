@@ -4,21 +4,17 @@
 签名首参、``if get_doc: return self._load_doc()`` 分支）收敛到一处：
 
 - 类装饰器往工具的 ``args_schema`` 注入非必填 ``get_doc: bool = False`` 字段；
-- 按 langchain 真正的执行方法（``_run``/``_arun``，见 tools/policies.py）包一层
-  同构 wrapper：``get_doc=True`` 时短路返回 ``self._load_doc()``（TOOL.md 按目录
-  加载，返回普通字符串），否则原样转发给原方法；
+- 包一层 **async** wrapper（全工具 arun 化后执行方法恒为 ``_arun``）：
+  ``get_doc=True`` 时短路返回 ``await off_thread(self._load_doc())``（TOOL.md 按
+  目录加载、读盘离环，返回普通字符串），否则原样转发给原方法；
 - wrapper 通过 ``functools.wraps`` 保留原签名，不影响 langchain 的
   ``run_manager`` 注入与模型侧 schema（模型侧只认 args_schema）。
 
 用法：
 
     @get_doc
-    class SomeSyncTool(ToolBase):
-        ...
-
-    @get_doc
-    class SomeAsyncTool(ToolBase):
-        async def _arun(self, ...): ...
+    class SomeTool(ToolBase):
+        async def _arun(self, ...): ...   # 须覆写 async _arun（装饰器只支持异步工具）
 
 无参装饰器：字段描述统一用模块级 ``DEFAULT_DESCRIPTION``。若某工具需要更长
 引导文案，请写到同目录 TOOL.md（``get_doc=True`` 返回的内容），schema 里只放
@@ -45,6 +41,7 @@ from pydantic import Field
 
 from langchain_core.tools import BaseTool
 
+from tools.base import off_thread
 from tools.policies import enrich_tool_class
 
 DEFAULT_DESCRIPTION = "设为 true 以获取使用说明"
@@ -63,25 +60,21 @@ def get_doc(cls: ToolClass) -> ToolClass:
     """
 
     def make_wrapper(orig: Callable[..., Any]) -> Callable[..., Any]:
-        if inspect.iscoroutinefunction(orig):
-
-            @functools.wraps(orig)
-            async def async_wrapper(
-                self: Any, *args: Any, **kwargs: Any
-            ) -> Any:
-                if kwargs.pop("get_doc", False):
-                    return self._load_doc()
-                return await orig(self, *args, **kwargs)
-
-            return async_wrapper
+        # 全工具 arun 化后只存在 async 执行方法；同步方法属配置错误，导入期即报错。
+        if not inspect.iscoroutinefunction(orig):
+            raise TypeError(
+                f"@get_doc 仅支持覆写 async _arun 的工具；"
+                f"{orig.__name__} 不是协程函数"
+            )
 
         @functools.wraps(orig)
-        def sync_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
+        async def async_wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             if kwargs.pop("get_doc", False):
-                return self._load_doc()
-            return orig(self, *args, **kwargs)
+                # TOOL.md 磁盘读取离环，避免卡事件循环
+                return await off_thread(self._load_doc)
+            return await orig(self, *args, **kwargs)
 
-        return sync_wrapper
+        return async_wrapper
 
     return enrich_tool_class(
         cls,

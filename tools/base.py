@@ -1,14 +1,17 @@
 """工具（Tool）基类和共享 HTTP 客户端。"""
 
+import asyncio
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 import requests
 from langchain_core.tools import BaseTool
-from todoist_api_python.api import TodoistAPI
+from todoist_api_python.api_async import TodoistAPIAsync
 from uapi import UapiClient
 
 from config.settings import get_settings
@@ -21,7 +24,7 @@ class SharedAPIClient:
         settings = get_settings()
         self._session = requests.Session()
         self._uapi: UapiClient | None = None
-        self._todoist: TodoistAPI | None = None
+        self._todoist: TodoistAPIAsync | None = None
         self._amap_key = settings.amap_api_key
         self._uapis_key = settings.uapis_api_key
         self._todoist_token = settings.todoist_api_token
@@ -33,10 +36,20 @@ class SharedAPIClient:
         return self._uapi
 
     @property
-    def todoist(self) -> TodoistAPI:
+    def todoist(self) -> TodoistAPIAsync:
+        """惰性创建并复用唯一的 Todoist async 客户端（全 Todo 工具共享）。"""
+        if not self._todoist_token:
+            raise ValueError("未找到 Todoist API Token")
         if self._todoist is None:
-            self._todoist = TodoistAPI(self._todoist_token)
+            self._todoist = TodoistAPIAsync(self._todoist_token)
         return self._todoist
+
+    async def aclose(self) -> None:
+        """关闭共享的异步客户端与会话（进程退出 / lifespan shutdown 时调用）。"""
+        if self._todoist is not None:
+            await self._todoist.close()
+            self._todoist = None
+        self._session.close()
 
     @property
     def amap_key(self) -> str:
@@ -97,6 +110,15 @@ def format_success(data: dict) -> str:
 def format_error(message: str) -> str:
     """统一错误响应格式。"""
     return json.dumps({"success": False, "error": message}, ensure_ascii=False)
+
+
+async def off_thread(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+    """把阻塞的同步 *fn* 丢到默认线程池执行，避免卡住事件循环。
+
+    全工具 arun 化后，`_arun` 内所有会阻塞的同步体（文件 IO、同步 HTTP
+    SDK、目录扫描等）都应经此离环，绝不直接内联在协程里。
+    """
+    return await asyncio.to_thread(fn, *args, **kwargs)
 
 
 def check_sonetto_blocker(target_path: str) -> str | None:

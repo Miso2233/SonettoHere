@@ -59,6 +59,13 @@ class TarotTool(ToolBase):
         question: str = "",
         spread_type: str = "three",
     ) -> str:
+        raise NotImplementedError("tarot 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        question: str = "",
+        spread_type: str = "three",
+    ) -> str:
         if not question:
             return format_error("占卜问题不能为空")
         if spread_type not in SPREADS:

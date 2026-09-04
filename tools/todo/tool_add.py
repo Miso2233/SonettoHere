@@ -104,10 +104,13 @@ class TodoAddTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(
+    def _run(self, **kwargs: object) -> str:
+        raise NotImplementedError("todo_add 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
         self,
         content: str = "",
         description: str = "",
@@ -140,7 +143,7 @@ class TodoAddTool(ToolBase):
         except ValueError as e:
             return format_error(str(e))
 
-        project_id = self.helper.get_project_id(project_name)
+        project_id = await self.helper.get_project_id(project_name)
         if project_id is None:
             return format_error(
                 f"项目 '{project_name}' 不存在。请先调用 todo_list_projects 查看可用项目"
@@ -148,7 +151,7 @@ class TodoAddTool(ToolBase):
 
         section_id = None
         if section_name:
-            section_id = self.helper.get_section_id(section_name, project_id)
+            section_id = await self.helper.get_section_id(section_name, project_id)
             if section_id is None:
                 return format_error(
                     f"项目 '{project_name}' 下不存在分区 '{section_name}'。"
@@ -169,7 +172,7 @@ class TodoAddTool(ToolBase):
                 self.helper.parse_deadline(deadline_date) if deadline_date else None
             )
 
-            task = api.add_task(
+            task = await api.add_task(
                 content=content,
                 description=description_val,
                 project_id=project_id,
@@ -190,6 +193,6 @@ class TodoAddTool(ToolBase):
                 deadline_date=deadline_date_obj,
                 deadline_lang=deadline_lang,
             )
-            return format_success(self.helper.task_to_dict(task))
+            return format_success(await self.helper.task_to_dict(task))
         except Exception as e:
             return format_error(f"添加任务失败: {e}")

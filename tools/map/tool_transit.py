@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.get_doc import get_doc
 from tools.map.map_api import parse_transit_response
 
@@ -25,7 +25,10 @@ class TransitRouteTool(ToolBase):
     )
     args_schema: type[BaseModel] = TransitRouteInput
 
-    def _run(
+    def _run(self, **kwargs: object) -> str:
+        raise NotImplementedError("get_transit_route 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
         self,
         origin_longitude: str = "",
         origin_latitude: str = "",
@@ -45,7 +48,8 @@ class TransitRouteTool(ToolBase):
             return format_error("起点和终点经纬度不能为空")
 
         try:
-            data = self.client.amap_request(
+            data = await off_thread(
+                self.client.amap_request,
                 "/v3/direction/transit/integrated",
                 {
                     "origin": f"{origin_longitude},{origin_latitude}",

@@ -3,7 +3,7 @@
 from typing import Any
 
 from pydantic import BaseModel, Field
-from tavily import TavilyClient
+from tavily import AsyncTavilyClient
 
 from tools.base import ToolBase, format_success, format_error
 from tools.background import background
@@ -45,20 +45,23 @@ class TavilyExtractTool(ToolBase):
     )
     args_schema: type[BaseModel] = TavilyExtractInput
 
-    _tavily: TavilyClient | None = None
+    _tavily: AsyncTavilyClient | None = None
 
     @property
-    def _tavily_client(self) -> TavilyClient:
+    def _tavily_client(self) -> AsyncTavilyClient:
         if self._tavily is None:
             from config.settings import get_settings
 
             key = get_settings().tavily_api_key
             if not key:
                 raise ValueError("TAVILY_API_KEY 未配置，请在 .env 中设置")
-            self._tavily = TavilyClient(api_key=key)
+            self._tavily = AsyncTavilyClient(api_key=key)
         return self._tavily
 
     def _run(self, **kwargs: Any) -> str:
+        raise NotImplementedError("tavily_extract 仅支持异步模式，请使用 _arun")
+
+    async def _arun(self, **kwargs: Any) -> str:
         try:
             urls = kwargs.get("urls", [])
             if not urls:
@@ -78,7 +81,7 @@ class TavilyExtractTool(ToolBase):
             if chunks_per_source is not None:
                 params["chunks_per_source"] = chunks_per_source
 
-            result = self._tavily_client.extract(**params)
+            result = await self._tavily_client.extract(**params)
 
             # Tavily extract 返回格式:
             # { results: [{ url, title, raw_content, images }], failed_results, response_time }

@@ -74,14 +74,14 @@ def _setup_session() -> str:
 
 def test_schema_field_injected() -> None:
     """装饰后 args_schema 注入 background 字段（默认 False），未装饰工具不受影响。"""
-    from tools.policies import current_input
+    from tools.policies import get_args_schema
 
     decorated = background(ProbeTool)
-    # pydantic 2.13 下类级字段经 model_fields 读取（与 policies.current_input 一致）
-    assert "background" in current_input(decorated).model_fields
-    assert current_input(decorated).model_fields["background"].default is False
+    # pydantic 2.13 下类级字段经 model_fields 读取（与 policies.get_args_schema 一致）
+    assert "background" in get_args_schema(decorated).model_fields
+    assert get_args_schema(decorated).model_fields["background"].default is False
     # 原类不被原地修改（enrich_tool_class 返回新子类）
-    assert "background" not in current_input(ProbeTool).model_fields
+    assert "background" not in get_args_schema(ProbeTool).model_fields
 
 
 # ── 直通路径 ────────────────────────────────────────────────
@@ -215,11 +215,11 @@ async def test_get_doc_stacks_outer(monkeypatch: pytest.MonkeyPatch) -> None:
     sid = _setup_session()
     try:
         from tools.get_doc import get_doc
-        from tools.policies import current_input
+        from tools.policies import get_args_schema
 
         stacked = get_doc(background(ProbeTool))
-        assert "background" in current_input(stacked).model_fields
-        assert "get_doc" in current_input(stacked).model_fields
+        assert "background" in get_args_schema(stacked).model_fields
+        assert "get_doc" in get_args_schema(stacked).model_fields
 
         tool = stacked()
         doc = await tool.arun({"get_doc": True})

@@ -5,7 +5,13 @@ import shutil
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 from tools.confirm import confirm_execution
 
 
@@ -31,7 +37,11 @@ class FileDeleteTool(ToolBase):
         raise NotImplementedError("file_delete 仅支持异步模式，请使用 _arun")
 
     async def _arun(self, file_path: str = "") -> str:
-        """用户确认放行后：校验并删除文件或目录。"""
+        """用户确认放行后：离环执行校验与删除。"""
+        return await off_thread(self._run_impl, file_path)
+
+    def _run_impl(self, file_path: str = "") -> str:
+        """校验并删除文件或目录。"""
         if not file_path:
             return format_error("删除需要提供 file_path")
         if not os.path.exists(file_path):

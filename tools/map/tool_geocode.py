@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.get_doc import get_doc
 
 
@@ -23,11 +23,15 @@ class GeocodeTool(ToolBase):
     args_schema: type[BaseModel] = GeocodeInput
 
     def _run(self, address: str = "") -> str:
+        raise NotImplementedError("geocode_address 仅支持异步模式，请使用 _arun")
+
+    async def _arun(self, address: str = "") -> str:
         if not address:
             return format_error("address 不能为空")
 
         try:
-            data = self.client.amap_request(
+            data = await off_thread(
+                self.client.amap_request,
                 "/v3/geocode/geo",
                 {"address": address, "output": "json"},
             )

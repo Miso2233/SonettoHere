@@ -10,7 +10,13 @@ from pydantic import BaseModel, Field
 from zai import ZhipuAiClient
 
 from config.settings import get_settings
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 from tools.background import background
 from tools.get_doc import get_doc
 
@@ -75,7 +81,10 @@ class ImageUnderstandTool(ToolBase):
     )
     args_schema: type[BaseModel] = ImageUnderstandInput
 
-    def _run(
+    def _run(self, **kwargs: object) -> str:
+        raise NotImplementedError("analyze_image 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
         self,
         image_source: str = "",
         prompt: str = "请描述这张图片",
@@ -87,11 +96,12 @@ class ImageUnderstandTool(ToolBase):
         client = ZhipuAiClient(api_key=settings.zhipuai_api_key)
 
         try:
-            image_bytes, mime = _load_image_bytes(image_source)
+            image_bytes, mime = await off_thread(_load_image_bytes, image_source)
             image_b64 = base64.b64encode(image_bytes).decode("utf-8")
             data_url = f"data:{mime};base64,{image_b64}"
 
-            response = client.chat.completions.create(
+            response = await off_thread(
+                client.chat.completions.create,
                 model=MODEL,
                 messages=[
                     {

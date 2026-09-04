@@ -6,7 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.background import background
 from tools.get_doc import get_doc
 
@@ -163,8 +163,22 @@ class WeatherTool(ToolBase):
         indices: bool = False,
         lang: str = "zh",
     ) -> str:
+        raise NotImplementedError("weather 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        city: str = "",
+        adcode: str = "",
+        extended: bool = False,
+        forecast: bool = False,
+        hourly: bool = False,
+        minutely: bool = False,
+        indices: bool = False,
+        lang: str = "zh",
+    ) -> str:
         try:
-            result = self.client.uapi.misc.get_misc_weather(
+            result = await off_thread(
+                self.client.uapi.misc.get_misc_weather,
                 city=city,
                 adcode=adcode,
                 extended=extended,

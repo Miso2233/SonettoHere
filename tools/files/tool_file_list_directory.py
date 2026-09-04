@@ -4,7 +4,13 @@ import os
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 
 
 class FileListDirectoryInput(BaseModel):
@@ -22,6 +28,12 @@ class FileListDirectoryTool(ToolBase):
     args_schema: type[BaseModel] = FileListDirectoryInput
 
     def _run(self, directory_path: str = "") -> str:
+        raise NotImplementedError("file_list_directory 仅支持异步模式，请使用 _arun")
+
+    async def _arun(self, directory_path: str = "") -> str:
+        return await off_thread(self._run_impl, directory_path)
+
+    def _run_impl(self, directory_path: str = "") -> str:
         if not directory_path:
             directory_path = "."
         if not os.path.exists(directory_path):

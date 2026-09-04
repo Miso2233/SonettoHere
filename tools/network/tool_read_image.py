@@ -14,7 +14,13 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 from typing_extensions import Annotated
 
-from tools.base import ToolBase, check_path_access, format_error, format_success
+from tools.base import (
+    ToolBase,
+    check_path_access,
+    format_error,
+    format_success,
+    off_thread,
+)
 from tools.get_doc import get_doc
 
 
@@ -40,6 +46,20 @@ class ReadImageTool(ToolBase):
     args_schema: type[BaseModel] = ReadImageInput
 
     def _run(
+        self,
+        image_path: str = "",
+        tool_call_id: str = "",
+    ) -> Command:
+        raise NotImplementedError("read_image 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        image_path: str = "",
+        tool_call_id: str = "",
+    ) -> Command:
+        return await off_thread(self._run_impl, image_path, tool_call_id)
+
+    def _run_impl(
         self,
         image_path: str = "",
         tool_call_id: str = "",

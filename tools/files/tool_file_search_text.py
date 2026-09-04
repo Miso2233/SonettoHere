@@ -12,6 +12,7 @@ from tools.base import (
     check_sonetto_blocker,
     format_error,
     format_success,
+    off_thread,
 )
 from tools.background import background
 
@@ -32,6 +33,22 @@ class FileSearchTextTool(ToolBase):
     args_schema: type[BaseModel] = FileSearchTextInput
 
     def _run(
+        self,
+        file_path: str = "",
+        pattern: str = "",
+        case_insensitive: bool = False,
+    ) -> str:
+        raise NotImplementedError("file_search_text 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        file_path: str = "",
+        pattern: str = "",
+        case_insensitive: bool = False,
+    ) -> str:
+        return await off_thread(self._run_impl, file_path, pattern, case_insensitive)
+
+    def _run_impl(
         self,
         file_path: str = "",
         pattern: str = "",

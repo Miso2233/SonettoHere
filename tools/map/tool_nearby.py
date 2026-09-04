@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, Field
 
-from tools.base import ToolBase, format_error, format_success
+from tools.base import ToolBase, format_error, format_success, off_thread
 from tools.get_doc import get_doc
 from tools.map.map_api import parse_poi_response
 
@@ -36,6 +36,18 @@ class NearbySearchTool(ToolBase):
         offset: int = 20,
         page: int = 1,
     ) -> str:
+        raise NotImplementedError("nearby_search 仅支持异步模式，请使用 _arun")
+
+    async def _arun(
+        self,
+        location: str = "",
+        keywords: str | None = None,
+        types: str | None = None,
+        radius: int = 1000,
+        sortrule: int = 1,
+        offset: int = 20,
+        page: int = 1,
+    ) -> str:
         if not location:
             return format_error("location 不能为空")
         if not keywords and not types:
@@ -56,7 +68,7 @@ class NearbySearchTool(ToolBase):
             if types:
                 params["types"] = types
 
-            data = self.client.amap_request("/v3/place/around", params)
+            data = await off_thread(self.client.amap_request, "/v3/place/around", params)
             result = parse_poi_response(data)
 
             if result["status"] == "1":

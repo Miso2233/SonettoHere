@@ -22,10 +22,13 @@ class TodoCompleteTool(ToolBase):
     @property
     def helper(self) -> TodoAPIHelper:
         if self._helper is None:
-            self._helper = TodoAPIHelper(self.client._todoist_token)
+            self._helper = TodoAPIHelper(self.client)
         return self._helper
 
     def _run(self, task_id: str = "") -> str:
+        raise NotImplementedError("todo_complete 仅支持异步模式，请使用 _arun")
+
+    async def _arun(self, task_id: str = "") -> str:
         if not task_id:
             return format_error("task_id 不能为空")
 
@@ -35,8 +38,8 @@ class TodoCompleteTool(ToolBase):
             return format_error(str(e))
 
         try:
-            current_task = api.get_task(task_id)
-            ok = api.complete_task(task_id)
+            current_task = await api.get_task(task_id)
+            ok = await api.complete_task(task_id)
             if ok:
                 return format_success(
                     {
