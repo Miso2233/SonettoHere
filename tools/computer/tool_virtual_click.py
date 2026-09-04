@@ -1,12 +1,11 @@
-"""Tool: computer_real_click — 真实点击：对系统执行一次物理左键点击。
+"""Tool: computer_virtual_click — 虚拟点击：在指定画布坐标标注一次「拟点击」。
 
-与 computer_click（虚拟点击，仅标注不做操作）是**两个不同工具**。本工具会真实
-移动系统光标并在指定坐标按下左键，点击结束后等待 0.1s 再截取**未标注**的屏幕
-画面，注入 LLM 上下文并落盘到工程内 git 不跟踪的临时目录 ——
-返回值字段集合与虚拟点击完全一致（仅 action 取值不同、画面不带标记）。
+与 computer_click（真实点击）是**两个不同工具**。本工具（computer_virtual_click）
+**不会**移动真实鼠标、**不会**触发任何系统点击：它截取当前屏幕，在传入的
+画布坐标处画上红色标记，把带标注画面注入 LLM 上下文并落盘到工程内 git 不跟踪
+的临时目录，用于无副作用地模拟/核对一次点击落点。
 """
 
-import time
 from typing import Annotated
 
 from langchain_core.messages import HumanMessage, ToolMessage
@@ -19,12 +18,12 @@ from tools.computer import _screen as screen
 from tools.get_doc import get_doc
 
 
-class RealClickInput(BaseModel):
+class VirtualClickInput(BaseModel):
     x: int = Field(
         ge=0,
         le=screen.CANVAS_WIDTH,
         description=(
-            f"点击目标的 X 坐标（整数，0..{screen.CANVAS_WIDTH}，"
+            f"拟点击的 X 坐标（整数，0..{screen.CANVAS_WIDTH}，"
             "基于最近一张截图画布推算）"
         ),
     )
@@ -32,7 +31,7 @@ class RealClickInput(BaseModel):
         ge=0,
         le=screen.CANVAS_HEIGHT,
         description=(
-            f"点击目标的 Y 坐标（整数，0..{screen.CANVAS_HEIGHT}，"
+            f"拟点击的 Y 坐标（整数，0..{screen.CANVAS_HEIGHT}，"
             "基于最近一张截图画布推算）"
         ),
     )
@@ -52,21 +51,21 @@ def _error_command(tool_call_id: str, message: str) -> Command:
 
 
 @get_doc
-class RealClickTool(ToolBase):
-    name: str = "computer_real_click"
+class VirtualClickTool(ToolBase):
+    name: str = "computer_virtual_click"
     description: str = (
-        "真实点击：在最近一张截图对应的位置，对真实系统执行一次**物理左键点击**"
-        "（会真实移动鼠标光标并按下左键，触发应用的真实行为）。"
+        "虚拟点击：在最近一张截图对应的画布坐标上标注一次「拟点击」，只做标记、"
+        "**不执行任何真实鼠标操作**（不移动光标、不触发系统点击）。"
         "坐标必须是基于 1920x1080 逻辑画布输出的整数（x: 0..1920，y: 0..1080，"
-        "原点在画布左上角），后端会线性映射回真实像素并执行。点击结束后等待 0.1s "
-        "再截取点击后的屏幕（**不叠加标记**），把画面注入上下文供确认，同时把该截图"
-        "保存到工程 .computer_use/ 目录（返回 saved_file）。返回值字段集合与 "
-        "computer_click（虚拟点击，仅标注不做操作）完全一致，仅 action 取值不同。"
-        "如需先无副作用地核对落点是否命中，应先用 computer_click 标注试算。"
-        "[调用积极性: 用户明确要求/确认后需要在系统里真实按下某个按钮、图标、菜单项时"
-        "才使用；坐标不确定时先用 computer_screenshot / computer_click 确认。]"
+        "原点在画布左上角）；后端会算出该点对应的真实屏幕像素一并回显。"
+        "执行后截取当前屏幕，在标注处画上红色标记，把画面注入上下文供确认，"
+        "同时把带标记截图保存到工程 .computer_use/ 目录（返回 saved_file）。"
+        "它用于无副作用地模拟/核对一次点击落点；真正执行系统点击用 computer_click，"
+        "本工具不负责。"
+        "[调用积极性: 需要先确认某坐标是否命中目标控件、或在画面上标记一个目标点，"
+        "避免误触发真实操作时使用。]"
     )
-    args_schema: type[BaseModel] = RealClickInput
+    args_schema: type[BaseModel] = VirtualClickInput
 
     async def _arun(self, x: int = 0, y: int = 0, tool_call_id: str = "") -> Command:
         return await off_thread(self._run_impl, x, y, tool_call_id)
@@ -78,33 +77,24 @@ class RealClickTool(ToolBase):
                 f"坐标越界：x/y 必须在 0..{screen.CANVAS_WIDTH} / 0..{screen.CANVAS_HEIGHT} 之间",
             )
 
+        # 仅截屏 + 标注，全程不触碰真实鼠标 / 系统点击
         try:
             width, height = screen.logical_screen_size()
             native_x, native_y = screen.canvas_to_screen(x, y, width, height)
-            screen.real_click_at(native_x, native_y)
+            canvas = screen.to_canvas_image(screen.capture_screen())
         except screen.ScreenError as exc:
             return _error_command(tool_call_id, str(exc))
 
-        # 点击结束后等待 0.1s，再截取点击后的屏幕（不叠加标记）
-        time.sleep(0.1)
-
-        try:
-            canvas = screen.to_canvas_image(screen.capture_screen())
-        except screen.ScreenError as exc:
-            return _error_command(
-                tool_call_id,
-                f"点击已执行，但回读屏幕截图失败：{exc}",
-            )
-
+        screen.draw_click_marker(canvas, x, y)
         data_url, png_bytes = screen.image_to_data_url(canvas)
 
         message = (
-            f"已执行一次真实左键点击：画布坐标 ({x}, {y})"
-            f"（对应真实像素 {native_x}, {native_y}）。"
+            f"已记录一次虚拟点击：画布坐标 ({x}, {y})"
+            f"（对应真实像素 {native_x}, {native_y}）。未执行任何真实鼠标操作。"
         )
         saved_file = ""
         try:
-            filename = screen.new_filename("computer_real_click")
+            filename = screen.new_filename("computer_virtual_click")
             saved_file = str(screen.save_tmp_image(canvas, filename))
         except OSError as exc:
             message += f" 标注截图保存失败：{exc}"
@@ -114,7 +104,7 @@ class RealClickTool(ToolBase):
                 "messages": [
                     ToolMessage(
                         content=format_success({
-                            "action": "real_click",
+                            "action": "virtual_click",
                             "message": message,
                             "click_canvas": {"x": x, "y": y},
                             "click_screen": {"x": native_x, "y": native_y},
@@ -128,8 +118,8 @@ class RealClickTool(ToolBase):
                         {
                             "type": "text",
                             "text": (
-                                f"已完成一次真实左键点击（画布坐标 {x}, {y}）。"
-                                "以下为点击后的屏幕（未标注，供观察实际效果）："
+                                f"完成一次虚拟点击标注（画布坐标 {x}, {y}）。"
+                                "红圈即拟点击位置；本次未执行真实鼠标操作："
                             ),
                         },
                         {

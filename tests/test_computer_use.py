@@ -1,7 +1,7 @@
 """computer use 系列：共享能力纯函数 + 两个工具流程的单测。
 
 不在测试中真截屏 / 真移动鼠标 —— 屏幕相关入口一律 monkeypatch；
-computer_click 是「虚拟点击」，须保证全程不触碰真实鼠标/系统点击。
+computer_virtual_click 是「虚拟点击」，须保证全程不触碰真实鼠标/系统点击。
 """
 
 import base64
@@ -12,9 +12,9 @@ from langchain_core.messages import ToolMessage
 from PIL import Image
 
 from tools.computer import _screen as screen
-from tools.computer.tool_click import ComputerClickTool
-from tools.computer.tool_real_click import RealClickTool
+from tools.computer.tool_click import ClickTool
 from tools.computer.tool_screenshot import ScreenshotTool
+from tools.computer.tool_virtual_click import VirtualClickTool
 
 # ── 共享能力：纯函数 ─────────────────────────────────────────
 
@@ -112,7 +112,7 @@ def test_screenshot_tool_returns_error_when_capture_fails(monkeypatch) -> None:
     assert "no display" in parsed["error"]
 
 
-# ── ComputerClickTool（虚拟点击，不得有任何真实动作）───────────
+# ── VirtualClickTool（虚拟点击，不得有任何真实动作）───────────
 
 
 def _forbid_pyautogui(*_args, **_kwargs):
@@ -127,11 +127,13 @@ def test_virtual_click_annotates_without_physical_action(monkeypatch, tmp_path) 
     monkeypatch.setattr(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
-    monkeypatch.setattr(screen, "new_filename", lambda _p: "computer_click_ts.png")
-    saved = (tmp_path / "computer_click_ts.png").resolve()
+    monkeypatch.setattr(
+        screen, "new_filename", lambda _p: "computer_virtual_click_ts.png"
+    )
+    saved = (tmp_path / "computer_virtual_click_ts.png").resolve()
     monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
 
-    command = ComputerClickTool()._run_impl(x=960, y=800, tool_call_id="call-2")
+    command = VirtualClickTool()._run_impl(x=960, y=800, tool_call_id="call-2")
 
     tool_msg = _command_tool_message(command)
     data = json.loads(tool_msg.content)
@@ -154,14 +156,14 @@ def test_virtual_click_rejects_out_of_canvas(monkeypatch) -> None:
     monkeypatch.setattr(screen, "_pyautogui", _forbid_pyautogui)
     monkeypatch.setattr(screen, "real_click_at", _forbid_pyautogui)
 
-    command = ComputerClickTool()._run_impl(x=5000, y=10, tool_call_id="call-3")
+    command = VirtualClickTool()._run_impl(x=5000, y=10, tool_call_id="call-3")
     tool_msg = _command_tool_message(command)
     parsed = json.loads(tool_msg.content)
     assert parsed["success"] is False
     assert "越界" in parsed["error"]
 
 
-# ── RealClickTool（真实点击：会真正调用 real_click_at）────────
+# ── ClickTool（真实点击：会真正调用 real_click_at）────────
 
 
 def test_real_click_performs_click_and_returns_plain_screenshot(
@@ -177,12 +179,12 @@ def test_real_click_performs_click_and_returns_plain_screenshot(
         screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
     )
     monkeypatch.setattr(
-        screen, "new_filename", lambda _p: "computer_real_click_ts.png"
+        screen, "new_filename", lambda _p: "computer_click_ts.png"
     )
-    saved = (tmp_path / "computer_real_click_ts.png").resolve()
+    saved = (tmp_path / "computer_click_ts.png").resolve()
     monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
 
-    command = RealClickTool()._run_impl(x=960, y=800, tool_call_id="call-4")
+    command = ClickTool()._run_impl(x=960, y=800, tool_call_id="call-4")
 
     # 真实点击确实落到了映射后的真实像素
     assert clicks == [(1280, 1185)]
@@ -218,12 +220,12 @@ def test_virtual_and_real_click_share_return_shape(monkeypatch, tmp_path) -> Non
 
     virt_data = json.loads(
         _command_tool_message(
-            ComputerClickTool()._run_impl(x=10, y=10, tool_call_id="a")
+            VirtualClickTool()._run_impl(x=10, y=10, tool_call_id="a")
         ).content
     )["data"]
     real_data = json.loads(
         _command_tool_message(
-            RealClickTool()._run_impl(x=10, y=10, tool_call_id="b")
+            ClickTool()._run_impl(x=10, y=10, tool_call_id="b")
         ).content
     )["data"]
 

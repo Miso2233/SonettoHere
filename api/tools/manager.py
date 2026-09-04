@@ -47,7 +47,7 @@ class ToolManager:
     # 模型不具备多模态视觉时一律过滤（改用外部分析工具 analyze_image 兜底）。
     _VISION_TOOL_NAMES = frozenset({
         "read_image", "computer_screenshot", "computer_click",
-        "computer_real_click",
+        "computer_virtual_click",
     })
 
     def get_all(self, multimodal: bool = False) -> list[BaseTool]:
@@ -56,7 +56,7 @@ class ToolManager:
         Args:
             multimodal: 当前 LLM 是否支持多模态。
                         True → 保留识图工具（read_image / computer_screenshot /
-                               computer_click / computer_real_click），
+                               computer_click / computer_virtual_click），
                                过滤 analyze_image；
                         False → 保留 analyze_image，过滤全部识图工具。
         """
