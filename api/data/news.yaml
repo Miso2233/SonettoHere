@@ -1,4 +1,12 @@
 news:
+  - id: "computer-use-tools"
+    title: "新增电脑屏幕操作工具"
+    description: "新增 computer-use 屏幕操作系列：截屏、真实/虚拟点击（左中右键、单击/双击/三击）、中文文本输入、快捷键、滚动与等待。识图模式下 AI 能直接看到屏幕并操控图形界面——打开应用、点按钮、填表单、翻页滚动，均可按图执行。"
+    type: "feat"
+    date: "2026-09-04"
+    tags: ["屏幕操作", "Computer Use", "GUI 操控"]
+    version: ""
+    pr_number: 303
   - id: "background-tools"
     title: "工具可后台运行，Agent 并行推进"
     description: "长耗时工具（网络搜索、文件搜索、Python 执行、图片理解、子 Agent）现支持后台运行：调用立即返回任务索引，顶栏跟踪器显示后台任务进度，Agent 可继续其他工作并用 await_background 取回结果，结果气泡完整还原工具输出。另有独立的 Sub-Agent 黑白风格结果气泡与节假日气泡重设计。"
