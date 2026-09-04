@@ -54,6 +54,7 @@ def get_all_tools() -> list[BaseTool]:
     # Computer（屏幕操作，仅多模态识图模式交付给 LLM）
     from tools.computer.tool_screenshot import ScreenshotTool
     from tools.computer.tool_click import ComputerClickTool
+    from tools.computer.tool_real_click import RealClickTool
 
     # Files
     from tools.files.tool_file_read import FileReadTool
@@ -112,6 +113,7 @@ def get_all_tools() -> list[BaseTool]:
         # Computer
         ScreenshotTool(client=client),
         ComputerClickTool(client=client),
+        RealClickTool(client=client),
         # Files
         FileReadTool(client=client),
         FileWriteTool(client=client),

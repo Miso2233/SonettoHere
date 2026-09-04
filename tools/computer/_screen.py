@@ -1,11 +1,11 @@
 """Computer-use 底层能力：屏幕捕获、逻辑画布映射、标注与临时落盘。
 
 与 read_image 同思路 —— 把"当前屏幕"以 base64 图片流注入 LLM 上下文；
-区别仅是图片来源从本地文件换成实时截屏。本模块**不执行任何真实鼠标动作**
-（不移动光标、不触发系统点击）；仅负责截屏 / 画布坐标映射 / 画标注 / 落盘等
-无副作用能力，由 ``computer_screenshot``（纯截屏）与 ``computer_click``
-（虚拟点击：仅标注指定坐标，不做真实操作）两个工具组装使用。
-真实物理点击属于独立的另一工具，不在本模块范围内。
+区别仅是图片来源从本地文件换成实时截屏。截屏 / 画布坐标映射 / 画标注 / 落盘
+均为无副作用能力；唯一会产生真实系统动作的是 ``real_click_at``（移动光标并
+点击），它**仅供**独立的「真实点击」工具（``computer_real_click``）调用 ——
+纯截屏（``computer_screenshot``）与虚拟点击（``computer_click``，仅标注坐标、
+不做真实操作）绝不触碰它。
 
 坐标约定
 --------
@@ -77,6 +77,20 @@ def logical_screen_size() -> tuple[int, int]:
     except Exception as exc:
         raise ScreenError(f"读取屏幕尺寸失败：{exc}") from exc
     return int(width), int(height)
+
+
+def real_click_at(x: int, y: int) -> None:
+    """在真实屏幕像素 (x, y) 处执行一次真实左键点击（移动光标并按下）。
+
+    仅供独立的「真实点击」工具（``computer_real_click``）调用；虚拟点击
+    （``computer_click``）绝不调用本函数，以保持其零副作用语义。
+    """
+    pg = _pyautogui()
+    try:
+        pg.moveTo(x, y, duration=0.15)
+        pg.click()
+    except Exception as exc:
+        raise ScreenError(f"真实点击 ({x}, {y}) 失败：{exc}") from exc
 
 
 def to_canvas_image(img: Image.Image) -> Image.Image:
