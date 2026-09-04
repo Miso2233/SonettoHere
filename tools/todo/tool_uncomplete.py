@@ -25,9 +25,6 @@ class TodoUncompleteTool(ToolBase):
             self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self, task_id: str = "") -> str:
-        raise NotImplementedError("todo_uncomplete 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, task_id: str = "") -> str:
         if not task_id:
             return format_error("task_id 不能为空")

@@ -38,9 +38,6 @@ class HolidayCalendarTool(ToolBase):
     )
     args_schema: type[BaseModel] = HolidayCalendarInput
 
-    def _run(self, **kwargs: object) -> str:
-        raise NotImplementedError("holiday_calendar 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         date: str = "",

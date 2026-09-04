@@ -21,9 +21,6 @@ class AskUserQATool(ToolBase):
     )
     args_schema: type[BaseModel] = AskUserQAInput
 
-    def _run(self, question: str = "") -> str:
-        raise NotImplementedError("ask_user_qa 仅支持异步模式")
-
     async def _arun(self, question: str = "") -> str:
         if not question:
             return format_error("question 不能为空")

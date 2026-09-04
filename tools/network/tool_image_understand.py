@@ -81,9 +81,6 @@ class ImageUnderstandTool(ToolBase):
     )
     args_schema: type[BaseModel] = ImageUnderstandInput
 
-    def _run(self, **kwargs: object) -> str:
-        raise NotImplementedError("analyze_image 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         image_source: str = "",

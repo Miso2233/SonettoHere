@@ -58,9 +58,6 @@ class TavilyExtractTool(ToolBase):
             self._tavily = AsyncTavilyClient(api_key=key)
         return self._tavily
 
-    def _run(self, **kwargs: Any) -> str:
-        raise NotImplementedError("tavily_extract 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, **kwargs: Any) -> str:
         try:
             urls = kwargs.get("urls", [])

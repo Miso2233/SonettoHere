@@ -68,9 +68,6 @@ class TavilySearchTool(ToolBase):
             self._tavily = AsyncTavilyClient(api_key=key)
         return self._tavily
 
-    def _run(self, **kwargs: Any) -> str:
-        raise NotImplementedError("tavily_search 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, **kwargs: Any) -> str:
         try:
             query = kwargs.get("query", "")

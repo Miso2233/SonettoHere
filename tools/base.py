@@ -5,7 +5,7 @@ import json
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, final
 
 import yaml
 
@@ -70,6 +70,16 @@ class ToolBase(BaseTool):
     """所有 Tool 的基类。提供 get_doc 通用实现和统一错误格式。"""
 
     client: SharedAPIClient | None = None
+
+    @final
+    def _run(self, *args: object, **kwargs: object) -> str:
+        """统一占位，满足 ``BaseTool._run`` 抽象；子类一律不覆写。
+
+        全工具统一为异步执行后，langchain 只走 ``_arun``（同步入口 ``run`` /
+        直接 ``_run`` 不被生产调用）。若真有同步路径误入，在此显式失败并提示走
+        ``_arun``。标记 ``@final`` 让类型检查器禁止子类再覆写 ``_run``。
+        """
+        raise NotImplementedError("仅支持异步模式：请覆写 async _arun 并经 arun() 调用")
 
     def _load_doc(self) -> str:
         """读取同目录下的 TOOL.md，作为领域知识返回给 LLM。"""

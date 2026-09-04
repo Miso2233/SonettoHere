@@ -56,9 +56,6 @@ class TodoListTool(ToolBase):
             self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self, **kwargs: object) -> str:
-        raise NotImplementedError("todo_list 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         project_name: str | None = None,

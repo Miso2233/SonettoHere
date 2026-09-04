@@ -32,14 +32,6 @@ class FileSearchTextTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileSearchTextInput
 
-    def _run(
-        self,
-        file_path: str = "",
-        pattern: str = "",
-        case_insensitive: bool = False,
-    ) -> str:
-        raise NotImplementedError("file_search_text 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         file_path: str = "",

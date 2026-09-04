@@ -25,9 +25,6 @@ class FuzzyAddressTool(ToolBase):
     )
     args_schema: type[BaseModel] = FuzzyAddressInput
 
-    def _run(self, **kwargs: object) -> str:
-        raise NotImplementedError("fuzzy_address_search 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         keywords: str = "",

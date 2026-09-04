@@ -23,9 +23,6 @@ class CyclingRouteTool(ToolBase):
     )
     args_schema: type[BaseModel] = CyclingRouteInput
 
-    def _run(self, **kwargs: object) -> str:
-        raise NotImplementedError("get_cycling_route 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         origin_longitude: str = "",

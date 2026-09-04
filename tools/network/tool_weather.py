@@ -152,19 +152,6 @@ class WeatherTool(ToolBase):
     )
     args_schema: type[BaseModel] = WeatherInput
 
-    def _run(
-        self,
-        city: str = "",
-        adcode: str = "",
-        extended: bool = False,
-        forecast: bool = False,
-        hourly: bool = False,
-        minutely: bool = False,
-        indices: bool = False,
-        lang: str = "zh",
-    ) -> str:
-        raise NotImplementedError("weather 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         city: str = "",

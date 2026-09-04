@@ -22,9 +22,6 @@ class GeocodeTool(ToolBase):
     )
     args_schema: type[BaseModel] = GeocodeInput
 
-    def _run(self, address: str = "") -> str:
-        raise NotImplementedError("geocode_address 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, address: str = "") -> str:
         if not address:
             return format_error("address 不能为空")

@@ -27,9 +27,6 @@ class FileListDirectoryTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileListDirectoryInput
 
-    def _run(self, directory_path: str = "") -> str:
-        raise NotImplementedError("file_list_directory 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, directory_path: str = "") -> str:
         return await off_thread(self._run_impl, directory_path)
 

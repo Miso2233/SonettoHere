@@ -26,18 +26,6 @@ class NearbySearchTool(ToolBase):
     )
     args_schema: type[BaseModel] = NearbySearchInput
 
-    def _run(
-        self,
-        location: str = "",
-        keywords: str | None = None,
-        types: str | None = None,
-        radius: int = 1000,
-        sortrule: int = 1,
-        offset: int = 20,
-        page: int = 1,
-    ) -> str:
-        raise NotImplementedError("nearby_search 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         location: str = "",

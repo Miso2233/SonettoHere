@@ -54,13 +54,6 @@ class TarotTool(ToolBase):
     )
     args_schema: type[BaseModel] = TarotInput
 
-    def _run(
-        self,
-        question: str = "",
-        spread_type: str = "three",
-    ) -> str:
-        raise NotImplementedError("tarot 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         question: str = "",

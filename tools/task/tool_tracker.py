@@ -30,12 +30,6 @@ class TaskTrackerTool(ToolBase):
     )
     args_schema: type[BaseModel] = TaskTrackerInput
 
-    def _run(
-        self,
-        todos: list[TodoItem] | None = None,
-    ) -> str:
-        raise NotImplementedError("task_tracker 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         todos: list[TodoItem] | None = None,

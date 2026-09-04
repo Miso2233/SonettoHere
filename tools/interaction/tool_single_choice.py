@@ -25,13 +25,6 @@ class AskUserSingleChoiceTool(ToolBase):
     )
     args_schema: type[BaseModel] = AskUserSingleChoiceInput
 
-    def _run(
-        self,
-        question: str = "",
-        options: list[str] | None = None,
-    ) -> str:
-        raise NotImplementedError("ask_user_single_choice 仅支持异步模式")
-
     async def _arun(
         self,
         question: str = "",

@@ -49,9 +49,6 @@ class CallSubAgentTool(ToolBase):
     )
     args_schema: type[BaseModel] = CallSubAgentInput
 
-    def _run(self, get_doc: bool = False, task: str = "", name: str = "") -> str:
-        raise NotImplementedError("call_sub_agent 仅支持异步模式")
-
     async def _arun(self, task: str = "", name: str = "") -> str:
         if not task.strip():
             return format_error("task 不能为空")

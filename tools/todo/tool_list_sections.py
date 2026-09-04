@@ -32,9 +32,6 @@ class TodoListSectionsTool(ToolBase):
             self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self, project_name: str | None = None) -> str:
-        raise NotImplementedError("todo_list_sections 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, project_name: str | None = None) -> str:
         if project_name:
             pid = await self.helper.get_project_id(project_name)

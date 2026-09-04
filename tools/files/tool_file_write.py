@@ -33,9 +33,6 @@ class FileWriteTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileWriteInput
 
-    def _run(self, file_path: str = "", content: str = "") -> str:
-        raise NotImplementedError("file_write 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, file_path: str = "", content: str = "") -> str:
         """用户确认放行后：离环执行校验与写入。"""
         return await off_thread(self._run_impl, file_path, content)

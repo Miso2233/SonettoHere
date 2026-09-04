@@ -32,9 +32,6 @@ class FileCreateDirectoryTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileCreateDirectoryInput
 
-    def _run(self, directory_path: str = "") -> str:
-        raise NotImplementedError("file_create_directory 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, directory_path: str = "") -> str:
         """用户确认放行后：离环执行校验与创建目录。"""
         return await off_thread(self._run_impl, directory_path)

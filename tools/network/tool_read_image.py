@@ -45,13 +45,6 @@ class ReadImageTool(ToolBase):
     )
     args_schema: type[BaseModel] = ReadImageInput
 
-    def _run(
-        self,
-        image_path: str = "",
-        tool_call_id: str = "",
-    ) -> Command:
-        raise NotImplementedError("read_image 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         image_path: str = "",

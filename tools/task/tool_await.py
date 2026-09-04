@@ -37,9 +37,6 @@ class AwaitBackgroundTool(ToolBase):
     )
     args_schema: type[BaseModel] = AwaitBackgroundInput
 
-    def _run(self, index: int = 1, timeout_seconds: int = 180) -> str:
-        raise NotImplementedError("await_background 仅支持异步模式，请使用 _arun")
-
     async def _arun(self, index: int, timeout_seconds: int = 180) -> str:
         """等待后台任务并返回其真实输出。
 

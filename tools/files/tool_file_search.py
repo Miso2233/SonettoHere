@@ -37,16 +37,6 @@ class FileSearchTool(ToolBase):
     )
     args_schema: type[BaseModel] = FileSearchInput
 
-    def _run(
-        self,
-        search_pattern: str = "",
-        directory_path: str = "",
-        recursive: bool = False,
-        file_filter: str = "all",
-        extension: str = "",
-    ) -> str:
-        raise NotImplementedError("file_search 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         search_pattern: str = "",

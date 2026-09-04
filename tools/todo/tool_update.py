@@ -73,9 +73,6 @@ class TodoUpdateTool(ToolBase):
             self._helper = TodoAPIHelper(self.client)
         return self._helper
 
-    def _run(self, **kwargs: object) -> str:
-        raise NotImplementedError("todo_update 仅支持异步模式，请使用 _arun")
-
     async def _arun(
         self,
         task_id: str = "",
