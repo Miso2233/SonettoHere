@@ -93,6 +93,33 @@ def real_click_at(x: int, y: int) -> None:
         raise ScreenError(f"真实点击 ({x}, {y}) 失败：{exc}") from exc
 
 
+def type_text(text: str) -> None:
+    """把 *text* 逐字符真实敲入当前聚焦的输入框（仅支持 ASCII 可打印字符）。
+
+    对每个字符逐个触发键盘按下/抬起；换行/回车映射为 Enter、Tab 映射为 Tab。
+    非 ASCII（如中文）无法用真实按键直接输入，直接报错以免静默漏字符 ——
+    这类内容应改用剪贴板粘贴等其它输入方式。
+    """
+    pg = _pyautogui()
+    special = {"\n": "enter", "\r": "enter", "\t": "tab"}
+    for ch in text:
+        if ch in special:
+            try:
+                pg.press(special[ch])
+            except Exception as exc:
+                raise ScreenError(f"键盘按键 {special[ch]!r} 失败：{exc}") from exc
+            continue
+        if not 32 <= ord(ch) <= 126:
+            raise ScreenError(
+                f"computer_type 不支持字符 {ch!r}（仅支持 ASCII 可打印字符与空格；"
+                "中文字符请改用剪贴板粘贴等其它输入方式）"
+            )
+        try:
+            pg.write(ch, interval=0.0)
+        except Exception as exc:
+            raise ScreenError(f"输入字符 {ch!r} 失败：{exc}") from exc
+
+
 def to_canvas_image(img: Image.Image) -> Image.Image:
     """把截图线性缩放到 1920x1080 逻辑画布 —— 像素即模型坐标空间。"""
     return img.resize((CANVAS_WIDTH, CANVAS_HEIGHT), Image.LANCZOS)

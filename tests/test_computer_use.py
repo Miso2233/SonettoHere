@@ -8,12 +8,14 @@ import base64
 import io
 import json
 
+import pytest
 from langchain_core.messages import ToolMessage
 from PIL import Image
 
 from tools.computer import _screen as screen
 from tools.computer.tool_click import ClickTool
 from tools.computer.tool_screenshot import ScreenshotTool
+from tools.computer.tool_type import TypeTool
 from tools.computer.tool_virtual_click import VirtualClickTool
 
 # ── 共享能力：纯函数 ─────────────────────────────────────────
@@ -233,3 +235,83 @@ def test_virtual_and_real_click_share_return_shape(monkeypatch, tmp_path) -> Non
     assert set(real_data) == set(virt_data)
     assert real_data["action"] == "real_click"
     assert virt_data["action"] == "virtual_click"
+
+
+# ── type_text / TypeTool（键盘输入，真实按键逐字符）───────────
+
+
+class _FakeKeyboard:
+    """记录逐字符 write 与特殊键 press 的假 pyautogui 键盘对象。"""
+
+    def __init__(self) -> None:
+        self.writes: list[str] = []
+        self.presses: list[str] = []
+
+    def write(self, char: str, interval: float = 0.0) -> None:
+        self.writes.append(char)
+
+    def press(self, key: str) -> None:
+        self.presses.append(key)
+
+
+def test_type_text_char_by_char_with_special_keys(monkeypatch) -> None:
+    fake = _FakeKeyboard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.type_text("Hi\n\t!")
+
+    # ASCII 逐字符 write；换行/回车→enter、Tab→tab
+    assert fake.writes == ["H", "i", "!"]
+    assert fake.presses == ["enter", "tab"]
+
+
+def test_type_text_rejects_non_ascii(monkeypatch) -> None:
+    monkeypatch.setattr(screen, "_pyautogui", lambda: object())
+
+    with pytest.raises(screen.ScreenError, match="不支持字符"):
+        screen.type_text("中文 hello")
+
+
+def test_type_tool_types_text_then_returns_plain_screenshot(
+    monkeypatch, tmp_path
+) -> None:
+    typed: list[str] = []
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "type_text", lambda text: typed.append(text))
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+    monkeypatch.setattr(screen, "new_filename", lambda _p: "computer_type_ts.png")
+    saved = (tmp_path / "computer_type_ts.png").resolve()
+    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
+
+    command = TypeTool()._run_impl(text="hello", tool_call_id="call-5")
+    assert typed == ["hello"]
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "type"
+    assert data["data"]["text"] == "hello"
+    assert data["data"]["char_count"] == 5
+    assert data["data"]["saved_file"] == str(saved)
+
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    data_url = image_block["image_url"]["url"]
+    assert data_url.startswith("data:image/png;base64,")
+
+    # 输入后回传**未标注**原图：中心点未被标记覆盖
+    raw = base64.b64decode(data_url.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw)).convert("RGB")
+    assert decoded.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+    assert decoded.getpixel((960, 800)) == (255, 255, 255)
+
+
+def test_type_tool_rejects_empty_text() -> None:
+    command = TypeTool()._run_impl(text="", tool_call_id="call-6")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "不能为空" in parsed["error"]
