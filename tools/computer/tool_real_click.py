@@ -1,9 +1,9 @@
 """Tool: computer_real_click — 真实点击：对系统执行一次物理左键点击。
 
 与 computer_click（虚拟点击，仅标注不做操作）是**两个不同工具**。本工具会真实
-移动系统光标并在指定坐标按下左键，随后截取点击后的屏幕，在点击处画红色标记，
-把带标注画面注入 LLM 上下文并落盘到工程内 git 不跟踪的临时目录 ——
-返回值结构（字段集合）与虚拟点击完全一致，仅 action 取值不同。
+移动系统光标并在指定坐标按下左键，点击结束后等待 0.1s 再截取**未标注**的屏幕
+画面，注入 LLM 上下文并落盘到工程内 git 不跟踪的临时目录 ——
+返回值字段集合与虚拟点击完全一致（仅 action 取值不同、画面不带标记）。
 """
 
 import time
@@ -58,10 +58,10 @@ class RealClickTool(ToolBase):
         "真实点击：在最近一张截图对应的位置，对真实系统执行一次**物理左键点击**"
         "（会真实移动鼠标光标并按下左键，触发应用的真实行为）。"
         "坐标必须是基于 1920x1080 逻辑画布输出的整数（x: 0..1920，y: 0..1080，"
-        "原点在画布左上角），后端会线性映射回真实像素并执行。点击后本工具重新截屏，"
-        "在点击处叠加红色标记并把点击后的画面注入上下文供确认，同时把带标记截图保存到"
-        "工程 .computer_use/ 目录（返回 saved_file）。返回值结构与 computer_click"
-        "（虚拟点击，仅标注不做操作）完全一致，仅 action 不同。"
+        "原点在画布左上角），后端会线性映射回真实像素并执行。点击结束后等待 0.1s "
+        "再截取点击后的屏幕（**不叠加标记**），把画面注入上下文供确认，同时把该截图"
+        "保存到工程 .computer_use/ 目录（返回 saved_file）。返回值字段集合与 "
+        "computer_click（虚拟点击，仅标注不做操作）完全一致，仅 action 取值不同。"
         "如需先无副作用地核对落点是否命中，应先用 computer_click 标注试算。"
         "[调用积极性: 用户明确要求/确认后需要在系统里真实按下某个按钮、图标、菜单项时"
         "才使用；坐标不确定时先用 computer_screenshot / computer_click 确认。]"
@@ -85,8 +85,8 @@ class RealClickTool(ToolBase):
         except screen.ScreenError as exc:
             return _error_command(tool_call_id, str(exc))
 
-        # 等待点击引起的界面变化基本稳定后再截屏回读
-        time.sleep(0.25)
+        # 点击结束后等待 0.1s，再截取点击后的屏幕（不叠加标记）
+        time.sleep(0.1)
 
         try:
             canvas = screen.to_canvas_image(screen.capture_screen())
@@ -96,7 +96,6 @@ class RealClickTool(ToolBase):
                 f"点击已执行，但回读屏幕截图失败：{exc}",
             )
 
-        screen.draw_click_marker(canvas, x, y)
         data_url, png_bytes = screen.image_to_data_url(canvas)
 
         message = (
@@ -130,7 +129,7 @@ class RealClickTool(ToolBase):
                             "type": "text",
                             "text": (
                                 f"已完成一次真实左键点击（画布坐标 {x}, {y}）。"
-                                "以下为点击后的屏幕，红圈即本次点击位置："
+                                "以下为点击后的屏幕（未标注，供观察实际效果）："
                             ),
                         },
                         {

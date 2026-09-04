@@ -4,6 +4,8 @@
 computer_click 是「虚拟点击」，须保证全程不触碰真实鼠标/系统点击。
 """
 
+import base64
+import io
 import json
 
 from langchain_core.messages import ToolMessage
@@ -162,7 +164,7 @@ def test_virtual_click_rejects_out_of_canvas(monkeypatch) -> None:
 # ── RealClickTool（真实点击：会真正调用 real_click_at）────────
 
 
-def test_real_click_performs_click_and_returns_marked_screenshot(
+def test_real_click_performs_click_and_returns_plain_screenshot(
     monkeypatch, tmp_path
 ) -> None:
     clicks: list[tuple[int, int]] = []
@@ -195,7 +197,14 @@ def test_real_click_performs_click_and_returns_marked_screenshot(
 
     human = (command.update or {})["messages"][1]
     image_block = human.content[1]
-    assert image_block["image_url"]["url"].startswith("data:image/png;base64,")
+    data_url = image_block["image_url"]["url"]
+    assert data_url.startswith("data:image/png;base64,")
+
+    # 真实点击画面为**未标注**的 1920x1080 原图：点击点颜色未被标记覆盖
+    raw = base64.b64decode(data_url.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw)).convert("RGB")
+    assert decoded.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+    assert decoded.getpixel((960, 800)) == (255, 255, 255)
 
 
 def test_virtual_and_real_click_share_return_shape(monkeypatch, tmp_path) -> None:
