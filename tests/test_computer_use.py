@@ -237,21 +237,7 @@ def test_virtual_and_real_click_share_return_shape(monkeypatch, tmp_path) -> Non
     assert virt_data["action"] == "virtual_click"
 
 
-# ── type_text / TypeTool（键盘输入，真实按键逐字符）───────────
-
-
-class _FakeKeyboard:
-    """记录逐字符 write 与特殊键 press 的假 pyautogui 键盘对象。"""
-
-    def __init__(self) -> None:
-        self.writes: list[str] = []
-        self.presses: list[str] = []
-
-    def write(self, char: str, interval: float = 0.0) -> None:
-        self.writes.append(char)
-
-    def press(self, key: str) -> None:
-        self.presses.append(key)
+# ── type_text / TypeTool（统一经剪贴板粘贴输入）─────────────────
 
 
 class _FakePasteKeyboard:
@@ -264,45 +250,23 @@ class _FakePasteKeyboard:
         self.hotkeys.append(keys)
 
 
-def test_type_text_char_by_char_with_special_keys(monkeypatch) -> None:
-    fake = _FakeKeyboard()
-    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+def test_type_text_always_pastes_via_clipboard(monkeypatch) -> None:
+    """纯 ASCII 与含中文的文本都统一经剪贴板粘贴，并尽力还原原剪贴板。"""
+    monkeypatch.setattr("time.sleep", lambda _s: None)
 
-    screen.type_text("Hi\n\t!")
+    for case in ("hello", "你好 world", "abc\n\t123"):
+        fake = _FakePasteKeyboard()
+        writes: list[str] = []
+        monkeypatch.setattr(screen, "_pyautogui", lambda f=fake: f)
+        monkeypatch.setattr(screen, "_clipboard_set_text", writes.append)
+        monkeypatch.setattr(screen, "_clipboard_get_text", lambda: "原剪贴板内容")
 
-    # ASCII 逐字符 write；换行/回车→enter、Tab→tab
-    assert fake.writes == ["H", "i", "!"]
-    assert fake.presses == ["enter", "tab"]
+        screen.type_text(case)
 
-
-def test_type_text_uses_clipboard_for_non_ascii(monkeypatch) -> None:
-    """含中文等非 ASCII → 整段走剪贴板粘贴，并尽力还原原剪贴板。"""
-    fake = _FakePasteKeyboard()
-    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
-    writes: list[str] = []
-    monkeypatch.setattr(screen, "_clipboard_set_text", writes.append)
-    monkeypatch.setattr(screen, "_clipboard_get_text", lambda: "原剪贴板内容")
-
-    screen.type_text("hello你好 world")
-
-    # 剪贴板先写入目标文本，粘贴后再还原原内容
-    assert writes == ["hello你好 world", "原剪贴板内容"]
-    modifier = "command" if sys.platform == "darwin" else "ctrl"
-    assert fake.hotkeys == [(modifier, "v")]
-
-
-def test_type_text_keyboard_path_for_pure_ascii(monkeypatch) -> None:
-    """纯 ASCII（含换行/Tab）不走剪贴板，保持逐字符敲键。"""
-    fake = _FakeKeyboard()
-    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
-    called: list[str] = []
-    monkeypatch.setattr(screen, "_clipboard_set_text", lambda t: called.append(t))
-
-    screen.type_text("Hi!\n\t@")
-
-    assert called == []  # 未触碰剪贴板
-    assert fake.writes == ["H", "i", "!", "@"]
-    assert fake.presses == ["enter", "tab"]
+        # 单一路径：写目标文本 → Ctrl/Cmd+V → 还原原剪贴板（无逐字符敲键分支）
+        assert writes == [case, "原剪贴板内容"]
+        modifier = "command" if sys.platform == "darwin" else "ctrl"
+        assert fake.hotkeys == [(modifier, "v")]
 
 
 def test_type_tool_types_text_then_returns_plain_screenshot(

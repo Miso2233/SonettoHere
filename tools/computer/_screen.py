@@ -95,13 +95,6 @@ def real_click_at(x: int, y: int) -> None:
         raise ScreenError(f"真实点击 ({x}, {y}) 失败：{exc}") from exc
 
 
-def _keyboard_typable(ch: str) -> bool:
-    """判断单个字符能否通过真实键盘逐字符输入（ASCII 可打印 / 换行 / Tab）。"""
-    if ch in "\n\r\t":
-        return True
-    return 32 <= ord(ch) <= 126
-
-
 def _clipboard_get_text() -> str | None:
     """读取系统剪贴板文本；读不到（剪贴板为空 / 非文本 / 异常）返回 None。"""
     try:
@@ -131,9 +124,10 @@ def _clipboard_set_text(text: str) -> None:
 
 
 def _paste_via_clipboard(text: str) -> None:
-    """剪贴板兜底输入：写入剪贴板 → Ctrl/Cmd+V 粘贴 → 尽力还原原剪贴板。
+    """统一剪贴板输入：写入剪贴板 → Ctrl/Cmd+V 粘贴 → 尽力还原原剪贴板。
 
-    用于包含中文等非 ASCII 字符的整段文本（真实按键无法直接输入这些字符）。
+    整段文本（含中文等任意字符）一律经剪贴板粘贴，内容按字面写入：`\\n`/`\\r`
+    会作为字面换行/回车粘入，不触发独立的回车键。
     """
     previous = _clipboard_get_text()
     _clipboard_set_text(text)
@@ -149,29 +143,8 @@ def _paste_via_clipboard(text: str) -> None:
 
 
 def type_text(text: str) -> None:
-    """把 *text* 输入到当前聚焦控件。
-
-    - 纯 ASCII 可打印字符（含换行/回车→Enter、Tab→Tab）：逐字符真实键盘事件；
-    - 含中文等非 ASCII：整段改用剪贴板粘贴（支持任意文本），内容按字面粘贴
-      （此时换行不会触发回车），并尽力还原用户原剪贴板。
-    """
-    if not all(_keyboard_typable(ch) for ch in text):
-        _paste_via_clipboard(text)
-        return
-
-    pg = _pyautogui()
-    special = {"\n": "enter", "\r": "enter", "\t": "tab"}
-    for ch in text:
-        if ch in special:
-            try:
-                pg.press(special[ch])
-            except Exception as exc:
-                raise ScreenError(f"键盘按键 {special[ch]!r} 失败：{exc}") from exc
-            continue
-        try:
-            pg.write(ch, interval=0.0)
-        except Exception as exc:
-            raise ScreenError(f"输入字符 {ch!r} 失败：{exc}") from exc
+    """把 *text* 整段经剪贴板粘贴到当前聚焦控件（支持任意文本含中文）。"""
+    _paste_via_clipboard(text)
 
 
 def to_canvas_image(img: Image.Image) -> Image.Image:

@@ -1,9 +1,10 @@
-"""Tool: computer_type — 键盘输入：把文本输入到当前聚焦的输入框。
+"""Tool: computer_type — 输入文本：把任意文本粘贴进当前聚焦的输入框。
 
-与 computer_click 同类：执行的是真实系统动作。纯 ASCII 文本走逐字符真实键盘
-事件；含中文等非 ASCII 时整段自动改用剪贴板粘贴（支持任意文本，粘贴后尽力还原
-用户原剪贴板）。输入结束后等待 0.1s 截取**未标注**的屏幕画面，注入 LLM 上下文
-并落盘到工程内 git 不跟踪的临时目录。
+与 computer_click 同类：执行的是真实系统动作。文本**统一经剪贴板粘贴**
+（pyperclip 写入 → Ctrl/Cmd+V），支持任意文本含中文；内容按字面粘入
+（`\\n`/`\\r` 不会触发独立回车），粘贴后尽力还原用户原剪贴板。输入结束后
+等待 0.1s 截取**未标注**的屏幕画面，注入 LLM 上下文并落盘到工程内 git 不跟踪
+的临时目录。
 """
 
 import time
@@ -23,8 +24,7 @@ class TypeInput(BaseModel):
     text: str = Field(
         min_length=1,
         description=(
-            "要输入的文本：纯 ASCII 时逐字符真实敲键（换行按回车、Tab 按制表键）；"
-            "含中文等非 ASCII 时整段经剪贴板粘贴（任意文本均支持，内容按字面粘贴）"
+            "要输入的文本（任意字符含中文）：统一经剪贴板粘贴，内容按字面粘入"
         ),
     )
     tool_call_id: Annotated[str, InjectedToolCallId] = ""
@@ -46,10 +46,9 @@ def _error_command(tool_call_id: str, message: str) -> Command:
 class TypeTool(ToolBase):
     name: str = "computer_type"
     description: str = (
-        "键盘输入：把 *text* 输入到当前聚焦的输入框（真实系统动作）。"
-        "纯 ASCII 文本走逐字符真实键盘事件（换行/回车 \\n、\\r 触发 Enter、\\t 触发 "
-        "Tab）；**含中文等非 ASCII 时整段自动改用剪贴板粘贴**（支持任意文本，"
-        "内容按字面粘贴，此时换行不会触发回车），粘贴后尽力还原用户原剪贴板。"
+        "输入文本：把 *text* 粘贴进当前聚焦的输入框（真实系统动作）。"
+        "**统一经剪贴板粘贴**（写入剪贴板 → Ctrl/Cmd+V），支持任意文本含中文，"
+        "内容按字面粘入（\\n/\\r 不会触发回车）；粘贴后尽力还原用户原剪贴板。"
         "调用前应确保目标输入框已聚焦（必要时先用 computer_click 点一下）。"
         "输入结束后等待 0.1s 截取**未标注**的输入后画面注入上下文供确认，同时把"
         "该截图保存到工程 .computer_use/ 目录（返回 saved_file）。"
@@ -65,7 +64,7 @@ class TypeTool(ToolBase):
         if not text:
             return _error_command(tool_call_id, "text 不能为空")
 
-        # 真实键盘逐字符输入（ASCII 之外字符在 type_text 内报错）
+        # 统一经剪贴板粘贴输入（type_text 内完成写剪贴板→Ctrl/Cmd+V→还原）
         try:
             width, height = screen.logical_screen_size()
             screen.type_text(text)
@@ -86,8 +85,7 @@ class TypeTool(ToolBase):
         data_url, png_bytes = screen.image_to_data_url(canvas)
 
         message = (
-            f"已将文本（{len(text)} 个字符）输入到当前输入框"
-            "（ASCII 逐字符敲键；含中文等非 ASCII 时经剪贴板粘贴）。"
+            f"已通过剪贴板粘贴把文本（{len(text)} 个字符）输入到当前输入框。"
         )
         saved_file = ""
         try:
@@ -115,7 +113,7 @@ class TypeTool(ToolBase):
                         {
                             "type": "text",
                             "text": (
-                                "已完成一次键盘输入，内容："
+                                "已完成一次文本输入（经剪贴板粘贴），内容："
                                 f"{text!r}。以下为输入后的屏幕（未标注）："
                             ),
                         },
