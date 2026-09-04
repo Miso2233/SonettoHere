@@ -14,6 +14,7 @@ from PIL import Image
 
 from tools.computer import _screen as screen
 from tools.computer.tool_click import ClickTool
+from tools.computer.tool_key import KeyTool
 from tools.computer.tool_screenshot import ScreenshotTool
 from tools.computer.tool_type import TypeTool
 from tools.computer.tool_virtual_click import VirtualClickTool
@@ -308,6 +309,115 @@ def test_type_tool_types_text_then_returns_plain_screenshot(
 
 def test_type_tool_rejects_empty_text() -> None:
     command = TypeTool()._run_impl(text="", tool_call_id="call-6")
+    tool_msg = _command_tool_message(command)
+    parsed = json.loads(tool_msg.content)
+    assert parsed["success"] is False
+    assert "不能为空" in parsed["error"]
+
+
+# ── press_keys / KeyTool（击键，真实按键/快捷键）──────────────
+
+
+class _FakeKeyBoard:
+    """带 KEYBOARD_KEYS 白名单并记录 hotkey 调用的假 pyautogui 对象。"""
+
+    KEYBOARD_KEYS = (
+        "enter", "tab", "esc", "delete", "space", "up", "down", "left", "right",
+        "home", "end", "pageup", "pagedown", "insert", "f5", "win", "command",
+        "ctrl", "alt", "shift", "capslock", "a", "s", "z", "0", "9",
+    )
+
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    def hotkey(self, *keys: str) -> None:
+        self.calls.append(list(keys))
+
+
+def _assert_screen_error(fn) -> None:
+    try:
+        fn()
+    except screen.ScreenError:
+        return
+    raise AssertionError("期望 ScreenError，但未抛出")
+
+
+def test_press_keys_single_and_combos(monkeypatch) -> None:
+    fake = _FakeKeyBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.press_keys("Return")
+    screen.press_keys("ctrl+s")
+    screen.press_keys("alt+Tab")
+    screen.press_keys("ctrl+shift+esc")
+
+    assert fake.calls == [
+        ["enter"],
+        ["ctrl", "s"],
+        ["alt", "tab"],
+        ["ctrl", "shift", "esc"],
+    ]
+
+
+def test_press_keys_aliases_and_meta(monkeypatch) -> None:
+    fake = _FakeKeyBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    screen.press_keys("Escape")
+    screen.press_keys("arrowup")
+    screen.press_keys("super+s")
+
+    meta = "command" if sys.platform == "darwin" else "win"
+    assert fake.calls == [["esc"], ["up"], [meta, "s"]]
+
+
+def test_press_keys_rejects_unknown_key(monkeypatch) -> None:
+    fake = _FakeKeyBoard()
+    monkeypatch.setattr(screen, "_pyautogui", lambda: fake)
+
+    _assert_screen_error(lambda: screen.press_keys("doesnotexist+s"))
+    _assert_screen_error(lambda: screen.press_keys("ctrl++s"))
+    assert fake.calls == []
+
+
+def test_key_tool_presses_then_returns_plain_screenshot(
+    monkeypatch, tmp_path
+) -> None:
+    pressed: list[str] = []
+
+    monkeypatch.setattr(screen, "logical_screen_size", lambda: (2560, 1600))
+    monkeypatch.setattr(screen, "press_keys", lambda combo: pressed.append(combo))
+    monkeypatch.setattr(
+        screen, "capture_screen", lambda: Image.new("RGB", (2560, 1600), "white")
+    )
+    monkeypatch.setattr(screen, "new_filename", lambda _p: "computer_key_ts.png")
+    saved = (tmp_path / "computer_key_ts.png").resolve()
+    monkeypatch.setattr(screen, "save_tmp_image", lambda _img, _fn: saved)
+
+    command = KeyTool()._run_impl(keys="ctrl+s", tool_call_id="call-7")
+    assert pressed == ["ctrl+s"]
+
+    tool_msg = _command_tool_message(command)
+    data = json.loads(tool_msg.content)
+    assert data["success"] is True
+    assert data["data"]["action"] == "key"
+    assert data["data"]["keys"] == "ctrl+s"
+    assert data["data"]["saved_file"] == str(saved)
+
+    human = (command.update or {})["messages"][1]
+    image_block = human.content[1]
+    data_url = image_block["image_url"]["url"]
+    assert data_url.startswith("data:image/png;base64,")
+
+    # 击键后回传**未标注**原图：中心点未被标记覆盖
+    raw = base64.b64decode(data_url.split(",", 1)[1])
+    decoded = Image.open(io.BytesIO(raw)).convert("RGB")
+    assert decoded.size == (screen.CANVAS_WIDTH, screen.CANVAS_HEIGHT)
+    assert decoded.getpixel((960, 800)) == (255, 255, 255)
+
+
+def test_key_tool_rejects_empty_keys() -> None:
+    command = KeyTool()._run_impl(keys="   ", tool_call_id="call-8")
     tool_msg = _command_tool_message(command)
     parsed = json.loads(tool_msg.content)
     assert parsed["success"] is False

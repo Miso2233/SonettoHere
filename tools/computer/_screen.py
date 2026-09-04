@@ -147,6 +147,60 @@ def type_text(text: str) -> None:
     _paste_via_clipboard(text)
 
 
+# 键名别名：统一常见大小写/叫法到 pyautogui 的键名（不含平台相关的 meta 键，
+# 后者在 _parse_combo 内按平台再归一）
+_KEY_ALIASES: dict[str, str] = {
+    "control": "ctrl",
+    "return": "enter",
+    "escape": "esc",
+    "del": "delete",
+    "break": "pause",
+    "arrowup": "up",
+    "arrowdown": "down",
+    "arrowleft": "left",
+    "arrowright": "right",
+}
+
+
+def _parse_combo(combo: str, valid_keys: frozenset[str]) -> list[str]:
+    """把 "Return" / "ctrl+s" / "alt+Tab" 拆成 pyautogui 可识别的键序。"""
+    keys: list[str] = []
+    for raw in combo.split("+"):
+        token = raw.strip().lower()
+        if not token:
+            raise ScreenError(f"按键表达式 {combo!r} 含空的片段（+ 两侧都要有键名）")
+        token = _KEY_ALIASES.get(token, token)
+        if token in {"cmd", "command", "super", "meta"}:
+            # 平台修饰键：mac 用 Command，其余（Win/Linux）用 Win
+            token = "command" if sys.platform == "darwin" else "win"
+        if token not in valid_keys:
+            raise ScreenError(
+                f"不支持的键名 {raw!r}（位于 {combo!r}）。支持单个键名（如 Return/"
+                "Esc/F5/Space）或 + 连接的快捷键（如 ctrl+s、alt+Tab、"
+                "ctrl+shift+esc）"
+            )
+        keys.append(token)
+    return keys
+
+
+def press_keys(combo: str) -> None:
+    """对当前聚焦窗口执行一次真实按键/快捷键。
+
+    *combo* 形如：
+      - 单个键名："Return"、"Esc"、"F5"、"Space"；
+      - 组合快捷键：用 ``+`` 连接，如 "ctrl+s"、"alt+Tab"、"ctrl+shift+esc"。
+    按键顺序/释放顺序由 pyautogui.hotkey 保证（先按下各键、再逐个释放）。
+    """
+    pg = _pyautogui()
+    try:
+        keys = _parse_combo(combo, frozenset(pg.KEYBOARD_KEYS))
+        pg.hotkey(*keys)
+    except ScreenError:
+        raise
+    except Exception as exc:
+        raise ScreenError(f"按键 {combo!r} 失败：{exc}") from exc
+
+
 def to_canvas_image(img: Image.Image) -> Image.Image:
     """把截图线性缩放到 1920x1080 逻辑画布 —— 像素即模型坐标空间。"""
     return img.resize((CANVAS_WIDTH, CANVAS_HEIGHT), Image.LANCZOS)

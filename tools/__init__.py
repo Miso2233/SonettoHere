@@ -56,6 +56,7 @@ def get_all_tools() -> list[BaseTool]:
     from tools.computer.tool_click import ClickTool
     from tools.computer.tool_virtual_click import VirtualClickTool
     from tools.computer.tool_type import TypeTool
+    from tools.computer.tool_key import KeyTool
 
     # Files
     from tools.files.tool_file_read import FileReadTool
@@ -116,6 +117,7 @@ def get_all_tools() -> list[BaseTool]:
         ClickTool(client=client),
         VirtualClickTool(client=client),
         TypeTool(client=client),
+        KeyTool(client=client),
         # Files
         FileReadTool(client=client),
         FileWriteTool(client=client),
