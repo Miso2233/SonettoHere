@@ -54,7 +54,7 @@ from api.session.manager import PendingMessage, SessionState, session_manager
 class FakeToolManager:
     """最小工具管理器，get_all 返回空列表。"""
 
-    def get_all(self, multimodal: bool = False) -> list:
+    def get_all(self, multimodal: bool = False, computer_use: bool = False) -> list:
         return []
 
 
@@ -177,10 +177,11 @@ def test_merge_pending_batch():
             image_refs=["/a.jpg", "/b.jpg"],
         ),
     ]
-    text, img_recog, img_refs = merge_pending_batch(batch)
+    text, img_recog, img_refs, computer_use = merge_pending_batch(batch)
     assert text == "你好\n\n第二条\n\n带图"  # 空行分隔 + 时间后缀剥离
     assert img_recog is True
     assert img_refs == ["/a.jpg", "/b.jpg"]
+    assert computer_use is False  # 默认未开启 Computer Use
 
 
 def test_merge_pending_batch_images_or():
@@ -188,10 +189,23 @@ def test_merge_pending_batch_images_or():
         PendingMessage(pending_id="1", text="纯文本"),
         PendingMessage(pending_id="2", text="有图", image_recognition=True, image_refs=["/x.png"]),
     ]
-    text, img_recog, img_refs = merge_pending_batch(batch)
+    text, img_recog, img_refs, computer_use = merge_pending_batch(batch)
     assert text == "纯文本\n\n有图"
     assert img_recog is True  # OR 累积
     assert img_refs == ["/x.png"]
+    assert computer_use is False
+
+
+def test_merge_pending_batch_computer_use_or():
+    batch = [
+        PendingMessage(pending_id="1", text="普通问题"),
+        PendingMessage(pending_id="2", text="帮我操作屏幕", computer_use=True),
+    ]
+    text, img_recog, img_refs, computer_use = merge_pending_batch(batch)
+    assert text == "普通问题\n\n帮我操作屏幕"
+    assert img_recog is False
+    assert img_refs is None
+    assert computer_use is True  # OR 累积：任一消息开启则整体开启
 
 
 # ── _handle_chat 忙碌路径 ─────────────────────────────────────

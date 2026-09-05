@@ -263,6 +263,8 @@ export interface ChatMessage {
     image_recognition?: boolean
     /** 图像认知模式下的图片文件绝对路径列表 */
     image_refs?: string[]
+    /** Computer Use 屏幕操作模式：开启后后端将 computer_* 工具下发给 LLM */
+    computer_use?: boolean
     /** 客户端生成的消息 ID，后端用作 pending_id 以关联入队确认 */
     client_msg_id?: string
     /** 所选工作坊名称（对应 studios/*.yaml 的 name 字段），未选中时不携带 */
@@ -306,6 +308,14 @@ export interface UpdateAutoApproveMessage {
   }
 }
 
+/** computer_use — 会话中途更新 Computer Use 屏幕操作开关（驱动边缘灯） */
+export interface ComputerUseMessage {
+  type: 'computer_use'
+  payload: {
+    enabled: boolean
+  }
+}
+
 /** skip_memory_search — 用户跳过当前轮的语义记忆搜索 */
 export interface SkipMemorySearchMessage {
   type: 'skip_memory_search'
@@ -339,7 +349,7 @@ export interface RunPythonInterruptMessage {
   }
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | ComputerUseMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage
 
 // === 前端 UI 状态类型 ===
 

@@ -32,6 +32,7 @@ from api.session.manager import SessionState, session_manager
 from api.memory.long_term import MEMORY_PATH, LongTermMemory
 from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 from api.tools.manager import ToolManager
+from api.edge_light import EdgeLightController, set_active_controller
 from version import __version__
 
 from api.middleware.auth import AuthMiddleware
@@ -130,12 +131,18 @@ async def lifespan(app: FastAPI):
     app.state.ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(MEMORY_PATH)).build())
     app.state.ltm.start()
 
+    # 屏幕边缘灯控制器（Computer Use 状态提示）：惰性启动原生覆盖层子进程
+    app.state.edge_light = EdgeLightController()
+    set_active_controller(app.state.edge_light)
+
     # 加载 const 固定会话（需要 tools 已就绪）
     await _load_const_sessions(app)
 
     yield
 
     # 关闭：清理资源
+    set_active_controller(None)
+    app.state.edge_light.shutdown()
     await app.state.tool_manager.close()
     await app.state.ltm.stop()
 

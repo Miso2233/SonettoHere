@@ -362,7 +362,7 @@ class CheckPendingNode:
 
         # ── 队列非空：合并注入 + 跳回 START ──
         pending = session.drain_pending()
-        text, _, _ = merge_pending_batch(pending)
+        text, _, _, _ = merge_pending_batch(pending)
         # 时间戳随注入进入 LLM 上下文；pending_consumed 推送干净合并文本供前端展示
         injected = [HumanMessage(content=text + now_timestamp())]
 

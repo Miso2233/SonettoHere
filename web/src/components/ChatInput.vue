@@ -129,6 +129,15 @@
             <Icon name="image-cog" :size="18" />
           </button>
           <button
+            class="btn-computer"
+            :class="{ active: computerUse, 'flash-denied': flashComputerDenied }"
+            :disabled="disabled"
+            :title="computerBtnTitle"
+            @click="handleToggleComputerUse"
+          >
+            <Icon name="computer" :size="18" />
+          </button>
+          <button
             class="btn-memory"
             :class="{ active: privateMode }"
             :disabled="disabled"
@@ -237,13 +246,14 @@ const props = defineProps<{
   skipRecall: boolean
   autoApprove: boolean
   imageRecognition: boolean
+  computerUse: boolean
   hasVision?: boolean
   /** Agent 输出期间排队等待注入的消息 */
   pendingMessages: PendingMessage[]
 }>()
 
 const emit = defineEmits<{
-  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[]]
+  send: [text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[], computerUse?: boolean]
   stop: []
   removePending: [pendingId: string]
   clearPending: []
@@ -252,6 +262,7 @@ const emit = defineEmits<{
   toggleRecall: []
   toggleAutoApprove: []
   toggleImageRecognition: []
+  toggleComputerUse: []
 }>()
 
 const text = ref('')
@@ -329,6 +340,31 @@ function handleToggleImageRecognition() {
     return
   }
   emit('toggleImageRecognition')
+}
+
+// ── Computer Use 屏幕操作按钮：无视觉模型时闪烁拒绝（与图像认知一致）──
+const flashComputerDenied = ref(false)
+let computerFlashTimer: ReturnType<typeof setTimeout> | null = null
+
+const computerBtnTitle = computed(() => {
+  if (props.hasVision === false) {
+    return '当前模型不支持视觉能力，无法使用 Computer Use 屏幕操作'
+  }
+  return 'Computer Use：开启后 AI 可截屏查看并操控屏幕（点击、输入、按键、滚动）'
+})
+
+function handleToggleComputerUse() {
+  if (props.hasVision === false) {
+    // 模型不支持视觉 → 闪烁低饱和度红色提示，不切换
+    flashComputerDenied.value = true
+    if (computerFlashTimer) clearTimeout(computerFlashTimer)
+    computerFlashTimer = setTimeout(() => {
+      flashComputerDenied.value = false
+      computerFlashTimer = null
+    }, 600)
+    return
+  }
+  emit('toggleComputerUse')
 }
 
 // ── 链接引用 ──
@@ -712,7 +748,7 @@ function handleSend() {
     }
   }
 
-  emit('send', msg, sendRefs, selectedProviderId.value || undefined, selectedModelName.value || undefined, sendImageRecog, imagePaths)
+  emit('send', msg, sendRefs, selectedProviderId.value || undefined, selectedModelName.value || undefined, sendImageRecog, imagePaths, props.computerUse)
   text.value = ''
   refs.value = []
   nextTick(() => autoResize())
@@ -1365,6 +1401,45 @@ function onResizeEnd(e: PointerEvent) {
 @keyframes vision-flash-fade {
   0%   { background: color-mix(in srgb, #ef4444 35%, transparent); }
   100% { background: color-mix(in srgb, #ef4444 0%, transparent); }
+}
+
+/* ── Computer Use 屏幕操作按钮 ── */
+.btn-computer {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.btn-computer:hover:not(:disabled) {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+.btn-computer:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.btn-computer.active {
+  background: color-mix(in srgb, #81ae92 12%, transparent);
+  color: #81ae92;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #81ae92 30%, transparent);
+}
+
+/* 无视觉模型时闪烁拒绝（与图像认知按钮共用动画） */
+.btn-computer.flash-denied {
+  background: color-mix(in srgb, #ef4444 18%, transparent);
+  color: #ef4444;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ef4444 30%, transparent);
+  animation: vision-flash-fade 0.6s ease-out;
 }
 
 /* ── 记忆/私密模式按钮 ── */
