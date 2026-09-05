@@ -1,4 +1,12 @@
 news:
+  - id: "computer-use-toggle-edge-light"
+    title: "屏幕操作开关与边缘灯"
+    description: "屏幕操作（Computer Use）改为显式开关控制：开启后 AI 才获得截屏、点击、输入等屏幕工具，防止误用；开启时屏幕边缘亮起白色辉光环提示，AI 思考/操作时呼吸闪烁，一眼可知 Agent 正在操控你的屏幕。"
+    type: "feat"
+    date: "2026-09-05"
+    tags: ["Computer Use", "屏幕操作", "边缘灯", "安全"]
+    version: ""
+    pr_number: 305
   - id: "computer-use-tools"
     title: "新增电脑屏幕操作工具"
     description: "新增 computer-use 屏幕操作系列：截屏、真实/虚拟点击（左中右键、单击/双击/三击）、中文文本输入、快捷键、滚动与等待。识图模式下 AI 能直接看到屏幕并操控图形界面——打开应用、点按钮、填表单、翻页滚动，均可按图执行。"
