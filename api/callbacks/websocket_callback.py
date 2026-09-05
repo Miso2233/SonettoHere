@@ -9,6 +9,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import ToolMessage
 from langchain_core.outputs import LLMResult
 
+from api.edge_light import edge_light_activity
 from api.events import CallbackSender
 from api.utils.logger import get_logger
 from .tool_extractors import _dispatch
@@ -87,9 +88,10 @@ def _parse_tool_input(tool_input: str | None) -> dict[str, Any] | None:
 
 
 class WebSocketCallback(BaseCallbackHandler):
-    def __init__(self, sender: CallbackSender):
+    def __init__(self, sender: CallbackSender, session_id: str | None = None):
         super().__init__()
         self._sender = sender
+        self._session_id = session_id  # 供边缘灯定位"哪个会话在思考/流式"
         self._thinking_started = False
         self._thinking_count = 0
         self._tool_start_time: dict[str, float] = {}
@@ -153,6 +155,8 @@ class WebSocketCallback(BaseCallbackHandler):
         self._thinking_started = True
         self._thinking_count = 0
         await self._sender.thinking_start(time.time())
+        if self._session_id is not None:
+            edge_light_activity(self._session_id, True)  # 思考/流式开始 → 白灯闪烁
 
     async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
         # 归一化块式 token：部分 Anthropic 适配模型（如 Kimi K3）把 content blocks
@@ -180,6 +184,8 @@ class WebSocketCallback(BaseCallbackHandler):
         if self._thinking_started:
             self._thinking_started = False
             await self._sender.thinking_end(time.time())
+        if self._session_id is not None:
+            edge_light_activity(self._session_id, False)  # 思考/流式结束 → 回到常亮
 
     async def on_tool_start(
         self, serialized: dict[str, Any], input_str: str, **kwargs: Any

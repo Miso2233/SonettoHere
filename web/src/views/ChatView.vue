@@ -74,7 +74,7 @@
       @toggle-recall="setSkipRecall(!skipRecall)"
       @toggle-auto-approve="setAutoApprove(!autoApprove)"
       @toggle-image-recognition="imageRecognition = !imageRecognition"
-      @toggle-computer-use="computerUse = !computerUse"
+      @toggle-computer-use="onToggleComputerUse"
     />
     <div v-else class="sub-agent-bar-wrapper">
       <div class="sub-agent-bar">
@@ -176,6 +176,12 @@ function addCitation(ref: ParsedRef) {
 
 function onSend(text: string, refs: ParsedRef[], providerId?: string, modelName?: string, imageRecognition?: boolean, imagePaths?: string[], computerUse?: boolean) {
   send(text, refs, providerId, modelName, imageRecognition, imagePaths, computerUse)
+}
+
+function onToggleComputerUse() {
+  computerUse.value = !computerUse.value
+  // 通知后端驱动屏幕边缘灯（常亮基准 = Computer Use 开启）
+  chatStore.updateComputerUse(sessionId.value, computerUse.value)
 }
 
 function onRemovePending(pendingId: string) {

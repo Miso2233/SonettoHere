@@ -15,6 +15,7 @@ from agent.studio import render_studio_by_name
 from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from api.events import CallbackSender, TurnSender
+from api.edge_light import edge_light_activity, edge_light_session_on
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager, ProviderManager
@@ -330,7 +331,7 @@ async def _build_turn_context(
     if studio_section:
         system_prompt = system_prompt + "\n\n" + studio_section
     cb_sender = CallbackSender.from_context()
-    ws_callback = WebSocketCallback(cb_sender)
+    ws_callback = WebSocketCallback(cb_sender, session_id=session.session_id)
 
     agent = build_agent(
         model=llm_conf.llm,
@@ -530,6 +531,12 @@ async def run_agent_turn(
 
     current_task = asyncio.current_task()
     mgr = get_manager()
+    # Computer Use 消息 → 点亮/常亮基准（前端 toggle 事件可能先到，此处幂等确认）
+    if computer_use:
+        try:
+            edge_light_session_on(session.session_id, True)
+        except Exception:
+            pass
     try:
         # 1. 解析 LLM 配置
         llm_conf: _LlmConfig = _resolve_llm(
@@ -581,3 +588,8 @@ async def run_agent_turn(
         )
     finally:
         session.clear_active_task(current_task)
+        # 兜底：整轮结束/取消后清除流式标记，避免边缘灯持续闪烁
+        try:
+            edge_light_activity(session.session_id, False)
+        except Exception:
+            pass

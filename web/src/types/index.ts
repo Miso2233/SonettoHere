@@ -308,6 +308,14 @@ export interface UpdateAutoApproveMessage {
   }
 }
 
+/** computer_use — 会话中途更新 Computer Use 屏幕操作开关（驱动边缘灯） */
+export interface ComputerUseMessage {
+  type: 'computer_use'
+  payload: {
+    enabled: boolean
+  }
+}
+
 /** skip_memory_search — 用户跳过当前轮的语义记忆搜索 */
 export interface SkipMemorySearchMessage {
   type: 'skip_memory_search'
@@ -341,7 +349,7 @@ export interface RunPythonInterruptMessage {
   }
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | ComputerUseMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage
 
 // === 前端 UI 状态类型 ===
 

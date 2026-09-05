@@ -13,6 +13,7 @@ from api.agent import interaction
 from api.agent.context_usage import estimate_context_usage_from_session
 from agent import build_system_prompt
 from api.agent.turn import merge_pending_batch, run_agent_turn
+from api.edge_light import edge_light_session_on
 from api.events import ChatSender, MemorySender, TurnSender
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
@@ -139,6 +140,10 @@ async def _handle_chat(
     if session.is_subagent:
         return agent_task
 
+    # Computer Use 消息到达 → 点亮边缘灯（常亮基准；toggle 事件可能已先行，此处幂等）
+    if incoming.computer_use:
+        edge_light_session_on(session_id, True)
+
     interaction.current_ws.set(ws)  # 供工具函数/Sender.from_context() 通过 WebSocket 推送交互
     interaction.current_session_id.set(session_id)
 
@@ -242,6 +247,21 @@ async def _handle_update_auto_approve(
     interaction.set_session_auto_approve(
         session_id, msg["payload"]["auto_approve"]
     )
+    return agent_task
+
+
+@ws_event_handler("computer_use")
+async def _handle_computer_use(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+
+) -> asyncio.Task | None:
+    """更新 Computer Use 屏幕操作开关 → 点亮/熄灭边缘灯（enabled=True 常亮）。"""
+    enabled = bool(msg.get("payload", {}).get("enabled", False))
+    edge_light_session_on(session_id, enabled)
     return agent_task
 
 
@@ -354,6 +374,8 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
         _log.debug("WebSocket 断开: session_id=%s", session_id)
     finally:
         session.ws = None
+        # 前端断开 → 该会话 Computer Use 熄灭边缘灯（避免常亮残留）
+        edge_light_session_on(session_id, False)
         _log.debug("清理会话: session_id=%s, agent_task_done=%s",
                    session_id, agent_task is not None and agent_task.done())
         if agent_task is not None and not agent_task.done():

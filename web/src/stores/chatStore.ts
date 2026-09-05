@@ -77,6 +77,8 @@ export interface SessionChannel {
   privateMode: boolean
   skipRecall: boolean
   autoApprove: boolean
+  /** Computer Use 屏幕操作开关（通知后端驱动边缘灯；随频道保持，重连时重放） */
+  computerUse: boolean
   /** 会话级工作坊状态（同 privateMode/skipRecall，切会话时随频道更新） */
   studioName: string
 }
@@ -142,6 +144,7 @@ export const useChatStore = defineStore('chat', () => {
         privateMode: false,
         skipRecall: false,
         autoApprove: false,
+        computerUse: false,
         studioName: '',
       })
     } else {
@@ -328,6 +331,13 @@ export const useChatStore = defineStore('chat', () => {
       if (ch.reconnectTimer) {
         clearTimeout(ch.reconnectTimer)
         ch.reconnectTimer = null
+      }
+      // 重连后重放 Computer Use 开关（后端在 WS 断开时已熄灭边缘灯）
+      if (ch.computerUse && ch.ws?.readyState === WebSocket.OPEN) {
+        ch.ws.send(JSON.stringify({
+          type: 'computer_use',
+          payload: { enabled: true },
+        } as ClientMessage))
       }
     }
 
@@ -551,6 +561,9 @@ export const useChatStore = defineStore('chat', () => {
   ) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
+    if (typeof computerUse !== 'undefined') {
+      ch.computerUse = computerUse
+    }
 
     const flatMsg = buildFlatMessage(text, refs)
     // 客户端消息 ID：作为 client_msg_id 发送，后端复用作 pending_id，
@@ -568,7 +581,7 @@ export const useChatStore = defineStore('chat', () => {
         model_name: modelName,
         client_msg_id: clientMsgId,
         ...(imageRecognition && imagePaths?.length ? { image_recognition: true, image_refs: imagePaths } : {}),
-        ...(computerUse ? { computer_use: true } : {}),
+        ...(ch.computerUse ? { computer_use: true } : {}),
         ...(ch.studioName ? { studio_name: ch.studioName } : {}),
       },
     }
@@ -688,6 +701,19 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
+  /** 更新 Computer Use 开关：同步频道状态并通知后端驱动屏幕边缘灯。 */
+  function updateComputerUse(sid: string, enabled: boolean) {
+    const ch = channels.get(sid)
+    if (!ch) return
+    ch.computerUse = enabled
+    if (ch.ws?.readyState === WebSocket.OPEN) {
+      ch.ws.send(JSON.stringify({
+        type: 'computer_use',
+        payload: { enabled },
+      } as ClientMessage))
+    }
+  }
+
   return {
     channels,
     allSessionStatuses,
@@ -705,6 +731,7 @@ export const useChatStore = defineStore('chat', () => {
     sendUserResponse,
     removeTurns,
     updateAutoApprove,
+    updateComputerUse,
     removePendingMessage,
     clearPendingMessages,
     restoreTurnsFromBackend,
