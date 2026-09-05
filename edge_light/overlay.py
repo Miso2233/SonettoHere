@@ -32,10 +32,17 @@ BLINK_MIN = 0.10               # 闪烁谷底
 BLINK_MAX = 0.90               # 闪烁峰值
 TIMER_MS = 50                  # 亮度刷新周期
 
-# 白灯辉光（沿屏幕边缘柔化）
-_BASE_ALPHA = 220              # 贴边最亮层的像素 alpha
-_GLOW_WIDTH = 34               # 向内柔化的总宽度（px）
-_LAYERS = 40                   # 描边层数，越多过渡越平滑
+# 双环辉光：白灯环 + 深色描边环（同心），保证白灯在亮/暗背景下都可见。
+# 深色描边比白灯略宽、白灯向内收一个缝隙，形成"外深内白"的双环。
+_DARK_RGB = (0x16, 0x18, 0x20)   # 描边色（近黑，避免纯黑在暗底上发闷）
+_WHITE_RGB = (0xFF, 0xFF, 0xFF)  # 主光（白灯）
+_DARK_ALPHA = 255                # 描边贴边最亮层的像素 alpha
+_WHITE_ALPHA = 250               # 白灯贴边最亮层的像素 alpha
+_DARK_GLOW_WIDTH = 30            # 描边环柔化总宽度（px）
+_WHITE_GLOW_WIDTH = 16           # 白灯环柔化总宽度（px）
+_DARK_LAYERS = 26                # 描边环描边层数
+_WHITE_LAYERS = 20               # 白灯环描边层数
+_WHITE_INSET = 4                 # 白灯环相对屏幕边界内收量（px），留出深色描边
 
 
 def _brightness_for(state: str, phase: int) -> float:
@@ -111,26 +118,45 @@ class BorderGlow(QWidget):
         self.setWindowOpacity(_brightness_for(self._state, self._phase))
 
     # ── 辉光环：仅首次/尺寸变化时渲染一次 ──────────────────
+    @staticmethod
+    def _draw_glow_around(
+        painter: QPainter,
+        rect: QRectF,
+        rgb: tuple[int, int, int],
+        base_alpha: int,
+        width: float,
+        layers: int,
+    ) -> None:
+        """沿矩形边界画一层柔光：由外(宽/淡)向内收窄变亮，四角 miter 无缝衔接。
+
+        绘制中心线压在矩形边界上，外半侧越出屏幕被裁剪，只向屏幕内侧柔化。
+        """
+        path = QPainterPath()
+        path.addRect(rect)
+        for i in range(1, layers + 1):
+            t = i / layers                                   # 0 贴边 -> 1 最内侧
+            stroke_width = 2.0 * width * t
+            alpha = int(base_alpha * (1.0 - t) ** 2)         # 越靠内圈越亮
+            pen = QPen(QColor(rgb[0], rgb[1], rgb[2], alpha), stroke_width)
+            pen.setJoinStyle(Qt.MiterJoin)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawPath(path)
+
     def _render_glow(self) -> None:
         pm = QPixmap(self.size())
         pm.fill(Qt.transparent)
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.Antialiasing)
-        color = QColor(0xFF, 0xFF, 0xFF, _BASE_ALPHA)
 
-        # 屏幕边界矩形路径（绘制中心线正好压在边缘上，外半侧被裁剪、只向内柔化）
-        path = QPainterPath()
-        path.addRect(QRectF(self.rect()))
-
-        for i in range(1, _LAYERS + 1):
-            t = i / _LAYERS                                  # 0 贴边 -> 1 最内侧
-            stroke_width = 2.0 * _GLOW_WIDTH * t
-            alpha = int(_BASE_ALPHA * (1.0 - t) ** 2)        # 越靠内圈越亮
-            pen = QPen(QColor(color.red(), color.green(), color.blue(), alpha), stroke_width)
-            pen.setJoinStyle(Qt.MiterJoin)
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            painter.drawPath(path)
+        screen = QRectF(self.rect())
+        # 1) 深色描边环（略宽）
+        self._draw_glow_around(painter, screen, _DARK_RGB, _DARK_ALPHA, _DARK_GLOW_WIDTH, _DARK_LAYERS)
+        # 2) 白灯环（内收一个缝隙，覆盖在描边内侧）→ 双环效果
+        inner = screen.adjusted(
+            _WHITE_INSET, _WHITE_INSET, -_WHITE_INSET, -_WHITE_INSET
+        )
+        self._draw_glow_around(painter, inner, _WHITE_RGB, _WHITE_ALPHA, _WHITE_GLOW_WIDTH, _WHITE_LAYERS)
         painter.end()
         self._glow = pm
         self.update()
