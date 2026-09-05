@@ -547,6 +547,7 @@ export const useChatStore = defineStore('chat', () => {
     modelName?: string,
     imageRecognition?: boolean,
     imagePaths?: string[],
+    computerUse?: boolean,
   ) {
     const ch = channels.get(sid)
     if (!ch?.ws || ch.ws.readyState !== WebSocket.OPEN) return
@@ -567,6 +568,7 @@ export const useChatStore = defineStore('chat', () => {
         model_name: modelName,
         client_msg_id: clientMsgId,
         ...(imageRecognition && imagePaths?.length ? { image_recognition: true, image_refs: imagePaths } : {}),
+        ...(computerUse ? { computer_use: true } : {}),
         ...(ch.studioName ? { studio_name: ch.studioName } : {}),
       },
     }

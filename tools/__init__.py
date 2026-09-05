@@ -51,7 +51,7 @@ def get_all_tools() -> list[BaseTool]:
     from tools.network.tool_read_image import ReadImageTool
     from tools.network.tavily import TavilySearchTool, TavilyExtractTool
 
-    # Computer（屏幕操作，仅多模态识图模式交付给 LLM）
+    # Computer（屏幕操作，仅 Computer Use 模式开启时交付给 LLM）
     from tools.computer.tool_screenshot import ScreenshotTool
     from tools.computer.tool_click import ClickTool
     from tools.computer.tool_virtual_click import VirtualClickTool

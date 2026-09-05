@@ -122,12 +122,15 @@ def now_timestamp() -> str:
     return f"（{now.year:04d}-{now.month:02d}-{now.day:02d} {wd} {now.hour:02d}:{now.minute:02d}）"
 
 
-def merge_pending_batch(batch: list[PendingMessage]) -> tuple[str, bool, list[str] | None]:
+def merge_pending_batch(
+    batch: list[PendingMessage],
+) -> tuple[str, bool, list[str] | None, bool]:
     """将一批排队消息合并为单个 Agent 输入（合并处理语义）。
 
-    返回 ``(text, image_recognition, image_refs)``：
+    返回 ``(text, image_recognition, image_refs, computer_use)``：
     - 文本以空行（\\n\\n）连接（消息文本已不含时间戳，时间戳由注入侧统一追加）；
-    - 图片标记 OR 累积——任一消息启用图像认知则整体启用，路径全部合并。
+    - 图片标记 OR 累积——任一消息启用图像认知则整体启用，路径全部合并；
+    - computer_use 同样 OR 累积——任一消息开启 Computer Use 则本轮下发屏幕操作工具。
     """
     text = "\n\n".join(_strip_time_suffix(p.text) for p in batch)
     images = [
@@ -136,7 +139,8 @@ def merge_pending_batch(batch: list[PendingMessage]) -> tuple[str, bool, list[st
         if p.image_recognition
         for img in (p.image_refs or [])
     ]
-    return text, bool(images), images or None
+    computer_use = any(p.computer_use for p in batch)
+    return text, bool(images), images or None, computer_use
 
 
 async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, Any], sender: TurnSender) -> None:
@@ -495,6 +499,7 @@ async def run_agent_turn(
     model_name: str | None = None,
     image_recognition: bool = False,
     image_refs: list[str] | None = None,
+    computer_use: bool = False,
     studio_name: str | None = None,
     queued_pending: list[PendingMessage] | None = None,
 ):
@@ -551,7 +556,10 @@ async def run_agent_turn(
 
         # 2. 构建执行上下文
         ctx: _TurnContext = await _build_turn_context(
-            tools=app_state.tool_manager.get_all(multimodal=llm_conf.multimodal),
+            tools=app_state.tool_manager.get_all(
+                multimodal=llm_conf.multimodal,
+                computer_use=computer_use,
+            ),
             session=session,
             llm_conf=llm_conf,
             user_message=user_message,

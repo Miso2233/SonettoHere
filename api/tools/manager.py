@@ -43,28 +43,38 @@ class ToolManager:
         "update_memory", "delete_memory", "merge_memories",
     })
 
-    # 依赖模型视觉能力（识图模式）才交付的工具，与 read_image 同步启用/剔除。
+    # 依赖模型视觉能力（识图能力）才交付的工具，随模型多模态能力同步启用/剔除。
     # 模型不具备多模态视觉时一律过滤（改用外部分析工具 analyze_image 兜底）。
-    _VISION_TOOL_NAMES = frozenset({
-        "read_image", "computer_screenshot", "computer_click",
+    _IMAGE_TOOL_NAMES = frozenset({
+        "read_image",
+    })
+
+    # 屏幕操作（computer use）系列：不跟随模型视觉能力自动暴露，仅当用户显式开启
+    # Computer Use 模式（computer_use=True，且模型具备视觉以读取截图）才交付给 LLM。
+    _COMPUTER_TOOL_NAMES = frozenset({
+        "computer_screenshot", "computer_click",
         "computer_virtual_click", "computer_type", "computer_key",
         "computer_scroll", "computer_wait",
     })
 
-    def get_all(self, multimodal: bool = False) -> list[BaseTool]:
+    def get_all(self, multimodal: bool = False, computer_use: bool = False) -> list[BaseTool]:
         """返回合并后的完整工具列表（消费方主要用这个）。
 
         Args:
-            multimodal: 当前 LLM 是否支持多模态。
-                        True → 保留全部识图工具（read_image 与 computer_* 系列），
-                               过滤 analyze_image；
-                        False → 保留 analyze_image，过滤全部识图工具。
+            multimodal:  当前 LLM 是否支持多模态（视觉能力）。
+                         True → 保留 read_image，过滤 analyze_image；
+                         False → 保留 analyze_image，过滤 read_image。
+            computer_use: 当前是否开启 Computer Use 屏幕操作模式。
+                         computer_* 系列仅在 (multimodal and computer_use) 时交付，
+                         即用户显式开启该模式（且模型能读取截图）才暴露。
         """
         tools = self.native_tools + self.mcp_tools
         if multimodal:
             tools = [t for t in tools if t.name != "analyze_image"]
         else:
-            tools = [t for t in tools if t.name not in self._VISION_TOOL_NAMES]
+            tools = [t for t in tools if t.name not in self._IMAGE_TOOL_NAMES]
+        if not (multimodal and computer_use):
+            tools = [t for t in tools if t.name not in self._COMPUTER_TOOL_NAMES]
         return [t for t in tools if t.name not in self._MEMORY_TOOL_NAMES]
 
     async def reload_mcp(self) -> list[BaseTool]:

@@ -166,6 +166,7 @@ class PendingMessage:
         model_name:   指定模型（可选）。
         image_recognition: 是否图像认知模式。
         image_refs:   图像文件绝对路径列表。
+        computer_use: 是否 Computer Use 屏幕操作模式（开启后下发 computer_* 工具）。
         studio_name:  所选工作坊名称（可选，注入对应 studio 文件）。
         created_at:   入队时间。
     """
@@ -178,6 +179,7 @@ class PendingMessage:
     model_name: str | None = None
     image_recognition: bool = False
     image_refs: list[str] | None = None
+    computer_use: bool = False
     studio_name: str | None = None
     created_at: float = field(default_factory=time.time)
 

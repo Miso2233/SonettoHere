@@ -58,7 +58,7 @@ def _start_turn_from_ws(
     batch = queued + ([incoming] if incoming else [])
     if not batch:
         return None
-    text, img_recog, img_refs = merge_pending_batch(batch)
+    text, img_recog, img_refs, computer_use = merge_pending_batch(batch)
     last = batch[-1]
     interaction.set_session_auto_approve(session_id, last.auto_approve)
     agent_task = asyncio.create_task(
@@ -71,6 +71,7 @@ def _start_turn_from_ws(
             model_name=last.model_name,
             image_recognition=img_recog,
             image_refs=img_refs,
+            computer_use=computer_use,
             studio_name=last.studio_name,
             queued_pending=queued,
         )
@@ -130,6 +131,7 @@ async def _handle_chat(
         model_name=payload.get("model_name"),
         image_recognition=payload.get("image_recognition", False),
         image_refs=payload.get("image_refs") or [],
+        computer_use=payload.get("computer_use", False),
         studio_name=payload.get("studio_name"),
     )
 

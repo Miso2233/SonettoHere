@@ -263,6 +263,8 @@ export interface ChatMessage {
     image_recognition?: boolean
     /** 图像认知模式下的图片文件绝对路径列表 */
     image_refs?: string[]
+    /** Computer Use 屏幕操作模式：开启后后端将 computer_* 工具下发给 LLM */
+    computer_use?: boolean
     /** 客户端生成的消息 ID，后端用作 pending_id 以关联入队确认 */
     client_msg_id?: string
     /** 所选工作坊名称（对应 studios/*.yaml 的 name 字段），未选中时不携带 */
