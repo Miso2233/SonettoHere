@@ -2,9 +2,10 @@
   <BubbleChrome :tool-call="toolCall">
     <!-- 确认表单：question + 可选代码 + 拒绝原因 + 允许/拒绝 -->
     <div v-if="isActive && !submitted" class="confirm-body">
-      <div class="confirm-header">
-        <span class="confirm-icon">⚙️</span>
-        <span class="confirm-title">{{ question || '执行确认' }}</span>
+      <div class="confirm-header" :class="isSudo ? 'confirm-header-sudo' : ''">
+        <span class="confirm-icon">{{ isSudo ? '🔓' : '⚙️' }}</span>
+        <span class="confirm-title">{{ question || (isSudo ? 'sudo 越权授权' : '执行确认') }}</span>
+        <span v-if="isSudo" class="confirm-sudo-tag">sudo 越权</span>
       </div>
 
       <div v-if="code" class="confirm-section">
@@ -110,6 +111,8 @@ watch(() => props.toolCall.callId, () => {
 const question = computed(() => props.toolCall.interaction?.question ?? '')
 const code = computed(() => props.toolCall.interaction?.code ?? '')
 const payload = computed(() => props.toolCall.interaction?.payload ?? {})
+/** sudo 越权确认：与普通执行确认共用本单文件，仅以 mode + 视觉识别区分 */
+const isSudo = computed(() => props.toolCall.interaction?.mode === 'sudo')
 
 // 允许/拒绝按钮文案：优先取后端 approve_text/reject_text，缺省回退通用措辞
 const approveText = computed(() => {
@@ -159,6 +162,8 @@ const fileIcon = computed(() => {
 })
 
 const fileToneClass = computed(() => {
+  // sudo 越权放行一律以危险色调强调（即使原工具为 write/create 等中性或成功色）
+  if (isSudo.value) return 'tone-danger'
   switch (props.toolCall.name) {
     case 'file_delete': return 'tone-danger'
     case 'file_create_directory': return 'tone-success'
@@ -261,6 +266,26 @@ function submitRejection() {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.confirm-header-sudo {
+  background: #fdecea;
+  border-color: #f0b4b4;
+}
+
+.confirm-header-sudo .confirm-title {
+  color: #b3261e;
+}
+
+.confirm-sudo-tag {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #b3261e;
+  padding: 2px 10px;
+  border-radius: 999px;
 }
 
 .confirm-section {

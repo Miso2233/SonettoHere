@@ -1,6 +1,6 @@
 <template>
-  <!-- 确认门控：任何等待用户（awaiting_user）且 mode==='confirm' 且未提交的工具，
-       不管是否注册专属气泡，统一渲染通用确认卡片（气泡框架） -->
+  <!-- 确认门控：任何等待用户（awaiting_user）且 mode∈{confirm, sudo} 且未提交的
+       工具，统一渲染共享 ConfirmBubble 单文件（sudo 以红调标签区分） -->
   <ConfirmBubble
     v-if="isConfirmPending"
     :tool-call="toolCall"
@@ -32,12 +32,18 @@ import { getBubbleComponent } from './tools/registry'
 const props = defineProps<{ toolCall: ToolCall }>()
 const emit = defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
-/** 确认门控条件：等待用户（awaiting_user）+ 确认交互 + 用户尚未回应 */
-const isConfirmPending = computed(() =>
-  props.toolCall.status === 'awaiting_user'
-  && props.toolCall.interaction?.mode === 'confirm'
-  && !props.toolCall.interaction.submitted
-)
+/**
+ * 确认门控条件：等待用户（awaiting_user）+ 确认类交互（confirm/sudo 统一走
+ * 同一个共享 ConfirmBubble 单文件）+ 用户尚未回应。
+ */
+const CONFIRM_MODES = ['confirm', 'sudo']
+const isConfirmPending = computed(() => {
+  const it = props.toolCall.interaction
+  return props.toolCall.status === 'awaiting_user'
+    && it != null
+    && !it.submitted
+    && CONFIRM_MODES.includes(it.mode)
+})
 
 /**
  * 后台 spawn 门控：background=true 的调用气泡本身已 done（返回值只有任务
