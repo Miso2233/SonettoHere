@@ -6,12 +6,12 @@ from pydantic import BaseModel, Field
 
 from tools.base import (
     ToolBase,
-    check_path_access,
     format_error,
     format_success,
     off_thread,
 )
 from tools.confirm import confirm_execution
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileRenameInput(BaseModel):
@@ -19,6 +19,10 @@ class FileRenameInput(BaseModel):
     new_path: str = Field(default="", description="目标路径（重命名或移动后）")
 
 
+@path_guard(
+    PathSpec("file_path", kind="any"),
+    PathSpec("new_path", kind="any", existence="absent"),
+)
 @confirm_execution(
     question="即将重命名/移动文件，是否确认执行？",
     approve_text="允许重命名",
@@ -38,21 +42,7 @@ class FileRenameTool(ToolBase):
         return await off_thread(self._run_impl, file_path, new_path)
 
     def _run_impl(self, file_path: str = "", new_path: str = "") -> str:
-        """校验并重命名/移动。"""
-        if not file_path:
-            return format_error("重命名需要提供 file_path")
-        if not new_path:
-            return format_error("重命名需要提供 new_path")
-        if not os.path.exists(file_path):
-            return format_error(f"文件不存在: {file_path}")
-        if os.path.exists(new_path):
-            return format_error(f"目标已存在: {new_path}")
-
-        for p in (file_path, new_path):
-            err = check_path_access(p)
-            if err:
-                return format_error(err)
-
+        """重命名/移动（路径校验由 @path_guard 承接）。"""
         try:
             os.rename(file_path, new_path)
         except OSError as e:

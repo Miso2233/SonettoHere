@@ -6,12 +6,12 @@ from pydantic import BaseModel, Field
 
 from tools.base import (
     ToolBase,
-    check_path_access,
     format_error,
     format_success,
     off_thread,
 )
 from tools.confirm import confirm_execution
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileWriteInput(BaseModel):
@@ -19,6 +19,7 @@ class FileWriteInput(BaseModel):
     content: str = Field(default="", description="要写入的文件内容")
 
 
+@path_guard(PathSpec("file_path", kind="file", existence=None))
 @confirm_execution(
     question="即将写入以下内容到文件，是否确认执行？",
     approve_text="允许写入",
@@ -39,14 +40,8 @@ class FileWriteTool(ToolBase):
 
     def _run_impl(self, file_path: str = "", content: str = "") -> str:
         """校验并写入（自动创建父目录）。"""
-        if not file_path:
-            return format_error("写入文件需要提供 file_path")
         if not content:
             return format_error("写入文件需要提供 content")
-
-        err = check_path_access(file_path)
-        if err:
-            return format_error(err)
 
         try:
             directory = os.path.dirname(file_path)
