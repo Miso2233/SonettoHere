@@ -209,7 +209,7 @@ async def _request_sudo(
 
 
 async def _sudo_authorize(
-    tool: BaseTool, access_error: str, resolved: dict[str, Any]
+    tool: BaseTool, resolved: dict[str, Any]
 ) -> str | None:
     """访问被阻断且 sudo=True 时的授权入口。
 
@@ -217,7 +217,8 @@ async def _sudo_authorize(
         None — 用户批准 sudo，可越过安全访问；
         str  — 应回给 LLM 的 format_error 错误串。
 
-    sudo 授权始终要求显式确认：不读会话 auto_approve。
+    sudo 授权始终要求显式确认：不读会话 auto_approve。面板文案仅保留说明与
+    所涉路径（路径由前端文件卡片从 payload 展示），不放具体阻断细节。
     """
     sender = ToolSender.from_context()
     if sender is None:
@@ -229,8 +230,7 @@ async def _sudo_authorize(
         if name not in INJECTED_KWARGS
     }
     question = (
-        "该操作路径被安全策略阻断。sudo 将对本次调用越权放行一次，是否确认？\n\n"
-        f"{access_error}"
+        "该操作路径被安全策略阻断。sudo 将对本次调用越权放行一次，是否确认？"
     )
     return await _request_sudo(
         sender, tool_name=tool.name, question=question, payload=payload
@@ -273,7 +273,7 @@ def path_guard(*specs: PathSpec) -> Callable[[ToolClass], ToolClass]:
                 if access_error is not None:
                     if not sudo:
                         return format_error(access_error)
-                    sudo_error = await _sudo_authorize(self, access_error, resolved)
+                    sudo_error = await _sudo_authorize(self, resolved)
                     if sudo_error is not None:
                         return sudo_error  # 已是 format_error 串
                     # sudo 已批准：越过安全访问，继续存在/类型校验
