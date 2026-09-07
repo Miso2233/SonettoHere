@@ -72,7 +72,7 @@ class FileSearchTool(ToolBase):
             return format_error(err)
 
         if not os.path.exists(directory):
-            return format_error(f"搜索目录不存在: {directory}")
+            return format_error(f"目录不存在: {directory}")
 
         search_path = (
             os.path.join(directory, "**", pattern)
