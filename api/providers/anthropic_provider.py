@@ -23,6 +23,7 @@ class AnthropicProvider(Provider):
     def create_llm(self, model: str, **kwargs: Any) -> BaseChatModel:
         from langchain_anthropic import ChatAnthropic
 
+        kwargs = self._with_default_headers(kwargs)
         return ChatAnthropic(
             model=model,
             api_key=self.config.api_key,
@@ -57,8 +58,10 @@ class AnthropicProvider(Provider):
     def _async_client(self) -> Any:
         from anthropic import AsyncAnthropic
 
+        headers = self.request_headers()
         return AsyncAnthropic(
             api_key=self.config.api_key,
             base_url=self.config.base_url or DEFAULT_BASE_URL,
             timeout=10,
+            **({"default_headers": headers} if headers else {}),
         )

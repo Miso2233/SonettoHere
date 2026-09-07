@@ -12,6 +12,7 @@ from api.providers import ProviderConfig, build_provider
 from api.providers.anthropic_provider import DEFAULT_BASE_URL, AnthropicProvider
 from api.providers.manager import ProviderManager
 from api.providers.openai_provider import OpenAIProvider
+from api.providers.opencode_headers import is_opencode_gateway, opencode_session_headers
 from api.providers.store import ProviderConfigStore
 
 
@@ -207,3 +208,99 @@ class TestListModels:
         )
         assert asyncio.run(provider.list_models()) == ["a-model", "b-model"]
         assert captured["base_url"] == "https://proxy.example.com"
+
+
+# ── OpenCode 网关 x-opencode-session 请求头 ───────────────────────────────
+
+
+class TestOpenCodeGatewayDetection:
+    """is_opencode_gateway 对 opencode.ai 及其子域返回 True，其余为 False。"""
+
+    def test_opencode_go_and_zen_urls_are_gateway(self) -> None:
+        assert is_opencode_gateway("https://opencode.ai/zen/go/v1")
+        assert is_opencode_gateway("https://opencode.ai/zen/v1")
+
+    def test_opencode_subdomain_is_gateway(self) -> None:
+        assert is_opencode_gateway("https://go.opencode.ai/zen/go/v1")
+
+    def test_other_hosts_are_not_gateway(self) -> None:
+        assert not is_opencode_gateway("https://api.deepseek.com/v1")
+        assert not is_opencode_gateway("https://notopencode.ai/v1")
+        assert not is_opencode_gateway("")
+        assert not is_opencode_gateway("https://opencode.ai.evil.com/v1")
+
+
+class TestOpenCodeSessionHeaders:
+    """opencode_session_headers：网关返回稳定会话头，非网关返回空。"""
+
+    def test_gateway_returns_session_header(self) -> None:
+        headers = opencode_session_headers("https://opencode.ai/zen/go/v1", "sk-a")
+        assert set(headers) == {"x-opencode-session"}
+        assert len(headers["x-opencode-session"]) == 32
+
+    def test_session_id_is_stable_for_same_endpoint(self) -> None:
+        first = opencode_session_headers("https://opencode.ai/zen/go/v1", "sk-a")
+        second = opencode_session_headers("https://opencode.ai/zen/go/v1", "sk-a")
+        assert first == second
+
+    def test_session_id_differs_across_endpoint_or_key(self) -> None:
+        a = opencode_session_headers("https://opencode.ai/zen/go/v1", "sk-a")
+        b = opencode_session_headers("https://opencode.ai/zen/v1", "sk-a")
+        c = opencode_session_headers("https://opencode.ai/zen/go/v1", "sk-b")
+        assert a != b
+        assert a != c
+
+    def test_non_gateway_returns_empty(self) -> None:
+        assert opencode_session_headers("https://api.deepseek.com/v1", "sk-a") == {}
+
+
+class TestOpenCodeHeaderInjection:
+    """create_llm/_async_client 对 OpenCode 网关注入 x-opencode-session。"""
+
+    OPENCODE_URL = "https://opencode.ai/zen/go/v1"
+
+    def test_openai_create_llm_injects_stable_session(self) -> None:
+        provider = OpenAIProvider(_config(base_url=self.OPENCODE_URL))
+        llm1 = provider.create_llm("test-model")
+        llm2 = provider.create_llm("test-model")
+        h1 = llm1.default_headers or {}
+        h2 = llm2.default_headers or {}
+        assert "x-opencode-session" in h1
+        assert h1 == h2
+
+    def test_anthropic_create_llm_injects_session(self) -> None:
+        provider = AnthropicProvider(
+            _config(provider_type="anthropic", base_url=self.OPENCODE_URL)
+        )
+        llm = provider.create_llm("claude-sonnet-5")
+        assert "x-opencode-session" in (llm.default_headers or {})
+
+    def test_non_opencode_create_llm_injects_nothing(self) -> None:
+        provider = OpenAIProvider(_config(base_url="https://api.deepseek.com/v1"))
+        llm = provider.create_llm("test-model")
+        assert llm.default_headers in (None, {})
+
+    def test_callers_default_headers_are_preserved(self) -> None:
+        provider = OpenAIProvider(_config(base_url=self.OPENCODE_URL))
+        llm = provider.create_llm(
+            "test-model", default_headers={"x-custom": "keep-me"}
+        )
+        headers = llm.default_headers or {}
+        assert headers["x-custom"] == "keep-me"
+        assert "x-opencode-session" in headers
+
+    def test_openai_async_client_injects_session_for_gateway(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        def fake_client(**kwargs: object) -> _FakeModelsClient:
+            captured.update(kwargs)
+            return _FakeModelsClient()
+
+        monkeypatch.setattr("openai.AsyncOpenAI", fake_client)
+        provider = OpenAIProvider(_config(base_url=self.OPENCODE_URL))
+        provider._async_client()
+        headers = captured.get("default_headers", {})
+        assert isinstance(headers, dict)
+        assert "x-opencode-session" in headers

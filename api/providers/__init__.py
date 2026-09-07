@@ -1,10 +1,12 @@
 """Provider 抽象基类与类型定义。"""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict, field
-from typing import Literal
+from dataclasses import asdict, dataclass, field
+from typing import Any, Literal
 
 from langchain_core.language_models.chat_models import BaseChatModel
+
+from api.providers.opencode_headers import opencode_session_headers
 
 FALLBACK_CTX: int = 128_000
 
@@ -83,6 +85,26 @@ class Provider(ABC):
         ...
 
     # ── 能力（子类按需覆盖）──────────────────────────────
+
+    def request_headers(self) -> dict[str, str]:
+        """需要附加到每个 LLM 请求的缺省请求头（如 OpenCode 网关的会话亲和头）。
+
+        默认按 base_url 自动判定：指向 OpenCode 网关（host 为 opencode.ai）时注入
+        运行期稳定的 ``x-opencode-session``；否则返回空 dict（不注入任何头）。
+        """
+        return opencode_session_headers(self.config.base_url, self.config.api_key)
+
+    def _with_default_headers(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """将网关缺省请求头合并进 kwargs（``default_headers``）并返回。
+
+        调用方已传入的 ``default_headers`` 优先保留，再叠加
+        :meth:`request_headers` 的网关必需头；合并结果为空则不注入该键。
+        """
+        headers: dict[str, str] = dict(kwargs.pop("default_headers", None) or {})
+        headers.update(self.request_headers())
+        if headers:
+            kwargs["default_headers"] = headers
+        return kwargs
 
     def apply_thinking(self, kwargs: dict, enabled: bool) -> dict:
         """按需注入思考模式参数，返回注入后的 kwargs。
