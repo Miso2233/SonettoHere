@@ -13,6 +13,7 @@ class OpenAIProvider(Provider):
     def create_llm(self, model: str, **kwargs: Any) -> BaseChatModel:
         from langchain_openai import ChatOpenAI
 
+        kwargs = self._with_default_headers(kwargs)
         return ChatOpenAI(
             model=model,
             api_key=self.config.api_key,
@@ -55,8 +56,10 @@ class OpenAIProvider(Provider):
     def _async_client(self) -> Any:
         from openai import AsyncOpenAI
 
+        headers = self.request_headers()
         return AsyncOpenAI(
             api_key=self.config.api_key,
             base_url=self.config.base_url,
             timeout=10,
+            **({"default_headers": headers} if headers else {}),
         )
