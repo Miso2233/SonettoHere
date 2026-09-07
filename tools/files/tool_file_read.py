@@ -6,17 +6,18 @@ from pydantic import BaseModel, Field
 
 from tools.base import (
     ToolBase,
-    check_path_access,
     format_error,
     format_success,
     off_thread,
 )
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileReadInput(BaseModel):
     file_path: str = Field(default="", description="文件绝对路径")
 
 
+@path_guard(PathSpec("file_path", kind="file"))
 class FileReadTool(ToolBase):
     name: str = "file_read"
     description: str = (
@@ -30,18 +31,6 @@ class FileReadTool(ToolBase):
         return await off_thread(self._run_impl, file_path)
 
     def _run_impl(self, file_path: str = "") -> str:
-        if not file_path:
-            return format_error("读取文件需要提供 file_path")
-
-        err = check_path_access(file_path)
-        if err:
-            return format_error(err)
-
-        if not os.path.exists(file_path):
-            return format_error(f"文件不存在: {file_path}")
-        if not os.path.isfile(file_path):
-            return format_error(f"路径不是文件: {file_path}")
-
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = f.read()

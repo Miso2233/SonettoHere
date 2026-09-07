@@ -2,9 +2,10 @@
   <BubbleChrome :tool-call="toolCall">
     <!-- 确认表单：question + 可选代码 + 拒绝原因 + 允许/拒绝 -->
     <div v-if="isActive && !submitted" class="confirm-body">
-      <div class="confirm-header">
-        <span class="confirm-icon">⚙️</span>
-        <span class="confirm-title">{{ question || '执行确认' }}</span>
+      <div class="confirm-header" :class="isSudo ? 'confirm-header-sudo' : ''">
+        <span class="confirm-icon">{{ isSudo ? '🔓' : '⚙️' }}</span>
+        <span class="confirm-title">{{ question || (isSudo ? 'sudo 越权授权' : '执行确认') }}</span>
+        <span v-if="isSudo" class="confirm-sudo-tag">sudo 越权</span>
       </div>
 
       <div v-if="code" class="confirm-section">
@@ -15,8 +16,8 @@
         <div class="confirm-code-block" v-html="highlightedCode"></div>
       </div>
 
-      <!-- 文件工具确认：写/编辑/删除/建目录 -->
-      <div v-if="isFileConfirm" class="confirm-section">
+      <!-- 路径卡片：写/编辑/删除/建目录等操作确认，以及任意工具的 sudo 越权授权 -->
+      <div v-if="showFileCard" class="confirm-section">
         <div class="confirm-file-card" :class="fileToneClass">
           <span class="confirm-file-icon">{{ fileIcon }}</span>
           <div class="confirm-file-info">
@@ -26,8 +27,8 @@
           </div>
         </div>
 
-        <!-- 写入内容预览（file_write） -->
-        <div v-if="contentPreview !== null" class="confirm-sub-section">
+        <!-- 写入内容预览（file_write，sudo 授权阶段不展示以减少打扰） -->
+        <div v-if="contentPreview !== null && !isSudo" class="confirm-sub-section">
           <div class="confirm-section-header">
             <span class="confirm-section-label">📄 内容预览</span>
             <span class="confirm-code-length">{{ payloadContentLength }} 字符</span>
@@ -35,8 +36,8 @@
           <pre class="confirm-file-preview">{{ contentPreview }}</pre>
         </div>
 
-        <!-- 编辑列表（file_edit） -->
-        <div v-if="editsList.length > 0" class="confirm-sub-section">
+        <!-- 编辑列表（file_edit，sudo 授权阶段不展示） -->
+        <div v-if="editsList.length > 0 && !isSudo" class="confirm-sub-section">
           <div class="confirm-section-header">
             <span class="confirm-section-label">✂️ {{ editsList.length }} 笔编辑</span>
           </div>
@@ -110,6 +111,8 @@ watch(() => props.toolCall.callId, () => {
 const question = computed(() => props.toolCall.interaction?.question ?? '')
 const code = computed(() => props.toolCall.interaction?.code ?? '')
 const payload = computed(() => props.toolCall.interaction?.payload ?? {})
+/** sudo 越权确认：与普通执行确认共用本单文件，仅以 mode + 视觉识别区分 */
+const isSudo = computed(() => props.toolCall.interaction?.mode === 'sudo')
 
 // 允许/拒绝按钮文案：优先取后端 approve_text/reject_text，缺省回退通用措辞
 const approveText = computed(() => {
@@ -136,6 +139,8 @@ const MAX_PREVIEW_CHARS = 500
 const MAX_VISIBLE_EDITS = 5
 
 const isFileConfirm = computed(() => FILE_CONFIRM_TOOLS.has(props.toolCall.name))
+/** 路径卡片展示条件：文件工具的普通确认，或任意工具的 sudo 越权授权 */
+const showFileCard = computed(() => isFileConfirm.value || isSudo.value)
 
 const fileLabel = computed(() => {
   switch (props.toolCall.name) {
@@ -144,7 +149,7 @@ const fileLabel = computed(() => {
     case 'file_delete': return '删除文件'
     case 'file_create_directory': return '创建目录'
     case 'file_rename': return '重命名文件'
-    default: return ''
+    default: return isSudo.value ? '操作路径' : ''
   }
 })
 
@@ -159,6 +164,8 @@ const fileIcon = computed(() => {
 })
 
 const fileToneClass = computed(() => {
+  // sudo 越权放行一律以危险色调强调（即使原工具为 write/create 等中性或成功色）
+  if (isSudo.value) return 'tone-danger'
   switch (props.toolCall.name) {
     case 'file_delete': return 'tone-danger'
     case 'file_create_directory': return 'tone-success'
@@ -263,6 +270,27 @@ function submitRejection() {
   color: var(--text-primary);
 }
 
+.confirm-header-sudo {
+  background: #fdf6f5;
+  border-color: #f3d3d0;
+}
+
+.confirm-header-sudo .confirm-title {
+  color: #b3261e;
+  font-weight: 500;
+}
+
+.confirm-sudo-tag {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  background: #b3261e;
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+
 .confirm-section {
   margin-bottom: 12px;
 }
@@ -346,8 +374,8 @@ function submitRejection() {
 }
 
 .confirm-file-card.tone-danger {
-  background: #fdecea;
-  border-color: #f0b4b4;
+  background: #fcf0ef;
+  border-color: #f3d3d0;
 }
 
 .confirm-file-card.tone-success {

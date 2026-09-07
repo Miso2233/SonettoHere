@@ -6,15 +6,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from tools.background import background
 from tools.base import (
     ToolBase,
-    check_path_whitelisted,
-    check_sonetto_blocker,
     format_error,
     format_success,
     off_thread,
 )
-from tools.background import background
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileSearchTextInput(BaseModel):
@@ -23,6 +22,7 @@ class FileSearchTextInput(BaseModel):
     case_insensitive: bool = Field(default=False, description="搜索时是否忽略大小写")
 
 
+@path_guard(PathSpec("file_path", kind="file"))
 @background
 class FileSearchTextTool(ToolBase):
     name: str = "file_search_text"
@@ -46,31 +46,6 @@ class FileSearchTextTool(ToolBase):
         pattern: str = "",
         case_insensitive: bool = False,
     ) -> str:
-        if not file_path:
-            return format_error("file_path 不能为空")
-
-        # ── SonettoBlocker 安全检查 ────────────────────────────────
-        blocked = check_sonetto_blocker(file_path)
-        if blocked:
-            return format_error(
-                "🚫 安全阻断：操作已被 SonettoBlocker 阻断。\n"
-                f'在目录 "{blocked}" 中发现了 SonettoBlocker 文件。\n\n'
-                "请立即停止当前任务，先说明你为什么需要访问该路径，"
-                "再说明下一步打算做什么。"
-            )
-        # ────────────────────────────────────────────────────────────
-
-        # ── 路径白名单检查 ──────────────────────────────────────────
-        blocked = check_path_whitelisted(file_path)
-        if blocked:
-            return format_error(blocked)
-        # ────────────────────────────────────────────────────────────
-
-        if not os.path.exists(file_path):
-            return format_error(f"文件不存在: {file_path}")
-        if not os.path.isfile(file_path):
-            return format_error(f"不是文件: {file_path}")
-
         if not pattern:
             return format_error("search 需要提供 pattern")
 

@@ -5,14 +5,13 @@ import os
 
 from pydantic import BaseModel, Field
 
+from tools.background import background
 from tools.base import (
     ToolBase,
-    check_path_access,
-    format_error,
     format_success,
     off_thread,
 )
-from tools.background import background
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileSearchInput(BaseModel):
@@ -28,6 +27,9 @@ class FileSearchInput(BaseModel):
     extension: str = Field(default="", description="扩展名过滤，如 '.py'")
 
 
+@path_guard(
+    PathSpec("directory_path", kind="dir", required=False, default=".", type_check=False)
+)
 @background
 class FileSearchTool(ToolBase):
     name: str = "file_search"
@@ -64,15 +66,6 @@ class FileSearchTool(ToolBase):
     ) -> str:
         if not pattern:
             pattern = "*"
-        if not directory:
-            directory = "."
-
-        err = check_path_access(directory)
-        if err:
-            return format_error(err)
-
-        if not os.path.exists(directory):
-            return format_error(f"搜索目录不存在: {directory}")
 
         search_path = (
             os.path.join(directory, "**", pattern)

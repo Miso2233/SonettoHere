@@ -6,11 +6,10 @@ from pydantic import BaseModel, Field
 
 from tools.base import (
     ToolBase,
-    check_path_access,
-    format_error,
     format_success,
     off_thread,
 )
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileListDirectoryInput(BaseModel):
@@ -19,6 +18,7 @@ class FileListDirectoryInput(BaseModel):
     )
 
 
+@path_guard(PathSpec("directory_path", kind="dir", required=False, default="."))
 class FileListDirectoryTool(ToolBase):
     name: str = "file_list_directory"
     description: str = (
@@ -31,17 +31,6 @@ class FileListDirectoryTool(ToolBase):
         return await off_thread(self._run_impl, directory_path)
 
     def _run_impl(self, directory_path: str = "") -> str:
-        if not directory_path:
-            directory_path = "."
-        if not os.path.exists(directory_path):
-            return format_error(f"目录不存在: {directory_path}")
-        if not os.path.isdir(directory_path):
-            return format_error(f"路径不是目录: {directory_path}")
-
-        err = check_path_access(directory_path)
-        if err:
-            return format_error(err)
-
         items = []
         for item in os.listdir(directory_path):
             item_path = os.path.join(directory_path, item)

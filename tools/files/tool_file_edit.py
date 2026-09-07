@@ -13,13 +13,12 @@ from pydantic import BaseModel, Field
 
 from tools.base import (
     ToolBase,
-    check_path_whitelisted,
-    check_sonetto_blocker,
     format_error,
     format_success,
     off_thread,
 )
 from tools.confirm import confirm_execution
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileEditInput(BaseModel):
@@ -33,6 +32,7 @@ class FileEditInput(BaseModel):
     )
 
 
+@path_guard(PathSpec("file_path", kind="file"))
 @confirm_execution(
     question="即将对文件应用编辑，是否确认执行？",
     approve_text="允许编辑",
@@ -54,28 +54,7 @@ class FileEditTool(ToolBase):
         return await off_thread(self._run_impl, file_path, edits)
 
     def _run_impl(self, file_path: str = "", edits: str = "") -> str:
-        """校验并执行多笔精确编辑。"""
-        if not file_path:
-            return format_error("file_path 不能为空")
-
-        blocked = check_sonetto_blocker(file_path)
-        if blocked:
-            return format_error(
-                "🚫 安全阻断：操作已被 SonettoBlocker 阻断。\n"
-                f'在目录 "{blocked}" 中发现了 SonettoBlocker 文件。\n\n'
-                "请立即停止当前任务，先说明你为什么需要访问该路径，"
-                "再说明下一步打算做什么。"
-            )
-
-        blocked = check_path_whitelisted(file_path)
-        if blocked:
-            return format_error(blocked)
-
-        if not os.path.exists(file_path):
-            return format_error(f"文件不存在: {file_path}")
-        if not os.path.isfile(file_path):
-            return format_error(f"不是文件: {file_path}")
-
+        """执行多笔精确编辑（路径校验由 @path_guard 承接）。"""
         try:
             return self._edit(file_path, edits)
         except OSError as e:

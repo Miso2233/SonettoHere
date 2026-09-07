@@ -63,6 +63,21 @@ def _capture_register(monkeypatch: pytest.MonkeyPatch, recorded: dict[str, Any])
     monkeypatch.setattr(interaction, "register", patched_register)
 
 
+async def _wait_until_asked(
+    task: asyncio.Task[Any], fake: FakeSender, timeout: float = 5.0
+) -> None:
+    """等待工具 _arun 执行到 ask_user 被调用。
+
+    @path_guard（守卫先于确认弹窗）在校验阶段先做一次 off_thread 离环往返，
+    仅让出一次事件循环不足以到达 ask_user，故轮询而非单次 sleep(0)。
+    """
+    async with asyncio.timeout(timeout):
+        while fake.asked_kwargs is None:
+            if task.done():
+                break
+            await asyncio.sleep(0.01)
+
+
 # ── 工具用例表：调用工厂 / 前置文件 / 期望载荷 / 文案 ──────
 
 
@@ -171,7 +186,7 @@ async def test_confirm_approve_executes(
     _capture_register(monkeypatch, recorded)
 
     task = asyncio.create_task(case["call"](whitelist_tmp))
-    await asyncio.sleep(0)  # 让 _arun 执行到 await future
+    await _wait_until_asked(task, fake)  # 让 _arun 执行到 await future
 
     assert fake.asked_kwargs is not None
     assert fake.asked_kwargs["mode"] == "confirm"
@@ -205,7 +220,7 @@ async def test_confirm_reject_with_reason(
     _capture_register(monkeypatch, recorded)
 
     task = asyncio.create_task(case["call"](whitelist_tmp))
-    await asyncio.sleep(0)
+    await _wait_until_asked(task, fake)
 
     assert interaction.resolve(recorded["id"], {"action": "reject", "reason": "不想操作"}) is True
     result = await asyncio.wait_for(task, timeout=1)
@@ -254,7 +269,7 @@ async def test_confirm_cancelled_returns_cancel_message(
     _capture_register(monkeypatch, recorded)
 
     task = asyncio.create_task(case["call"](whitelist_tmp))
-    await asyncio.sleep(0)
+    await _wait_until_asked(task, fake)
 
     recorded["future"].cancel()  # 模拟用户取消整个回复
     result = await asyncio.wait_for(task, timeout=1)

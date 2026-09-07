@@ -88,7 +88,7 @@ export interface AskUserEvent {
   payload: {
     tool_name: string
     question: string
-    mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm'
+    mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm' | 'sudo'
     options?: string[]
     interaction_id: string
     code?: string
@@ -366,7 +366,7 @@ export interface ThinkingBlock {
 /** ask_user 交互工具在前端存储的交互数据 */
 export interface AskUserInteraction {
   question: string
-  mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm'
+  mode: 'qa' | 'single_choice' | 'multi_choice' | 'confirm' | 'sudo'
   options?: string[]
   interactionId: string
   submitted: boolean

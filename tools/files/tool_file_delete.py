@@ -7,18 +7,19 @@ from pydantic import BaseModel, Field
 
 from tools.base import (
     ToolBase,
-    check_path_access,
     format_error,
     format_success,
     off_thread,
 )
 from tools.confirm import confirm_execution
+from tools.path_guard import PathSpec, path_guard
 
 
 class FileDeleteInput(BaseModel):
     file_path: str = Field(default="", description="要删除的文件或目录绝对路径")
 
 
+@path_guard(PathSpec("file_path", kind="any"))
 @confirm_execution(
     question="即将删除以下路径，是否确认执行？此操作不可撤销。",
     approve_text="允许删除",
@@ -39,15 +40,6 @@ class FileDeleteTool(ToolBase):
 
     def _run_impl(self, file_path: str = "") -> str:
         """校验并删除文件或目录。"""
-        if not file_path:
-            return format_error("删除需要提供 file_path")
-        if not os.path.exists(file_path):
-            return format_error(f"文件不存在: {file_path}")
-
-        err = check_path_access(file_path)
-        if err:
-            return format_error(err)
-
         try:
             if os.path.isfile(file_path):
                 os.remove(file_path)
