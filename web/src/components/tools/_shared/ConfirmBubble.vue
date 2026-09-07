@@ -16,8 +16,8 @@
         <div class="confirm-code-block" v-html="highlightedCode"></div>
       </div>
 
-      <!-- 文件工具确认：写/编辑/删除/建目录 -->
-      <div v-if="isFileConfirm" class="confirm-section">
+      <!-- 路径卡片：写/编辑/删除/建目录等操作确认，以及任意工具的 sudo 越权授权 -->
+      <div v-if="showFileCard" class="confirm-section">
         <div class="confirm-file-card" :class="fileToneClass">
           <span class="confirm-file-icon">{{ fileIcon }}</span>
           <div class="confirm-file-info">
@@ -27,8 +27,8 @@
           </div>
         </div>
 
-        <!-- 写入内容预览（file_write） -->
-        <div v-if="contentPreview !== null" class="confirm-sub-section">
+        <!-- 写入内容预览（file_write，sudo 授权阶段不展示以减少打扰） -->
+        <div v-if="contentPreview !== null && !isSudo" class="confirm-sub-section">
           <div class="confirm-section-header">
             <span class="confirm-section-label">📄 内容预览</span>
             <span class="confirm-code-length">{{ payloadContentLength }} 字符</span>
@@ -36,8 +36,8 @@
           <pre class="confirm-file-preview">{{ contentPreview }}</pre>
         </div>
 
-        <!-- 编辑列表（file_edit） -->
-        <div v-if="editsList.length > 0" class="confirm-sub-section">
+        <!-- 编辑列表（file_edit，sudo 授权阶段不展示） -->
+        <div v-if="editsList.length > 0 && !isSudo" class="confirm-sub-section">
           <div class="confirm-section-header">
             <span class="confirm-section-label">✂️ {{ editsList.length }} 笔编辑</span>
           </div>
@@ -139,6 +139,8 @@ const MAX_PREVIEW_CHARS = 500
 const MAX_VISIBLE_EDITS = 5
 
 const isFileConfirm = computed(() => FILE_CONFIRM_TOOLS.has(props.toolCall.name))
+/** 路径卡片展示条件：文件工具的普通确认，或任意工具的 sudo 越权授权 */
+const showFileCard = computed(() => isFileConfirm.value || isSudo.value)
 
 const fileLabel = computed(() => {
   switch (props.toolCall.name) {
@@ -147,7 +149,7 @@ const fileLabel = computed(() => {
     case 'file_delete': return '删除文件'
     case 'file_create_directory': return '创建目录'
     case 'file_rename': return '重命名文件'
-    default: return ''
+    default: return isSudo.value ? '操作路径' : ''
   }
 })
 
@@ -269,12 +271,13 @@ function submitRejection() {
 }
 
 .confirm-header-sudo {
-  background: #fdecea;
-  border-color: #f0b4b4;
+  background: #fdf6f5;
+  border-color: #f3d3d0;
 }
 
 .confirm-header-sudo .confirm-title {
   color: #b3261e;
+  font-weight: 500;
 }
 
 .confirm-sudo-tag {
@@ -371,8 +374,8 @@ function submitRejection() {
 }
 
 .confirm-file-card.tone-danger {
-  background: #fdecea;
-  border-color: #f0b4b4;
+  background: #fcf0ef;
+  border-color: #f3d3d0;
 }
 
 .confirm-file-card.tone-success {
