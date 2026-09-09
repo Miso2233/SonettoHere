@@ -70,6 +70,7 @@ _UPDATE_PREFIX = """你是一位"记忆叙事师"。以下是当前记忆（每�
 - 已有信息需要修正或补充时用 update_memory（通过 ID 指定）
 - 与新信息矛盾或已过时的条目用 delete_memory 删除
 - 两条记忆相关且适合长期互相引用（不宜合并）时，用 link_memories 建立双向关联
+- 新记忆若明显属于某条已有记忆的同一系列，可在 create_memory 的 related 参数传入该已有记忆的 ID，创建时即直接建立关联（无需再单独调 link_memories）
 
 记忆分区：必须使用下方固定的九大主题 KEY，不得新建分区。
 生命周期：TODO（计划目标承诺）到期后务必删除；MOMENT（事件与经历）若为一次性事件且已失去意义，可删除或精简。
@@ -145,8 +146,12 @@ def _format_entries_for_tool(items: list[dict[str, str]]) -> str:
 
 @tool
 @_require_mm
-def create_memory(content: str, section: str) -> str:
+def create_memory(content: str, section: str, related: list[str] | None = None) -> str:
     """添加一条新的记忆条目到指定分区。调用后返回该条目的唯一 ID。
+
+    若新记忆明显属于某个/某些已有记忆的同一系列（同一主题、同一偏好、
+    同一项目不同阶段等），可在 related 传入那些已存在记忆的 ID，创建时
+    即与它们建立双向关联（无需再单独调 link_memories）。
 
     Args:
         content: 记忆内容，用第三人称中文描述用户的一个事实。
@@ -160,6 +165,7 @@ def create_memory(content: str, section: str) -> str:
             - "TECH"（技术事实与结论）：技术结论、事实、方案定论
             - "SELF"（Sonetto与SonettoHere）：关于 Sonetto / SonettoHere 自身
             - "MOMENT"（事件与经历）：一次性的具体事件、见闻、经历
+        related: 可选的、已存在记忆的 ID 列表，用于创建时直接建立双向关联。
     """
     content = _sanitize(content)
     if len(content) > MAX_DESC_LENGTH:
@@ -168,7 +174,7 @@ def create_memory(content: str, section: str) -> str:
             f"请精简至 {MAX_DESC_LENGTH} 字以内，避免列举；或拆分为多条独立条目。"
         )
     try:
-        new_id = _current_mm.add(description=content, theme=section)
+        new_id = _current_mm.add(description=content, theme=section, related=related)
     except ValueError as e:
         return f"驳回：{e}"
     return f"已创建 [{new_id}] ({section}): {content}"

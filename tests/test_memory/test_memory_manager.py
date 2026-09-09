@@ -115,6 +115,31 @@ class TestYamlMemoryManager:
             mm.add(description="测试", theme="身份")
         assert mm.show() == []
 
+    def test_add_with_related_links_symmetrically(self, tmp_path):
+        """add 传入 related 时双向关联，且列表去重。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        target = mm.add(description="既有记忆", theme="USER")
+        new_id = mm.add(
+            description="新记忆", theme="PREFERENCE", related=[target, target]
+        )
+        data = _read(path)
+        assert data[new_id]["related"] == [target]
+        assert data[target]["related"] == [new_id]
+
+    def test_add_with_missing_related_raises(self, tmp_path):
+        """related 含不存在的 id 整次拒绝，不留下半成状态。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        target = mm.add(description="既有记忆", theme="USER")
+        with pytest.raises(ValueError, match="不存在"):
+            mm.add(
+                description="新记忆", theme="PREFERENCE", related=["bad-id", target]
+            )
+        data = _read(path)
+        assert len(data) == 1
+        assert data[target]["related"] == []
+
     def test_delete_removes_item(self, tmp_path):
         """delete 后 show 为空。"""
         path = tmp_path / "memory_v6.yaml"

@@ -232,6 +232,27 @@ class TestCrudTools:
         assert "驳回" in result
         assert mm.show() == []
 
+    def test_create_memory_with_related(self, tmp_path):
+        """create_memory 传入 related 时一步建立双向关联。"""
+        import yaml
+
+        mm = self._make_mm(tmp_path)
+        target = mm.add(description="既有记忆。", theme="USER")
+        result = consumer.create_memory.invoke(
+            {
+                "content": "用户喜欢洛天依。",
+                "section": "PREFERENCE",
+                "related": [target],
+            }
+        )
+        assert "已创建 [" in result
+        data = yaml.safe_load((tmp_path / "memory.yaml").read_text(encoding="utf-8"))
+        new_id = next(
+            k for k, e in data.items() if e["description"] == "用户喜欢洛天依。"
+        )
+        assert data[new_id]["related"] == [target]
+        assert data[target]["related"] == [new_id]
+
     def test_create_memory_id_is_hex(self, tmp_path):
         self._make_mm(tmp_path)
         result = consumer.create_memory.invoke(

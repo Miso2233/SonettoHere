@@ -233,17 +233,41 @@ class BaseMemoryManager(ABC):
 
     # ── CRUD 方法（基于 _load_all / _save_all / _write_lock） ──
 
-    def add(self, description: str, theme: str) -> str:
+    def add(
+        self,
+        description: str,
+        theme: str,
+        related: list[str] | None = None,
+    ) -> str:
         """添加一条新的记忆条目。
 
+        可通过 ``related`` 传入若干**已存在**的记忆 id，在建条目的同一
+        写事务内建立双向关联：新条目 related 记录这些 id，同时把新 id
+        追加到每个目标条目的 related（对称、去重）。
+
+        Args:
+            description: 记忆内容。
+            theme: V6 固定主题 KEY。
+            related: 待关联的已存在记忆 id 列表；任一不存在则整次拒绝。
+
         Raises:
-            ValueError: theme 不是 V6 九种固定主题之一时。
+            ValueError: theme 非法，或 related 含不存在的 id。
         """
         theme = require_theme(theme, who="add(theme)")
+        related = list(dict.fromkeys(related)) if related else []
         with self._write_lock():
             items = self._load_all()
+            missing = [rid for rid in related if rid not in items]
+            if missing:
+                raise ValueError(
+                    f"add(related) 含不存在的记忆 id: {missing}，请先确认这些记忆已存在"
+                )
             new_id = self._generate_id()
-            items[new_id] = MemoryItem(description, theme)
+            item = MemoryItem(description, theme)
+            item.related = list(related)
+            for rid in related:
+                items[rid].add_related(new_id)
+            items[new_id] = item
             self._save_all(items)
         return new_id
 
