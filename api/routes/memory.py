@@ -4,6 +4,8 @@ import random
 
 from fastapi import APIRouter, HTTPException, Request
 
+from api.memory.theme import theme_label
+
 router = APIRouter()
 
 
@@ -43,6 +45,7 @@ async def get_moment(request: Request) -> dict:
             "id": chosen["id"],
             "description": chosen["description"],
             "theme": chosen["theme"],
+            "theme_label": theme_label(chosen["theme"]),
             "history": history,
         }
     }

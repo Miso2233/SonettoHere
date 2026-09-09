@@ -488,6 +488,8 @@ export interface MomentItem {
   id: string
   description: string
   theme: string
+  /** 主题的中文标签（后端附加；旧后端缺失时前端回退用 theme） */
+  theme_label?: string
   history: Array<{ description: string; time: string }>
 }
 
@@ -512,6 +514,8 @@ export interface VignetteMemoryItem {
 
 export interface VignetteSection {
   theme: string
+  /** 主题的中文标签（后端附加；旧后端缺失时前端回退用 theme） */
+  theme_label?: string
   items: VignetteMemoryItem[]
 }
 

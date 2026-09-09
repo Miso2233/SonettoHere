@@ -2,7 +2,7 @@
   <div class="moment-card">
     <div class="moment-header">
       <span class="moment-title">💭 随机记忆</span>
-      <span v-if="moment" class="moment-theme">{{ moment.theme }}</span>
+      <span v-if="moment" class="moment-theme">{{ moment.theme_label ?? moment.theme }}</span>
       <button class="btn-shuffle" @click="fetchMoment" :disabled="loading">
         换一个
       </button>

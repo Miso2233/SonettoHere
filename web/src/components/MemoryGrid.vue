@@ -111,7 +111,7 @@
           <div class="widget-header">
             <span class="widget-title">
               <span class="theme-dot" :style="{ background: themeColor(si) }"></span>
-              {{ section.theme }}
+              {{ section.theme_label ?? section.theme }}
             </span>
             <span class="widget-badge">{{ section.items.length }}</span>
           </div>
