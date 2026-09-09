@@ -27,8 +27,6 @@
         @create="createSession"
         @switch="handleSwitchSession"
         @delete="deleteSession"
-        @constify="handleConstify"
-        @unconstify="handleUnconstify"
       />
       <div class="settings-area" ref="settingsTriggerRef">
         <button class="nav-item settings-btn" :class="{ active: showSettingsMenu }" @click="toggleSettingsMenu">
@@ -62,7 +60,7 @@ import Icon from '@/components/Icon.vue';
 import SessionSidebar from '@/components/SessionSidebar.vue';
 import { allSessionStatuses } from '@/composables/useChat';
 import { startPolling, useHealth } from '@/composables/useHealth';
-import { constifySession, unconstifySession, useSession } from '@/composables/useSession';
+import { useSession } from '@/composables/useSession';
 import { useSidebar } from '@/composables/useSidebar';
 import { api } from '@/api';
 import { ref, onMounted, onUnmounted, nextTick } from 'vue';
@@ -144,18 +142,6 @@ function handleSwitchSession(id: string) {
   console.debug('[App] handleSwitchSession: id=%s', id)
   switchSession(id)
   router.push('/')
-}
-
-function handleConstify(id: string, name: string) {
-  if (name && name.trim()) {
-    constifySession(id, name.trim())
-  }
-}
-
-function handleUnconstify(id: string) {
-  if (window.confirm('确定取消固定此会话？')) {
-    unconstifySession(id)
-  }
 }
 
 const { sessionId, sessions, createSession, switchSession, deleteSession } =

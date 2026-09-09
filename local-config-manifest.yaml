@@ -82,13 +82,6 @@ paths:
     note: "启动时会自动写入 anthropic_skills/ 和 macros/ 两个默认路径，但用户在 UI 添加的自定义白名单仅在此文件中保存，无法自动重建"
     gitignored: true
 
-  - path: "api/data/const-sessions/"
-    description: "固定会话持久化快照目录（内含 *.yaml）"
-    created_by: "api/const_session_store.py save_const_session"
-    source_template: null
-    required_for: "Const 固定会话功能"
-    gitignored: true
-
   - path: "studios/"
     description: "工作坊（Studio）定义文件（*.yaml，每用户本地，注入系统提示词）"
     created_by: "用户手工编辑"

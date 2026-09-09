@@ -160,7 +160,7 @@ A **layered shadow system**. Depth is conveyed exclusively through box-shadows, 
 - **Card Rest** (`--shadow-sm`: `0 1px 4px rgba(0, 0, 0, 0.06)`): Default card elevation. Tool bubbles, provider cards, empty-state cards.
 - **Card Elevated** (`--shadow-md`: `0 2px 8px rgba(0, 0, 0, 0.08)`): Active/hover card states, message bubbles.
 - **Dropdown Lift** (`--shadow-lg`: `0 4px 16px rgba(0, 0, 0, 0.12)`): Settings popup, drop-down menus, hover cards, context menus.
-- **Modal Float** (`--shadow-xl`: `0 6px 28px rgba(0, 0, 0, 0.18)`): Constify cards, heavy floating elements, confirmation dialogs.
+- **Modal Float** (`--shadow-xl`: `0 6px 28px rgba(0, 0, 0, 0.18)`): Popover/context cards, heavy floating elements, confirmation dialogs.
 
 ### Named Rules
 **The Flat-By-Default Rule.** Surfaces are flat at rest. Shadows appear only as a response to state (hover, focus, elevation) or to distinguish layered chrome (dropdowns, popups). A card at rest uses `shadow-sm` as its resting elevation, not zero — the subtle separation is the baseline, not an effect.

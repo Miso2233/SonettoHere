@@ -131,25 +131,6 @@ class SubAgentData:
         return task
 
 
-# ── 子数据类：固定会话 ────────────────────────────────────────────
-
-@dataclass
-class ConstSession:
-    """固定会话标记与名称。"""
-    is_const: bool = False
-    const_name: str = ""
-
-    def constify(self, name: str) -> None:
-        """将会话标记为固定会话。"""
-        self.is_const = True
-        self.const_name = name
-
-    def unconstify(self) -> None:
-        """取消固定标记。"""
-        self.is_const = False
-        self.const_name = ""
-
-
 # ── 子数据类：排队消息 ──────────────────────────────────────────
 
 @dataclass
@@ -244,10 +225,6 @@ class SessionState:
             _pending_result=kwargs.pop("_pending_result", None),
         )
         self._ws: WebSocket | None = kwargs.pop("ws", None)
-        self.const = ConstSession(
-            is_const=kwargs.pop("is_const", False),
-            const_name=kwargs.pop("const_name", ""),
-        )
         self.pending_queue = PendingQueue()
         if kwargs:
             raise TypeError(
@@ -288,14 +265,6 @@ class SessionState:
     @property
     def is_subagent(self) -> bool:
         return self.sub_agent.is_subagent
-
-    @property
-    def is_const(self) -> bool:
-        return self.const.is_const
-
-    @property
-    def const_name(self) -> str:
-        return self.const.const_name
 
     @property
     def pending_future(self) -> asyncio.Future | None:
@@ -362,14 +331,6 @@ class SessionState:
     def cancel_pending(self) -> None:
         """取消子 Agent 的 Future。"""
         self.sub_agent.cancel_pending()
-
-    def constify(self, name: str) -> None:
-        """将会话标记为固定会话。"""
-        self.const.constify(name)
-
-    def unconstify(self) -> None:
-        """取消固定标记。"""
-        self.const.unconstify()
 
     # ── 排队消息转发 ────────────────────────────────────────
 
@@ -470,26 +431,20 @@ class SessionManager:
 
     def list_sessions(self) -> list[dict]:
         result = []
-        const_count = 0
         for s in self._sessions.values():
-            has_active = s.has_active_task()
-            if s.is_const:
-                const_count += 1
             result.append(
                 {
                     "session_id": s.session_id,
                     "message_count": s.message_count,
                     "created_at": s.created_at,
                     "last_active": s.last_active,
-                    "has_active_agent": has_active,
+                    "has_active_agent": s.has_active_task(),
                     "is_subagent": s.is_subagent,
-                    "is_const": s.is_const,
-                    "const_name": s.const_name,
                 }
             )
         result.sort(key=lambda x: x["last_active"], reverse=True)
-        _log.debug("list_sessions: 内存中共 %d 个会话, 返回 %d 条, 其中固定会话 %d 个",
-                   len(self._sessions), len(result), const_count)
+        _log.debug("list_sessions: 内存中共 %d 个会话, 返回 %d 条",
+                   len(self._sessions), len(result))
         return result
 
     def exists(self, session_id: str) -> bool:
@@ -497,7 +452,7 @@ class SessionManager:
         return session_id in self._sessions
 
     def put(self, session_id: str, session: SessionState) -> None:
-        """直接插入会话（用于 const 重建等内部场景）。"""
+        """直接插入一个会话（测试/内部使用）。"""
         self._sessions[session_id] = session
 
     def cleanup_expired(self) -> int:

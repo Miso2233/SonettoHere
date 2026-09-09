@@ -8,7 +8,7 @@ Anthropic 的 ``AIMessage.content`` 是 blocks list（``[{"type":"text","text":.
 from langchain_core.messages import AIMessage, HumanMessage
 
 from api.agent.turn import _get_final_answer
-from api.session.const_store import flatten_content
+from api.utils.messages import flatten_content
 
 # Anthropic 风格 blocks content（含 tool_use 块，模拟带工具 agent 的输出）
 ANTHROPIC_BLOCKS = [

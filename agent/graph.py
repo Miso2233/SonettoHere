@@ -30,7 +30,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal, TypedDict
 
 from api.memory import LongTermMemory
-from api.session.const_store import flatten_content
+from api.utils.messages import flatten_content
 
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage

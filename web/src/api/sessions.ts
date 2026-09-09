@@ -3,7 +3,6 @@ import type {
   ListSessionsResponse,
   SessionInfo,
   ContextUsage,
-  ConstifyResponse,
 } from '@/types'
 import { request } from './client'
 
@@ -51,26 +50,4 @@ export const sessionsApi = {
   undoMessages: (sessionId: string, n: number = 1) =>
     request<{ deleted_count: number }>(`/sessions/${sessionId}/undo?n=${n}`, { method: 'POST' }),
 
-  /**
-   * 将会话设为固定（const），固定在侧边栏顶部不被自动清理
-   * @param id - 会话 ID
-   * @param name - 固定后显示的名称
-   */
-  constifySession: (id: string, name: string) =>
-    request<ConstifyResponse>(`/sessions/${id}/const`, {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    }),
-
-  /** 取消会话固定 */
-  unconstifySession: (id: string) =>
-    request<{ status: string }>(`/sessions/${id}/const`, { method: 'DELETE' }),
-
-  /**
-   * 让 AI 根据会话内容自动生成标题
-   * @param id - 会话 ID
-   * @returns 生成的标题
-   */
-  generateSessionTitle: (id: string) =>
-    request<{ title: string }>(`/sessions/${id}/generate-title`, { method: 'POST' }),
 }

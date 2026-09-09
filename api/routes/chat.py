@@ -317,9 +317,8 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
 
     # ── 初始化会话 ────────────────────────────────────────
     session = session_manager.get_or_create(session_id)
-    _log.debug("会话状态: id=%s, is_const=%s, const_name=%r, message_count=%d, has_active_task=%s",
-               session_id, session.is_const, session.const_name, session.message_count,
-               session.has_active_task())
+    _log.debug("会话状态: id=%s, message_count=%d, has_active_task=%s",
+               session_id, session.message_count, session.has_active_task())
     session.ws = ws  # 供后台记忆 consumer 推送事件
     interaction.current_ws.set(ws)  # 供 ChatSender/TurnSender/CallbackSender 使用
     # 会话级上下文：供工具函数通过 current_session_id 查询会话级设置。

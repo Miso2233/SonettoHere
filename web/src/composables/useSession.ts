@@ -19,15 +19,9 @@ export function useSession() {
     switchSession: store.switchSession,
     deleteSession: store.deleteSession,
     refreshSessions: store.refreshSessions,
-    constifySession: store.constifySession,
-    unconstifySession: store.unconstifySession,
-    generateSessionTitle: store.generateSessionTitle,
   }
 }
 
 // 模块级函数导出（向后兼容）
 export const refreshSessions = () => useSessionStore().refreshSessions()
 export const switchSession = (id: string) => useSessionStore().switchSession(id)
-export const constifySession = (id: string, name: string) => useSessionStore().constifySession(id, name)
-export const unconstifySession = (id: string) => useSessionStore().unconstifySession(id)
-export const generateSessionTitle = (id: string) => useSessionStore().generateSessionTitle(id)

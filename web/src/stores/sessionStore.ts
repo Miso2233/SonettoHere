@@ -80,21 +80,6 @@ export const useSessionStore = defineStore('session', () => {
     }
   }
 
-  async function constifySession(id: string, name: string) {
-    await api.constifySession(id, name)
-    await refreshSessions()
-  }
-
-  async function unconstifySession(id: string) {
-    await api.unconstifySession(id)
-    await refreshSessions()
-  }
-
-  async function generateSessionTitle(id: string): Promise<string> {
-    const res = await api.generateSessionTitle(id)
-    return res.title
-  }
-
   /** 清理后端已不存在的会话的 localStorage 孤儿缓存 */
   function cleanupOrphanedCaches() {
     const validIds = new Set(sessions.value.map(s => s.session_id))
@@ -124,8 +109,5 @@ export const useSessionStore = defineStore('session', () => {
     createSession,
     switchSession,
     deleteSession,
-    constifySession,
-    unconstifySession,
-    generateSessionTitle,
   }
 })
