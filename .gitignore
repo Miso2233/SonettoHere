@@ -57,6 +57,7 @@ skills/bilibili/cookie.txt
 tools/bilibili/cookie.txt
 output/bilibili/
 config/personas/memory.yaml
+config/personas/memory_v6.yaml
 *.lock
 *.clean
 

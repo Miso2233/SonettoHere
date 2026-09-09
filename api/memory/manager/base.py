@@ -12,6 +12,7 @@ from contextlib import AbstractContextManager
 from typing import Any, TypedDict
 
 from api.memory.manager.item import MemoryItem
+from api.memory.theme import DEFAULT_THEME, THEME_LABELS, is_valid_theme, require_theme, theme_label
 
 
 class SelfCheckReport(TypedDict):
@@ -130,9 +131,16 @@ class BaseMemoryManager(ABC):
                 item.description = "(空)"
                 repaired.append(f"条目 {id}: description 为空，已重置")
 
-            if not isinstance(item.theme, str) or not item.theme.strip():
-                item.theme = "(未分类)"
-                repaired.append(f"条目 {id}: theme 为空，已重置")
+            if (
+                not isinstance(item.theme, str)
+                or not item.theme.strip()
+                or not is_valid_theme(item.theme)
+            ):
+                item.theme = DEFAULT_THEME
+                repaired.append(
+                    f"条目 {id}: theme 为空或非法（V6 仅允许固定九种主题），"
+                    f"已重置为 {DEFAULT_THEME}（{THEME_LABELS[DEFAULT_THEME]}）"
+                )
 
             if not isinstance(item.history, list):
                 item.history = []
@@ -202,7 +210,7 @@ class BaseMemoryManager(ABC):
             groups[theme].sort(key=lambda x: x["_sort_time"], reverse=True)
         # 分区间按条目数降序
         sections = [
-            {"theme": theme, "items": items}
+            {"theme": theme, "theme_label": theme_label(theme), "items": items}
             for theme, items in sorted(
                 groups.items(), key=lambda x: len(x[1]), reverse=True
             )
@@ -212,7 +220,12 @@ class BaseMemoryManager(ABC):
     # ── CRUD 方法（基于 _load_all / _save_all / _write_lock） ──
 
     def add(self, description: str, theme: str) -> str:
-        """添加一条新的记忆条目。"""
+        """添加一条新的记忆条目。
+
+        Raises:
+            ValueError: theme 不是 V6 九种固定主题之一时。
+        """
+        theme = require_theme(theme, who="add(theme)")
         with self._write_lock():
             items = self._load_all()
             new_id = self._generate_id()
@@ -238,7 +251,12 @@ class BaseMemoryManager(ABC):
         merged_theme: str,
         reason: str,
     ) -> None:
-        """将两条记忆合并为一条，id1 保留，id2 被删除。"""
+        """将两条记忆合并为一条，id1 保留，id2 被删除。
+
+        Raises:
+            ValueError: merged_theme 不是 V6 九种固定主题之一时。
+        """
+        merged_theme = require_theme(merged_theme, who="merge(merged_theme)")
         with self._write_lock():
             items = self._load_all()
             if id1 not in items or id2 not in items:
@@ -256,7 +274,13 @@ class BaseMemoryManager(ABC):
         new_description: str | None = None,
         new_theme: str | None = None,
     ) -> None:
-        """更新指定记忆条目的内容和/或主题。"""
+        """更新指定记忆条目的内容和/或主题。
+
+        Raises:
+            ValueError: 传入的 new_theme 不是 V6 九种固定主题之一时。
+        """
+        if new_theme is not None:
+            new_theme = require_theme(new_theme, who="update(new_theme)")
         with self._write_lock():
             items = self._load_all()
             if id not in items:

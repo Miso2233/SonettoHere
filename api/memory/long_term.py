@@ -1,4 +1,4 @@
-"""记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 memory.yaml。"""
+"""记忆叙事模块 — 每轮对话后将裸消息送给 LLM，增量更新 memory_v6.yaml。"""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from api.memory.consumer import MemoryConsumer, set_current_mm
 from api.memory.llm_retriever import LLMRetriever
 from api.memory.manager import BaseMemoryManager
 from api.memory.mechanical_retriever import MechanicalRetriever
+from api.memory.theme import theme_display
 from api.providers.manager import get_manager
 from api.session.manager import SessionState, session_manager
 from api.utils.logger import get_logger
@@ -23,7 +24,8 @@ MEMORY_INJECTION_MARKER = "【相关记忆】"
 
 
 PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
-MEMORY_PATH = PERSONAS_DIR / "memory.yaml"
+MEMORY_FILE_NAME = "memory_v6.yaml"  # V6 记忆文件；V5 的 memory.yaml 已不再读取
+MEMORY_PATH = PERSONAS_DIR / MEMORY_FILE_NAME
 
 
 # ── 检索模式枚举 ─────────────────────────────────────
@@ -56,10 +58,10 @@ def _format_narrative(items: list[dict[str, str]]) -> str:
             theme_order.append(theme)
     lines = ["# 长期记忆索引"]
     for theme in theme_order:
-        lines.append(f"- [{theme}](#{theme})")
+        lines.append(f"- [{theme_display(theme)}](#{theme})")
     lines.extend(["", "---", ""])
     for theme in theme_order:
-        lines.append(f"## {theme}")
+        lines.append(f"## {theme_display(theme)}")
         for item in by_theme[theme]:
             lines.append(f"- {item['description']}")
         lines.append("")
@@ -96,7 +98,7 @@ class LongTermMemory:
         ltm = LongTermMemory(
             MemoryManagerBuilder()
             .with_backend(YamlMemoryManager)
-            .with_args(yaml_file="path/to/memory.yaml")
+            .with_args(yaml_file="path/to/memory_v6.yaml")
             .build() # 传入选用的记忆管理器
         )
 
@@ -223,7 +225,7 @@ class LongTermMemory:
 
         自动跳过以 :data:`MEMORY_INJECTION_MARKER` 开头的 HumanMessage
         （即 retrieve_memory 节点注入的【相关记忆】），避免 LTM consumer
-        将记忆注入内容当作真实用户对话写入 memory.yaml。
+        将记忆注入内容当作真实用户对话写入 memory_v6.yaml。
         """
         try:
             raw = await session.get_messages()

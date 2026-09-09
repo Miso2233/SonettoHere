@@ -19,6 +19,9 @@ class MemoryItem:
     每个 MemoryItem 实例代表一条独立的记忆条目，包含描述内容、
     分类主题、变更历史以及引用计数。通过其 update / merge 方法
     记录每次变更的完整轨迹，供 show_description_history() 追溯。
+
+    theme 在 V6 起为九大固定语义主题的英文 KEY（见 api.memory.theme），
+    合法性由 BaseMemoryManager 写入时强制校验。
     """
 
     def __init__(

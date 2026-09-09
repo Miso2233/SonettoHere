@@ -16,7 +16,7 @@ class MemoryManagerBuilder:
         # YAML 后端
         mm = MemoryManagerBuilder() \\
             .with_backend(YamlMemoryManager) \\
-            .with_args(yaml_file="path/to/memory.yaml") \\
+            .with_args(yaml_file="path/to/memory_v6.yaml") \\
             .build()
 
         # 自定义后端
@@ -29,7 +29,7 @@ class MemoryManagerBuilder:
         ltm = LongTermMemory(
             MemoryManagerBuilder()
             .with_backend(YamlMemoryManager)
-            .with_args(yaml_file="path/to/memory.yaml")
+            .with_args(yaml_file="path/to/memory_v6.yaml")
             .build()
         )
     """

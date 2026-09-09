@@ -68,7 +68,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
 
             def setup1():
                 consumer._current_mm.add(
-                    description="第1轮记忆：用户打了招呼。", theme="身份"
+                    description="第1轮记忆：用户打了招呼。", theme="USER"
                 )
 
             return _make_fake_agent(entries_setup=setup1, done_event=done)
@@ -76,10 +76,10 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
 
             def setup2():
                 mm = consumer._current_mm
-                mm.add(description="第1轮记忆：用户打了招呼。", theme="身份")
+                mm.add(description="第1轮记忆：用户打了招呼。", theme="USER")
                 mm.add(
                     description="第2轮补充：用户叫Miso，在北京学习网络安全。",
-                    theme="身份",
+                    theme="USER",
                 )
 
             return _make_fake_agent(entries_setup=setup2, done_event=done)
@@ -89,7 +89,7 @@ async def test_full_pipeline_cold_start_to_update(tmp_path, monkeypatch):
                 mm = consumer._current_mm
                 for item in mm.show():
                     mm.delete(item["id"])
-                mm.add(description=f"第{call_count[0]}轮记忆：已更新。", theme="身份")
+                mm.add(description=f"第{call_count[0]}轮记忆：已更新。", theme="USER")
 
             return _make_fake_agent(entries_setup=setup3, done_event=done)
 
@@ -157,7 +157,7 @@ async def test_pipeline_handles_concurrent_sends(tmp_path, monkeypatch):
             processed_count[0] += 1
             consumer._current_mm.add(
                 description=f"记忆{processed_count[0]}。",
-                theme="身份",
+                theme="USER",
             )
 
         return _make_fake_agent(entries_setup=setup)
@@ -192,7 +192,7 @@ async def test_send_history_is_non_blocking(tmp_path, monkeypatch):
 
     async def slow_ainvoke(_input: object, config: dict[str, Any] | None = None) -> dict[str, Any]:
         await asyncio.sleep(0.1)
-        consumer._current_mm.add(description="慢慢来。", theme="身份")
+        consumer._current_mm.add(description="慢慢来。", theme="USER")
         return {"messages": []}
 
     fake_agent = MagicMock()
