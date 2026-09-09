@@ -103,7 +103,8 @@ def test_memory_search_extractor() -> None:
         "success": True,
         "data": {
             "summary": "命中 1 条，关联 1 条",
-            "theme": None,
+            "theme": "USER",
+            "regex": "Miso",
             "matched_total": 1,
             "matched": [
                 {"id": "a1", "theme": "USER", "description": "用户叫 Miso"}
@@ -119,6 +120,8 @@ def test_memory_search_extractor() -> None:
 
     assert out is not None
     assert out["tool_type"] == "memory_search"
+    assert out["regex"] == "Miso"
+    assert out["theme"] == "USER"
     assert out["matched_total"] == 1
     assert out["matched"][0]["description"] == "用户叫 Miso"
     assert out["related"][0]["depth"] == 1

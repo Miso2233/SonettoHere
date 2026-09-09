@@ -10,12 +10,17 @@
 
     <!-- 完成 -->
     <template v-else-if="toolCall.status === 'done'">
-      <div v-if="hasResults" class="ms">
+      <div v-if="hasData" class="ms">
+        <!-- 查询输入栏：主题 + 检索关键词 -->
         <div class="ms-bar">
-          <span class="ms-bar-text">
+          <div class="ms-query">
+            <span v-if="themeText" class="ms-theme">{{ themeText }}</span>
+            <code class="ms-regex">{{ regexText || '—' }}</code>
+          </div>
+          <span class="ms-stats">
             命中 {{ matchedTotal }} · 关联 {{ relatedTotal }}
+            <span v-if="truncated" class="ms-trunc">· 部分截断</span>
           </span>
-          <span v-if="truncated" class="ms-tag">部分截断</span>
         </div>
 
         <div v-if="matched.length" class="ms-block">
@@ -34,15 +39,17 @@
           <div v-for="(r, i) in related" :key="`r-${r.id ?? i}`" class="ms-item">
             <div class="ms-item-head">
               <span class="ms-theme">{{ r.theme }}</span>
-              <span class="ms-depth" v-if="r.depth">第 {{ r.depth }} 级</span>
+              <span v-if="r.depth" class="ms-depth">第 {{ r.depth }} 级</span>
               <span class="ms-item-id">{{ r.id }}</span>
             </div>
             <p class="ms-desc">{{ r.description }}</p>
           </div>
         </div>
+
+        <div v-if="!hasResults" class="ms-empty">{{ summary || '未检索到相关记忆' }}</div>
       </div>
 
-      <div v-else class="ms-empty">{{ summary || '未检索到相关记忆' }}</div>
+      <div v-else-if="toolCall.output" class="ms-raw">{{ toolCall.output }}</div>
     </template>
 
     <!-- 未知状态兜底 -->
@@ -64,6 +71,8 @@ interface MemEntry {
 
 interface MemorySearchData {
   summary?: string
+  regex?: string
+  theme?: string | null
   matched_total?: number
   related_total?: number
   truncated?: boolean
@@ -74,11 +83,11 @@ interface MemorySearchData {
 const props = defineProps<{ toolCall: ToolCall }>()
 defineEmits<{ (e: 'action', p: { action: string; data?: unknown }): void }>()
 
+/** 从 toolData 取结构化数据；缺失时降级解析完整 output JSON */
 const data = computed<MemorySearchData>(() => {
   if (props.toolCall.toolData) {
     return props.toolCall.toolData as MemorySearchData
   }
-  // 降级：解析完整 output JSON（后端已截断时此路径通常失败，仅兜底）
   if (props.toolCall.output) {
     try {
       const p = JSON.parse(props.toolCall.output) as { data?: MemorySearchData }
@@ -88,12 +97,39 @@ const data = computed<MemorySearchData>(() => {
   return {}
 })
 
+/** 兜底：从原始 tool 入参（str(dict) 或 JSON）里抽取 regex/theme，用于展示查询输入 */
+function parseInputArgs(raw: string | null): { regex?: string; theme?: string | null } {
+  if (!raw) return {}
+  try {
+    const o = JSON.parse(raw) as { regex?: string; theme?: string | null }
+    return { regex: o?.regex, theme: o?.theme }
+  } catch { /* not JSON */ }
+  const pick = (key: string): string | undefined => {
+    const m = raw.match(
+      new RegExp(`['"]?${key}['"]?\\s*:\\s*(?:'([^']*)'|"([^"]*)"|([^,}\\s]+))`)
+    )
+    return m ? (m[1] ?? m[2] ?? m[3]) : undefined
+  }
+  const theme = pick('theme')
+  return { regex: pick('regex'), theme: theme || null }
+}
+
+const inputArgs = computed(() => parseInputArgs(props.toolCall.input ?? null))
+
+const regexText = computed<string>(() =>
+  typeof data.value.regex === 'string' && data.value.regex ? data.value.regex : (inputArgs.value.regex || '')
+)
+const themeText = computed<string>(() =>
+  typeof data.value.theme === 'string' && data.value.theme ? data.value.theme : (inputArgs.value.theme || '')
+)
+
 const matched = computed<MemEntry[]>(() =>
   Array.isArray(data.value.matched) ? data.value.matched : []
 )
 const related = computed<MemEntry[]>(() =>
   Array.isArray(data.value.related) ? data.value.related : []
 )
+const hasData = computed(() => Object.keys(data.value).length > 0)
 const hasResults = computed(() => matched.value.length > 0 || related.value.length > 0)
 const matchedTotal = computed(() =>
   typeof data.value.matched_total === 'number' ? data.value.matched_total : matched.value.length
@@ -127,29 +163,58 @@ const truncated = computed(() => data.value.truncated === true)
   padding: 4px 0;
 }
 
-/* ── 顶部统计条 ── */
+/* ── 顶部查询栏 ── */
 .ms-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 12px;
   padding: 10px 14px;
   background: #f5f5f5;
   border-radius: 6px;
   flex-wrap: wrap;
 }
-.ms-bar-text {
+.ms-query {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.ms-regex {
   font-size: 13px;
+  font-weight: 600;
+  color: #000;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ms-stats {
+  font-size: 12px;
   font-weight: 700;
   color: #000;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.ms-tag {
+.ms-trunc {
   font-size: 10px;
+  font-weight: 600;
+  color: #555;
+  margin-left: 2px;
+}
+
+/* ── 主题描边标签 ── */
+.ms-theme {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
   padding: 1px 6px;
   border: 1px solid #ccc;
   border-radius: 2px;
   color: #555;
-  font-weight: 600;
+  letter-spacing: .5px;
 }
 
 /* ── 分组 ── */
@@ -182,15 +247,6 @@ const truncated = computed(() => data.value.truncated === true)
   gap: 8px;
   flex-wrap: wrap;
 }
-.ms-theme {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border: 1px solid #ccc;
-  border-radius: 2px;
-  color: #555;
-  letter-spacing: .5px;
-}
 .ms-depth {
   font-size: 10px;
   color: #888;
@@ -216,7 +272,7 @@ const truncated = computed(() => data.value.truncated === true)
 /* ── 无结果 ── */
 .ms-empty {
   text-align: center;
-  padding: 26px 16px;
+  padding: 20px 16px 4px;
   color: #999;
   font-size: 13px;
 }

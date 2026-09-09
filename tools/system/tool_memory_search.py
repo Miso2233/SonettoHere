@@ -43,7 +43,7 @@ class MemorySearchTool(ToolBase):
 
         def _empty(summary: str) -> str:
             return format_success({
-                "summary": summary, "theme": theme,
+                "summary": summary, "theme": theme, "regex": regex,
                 "matched_total": 0, "matched": [],
                 "related_total": 0, "related": [], "truncated": False,
             })
@@ -89,7 +89,7 @@ class MemorySearchTool(ToolBase):
             summary = "，".join(parts)
 
         return format_success({
-            "summary": summary, "theme": theme,
+            "summary": summary, "theme": theme, "regex": regex,
             "matched_total": matched_total, "matched": matched,
             "related_total": related_total, "related": related,
             "truncated": truncated,

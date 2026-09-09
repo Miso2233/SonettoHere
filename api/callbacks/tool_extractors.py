@@ -1152,6 +1152,8 @@ def _extract_memory_search(
     return {
         "tool_type": "memory_search",
         "summary": data.get("summary"),
+        "regex": data.get("regex"),
+        "theme": data.get("theme"),
         "matched_total": data.get("matched_total"),
         "matched": matched if isinstance(matched, list) else [],
         "related_total": data.get("related_total"),
