@@ -352,7 +352,9 @@ class TestYamlMemoryManagerGrouping:
         mm.link(a, b)
         items = mm.get_memories_grouped()["sections"][0]["items"]
         assert set(items[0].keys()) == {"id", "description", "related", "_sort_time"}
-        assert items[0]["related"] == [b]
+        by_id = {it["id"]: it for it in items}
+        assert by_id[a]["related"] == [b]
+        assert by_id[b]["related"] == [a]
 
     def test_memories_grouped_empty(self, tmp_path):
         """空文件时返回空 sections。"""
