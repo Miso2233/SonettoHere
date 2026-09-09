@@ -39,13 +39,11 @@ async def get_moment(request: Request) -> dict:
     if not items:
         return {"moment": None}
     chosen = random.choice(items)
-    history = ltm._mm.show_description_history(chosen["id"])
     return {
         "moment": {
             "id": chosen["id"],
             "description": chosen["description"],
             "theme": chosen["theme"],
             "theme_label": theme_label(chosen["theme"]),
-            "history": history,
         }
     }

@@ -4,51 +4,72 @@ import re
 
 import pytest
 
-from api.memory.manager import YamlMemoryManager, MemoryItem
+from api.memory.manager import MemoryItem, YamlMemoryManager
 from api.memory.theme import THEME_LABELS
 
 
+def _read(path):
+    """读取 YAML 文件为 dict（测试辅助）。"""
+    import yaml
+
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
 class TestMemoryItem:
-    """MemoryItem 单元测试。"""
+    """MemoryItem 单元测试（无 history/hit，含 related）。"""
 
     def test_init_sets_defaults(self):
-        item = MemoryItem("test description", "test theme")
+        item = MemoryItem("test description", "USER")
         assert item.description == "test description"
-        assert item.theme == "test theme"
-        assert item.history == []
+        assert item.theme == "USER"
+        assert item.related == []
         assert item.latest_update_time is not None
+        # history/hit 已彻底移除
+        assert not hasattr(item, "history")
+        assert not hasattr(item, "hit")
 
-    def test_update_description(self):
-        item = MemoryItem("old", "theme")
+    def test_update_description_no_history(self):
+        item = MemoryItem("old", "USER")
         item.update("信息过时", new_description="new")
         assert item.description == "new"
-        assert len(item.history) == 1
-        assert item.history[0]["old_description"] == "old"
+        assert item.theme == "USER"
+        assert item.related == []
+        assert not hasattr(item, "history")
 
     def test_update_theme(self):
-        item = MemoryItem("desc", "旧主题")
-        item.update("重新分类", new_theme="USER")
-        assert item.theme == "USER"
+        item = MemoryItem("desc", "USER")
+        item.update("重新分类", new_theme="PROJECT")
+        assert item.theme == "PROJECT"
+        assert item.description == "desc"
 
-    def test_merge_combines_history(self):
-        item1 = MemoryItem("A", "USER")
-        item2 = MemoryItem("B", "USER")
-        item1.merge(item2, "合并", "merged", "USER")
+    def test_merge_unions_related_minus_involved(self):
+        item1 = MemoryItem("A", "USER", related=["x", "id2", "id2"])
+        item2 = MemoryItem("B", "USER", related=["id1", "y", "x"])
+        item1.merge(
+            item2,
+            "合并",
+            "merged",
+            "USER",
+            self_id="id1",
+            other_id="id2",
+        )
         assert item1.description == "merged"
-        # merge → update 产生一条历史记录
-        assert len(item1.history) == 1
-        assert item1.history[0]["reason"] == "合并"
+        assert item1.related == ["x", "y"]
+        assert not hasattr(item1, "history")
 
-    def test_show_description_history_order(self):
-        item = MemoryItem("initial", "USER")
-        item.update("第一次", new_description="second")
-        item.update("第二次", new_description="third")
-        history = item.show_description_history()
-        # 第一项是当前值
-        assert history[0]["description"] == "third"
-        # 后续是逆序的历史值
-        assert history[1]["description"] == "second"
-        assert history[2]["description"] == "initial"
+    def test_add_related_dedupes(self):
+        item = MemoryItem("d", "USER")
+        item.add_related("aaa")
+        item.add_related("aaa")
+        item.add_related("bbb")
+        assert item.related == ["aaa", "bbb"]
+
+    def test_remove_related(self):
+        item = MemoryItem("d", "USER", related=["aaa", "bbb"])
+        item.remove_related("aaa")
+        assert item.related == ["bbb"]
+        item.remove_related("aaa")  # 幂等
+        assert item.related == ["bbb"]
 
 
 class TestYamlMemoryManager:
@@ -59,11 +80,7 @@ class TestYamlMemoryManager:
         path = tmp_path / "memory_v6.yaml"
         YamlMemoryManager(yaml_file=str(path))
         assert path.exists()
-        # 文件内容应为有效 yaml
-        import yaml
-
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        assert data == {}
+        assert _read(path) == {}
 
     def test_init_creates_parent_dir(self, tmp_path):
         """初始化时创建父目录。"""
@@ -88,7 +105,6 @@ class TestYamlMemoryManager:
         assert len(items) == 1
         assert items[0]["description"] == "测试描述"
         assert items[0]["theme"] == "USER"
-        # id 是 8 字符十六进制
         assert re.match(r"^[a-f0-9]{8}$", items[0]["id"])
 
     def test_add_invalid_theme_raises(self, tmp_path):
@@ -169,8 +185,64 @@ class TestYamlMemoryManager:
         with pytest.raises(ValueError, match="not found"):
             mm.merge(id1, "bad-id", "desc", "USER", "原因")
 
+    def test_link_symmetric(self, tmp_path):
+        """link 建立双向对称关联并落盘。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        b = mm.add(description="B", theme="PREFERENCE")
+        mm.link(a, b)
+        data = _read(path)
+        assert b in data[a]["related"]
+        assert a in data[b]["related"]
+        assert data[a]["related"] == data[a]["related"][:1]  # 去重
+
+    def test_link_self_raises(self, tmp_path):
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        with pytest.raises(ValueError, match="itself"):
+            mm.link(a, a)
+
+    def test_link_missing_id_raises(self, tmp_path):
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        with pytest.raises(ValueError, match="not found"):
+            mm.link(a, "bad-id")
+
+    def test_delete_cleans_dangling_edges(self, tmp_path):
+        """删除条目后其余条目的 related 不再悬空。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        b = mm.add(description="B", theme="PREFERENCE")
+        c = mm.add(description="C", theme="PREFERENCE")
+        mm.link(a, b)
+        mm.link(a, c)
+        mm.delete(a)
+        data = _read(path)
+        assert data[b]["related"] == []
+        assert data[c]["related"] == []
+
+    def test_merge_remaps_edges(self, tmp_path):
+        """merge 后，其余条目中指向 id2 的 related 重定向到 id1。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        b = mm.add(description="B", theme="USER")
+        c = mm.add(description="C", theme="PREFERENCE")
+        mm.link(a, c)
+        mm.link(b, c)
+        mm.merge(a, b, "A+B", "USER", "重复")
+        data = _read(path)
+        assert a in data
+        assert b not in data
+        assert data[a]["related"] == [c]
+        assert data[c]["related"] == [a]
+
     def test_self_check_repairs_invalid_theme(self, tmp_path):
-        """self_check 将非法主题修复为 DEFAULT_THEME（MOMENT）。"""
+        """self_check 将非法主题修复为 DEFAULT_THEME（MOMENT），且容忍 history/hit 残留。"""
         import yaml
 
         path = tmp_path / "memory_v6.yaml"
@@ -178,19 +250,71 @@ class TestYamlMemoryManager:
             "abcd1234": {
                 "description": "旧格式记忆",
                 "theme": "身份",
-                "history": [],
-                "hit": 0,
+                "history": [{"reason": "x", "old_description": "o", "new_description": "n"}],
+                "hit": 5,
                 "latest_update_time": "2026-01-01 00:00:00",
             }
         }
-        path.write_text(
-            yaml.dump(raw, default_flow_style=False, allow_unicode=True),
-            encoding="utf-8",
-        )
+        path.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
         mm = YamlMemoryManager(yaml_file=str(path))
         report = mm.self_check()
         assert report["status"] == "WARN"
         assert mm.show()[0]["theme"] == "MOMENT"
+
+    def test_load_ignores_legacy_history_hit_and_rewrites_clean(self, tmp_path):
+        """旧 YAML 残留 history/hit 可加载；重写后字段干净且含 related。"""
+        import yaml
+
+        path = tmp_path / "memory_v6.yaml"
+        raw = {
+            "aaaa0001": {
+                "description": "旧A",
+                "theme": "USER",
+                "history": [{"reason": "x", "old_description": "o", "old_time": "t"}],
+                "hit": 5,
+                "latest_update_time": "2026-01-01 00:00:00",
+            }
+        }
+        path.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
+        mm = YamlMemoryManager(yaml_file=str(path))
+        # 能加载且校验 OK（不抛 TypeError）
+        report = mm.self_check()
+        assert report["status"] == "OK"
+        # 全量重写后不再含 history/hit，并带 related
+        with mm._write_lock():
+            items = mm._load_all()
+            mm._save_all(items)
+        entry = _read(path)["aaaa0001"]
+        assert "history" not in entry
+        assert "hit" not in entry
+        assert "related" in entry
+        assert entry["related"] == []
+
+    def test_self_check_repairs_symmetry(self, tmp_path):
+        """self_check 补齐单向 related 为双向对称。"""
+        import yaml
+
+        path = tmp_path / "memory_v6.yaml"
+        raw = {
+            "aaaa0001": {
+                "description": "A",
+                "theme": "USER",
+                "related": ["bbbb0002"],
+                "latest_update_time": "2026-01-01 00:00:00",
+            },
+            "bbbb0002": {
+                "description": "B",
+                "theme": "PREFERENCE",
+                "related": [],
+                "latest_update_time": "2026-01-01 00:00:00",
+            },
+        }
+        path.write_text(yaml.safe_dump(raw, allow_unicode=True), encoding="utf-8")
+        mm = YamlMemoryManager(yaml_file=str(path))
+        report = mm.self_check()
+        assert report["status"] == "WARN"
+        data = _read(path)
+        assert "aaaa0001" in data["bbbb0002"]["related"]
 
     def test_self_check_ok_on_empty_file(self, tmp_path):
         """空 V6 文件 self_check → OK。"""
@@ -205,14 +329,13 @@ class TestYamlMemoryManagerGrouping:
     """get_memories_grouped 测试。"""
 
     def test_memories_grouped_by_theme(self, tmp_path):
-        """get_memories_grouped() 按 theme 分组，并附带 theme_label。"""
+        """按 theme 分组，并附带 theme_label。"""
         path = tmp_path / "memory_v6.yaml"
         mm = YamlMemoryManager(yaml_file=str(path))
         mm.add(description="学生", theme="USER")
         mm.add(description="网络安全", theme="USER")
         mm.add(description="洛天依", theme="PREFERENCE")
         result = mm.get_memories_grouped()
-        assert "sections" in result
         sections = result["sections"]
         assert len(sections) == 2
         by_theme = {s["theme"]: s for s in sections}
@@ -220,22 +343,20 @@ class TestYamlMemoryManagerGrouping:
         assert by_theme["USER"]["theme_label"] == THEME_LABELS["USER"]
         assert by_theme["PREFERENCE"]["theme_label"] == THEME_LABELS["PREFERENCE"]
 
+    def test_memories_grouped_item_shape(self, tmp_path):
+        """每项载荷只含 id/description/related/_sort_time。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        b = mm.add(description="B", theme="USER")
+        mm.link(a, b)
+        items = mm.get_memories_grouped()["sections"][0]["items"]
+        assert set(items[0].keys()) == {"id", "description", "related", "_sort_time"}
+        assert items[0]["related"] == [b]
+
     def test_memories_grouped_empty(self, tmp_path):
         """空文件时返回空 sections。"""
         path = tmp_path / "memory_v6.yaml"
         mm = YamlMemoryManager(yaml_file=str(path))
         result = mm.get_memories_grouped()
         assert result == {"sections": []}
-
-    def test_description_history(self, tmp_path):
-        """show_description_history 返回正确顺序。"""
-        path = tmp_path / "memory_v6.yaml"
-        mm = YamlMemoryManager(yaml_file=str(path))
-        item_id = mm.add(description="初始", theme="USER")
-        mm.update(item_id, "第一次更新", new_description="第一次")
-        mm.update(item_id, "第二次更新", new_description="第二次")
-        history = mm.show_description_history(item_id)
-        # 从当前到最早
-        assert history[0]["description"] == "第二次"
-        assert history[1]["description"] == "第一次"
-        assert history[2]["description"] == "初始"

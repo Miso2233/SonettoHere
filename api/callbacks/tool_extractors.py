@@ -1039,12 +1039,12 @@ def _extract_read_memories(
     parsed: dict[str, Any],
     _tool_input: str | None = None,
 ) -> dict[str, Any] | None:
-    """返回单条记忆的 id、description、theme，可选 history。"""
+    """返回单条记忆的 id、description、theme 等字段。"""
     data = _get_data(parsed)
     if data is None:
         return None
     result: dict[str, Any] = {}
-    for key in ("id", "description", "theme", "history", "history_count", "formatted"):
+    for key in ("id", "description", "theme", "related", "formatted"):
         if key in data:
             result[key] = data[key]
     return result if result else None

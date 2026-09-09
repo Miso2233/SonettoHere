@@ -69,6 +69,7 @@ _UPDATE_PREFIX = """你是一位"记忆叙事师"。以下是当前记忆（每�
 - 新信息用 create_memory 逐条添加，每次必须指定 section 参数
 - 已有信息需要修正或补充时用 update_memory（通过 ID 指定）
 - 与新信息矛盾或已过时的条目用 delete_memory 删除
+- 两条记忆相关且适合长期互相引用（不宜合并）时，用 link_memories 建立双向关联
 
 记忆分区：必须使用下方固定的九大主题 KEY，不得新建分区。
 生命周期：TODO（计划目标承诺）到期后务必删除；MOMENT（事件与经历）若为一次性事件且已失去意义，可删除或精简。
@@ -184,12 +185,12 @@ def read_memories() -> str:
 @tool
 @_require_mm
 def update_memory(id: str, content: str, reason: str) -> str:
-    """根据 ID 更新一条已有记忆。更新成功后会自动增加该记忆的引用计数（hit），表示该记忆被重新关注。
+    """根据 ID 更新一条已有记忆的内容。
 
     Args:
         id: 要更新的记忆 ID（来自 read_memories 的输出）。
         content: 更新后的完整内容。
-        reason: 修改原因，说明为什么要更新这条记忆。
+        reason: 修改原因，说明为什么要更新这条记忆（仅作说明，不写入）。
     """
     content = _sanitize(content)
     if len(content) > MAX_DESC_LENGTH:
@@ -199,10 +200,9 @@ def update_memory(id: str, content: str, reason: str) -> str:
         )
     try:
         _current_mm.update(id, reason=reason, new_description=content)
-        new_hit = _current_mm.hit(id)
     except ValueError:
         return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    return f"已更新 [{id}]: {content}（hit {new_hit}）"
+    return f"已更新 [{id}]: {content}"
 
 
 @tool
@@ -224,10 +224,11 @@ def delete_memory(id: str, reason: str) -> str:
 @tool
 @_require_mm
 def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) -> str:
-    """将两条相似记忆合并为一条，id1 保留、id2 被删除，同时保留两者的修改历史。
+    """将两条相似记忆合并为一条，id1 保留、id2 被删除。
 
     当两条记忆描述同一事物（如分散的身份信息、同一首歌在不同分区的重复条目）
-    时使用，避免碎片化。
+    时使用，避免碎片化。两条记忆的 related 关联会合并，id2 从其他记忆的
+    related 中重定向到 id1。
 
     Args:
         id1: 合并后保留的记忆 ID（主条目）。
@@ -254,19 +255,23 @@ def merge_memories(id1: str, id2: str, content: str, section: str, reason: str) 
 
 @tool
 @_require_mm
-def hit_memory(id: str) -> str:
-    """标记一条记忆被引用/点击一次，增加其 hit 计数。
+def link_memories(id1: str, id2: str) -> str:
+    """在两条记忆之间建立双向关联（related 图边），用于日后关联检索。
 
-    当记忆被引用（如被用于回答用户问题或被关联到对话）且没有对被引用记忆进行Update时调用此工具标记。
+    当两条记忆内容相关但不适合合并（例如分属不同主题却指向同一事物、
+    同一偏好的多次记录、一条事件的上下文背景等）时，用此工具把它们的
+    ID 关联起来。关联是双向且去重的（A↔B）。
+    先调用 read_memories 拿到待关联条目的 ID。
 
     Args:
-        id: 要标记的记忆 ID（来自 read_memories 的输出）。
+        id1: 第一条记忆 ID。
+        id2: 第二条记忆 ID。
     """
     try:
-        new_count = _current_mm.hit(id)
-    except ValueError:
-        return f"错误：未找到 ID 为 {id} 的记忆条目。请先调用 read_memories 确认 ID。"
-    return f"已标记记忆 [{id}]，累计点击 {new_count} 次"
+        _current_mm.link(id1, id2)
+    except ValueError as e:
+        return f"错误：{e}"
+    return f"已关联 [{id1}] ↔ [{id2}]"
 
 
 # ── 消费者 ──────────────────────────────────────────
@@ -322,7 +327,7 @@ class MemoryConsumer:
 
             crud_tools = [
                 create_memory, read_memories, update_memory,
-                delete_memory, merge_memories, hit_memory,
+                delete_memory, merge_memories, link_memories,
             ]
 
             agent = create_agent(
