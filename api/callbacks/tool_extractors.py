@@ -1132,3 +1132,29 @@ def _extract_await_background(
         "await_status": data.get("status", ""),
         "elapsed_s": data.get("elapsed_s", 0),
     }
+
+@register("memory_search")
+def _extract_memory_search(
+    _tool_name: str,
+    parsed: dict[str, Any],
+    _tool_input: str | None = None,
+) -> dict[str, Any] | None:
+    """返回 memory_search 命中/关联条目结构，供前端记忆搜索气泡渲染。
+
+    每项形如 ``{id, theme, description}``，related 项额外带 ``depth``
+    （多级关联层深）。前端据此分组展示，比通用卡片更友好。
+    """
+    data = _get_data(parsed)
+    if data is None:
+        return None
+    matched = data.get("matched")
+    related = data.get("related")
+    return {
+        "tool_type": "memory_search",
+        "summary": data.get("summary"),
+        "matched_total": data.get("matched_total"),
+        "matched": matched if isinstance(matched, list) else [],
+        "related_total": data.get("related_total"),
+        "related": related if isinstance(related, list) else [],
+        "truncated": data.get("truncated", False),
+    }

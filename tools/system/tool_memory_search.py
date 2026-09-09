@@ -41,8 +41,15 @@ class MemorySearchTool(ToolBase):
         from api.memory.long_term import MEMORY_PATH
         from api.memory.manager import YamlMemoryManager
 
+        def _empty(summary: str) -> str:
+            return format_success({
+                "summary": summary, "theme": theme,
+                "matched_total": 0, "matched": [],
+                "related_total": 0, "related": [], "truncated": False,
+            })
+
         if not MEMORY_PATH.exists():
-            return format_success({"result": "（暂无长期记忆）"})
+            return _empty("（暂无长期记忆）")
         try:
             manager = YamlMemoryManager(yaml_file=str(MEMORY_PATH))
             adjacency = memory_search.collect_adjacency(manager)
@@ -55,4 +62,35 @@ class MemorySearchTool(ToolBase):
             return format_error(f"{e}")
         except (OSError, TypeError, yaml.YAMLError):
             return format_error("记忆库暂不可读，请稍后重试。")
-        return format_success({"result": memory_search.render_search_result(result)})
+
+        matched = [
+            {"id": m["id"], "theme": m["theme"], "description": m["description"]}
+            for m in result.get("matched", [])
+        ]
+        related = [
+            {
+                "id": m["id"], "theme": m["theme"], "description": m["description"],
+                "depth": m.get("depth", 1),
+            }
+            for m in result.get("related", [])
+        ]
+        matched_total = len(matched)
+        related_total = result.get("related_total", 0)
+        truncated = result.get("truncated", False)
+
+        if matched_total == 0 and related_total == 0:
+            summary = "（无匹配记忆）"
+        else:
+            parts = [f"命中 {matched_total} 条"]
+            if related_total:
+                parts.append(f"关联 {related_total} 条")
+            if truncated:
+                parts.append("超出展示上限已截断")
+            summary = "，".join(parts)
+
+        return format_success({
+            "summary": summary, "theme": theme,
+            "matched_total": matched_total, "matched": matched,
+            "related_total": related_total, "related": related,
+            "truncated": truncated,
+        })

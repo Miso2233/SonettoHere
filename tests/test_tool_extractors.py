@@ -95,3 +95,53 @@ def test_file_edit_degrades_on_error_output() -> None:
     """success=false 的输出不提取（与既有提取器行为一致）。"""
     parsed = {"success": False, "error": "文件不存在"}
     assert _dispatch("file_edit", parsed, "{'edits': '[]'}") is None
+
+
+def test_memory_search_extractor() -> None:
+    """memory_search 输出提取为前端气泡的命中/关联条目结构。"""
+    parsed = {
+        "success": True,
+        "data": {
+            "summary": "命中 1 条，关联 1 条",
+            "theme": None,
+            "matched_total": 1,
+            "matched": [
+                {"id": "a1", "theme": "USER", "description": "用户叫 Miso"}
+            ],
+            "related_total": 1,
+            "related": [
+                {"id": "b2", "theme": "PREFERENCE", "description": "喜欢洛天依", "depth": 1}
+            ],
+            "truncated": False,
+        },
+    }
+    out = _dispatch("memory_search", parsed)
+
+    assert out is not None
+    assert out["tool_type"] == "memory_search"
+    assert out["matched_total"] == 1
+    assert out["matched"][0]["description"] == "用户叫 Miso"
+    assert out["related"][0]["depth"] == 1
+    assert out["truncated"] is False
+
+
+def test_memory_search_extractor_empty() -> None:
+    """无命中且无关联时返回空数组与提示文本。"""
+    parsed = {
+        "success": True,
+        "data": {
+            "summary": "（无匹配记忆）",
+            "theme": None,
+            "matched_total": 0,
+            "matched": [],
+            "related_total": 0,
+            "related": [],
+            "truncated": False,
+        },
+    }
+    out = _dispatch("memory_search", parsed)
+
+    assert out is not None
+    assert out["matched"] == []
+    assert out["related"] == []
+    assert out["summary"] == "（无匹配记忆）"
