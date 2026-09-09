@@ -82,6 +82,7 @@
                 <svg v-else-if="op.key === 'update'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                 <svg v-else-if="op.key === 'delete'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                 <svg v-else-if="op.key === 'merge'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6M18 15c-3 0-6-1-8-4"/></svg>
+                <svg v-else-if="op.key === 'link'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><path d="M9 12h6"/></svg>
                 <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                 <span class="memory-count">{{ op.count }}</span>
               </span>
@@ -201,14 +202,14 @@ function hasAnswerBlock(turn: ChatTurn): boolean {
 }
 
 /** 记忆操作类型 → 汇总计数键（read_memories 已在事件处理器层跳过） */
-type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge' | 'hit'
+type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge' | 'link'
 
 const OP_KEY_MAP: Record<string, MemoryOpKey> = {
   create_memory: 'create',
   update_memory: 'update',
   delete_memory: 'delete',
   merge_memories: 'merge',
-  hit_memory: 'hit',
+  link_memories: 'link',
 }
 
 interface MemoryOpCount {
@@ -227,7 +228,7 @@ interface MemorySummary {
 
 /** 汇总单个 turn 的 memoryEvents 为「单行 SVG + 数字」所需结构。 */
 function getMemorySummary(turn: ChatTurn): MemorySummary {
-  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, hit: 0 }
+  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, link: 0 }
   let processing = false
   let hasError = false
   const detail: string[] = []
@@ -243,11 +244,11 @@ function getMemorySummary(turn: ChatTurn): MemorySummary {
       `${toolDisplayName(e.name)}: ${e.output ?? e.input ?? ''}${e.elapsed !== null ? ` (${e.elapsed.toFixed(1)}s)` : ''}`,
     )
   }
-  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge', 'hit']
+  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge', 'link']
   const ops: MemoryOpCount[] = order
     .filter((k) => counts[k] > 0)
     .map((k) => ({ key: k, count: counts[k] }))
-  const total = counts.create + counts.update + counts.delete + counts.merge + counts.hit
+  const total = counts.create + counts.update + counts.delete + counts.merge + counts.link
   const state: MemorySummary['state'] = processing ? 'processing' : hasError ? 'error' : total > 0 ? 'done' : 'none'
   return { state, total, hasError, ops, detail: detail.join('\n') }
 }

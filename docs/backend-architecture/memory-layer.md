@@ -38,13 +38,13 @@
 ```python
 mm = MemoryManagerBuilder() \
     .with_backend(YamlMemoryManager) \
-    .with_args(yaml_file="config/personas/memory.yaml") \
+    .with_args(yaml_file="config/personas/memory_v6.yaml") \
     .build()
 ```
 
 ### 2. LLM 驱动的记忆叙事与总结
 
-`LongTermMemory` 是异步管线：每轮对话消息 → `asyncio.Queue` → 后台 LLM CRUD Agent → `memory.yaml` 写入。实现了冷启动（首次无记忆）和增量更新（已有记忆）两种叙事策略。
+`LongTermMemory` 是异步管线：每轮对话消息 → `asyncio.Queue` → 后台 LLM CRUD Agent → `memory_v6.yaml` 写入。实现了冷启动（首次无记忆）和增量更新（已有记忆）两种叙事策略。V6 起 theme 为固定九大语义主题枚举（见 `api/memory/theme.py`），单值、写入强制校验。
 
 应用通过 `set_current_mm()` 将管理器注入为模块级全局变量供 `@tool` 函数使用：
 
@@ -265,7 +265,7 @@ _consumer_loop()                 — 后台协程，逐条消费
     ├── create_agent(llm, tools) — 创建 CRUD Agent
     ├── agent.ainvoke(...)       — LLM 调用
     ├── callback.py              — 推送 tool 事件到前端
-    └── memory.yaml              — 持久化写入
+    └── memory_v6.yaml           — 持久化写入
 ```
 
 - 聊天响应直接返回用户，不等待记忆总结完成

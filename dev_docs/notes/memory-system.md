@@ -20,7 +20,7 @@
 │  ┌─────────────────────────────────────────────────┐    │
 │  │          MemoryManager (memory_manager.py)       │    │
 │  │  add / delete / update / show / load_yaml        │    │
-│  │  save_yaml ←→ memory.yaml (YAML 持久化)          │    │
+│  │  save_yaml ←→ memory_v6.yaml (YAML 持久化)          │    │
 │  └─────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -31,7 +31,7 @@
 |------|------|
 | `memory/memory_manager.py` | 底层存储引擎，YAML 读写、条目 CRUD |
 | `memory/narrative.py` | 上层接口，包含 LangChain 工具、异步消费管线、对外 API |
-| `config/personas/memory.yaml` | 持久化文件（被 `.gitignore` 排除） |
+| `config/personas/memory_v6.yaml` | 持久化文件（被 `.gitignore` 排除） |
 
 ## MemoryManager
 
@@ -44,7 +44,7 @@
 | 字段 | 说明 |
 |------|------|
 | `description` | 记忆内容（如"用户叫Miso"） |
-| `theme` | 分类主题（如"身份""音乐"），对应旧系统的 section |
+| `theme` | 分类主题（如 `USER`（用户档案）`PREFERENCE`（用户喜好）），V6 固定九大枚举 |
 | `history` | 变更历史列表，每次 update 追加一条记录 |
 | `latest_update_time` | 最近更新时间 |
 
@@ -74,15 +74,15 @@
 
 ```markdown
 # 长期记忆索引
-- [身份](#身份)
-- [音乐](#音乐)
+- [USER（用户档案）](#USER)
+- [PREFERENCE（用户喜好）](#PREFERENCE)
 
 ---
 
-## 身份
+## USER（用户档案）
 - 用户叫Miso。
 
-## 音乐
+## PREFERENCE（用户喜好）
 - 用户喜欢洛天依。
 ```
 
@@ -91,10 +91,10 @@
 含 description、theme 和 id：
 
 ```markdown
-## 身份
+## USER（用户档案）
   [a1b2c3d4-...] 用户叫Miso。
 
-## 音乐
+## PREFERENCE（用户喜好）
   [c3d4e5f6-...] 用户喜欢洛天依。
 ```
 
@@ -150,14 +150,14 @@ get_narrative()  ← 模块级/实例方法，结果相同
 
 ### 模块级
 
-- `MEMORY_PATH` — `config/personas/memory.yaml`
+- `MEMORY_PATH` — `config/personas/memory_v6.yaml`
 - `get_narrative()` — 等同 `LongTermMemoryInterface.get_narrative()`
 
 ## 与旧系统的区别
 
 | 维度 | 旧系统 | 新系统 |
 |------|--------|--------|
-| 持久化格式 | 分区 Markdown（MEMORY.md） | YAML（memory.yaml） |
+| 持久化格式 | 分区 Markdown（MEMORY.md） | YAML（memory_v6.yaml） |
 | ID 形式 | 自增整数（1, 2, 3...） | UUID4 |
 | 内部存储 | MemoryStore（单例） | MemoryManager（实例） |
 | 操作审计 | MemoryLogger（独立 YAML 日志） | MemoryItem.history（内嵌变更历史） |

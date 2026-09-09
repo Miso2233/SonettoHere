@@ -12,6 +12,7 @@ import api.memory.consumer as consumer
 import api.memory.long_term as long_term
 from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 from api.memory.long_term import LongTermMemory
+from api.memory.theme import THEME_LABELS
 
 
 # ── 测试辅助 ──────────────────────────────────────────────────
@@ -64,6 +65,11 @@ def _populate_mm(path: Path, items: list[tuple[str, str]]) -> None:
     mm = YamlMemoryManager(yaml_file=str(path))
     for desc, theme in items:
         mm.add(description=desc, theme=theme)
+
+
+def test_default_memory_path_is_v6():
+    """默认记忆文件应指向 memory_v6.yaml（防止回归到 V5 memory.yaml）。"""
+    assert long_term.MEMORY_PATH.name == "memory_v6.yaml"
 
 
 # ── TestFormatMessages ────────────────────────────────────────
@@ -123,27 +129,27 @@ class TestFormatNarrative:
         assert long_term._format_narrative([]) == ""
 
     def test_single_item(self):
-        items = [{"id": "abc", "description": "用户叫Miso。", "theme": "身份"}]
+        items = [{"id": "abc", "description": "用户叫Miso。", "theme": "USER"}]
         result = long_term._format_narrative(items)
         assert "# 长期记忆索引" in result
-        assert "- [身份](#身份)" in result
+        assert "- [USER（用户档案）](#USER)" in result
         assert "---" in result
-        assert "## 身份" in result
+        assert "## USER（用户档案）" in result
         assert "- 用户叫Miso。" in result
 
     def test_multi_theme(self):
         items = [
-            {"id": "a", "description": "用户叫Miso。", "theme": "身份"},
-            {"id": "b", "description": "用户喜欢洛天依。", "theme": "音乐"},
+            {"id": "a", "description": "用户叫Miso。", "theme": "USER"},
+            {"id": "b", "description": "用户喜欢洛天依。", "theme": "PREFERENCE"},
         ]
         result = long_term._format_narrative(items)
-        assert "## 身份" in result
+        assert "## USER（用户档案）" in result
         assert "- 用户叫Miso。" in result
-        assert "## 音乐" in result
+        assert "## PREFERENCE（用户喜好）" in result
         assert "- 用户喜欢洛天依。" in result
         # TOC contains both
-        assert "- [身份](#身份)" in result
-        assert "- [音乐](#音乐)" in result
+        assert "- [USER（用户档案）](#USER)" in result
+        assert "- [PREFERENCE（用户喜好）](#PREFERENCE)" in result
 
 
 class TestFormatEntriesForTool:
@@ -154,13 +160,13 @@ class TestFormatEntriesForTool:
 
     def test_with_entries(self):
         items = [
-            {"id": "uuid-1", "description": "A", "theme": "身份"},
-            {"id": "uuid-2", "description": "B", "theme": "音乐"},
+            {"id": "uuid-1", "description": "A", "theme": "USER"},
+            {"id": "uuid-2", "description": "B", "theme": "PREFERENCE"},
         ]
         result = consumer._format_entries_for_tool(items)
-        assert "## 身份" in result
+        assert "## USER（用户档案）" in result
         assert "  [uuid-1] A" in result
-        assert "## 音乐" in result
+        assert "## PREFERENCE（用户喜好）" in result
         assert "  [uuid-2] B" in result
 
     def test_custom_theme(self):
@@ -189,38 +195,68 @@ class TestCrudTools:
     def test_create_memory(self, tmp_path):
         mm = self._make_mm(tmp_path)
         result = consumer.create_memory.invoke(
-            {"content": "用户叫Miso。", "section": "身份"}
+            {"content": "用户叫Miso。", "section": "USER"}
         )
         assert "已创建 [" in result
-        assert "身份" in result
+        assert "USER" in result
         items = mm.show()
         assert len(items) == 1
         assert items[0]["description"] == "用户叫Miso。"
-        assert items[0]["theme"] == "身份"
+        assert items[0]["theme"] == "USER"
 
-    def test_create_memory_custom_section_preserved(self, tmp_path):
+    def test_create_memory_all_nine_themes(self, tmp_path):
+        """九个合法主题 KEY 均可创建。"""
+        mm = self._make_mm(tmp_path)
+        for key in THEME_LABELS:
+            result = consumer.create_memory.invoke(
+                {"content": f"关于 {key} 的记忆。", "section": key}
+            )
+            assert "已创建 [" in result
+            assert f"({key})" in result
+        themes = {item["theme"] for item in mm.show()}
+        assert themes == set(THEME_LABELS)
+
+    def test_create_memory_invalid_section_rejected(self, tmp_path):
         mm = self._make_mm(tmp_path)
         result = consumer.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "健康"}
         )
-        assert "已创建 [" in result
-        assert "健康" in result
-        items = mm.show()
-        assert items[0]["theme"] == "健康"
+        assert "驳回" in result
+        assert mm.show() == []
 
-    def test_create_memory_empty_section_fallback(self, tmp_path):
+    def test_create_memory_blank_section_rejected(self, tmp_path):
         mm = self._make_mm(tmp_path)
         result = consumer.create_memory.invoke(
             {"content": "用户叫Miso。", "section": "   "}
         )
+        assert "驳回" in result
+        assert mm.show() == []
+
+    def test_create_memory_with_related(self, tmp_path):
+        """create_memory 传入 related 时一步建立双向关联。"""
+        import yaml
+
+        mm = self._make_mm(tmp_path)
+        target = mm.add(description="既有记忆。", theme="USER")
+        result = consumer.create_memory.invoke(
+            {
+                "content": "用户喜欢洛天依。",
+                "section": "PREFERENCE",
+                "related": [target],
+            }
+        )
         assert "已创建 [" in result
-        items = mm.show()
-        assert items[0]["theme"] == "   "
+        data = yaml.safe_load((tmp_path / "memory.yaml").read_text(encoding="utf-8"))
+        new_id = next(
+            k for k, e in data.items() if e["description"] == "用户喜欢洛天依。"
+        )
+        assert data[new_id]["related"] == [target]
+        assert data[target]["related"] == [new_id]
 
     def test_create_memory_id_is_hex(self, tmp_path):
         self._make_mm(tmp_path)
         result = consumer.create_memory.invoke(
-            {"content": "用户叫Miso。", "section": "身份"}
+            {"content": "用户叫Miso。", "section": "USER"}
         )
         # Extract ID from result string
         match = re.search(r"\[([a-f0-9]+)\]", result)
@@ -236,15 +272,15 @@ class TestCrudTools:
 
     def test_read_memories_with_entries(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        mm.add(description="A", theme="身份")
-        mm.add(description="B", theme="音乐")
+        mm.add(description="A", theme="USER")
+        mm.add(description="B", theme="PREFERENCE")
         result = consumer.read_memories.invoke({})
-        assert "## 身份" in result
-        assert "## 音乐" in result
+        assert "## USER（用户档案）" in result
+        assert "## PREFERENCE（用户喜好）" in result
 
     def test_update_memory_success(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        item_id = mm.add(description="旧内容", theme="身份")
+        item_id = mm.add(description="旧内容", theme="USER")
         result = consumer.update_memory.invoke(
             {
                 "id": item_id,
@@ -269,7 +305,7 @@ class TestCrudTools:
 
     def test_delete_memory_success(self, tmp_path):
         mm = self._make_mm(tmp_path)
-        item_id = mm.add(description="删除我", theme="身份")
+        item_id = mm.add(description="删除我", theme="USER")
         result = consumer.delete_memory.invoke(
             {
                 "id": item_id,
@@ -307,11 +343,11 @@ class TestGetNarrative:
 
     def test_file_exists(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
-        _populate_mm(p, [("Miso 是学生。", "身份")])
+        _populate_mm(p, [("Miso 是学生。", "USER")])
         monkeypatch.setattr(long_term, "MEMORY_PATH", p)
         result = long_term.get_narrative()
         assert "Miso 是学生。" in result
-        assert "## 身份" in result
+        assert "## USER（用户档案）" in result
 
     def test_file_empty(self, monkeypatch, tmp_path):
         p = tmp_path / "memory.yaml"
@@ -324,8 +360,8 @@ class TestGetNarrative:
         _populate_mm(
             p,
             [
-                ("用户叫Miso。", "身份"),
-                ("用户喜欢洛天依。", "音乐"),
+                ("用户叫Miso。", "USER"),
+                ("用户喜欢洛天依。", "PREFERENCE"),
             ],
         )
         monkeypatch.setattr(long_term, "MEMORY_PATH", p)
@@ -333,8 +369,8 @@ class TestGetNarrative:
         assert "用户叫Miso。" in result
         assert "用户喜欢洛天依。" in result
         assert "# 长期记忆索引" in result
-        assert "- [身份](#身份)" in result
-        assert "- [音乐](#音乐)" in result
+        assert "- [USER（用户档案）](#USER)" in result
+        assert "- [PREFERENCE（用户喜好）](#PREFERENCE)" in result
 
 
 # ── TestLongTermMemory ────────────────────────────────
@@ -358,7 +394,7 @@ class TestLongTermMemory:
 
     def test_get_narrative_file_exists(self, tmp_path):
         path = tmp_path / "memory.yaml"
-        _populate_mm(path, [("Miso 是学生。", "身份")])
+        _populate_mm(path, [("Miso 是学生。", "USER")])
         ltm = LongTermMemory(MemoryManagerBuilder().with_backend(YamlMemoryManager).with_args(yaml_file=str(path)).build())
         result = ltm.get_narrative()
         assert "Miso 是学生。" in result
@@ -419,7 +455,7 @@ class TestLongTermMemory:
         path = tmp_path / "memory.yaml"
 
         def agent_populates_entries():
-            consumer._current_mm.add(description="Miso 是一名学生。", theme="身份")
+            consumer._current_mm.add(description="Miso 是一名学生。", theme="USER")
 
         fake_agent = _fake_agent_factory(entries_setup=agent_populates_entries)
         monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
@@ -462,7 +498,7 @@ class TestLongTermMemory:
     async def test_normal_update_preserves_old_narrative(self, tmp_path, monkeypatch):
         """常态更新：已有 memory.yaml 被传入 Agent，Agent 修改后保存。"""
         path = tmp_path / "memory.yaml"
-        _populate_mm(path, [("旧记忆。", "身份")])
+        _populate_mm(path, [("旧记忆。", "USER")])
 
         captured_prompt = []
 
@@ -473,7 +509,7 @@ class TestLongTermMemory:
                 mm = consumer._current_mm
                 for item in mm.show():
                     mm.delete(item["id"])
-                mm.add(description="更新后的记忆内容。", theme="身份")
+                mm.add(description="更新后的记忆内容。", theme="USER")
 
             return _fake_agent_factory(entries_setup=update_entries)
 
@@ -506,15 +542,15 @@ class TestLongTermMemory:
             if call_count[0] == 1:
 
                 def setup1():
-                    consumer._current_mm.add(description="第一轮记忆。", theme="身份")
+                    consumer._current_mm.add(description="第一轮记忆。", theme="USER")
 
                 return _fake_agent_factory(entries_setup=setup1, done_event=turn_consumed)
             else:
 
                 def setup2():
                     mm = consumer._current_mm
-                    mm.add(description="第一轮记忆。", theme="身份")
-                    mm.add(description="第二轮补充。", theme="身份")
+                    mm.add(description="第一轮记忆。", theme="USER")
+                    mm.add(description="第二轮补充。", theme="USER")
 
                 return _fake_agent_factory(entries_setup=setup2)
 
@@ -585,7 +621,7 @@ class TestLongTermMemory:
     async def test_agent_keeps_entries_unchanged_on_update(self, tmp_path, monkeypatch):
         """更新模式下 Agent 不改动条目，原内容被保留。"""
         path = tmp_path / "memory.yaml"
-        _populate_mm(path, [("原始记忆。", "身份")])
+        _populate_mm(path, [("原始记忆。", "USER")])
 
         fake_agent = _fake_agent_factory()
         monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)
@@ -607,7 +643,7 @@ class TestLongTermMemory:
 
         fake_agent = _fake_agent_factory(
             entries_setup=lambda: consumer._current_mm.add(
-                description="记忆。", theme="身份"
+                description="记忆。", theme="USER"
             )
         )
         monkeypatch.setattr(consumer, "create_agent", lambda **kw: fake_agent)

@@ -23,6 +23,7 @@ def get_all_tools() -> list[BaseTool]:
     client = _get_client()
 
     # System
+    from tools.system.tool_memory_search import MemorySearchTool
     from tools.system.tool_python import RunPythonTool
 
     # Todo
@@ -90,6 +91,7 @@ def get_all_tools() -> list[BaseTool]:
     return [
         # System
         RunPythonTool(client=client),
+        MemorySearchTool(client=client),
         # Todo
         TodoAddTool(client=client),
         TodoListTool(client=client),

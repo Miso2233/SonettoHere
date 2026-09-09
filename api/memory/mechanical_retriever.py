@@ -61,7 +61,7 @@ def _tokenize(text: str) -> list[str]:
 class MechanicalRetriever:
     """基于 BM25 的机械记忆检索器。
 
-    零外部依赖，纯正则分词 + BM25 评分 + 命中数加权。
+    零外部依赖，纯正则分词 + BM25 评分。
     索引构建约 35ms（236 条），单次检索约 2ms。
 
     用法::
@@ -71,10 +71,9 @@ class MechanicalRetriever:
         results = retriever.search("塔罗牌重构", top_k=5)
     """
 
-    def __init__(self, k1: float = 1.5, b: float = 0.75, alpha: float = 0.15) -> None:
+    def __init__(self, k1: float = 1.5, b: float = 0.75) -> None:
         self._k1 = k1
         self._b = b
-        self._alpha = alpha
 
         # 标记位：外部修改记忆后应置 True，下次检索前自动重建
         self.dirty: bool = False
@@ -92,7 +91,6 @@ class MechanicalRetriever:
 
         Args:
             items: ``mm.show()`` 的输出，每条含 ``id`` / ``description`` / ``theme``。
-                   可选含 ``hit``（命中数），缺失时默认为 0。
         """
         self._items = list(items)
         self._N = len(self._items)
@@ -125,7 +123,7 @@ class MechanicalRetriever:
 
         Returns:
             按 ``score`` 降序排列的结果列表：
-            ``{score, id, description, theme, hit}``
+            ``{score, id, description, theme}``
         """
         if self._N == 0:
             return []
@@ -134,7 +132,6 @@ class MechanicalRetriever:
         if not q_terms:
             return []
 
-        unknown_terms = [t for t in q_terms if t not in self._df]
         known_terms = [t for t in q_terms if t in self._df]
         if not known_terms:
             return []
@@ -161,12 +158,6 @@ class MechanicalRetriever:
                 )
                 scores[doc_idx] += idf * tf_boost * qf
 
-        # hit 对数加权：final_score = bm25_score × (1 + α · ln(hit + 1))
-        for i in range(self._N):
-            hit = int(self._items[i].get("hit", 0))
-            boost = 1.0 + self._alpha * math.log(hit + 1)
-            scores[i] *= boost
-
         # Top-K 截断
         top_indices = sorted(
             range(self._N),
@@ -181,7 +172,6 @@ class MechanicalRetriever:
                 "id": self._items[i]["id"],
                 "description": self._items[i]["description"],
                 "theme": self._items[i].get("theme", ""),
-                "hit": int(self._items[i].get("hit", 0)),
             }
             for i in top_indices
         ]

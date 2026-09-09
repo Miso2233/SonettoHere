@@ -2,7 +2,7 @@
   <div class="section-card">
     <!-- 分区头部 + 导航，合并为一行 -->
     <div class="section-header">
-      <span class="section-title">{{ theme }}</span>
+      <span class="section-title">{{ themeLabel ?? theme }}</span>
       <span class="section-nav">
         <button
           class="nav-link"
@@ -28,6 +28,8 @@ import type { VignetteMemoryItem } from '@/types'
 
 const props = defineProps<{
   theme: string
+  /** 主题中文标签（后端附加；缺失时回退显示 theme KEY） */
+  themeLabel?: string
   items: VignetteMemoryItem[]
 }>()
 

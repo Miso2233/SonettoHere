@@ -59,9 +59,10 @@ paths:
     required_for: "MCP 工具功能"
     gitignored: true
 
-  - path: "config/personas/memory.yaml"
-    description: "AI 长期记忆存储（对话中学习的用户信息）"
-    created_by: "memory/long_term.py LongTermMemory 消费者"
+  # V5 的 config/personas/memory.yaml 已停用（V6 不兼容，不迁移），保留于磁盘但不读写、不入升级拷贝集
+  - path: "config/personas/memory_v6.yaml"
+    description: "AI V6 长期记忆存储（九大固定主题；对话中学习的用户信息）"
+    created_by: "memory/long_term.py LongTermMemory V6 消费者"
     source_template: null
     required_for: "AI 记忆功能"
     gitignored: true
