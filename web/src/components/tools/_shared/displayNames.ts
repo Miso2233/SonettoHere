@@ -60,7 +60,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   update_memory: '更新记忆',
   delete_memory: '删除记忆',
   merge_memories: '合并记忆',
-  hit_memory: '标记引用',
+  link_memories: '关联记忆',
 }
 export function toolDisplayName(name: string): string {
   if (DISPLAY_NAMES[name]) return DISPLAY_NAMES[name]

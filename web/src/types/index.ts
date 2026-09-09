@@ -490,7 +490,6 @@ export interface MomentItem {
   theme: string
   /** 主题的中文标签（后端附加；旧后端缺失时前端回退用 theme） */
   theme_label?: string
-  history: Array<{ description: string; time: string }>
 }
 
 export interface MomentResponse {
@@ -499,16 +498,11 @@ export interface MomentResponse {
 
 // === Vignette：记忆分区瀑布流 ===
 
-export interface MemoryHistoryEntry {
-  description: string
-  time: string
-}
-
 export interface VignetteMemoryItem {
   id: string
   description: string
-  history: MemoryHistoryEntry[]
-  hit: number
+  /** 关联记忆 id（无向边，双向对称；本轮仅下发，暂不展示） */
+  related?: string[]
   _sort_time: string
 }
 

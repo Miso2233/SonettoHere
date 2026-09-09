@@ -201,14 +201,13 @@ function hasAnswerBlock(turn: ChatTurn): boolean {
 }
 
 /** 记忆操作类型 → 汇总计数键（read_memories 已在事件处理器层跳过） */
-type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge' | 'hit'
+type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge'
 
 const OP_KEY_MAP: Record<string, MemoryOpKey> = {
   create_memory: 'create',
   update_memory: 'update',
   delete_memory: 'delete',
   merge_memories: 'merge',
-  hit_memory: 'hit',
 }
 
 interface MemoryOpCount {
@@ -227,7 +226,7 @@ interface MemorySummary {
 
 /** 汇总单个 turn 的 memoryEvents 为「单行 SVG + 数字」所需结构。 */
 function getMemorySummary(turn: ChatTurn): MemorySummary {
-  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, hit: 0 }
+  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0 }
   let processing = false
   let hasError = false
   const detail: string[] = []
@@ -243,11 +242,11 @@ function getMemorySummary(turn: ChatTurn): MemorySummary {
       `${toolDisplayName(e.name)}: ${e.output ?? e.input ?? ''}${e.elapsed !== null ? ` (${e.elapsed.toFixed(1)}s)` : ''}`,
     )
   }
-  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge', 'hit']
+  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge']
   const ops: MemoryOpCount[] = order
     .filter((k) => counts[k] > 0)
     .map((k) => ({ key: k, count: counts[k] }))
-  const total = counts.create + counts.update + counts.delete + counts.merge + counts.hit
+  const total = counts.create + counts.update + counts.delete + counts.merge
   const state: MemorySummary['state'] = processing ? 'processing' : hasError ? 'error' : total > 0 ? 'done' : 'none'
   return { state, total, hasError, ops, detail: detail.join('\n') }
 }
