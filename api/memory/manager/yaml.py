@@ -17,7 +17,7 @@ _KNOWN_ITEM_FIELDS = ("description", "theme", "latest_update_time", "related")
 """MemoryItem 的已知字段集。
 
 ``_load_all`` 仅从中取字段构造对象，使旧文件残留的 ``history`` / ``hit`` 键
-被安全忽略（V6.1 已移除这两个功能）。
+被安全忽略。
 """
 
 

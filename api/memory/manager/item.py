@@ -5,7 +5,6 @@ MemoryItem 是 BaseMemoryManager 体系中所有后端的统一数据载体，
 均序列化为此类型，实现存储层与业务逻辑的解耦。
 
 字段：description / theme / latest_update_time / related（无向关联 id 列表）。
-已移除 history 与 hit（V6.1）。
 """
 
 import datetime
