@@ -225,6 +225,20 @@ class TestYamlMemoryManager:
         assert data[b]["related"] == []
         assert data[c]["related"] == []
 
+    def test_delete_cleans_edge_from_other_direction(self, tmp_path):
+        """删除其中一端时，另一端 related 不再指向被删 id。"""
+        path = tmp_path / "memory_v6.yaml"
+        mm = YamlMemoryManager(yaml_file=str(path))
+        a = mm.add(description="A", theme="USER")
+        b = mm.add(description="B", theme="PREFERENCE")
+        mm.link(a, b)
+        mm.delete(b)
+        data = _read(path)
+        assert b not in data
+        assert data[a]["related"] == []
+        report = mm.self_check()
+        assert report["status"] == "OK"
+
     def test_merge_remaps_edges(self, tmp_path):
         """merge 后，其余条目中指向 id2 的 related 重定向到 id1。"""
         path = tmp_path / "memory_v6.yaml"
