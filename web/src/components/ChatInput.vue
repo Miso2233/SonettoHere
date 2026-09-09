@@ -150,7 +150,7 @@
             class="btn-recall"
             :class="{ active: skipRecall }"
             :disabled="disabled"
-            :title="skipRecall ? '失忆模式：已跳过记忆检索' : '回忆模式：每轮自动检索相关记忆'"
+            :title="skipRecall ? '失忆模式：不发放记忆搜索工具' : '回忆模式：允许 AI 调用记忆搜索工具读取长期记忆'"
             @click="$emit('toggleRecall')"
           >
             <Icon name="recall" :size="18" />

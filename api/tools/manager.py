@@ -35,9 +35,11 @@ class ToolManager:
         assert self._mcp_tools is not None, "load_all() 未调用"
         return self._mcp_tools
 
-    # 主 Agent 不再需要长期记忆管理工具（已由 retrieve_memory / ltm_write
-    # 图节点替代），此处从 get_all 排除，但保留工具文件本身及 LTM 后台
-    # consumer 中的 @tool CRUD 函数不受影响。
+    # 主 Agent 不再需要长期记忆管理工具（写入由 ltm_write 图节点替代，读取由
+    # memory_search 工具负责），此处从 get_all 排除 CRUD 工具，但保留工具文件
+    # 本身及 LTM 后台 consumer 中的 @tool CRUD 函数不受影响。
+    # 注意：memory_search 属于读取工具，不在此排除——它由 skip_recall（失忆模式）
+    # 单独门控，仅在模型被允许读取长期记忆时发放。
     _MEMORY_TOOL_NAMES = frozenset({
         "list_memories", "read_memories", "create_memory",
         "update_memory", "delete_memory", "merge_memories",
@@ -57,7 +59,7 @@ class ToolManager:
         "computer_scroll", "computer_wait",
     })
 
-    def get_all(self, multimodal: bool = False, computer_use: bool = False) -> list[BaseTool]:
+    def get_all(self, multimodal: bool = False, computer_use: bool = False, skip_recall: bool = False) -> list[BaseTool]:
         """返回合并后的完整工具列表（消费方主要用这个）。
 
         Args:
@@ -67,6 +69,8 @@ class ToolManager:
             computer_use: 当前是否开启 Computer Use 屏幕操作模式。
                          computer_* 系列仅在 (multimodal and computer_use) 时交付，
                          即用户显式开启该模式（且模型能读取截图）才暴露。
+            skip_recall: 是否处于失忆模式。为 True 时剔除 memory_search 工具——
+                         模型不再被授予读取长期记忆的能力。
         """
         tools = self.native_tools + self.mcp_tools
         if multimodal:
@@ -75,6 +79,8 @@ class ToolManager:
             tools = [t for t in tools if t.name not in self._IMAGE_TOOL_NAMES]
         if not (multimodal and computer_use):
             tools = [t for t in tools if t.name not in self._COMPUTER_TOOL_NAMES]
+        if skip_recall:
+            tools = [t for t in tools if t.name != "memory_search"]
         return [t for t in tools if t.name not in self._MEMORY_TOOL_NAMES]
 
     async def reload_mcp(self) -> list[BaseTool]:

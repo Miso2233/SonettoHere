@@ -321,7 +321,6 @@ async def _build_turn_context(
     image_refs: list[str] | None,
     ltm: Any | None = None,
     private_mode: bool = False,
-    skip_recall: bool = False,
     studio_name: str | None = None,
 ) -> _TurnContext:
     """构建 Agent 图、输入消息和执行配置。"""
@@ -371,7 +370,6 @@ async def _build_turn_context(
         "configurable": {
             "thread_id": session.session_id,
             "private_mode": private_mode,
-            "skip_recall": skip_recall,
             "turn_id": turn_id,
             # 供图内 check_pending 计算逐轮上下文用量（answer/done 事件）
             "system_prompt": system_prompt,
@@ -520,7 +518,7 @@ async def run_agent_turn(
             合并残留队列时非空），此时需先发 ``pending_consumed(new_turn)`` 让前端
             创建 currentTurn。普通发送为 ``None``。
     """
-    # Sub-agent 跳过长期记忆的读（retrieve_memory）和写（ltm_write）
+    # Sub-agent 跳过长期记忆的读（不发放 memory_search 工具）和写（ltm_write）
     if session.is_subagent:
         private_mode = True
         skip_recall = True
@@ -566,6 +564,7 @@ async def run_agent_turn(
             tools=app_state.tool_manager.get_all(
                 multimodal=llm_conf.multimodal,
                 computer_use=computer_use,
+                skip_recall=skip_recall,
             ),
             session=session,
             llm_conf=llm_conf,
@@ -574,7 +573,6 @@ async def run_agent_turn(
             image_refs=image_refs,
             ltm=app_state.ltm,
             private_mode=private_mode,
-            skip_recall=skip_recall,
             studio_name=studio_name,
         )
 

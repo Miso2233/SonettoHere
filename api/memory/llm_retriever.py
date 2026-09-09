@@ -146,8 +146,7 @@ class LLMRetriever:
         """异步检索相关记忆条目（支持 asyncio 取消）。
 
         与 :meth:`retrieve` 逻辑相同，但使用 ``ainvoke`` 替代 ``invoke``，
-        可被 ``asyncio.Task.cancel()`` 中断。用于 RetrieveMemoryNode 的
-        竞速模式（检索 vs 用户跳过）。
+        可被 ``asyncio.Task.cancel()`` 中断。
         """
         mgr = get_manager()
         if mgr is None or mgr.get_default_llm() is None:
