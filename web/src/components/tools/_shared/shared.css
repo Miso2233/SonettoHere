@@ -342,16 +342,3 @@
   padding: 4px 0;
   word-break: break-word;
 }
-
-/* ── 危险 / 阻断语义的灰阶替代：斜纹底 ──
-   全灰阶方案下用「纹理」而不是「红色」来承载危险与被阻断的视觉重量。
-   供 ConfirmBubble（sudo / 删除确认）与 SonettoBlockerError（安全阻断）共用。
-   纯新增类，不覆盖上方任何既有选择器。 */
-.semantic-stripes {
-  background-color: var(--bg-secondary);
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--accent) 6%, transparent) 0 5px,
-    transparent 5px 10px
-  );
-}

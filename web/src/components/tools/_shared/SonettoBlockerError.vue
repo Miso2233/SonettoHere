@@ -1,6 +1,6 @@
 <template>
-  <!-- SonettoBlocker 阻断错误（特殊视觉：斜纹底 + 全站最重的黑色边框） -->
-  <div v-if="isBlocked" class="blocker-banner semantic-stripes">
+  <!-- SonettoBlocker 阻断错误（特殊视觉：灰底 + 全站最重的黑色边框） -->
+  <div v-if="isBlocked" class="blocker-banner">
     <div class="blocker-header">
       <span class="blocker-title">访问已被安全阻断</span>
     </div>
@@ -71,9 +71,11 @@ const blockedPaths = computed<string[]>(() => {
 </script>
 
 <style scoped>
-/* 全灰阶方案：不靠颜色表达「被阻断」，改由斜纹底（.semantic-stripes，见
-   _shared/shared.css）+ 全站唯一的 1.5px 纯黑重边框承担视觉重量。 */
+/* 全灰阶方案：不靠颜色表达「被阻断」，改由平铺灰底 + 全站唯一的 1.5px
+   纯黑重边框承担视觉重量。底纹一律平色 —— 斜纹之类的纹理在正文后面会
+   明显干扰阅读。 */
 .blocker-banner {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
   border: 1.5px solid var(--text-primary);
   border-radius: 10px;
   overflow: hidden;

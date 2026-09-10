@@ -126,9 +126,8 @@ const multiResults = computed<Array<Record<string, any>>>(() => {
 
 const multiClass = computed(() => {
   const failed = td.value.failed_count as number
-  // 全成功走基础规则的中性样式，无需额外的标记类；
-  // 有失败时挂上全局斜纹底（.semantic-stripes，见 _shared/shared.css）
-  return failed > 0 ? 'has-failures semantic-stripes' : ''
+  // 全成功走基础规则的中性样式，无需额外的标记类
+  return failed > 0 ? 'has-failures' : ''
 })
 
 const multiIcon = computed(() => {
@@ -208,20 +207,19 @@ function copyPath() {
 
 /* ── 多笔编辑 ──
    全灰阶：全部成功走中性（靠 ✓ 与文案表意），有失败才升级为
-   斜纹底（.semantic-stripes）+ 黑色边框这一档强信号。 */
+   深一档的平铺灰底 + 黑色边框这一档强信号。底纹一律平色，不用纹理。 */
 .multi-summary {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  /* 只声明 background-color：用 background 简写会把 background-image 重置为
-     none，从而盖掉 .has-failures 挂上的 .semantic-stripes 斜纹 */
-  background-color: var(--bg-secondary);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
 }
 
 .multi-summary.has-failures {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
   border-color: var(--text-primary);
 }
 

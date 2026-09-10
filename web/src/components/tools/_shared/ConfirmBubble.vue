@@ -254,17 +254,11 @@ function submitRejection() {
   color: var(--text-primary);
 }
 
-/* sudo 越权：斜纹底 + 黑色重边框（灰阶方案下最重的两档信号）。
-   此处不能复用 shared.css 的 .semantic-stripes —— 上方 .confirm-header 用了
-   `background` 简写，作用域化后权重高于全局类，会把纹理盖掉；故就地声明。
-   声明位置在 .confirm-header 之后，同权重靠源码顺序生效。 */
+/* sudo 越权：深一档的平铺灰底 + 黑色重边框（灰阶方案下最重的两档信号）。
+   刻意不用斜纹等纹理 —— 底纹压在文字后面会明显干扰阅读。
+   声明在 .confirm-header 之后，同权重靠源码顺序生效。 */
 .confirm-header-sudo {
-  background-color: var(--bg-secondary);
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--accent) 6%, transparent) 0 5px,
-    transparent 5px 10px
-  );
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
   border-color: var(--text-primary);
 }
 
@@ -370,14 +364,9 @@ function submitRejection() {
   background: var(--bg-secondary);
 }
 
-/* 删除文件 / sudo 越权：与 .confirm-header-sudo 同一套斜纹 + 重边框信号 */
+/* 删除文件 / sudo 越权：与 .confirm-header-sudo 同一套深灰底 + 重边框信号 */
 .confirm-file-card.tone-danger {
-  background-color: var(--bg-secondary);
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--accent) 6%, transparent) 0 5px,
-    transparent 5px 10px
-  );
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
   border-color: var(--text-primary);
 }
 
