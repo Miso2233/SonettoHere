@@ -82,7 +82,7 @@
           <button
             class="sub-agent-btn-check"
             :class="{ active: autoApprove }"
-            :title="autoApprove ? '自动执行：Python 代码将直接执行' : '审核模式：代码执行前需确认'"
+            :title="autoApprove ? '自动执行：Python 代码与侵彻性文件操作将直接执行' : '审核模式：Python 代码与文件操作执行前需确认'"
             @click="setAutoApprove(!autoApprove)"
           >
             <Icon name="code" :size="14" />
