@@ -126,9 +126,9 @@ const multiResults = computed<Array<Record<string, any>>>(() => {
 
 const multiClass = computed(() => {
   const failed = td.value.failed_count as number
-  // 有失败时挂上全局斜纹底（.semantic-stripes，见 _shared/shared.css）；
-  // 本组件没有与之竞争 background 的简写声明，故可直接复用该类
-  return failed > 0 ? 'has-failures semantic-stripes' : 'all-success'
+  // 全成功走基础规则的中性样式，无需额外的标记类；
+  // 有失败时挂上全局斜纹底（.semantic-stripes，见 _shared/shared.css）
+  return failed > 0 ? 'has-failures semantic-stripes' : ''
 })
 
 const multiIcon = computed(() => {
