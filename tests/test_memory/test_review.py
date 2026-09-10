@@ -194,8 +194,8 @@ class TestPublishAndResolve:
         result = review.resolve(pending.review_id, ReviewDecision.REJECT)
 
         assert result["status"] == ReviewStatus.REJECTED.value
-        # 文案要让用户看清删掉的是哪条内容
-        assert "待复核。" in result["detail"]
+        # 不回带被删的内容：卡片正文已划着删除线，重复一遍只是噪音
+        assert result["detail"] == ""
         spy.delete.assert_called_once_with(mid)
         assert mm.show() == []
 

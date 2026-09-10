@@ -288,7 +288,7 @@ def resolve(review_id: str, decision: ReviewDecision) -> ReviewResult:
         )
 
     try:
-        removed = review.mm.delete(review.memory_id)
+        review.mm.delete(review.memory_id)
     except ValueError:
         # 条目已被后续整理删除，撤销意图已达成
         return ReviewResult(
@@ -306,11 +306,13 @@ def resolve(review_id: str, decision: ReviewDecision) -> ReviewResult:
             detail=f"撤销失败：{e}",
         )
 
+    # 不回带被删的记忆内容：卡片上正文本就划着删除线，重复一遍只是噪音。
+    # detail 留空时前端不会渲染补充说明行。
     return ReviewResult(
         review_id=review.review_id,
         status=ReviewStatus.REJECTED.value,
         memory_id=review.memory_id,
-        detail=f"已撤销：{removed}",
+        detail="",
     )
 
 
