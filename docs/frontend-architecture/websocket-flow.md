@@ -95,6 +95,11 @@ channels.delete(sid)           ← 完全移除通道
 | `memory_tool_end` | `{ turn_id, tool_name, output, elapsed }` | 更新为 done |
 | `memory_tool_error` | `{ turn_id, tool_name, error }` | 更新为 error |
 | `memory_done` | `{ turn_id }` | 移除占位，无实际修改时渲染 memory_review |
+| `memory_review_required` | `{ review_id, turn_id, kind, memory_id, description, theme, theme_label }` | 在 turn.memoryReviews 挂一张待处理复核卡片，按 review_id 去重 |
+| `memory_review_result` | `{ review_id, status, memory_id, detail }` | 按 review_id 定位卡片并改写为终态（无 turn_id） |
+
+`memory_review_*` 与 `memory_review` 不是一回事：后者是 `MemoryToolEvent.name` 的取值。
+回执不带 `turn_id` —— `expired` 路径上服务端已丢失轮次上下文，故按 `review_id` 跨轮次全量扫描定位。
 
 ## Token 流式渲染时间线
 

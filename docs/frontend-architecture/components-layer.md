@@ -38,6 +38,7 @@
 | `MomentCard.vue` | 时刻卡片 — 「此刻」功能 |
 | `NewsCard.vue` | 新闻卡片 — 系统更新动态 |
 | `SectionCard.vue` | 分区卡片 — 记忆瀑布流分区 |
+| `MemoryReviewCard.vue` | 记忆复核卡片 — TECH/PROJECT/MOMENT 写入的批准/拒绝，渲染在回调小图标下方 |
 
 ## 核心组件详解
 

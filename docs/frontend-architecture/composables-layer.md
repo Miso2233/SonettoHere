@@ -17,7 +17,7 @@
 |---|---|---|
 | `useChat.ts` | `useChat(sessionId)` 、工具函数 | **聊天核心 orchestration**：WS 事件处理、turn 生命周期 |
 | `useChat.handlers.ts` | `turnHandlers` Map | 事件处理器注册表：9 种 WS 事件的 handler |
-| `useChat.memory.ts` | `memoryHandlers` Map | 记忆层事件处理器：5 种 memory 事件的 handler |
+| `useChat.memory.ts` | `memoryHandlers` Map | 记忆层事件处理器：5 种 memory 事件 + 2 种复核事件的 handler |
 | `useSession.ts` | `useSession()` 、模块级函数 | 会话管理编排，委托 sessionStore |
 | `useHealth.ts` | `useHealth()` 、`health` ref | 健康检查编排，委托 healthStore |
 | `useSidebar.ts` | `useSidebar()` | 侧栏状态编排，委托 sidebarStore |
@@ -124,12 +124,16 @@ export const memoryHandlers = new Map<MemoryEventType, MemoryEventHandler>([
   ['memory_tool_end',    handleMemoryToolEnd],      // 更新为 done + 持久化
   ['memory_tool_error',  handleMemoryToolError],    // 更新为 error + 持久化
   ['memory_done',        handleMemoryDone],         // 移除占位，渲染 memory_review
+  ['memory_review_required', handleMemoryReviewRequired],  // 挂待处理复核卡片（按 review_id 去重）
+  ['memory_review_result',   handleMemoryReviewResult],    // 改写卡片为终态
 ])
 ```
 
 特殊设计：
 - `read_memories` 纯读取操作被 `skipReadMemories()` 过滤，前端不显示
 - 消费完成但无任何 CRUD 工具调用时，插入 `memory_review` 占位条目（显示为"记忆检查：无需修改"）
+- 复核事件的持久化必须照抄 `handleMemoryToolEnd` 的守卫
+  `if (ch.turns.includes(targetTurn)) persistTurns(sid)`，否则会把 `currentTurn` 的不完整快照写盘
 
 ### useSession.ts / useHealth.ts / useSidebar.ts
 
