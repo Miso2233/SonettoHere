@@ -4,14 +4,19 @@ import pytest
 
 from api.memory.theme import (
     DEFAULT_THEME,
+    REVIEW_THEMES,
     THEME_LABELS,
     VALID_THEMES,
     MemoryTheme,
     is_valid_theme,
+    needs_review,
     require_theme,
     theme_display,
     theme_label,
 )
+
+#: 需复核的三主题，独立于实现写死，防止跟着实现一起漂移。
+EXPECTED_REVIEW_THEMES = {"TECH", "PROJECT", "MOMENT"}
 
 
 class TestMemoryTheme:
@@ -52,6 +57,32 @@ class TestValidators:
     def test_require_theme_message_lists_allowed_keys(self) -> None:
         with pytest.raises(ValueError, match="USER"):
             require_theme("身份", who="add(theme)")
+
+
+class TestReviewThemes:
+    """REVIEW_THEMES / needs_review —— 写入后需用户复核的三主题。"""
+
+    def test_subset_of_valid_themes(self) -> None:
+        """复核主题必须是合法主题的子集，否则 needs_review 会永远返回 False。"""
+        assert REVIEW_THEMES <= VALID_THEMES
+
+    def test_exact_membership(self) -> None:
+        assert REVIEW_THEMES == frozenset(EXPECTED_REVIEW_THEMES)
+
+    @pytest.mark.parametrize("key", sorted(EXPECTED_REVIEW_THEMES))
+    def test_needs_review_true(self, key: str) -> None:
+        assert needs_review(key) is True
+
+    @pytest.mark.parametrize(
+        "key", sorted(set(THEME_LABELS) - EXPECTED_REVIEW_THEMES)
+    )
+    def test_needs_review_false_for_other_themes(self, key: str) -> None:
+        assert needs_review(key) is False
+
+    @pytest.mark.parametrize("bad", ["", "tech", "TECH ", "健康", None, 123, ["TECH"]])
+    def test_needs_review_rejects_non_review_values(self, bad: object) -> None:
+        """非法 / 不可哈希入参一律 False，不抛 TypeError。"""
+        assert needs_review(bad) is False
 
 
 class TestLabels:

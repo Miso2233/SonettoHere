@@ -45,10 +45,27 @@ DEFAULT_THEME: str = "MOMENT"
 #: 合法主题集合，作为成员判定的唯一数据源。
 VALID_THEMES: frozenset[str] = frozenset(THEME_LABELS)
 
+#: 需人工复核的主题集合 —— 后台记忆 LLM 新建这些主题的条目时，
+#: 前端会在「记忆回调」小图标下方弹出复核卡片让用户决定保留或撤销。
+#: 必须是 :data:`VALID_THEMES` 的子集（有测试守护防漂移）。
+REVIEW_THEMES: frozenset[str] = frozenset({"TECH", "PROJECT", "MOMENT"})
+
 
 def is_valid_theme(value: object) -> bool:
     """判断值是否为合法的 V6 主题 KEY。"""
     return isinstance(value, str) and value in THEME_LABELS
+
+
+def needs_review(value: object) -> bool:
+    """判断主题是否属于需要人工复核的三主题（TECH / PROJECT / MOMENT）。
+
+    Args:
+        value: 待判断的主题 KEY。
+
+    Returns:
+        命中 :data:`REVIEW_THEMES` 返回 True；非法、未知或不可哈希的值一律返回 False。
+    """
+    return isinstance(value, str) and value in REVIEW_THEMES
 
 
 def require_theme(value: str, *, who: str = "theme") -> str:

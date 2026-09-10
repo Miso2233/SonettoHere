@@ -15,6 +15,7 @@ from agent import build_system_prompt
 from api.agent.turn import merge_pending_batch, run_agent_turn
 from api.edge_light import edge_light_session_on
 from api.events import ChatSender, MemorySender, TurnSender
+from api.memory import review as memory_review
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager
 from api.session.manager import PendingMessage, SessionState, session_manager
@@ -181,6 +182,41 @@ async def _handle_user_response(
     return agent_task
 
 
+@ws_event_handler("memory_review_decision")
+async def _handle_memory_review_decision(
+    ws: WebSocket,
+    session_id: str,
+    session: SessionState,
+    agent_task: asyncio.Task | None,
+    msg: dict,
+
+) -> asyncio.Task | None:
+    """处理用户对记忆复核卡片的批准/拒绝。
+
+    approve 仅把条目移出待决状态；reject 撤销该次 create 写入。
+    不触碰 agent_task——后台记忆管线与本交互无关。
+    """
+    payload = msg.get("payload", {})
+    review_id = str(payload.get("review_id", ""))
+    decision = str(payload.get("decision", ""))
+
+    if review_id and decision in ("approve", "reject"):
+        result: dict[str, str] = memory_review.resolve(
+            review_id, memory_review.ReviewDecision(decision)
+        )
+    else:
+        result = memory_review.ReviewResult(
+            review_id=review_id,
+            status=memory_review.ReviewStatus.ERROR.value,
+            memory_id="",
+            detail="复核请求非法：缺少 review_id，或 decision 不是 approve/reject",
+        )
+
+    # 必须回推结果（含 expired/error），否则前端卡片会永远停在「待处理」
+    await MemorySender.from_ws(ws).memory_review_result(result)
+    return agent_task
+
+
 @ws_event_handler("cancel")
 async def _handle_cancel(
     ws: WebSocket,
@@ -337,6 +373,13 @@ async def websocket_chat(ws: WebSocket, session_id: str) -> None:
         model_name=default_model,
     )
     await ChatSender.from_context().context_usage(initial_usage)
+
+    # ── 补推未决的记忆复核卡片 ────────────────────────────
+    # 覆盖「发布复核时用户恰好断开 → 卡片永远不出现」的窗口。
+    # 前端按 review_id 去重，重连后重复补推不会产生重复卡片。
+    review_sender = MemorySender.from_ws(ws)
+    for pending_review in memory_review.list_pending(session_id):
+        await review_sender.memory_review_required(memory_review.review_payload(pending_review))
 
     # ── 断线重连时恢复 sub-agent ──────────────────────────
     agent_task = _resume_sub_agent(ws, session)

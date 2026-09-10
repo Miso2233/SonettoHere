@@ -22,12 +22,48 @@
 | `llm_retriever.py` | **LLMRetriever** — LLM 语义检索器，将全量记忆注入 LLM，由 LLM 判定相关条目 |
 | `mechanical_retriever.py` | **MechanicalRetriever** — BM25 机械检索器，零 LLM 调用、毫秒级匹配（替代旧 `retriever.py`） |
 | `callback.py` | MemoryToolCallback — CRUD 工具事件 → WebSocket 前端推送 |
+| `review.py` | **记忆写入复核登记表** — TECH/PROJECT/MOMENT 主题的新建写入登记为待决项，前端弹卡片让用户「批准保留 / 拒绝撤销」 |
+| `theme.py` | V6 九大语义主题的唯一权威源：`MemoryTheme` / `THEME_LABELS` / `VALID_THEMES` / `REVIEW_THEMES` + 校验与展示函数 |
 | `short_term.py` | **短期记忆管理器** — 全局 MemorySaver 单例，所有会话的 LangGraph 检查点共享此实例，通过 `thread_id = session.session_id` 区分隔离 |
 | `user_init.py` | 首次运行初始化：USER.md / SOUL.md / .env 文件复制 |
 
 > **长期记忆 vs 短期记忆**：`memory/` 层管理两种不同生命周期的记忆。长期记忆（`manager/yaml.py` + `long_term.py`）通过 LLM 总结写入 YAML，跨会话持久化。短期记忆（`short_term.py`）管理运行时对话上下文（MemorySaver 检查点），跟随会话生命周期，过期即清理。
 
 ## 职责描述
+
+### 0. 记忆写入复核（`review.py`）
+
+后台记忆 LLM 新建 **TECH（技术事实与结论）/ PROJECT（学业与创作产出）/ MOMENT（事件与经历）**
+三类主题的条目时，内容往往带判断与事实性结论，写错用户很难察觉。这三类写入照常落盘，但会
+登记为待决项推给前端，在「记忆回调」小图标下方弹出卡片，由用户决定**批准保留**还是**拒绝撤销**
+（撤销即 `mm.delete(id)`）。
+
+因为 `delete` 是 `add` 的精确逆运算（两者都只改 `related`，都不动其他条目的
+`latest_update_time`），撤销不需要任何快照 / 回滚机制。触发范围仅限 `create_memory`，
+`merge_memories` / `update_memory` / `delete_memory` / `link_memories` 不参与。
+
+管线分两段，原因是**同步工具无法 `await`**：
+
+```
+create_memory 工具（LangChain 线程池执行，无 running loop）
+  └── review.record_create(id, desc, theme)        → 纯内存登记草稿
+MemoryConsumer.consume()
+  ├── 方法开头  drain_drafts()                      → 丢弃上一轮可能的残留
+  └── finally  drain_drafts() → publish() → WS 推送 → memory_done
+```
+
+三个必须遵守的约束：
+
+1. **`drain_drafts()` 的「取出 + 清空」必须在同一把锁内原子完成**。同一批工具调用会被
+   LangGraph 用 `asyncio.gather` 并发执行，分两步做会丢掉并发线程新登记的草稿。
+2. **发布必须放在 `finally` 而不是 `try` 之后**。Agent 中途报错时工具可能已经写入了 YAML，
+   这些条目同样需要复核，不能因为异常就丢掉卡片。
+3. **`session_id` / `turn_id` / `_current_mm` 缺任一项都必须丢弃草稿而非注册**。前端靠
+   `turn_id` 定位卡片，空 `turn_id` 永远匹配不到轮次，注册只会留下拿不到的孤儿条目。
+
+`resolve()` 是幂等的：重复决定回放**首次决定**的终态，使刷新后的陈旧卡片点一下即可自愈到
+真实状态。`review_id` 不存在（服务重启、容量淘汰）时返回 `expired`，**绝不静默忽略** ——
+否则前端卡片会永远停在「待处理」。
 
 ### 1. 记忆的 CRUD 存储
 

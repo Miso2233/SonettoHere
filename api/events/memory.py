@@ -48,6 +48,21 @@ class MemorySender(WsTransport):
         """通知前端本轮记忆处理完成。"""
         await self._send("memory_done", {"turn_id": turn_id})
 
+    async def memory_review_required(self, review: dict[str, str]) -> None:
+        """推送一条待用户复核的记忆写入（TECH/PROJECT/MOMENT）。
+
+        前端在「记忆回调」小图标下方弹出复核卡片。
+        payload 形状见 api.memory.review.review_payload()。
+        """
+        await self._send("memory_review_required", review)
+
+    async def memory_review_result(self, result: dict[str, str]) -> None:
+        """回推用户对复核卡片的处理结果（已保留 / 已撤销 / 已失效）。
+
+        payload 形状见 api.memory.review.ReviewResult。
+        """
+        await self._send("memory_review_result", result)
+
     async def memory_search_start(self, turn_id: str, interaction_id: str) -> None:
         """通知前端开始语义搜索记忆。"""
         await self._send("memory_search_start", {"turn_id": turn_id, "interaction_id": interaction_id})
