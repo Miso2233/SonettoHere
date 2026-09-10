@@ -1,4 +1,27 @@
 news:
+  - id: "memory-write-review-card"
+    title: "记忆写入需你过目"
+    description: "湾流 V6 新建「技术事实」「学业与创作产出」「事件与经历」三类记忆时，会在对话界面弹出复核卡片，由你决定保留还是撤销（撤销即从记忆库删除该条）。这三类记忆承载判断与结论，写错了不容易察觉，现在能在落库当下过目一遍。"
+    type: "feat"
+    date: "2026-09-10"
+    tags: ["记忆", "复核", "湾流 V6"]
+    version: "v4.0.0"
+    pr_number: 310
+  - id: "remove-const-session"
+    title: "移除固定会话与 AI 标题"
+    description: "固定会话（Const）功能与 AI 标题生成已整体移除，侧栏不再有固定分区。这是一次破坏性变更，请留意。"
+    type: "refactor"
+    date: "2026-09-09"
+    tags: ["会话", "破坏性变更", "移除"]
+    version: "v4.0.0"
+  - id: "gulfstream-v6"
+    title: "湾流 V6 记忆系统重构"
+    description: "记忆主题收敛为九大固定枚举（用户档案 / 喜好 / 学业创作 / 路径 / 地理 / 计划 / 技术 / Sonetto 自身 / 事件经历），写入时代码强制校验；条目间支持双向关联，检索时据此联想补齐上下文；记忆展示页改为按主题分区的瀑布流。注意：V6 不继承 V5 的记忆，需重新积累。"
+    type: "feat"
+    date: "2026-09-09"
+    tags: ["记忆", "湾流 V6", "破坏性变更"]
+    version: "v4.0.0"
+    pr_number: 309
   - id: "computer-use-toggle-edge-light"
     title: "屏幕操作开关与边缘灯"
     description: "屏幕操作（Computer Use）改为显式开关控制：开启后 AI 才获得截屏、点击、输入等屏幕工具，防止误用；开启时屏幕边缘亮起白色辉光环提示，AI 思考/操作时呼吸闪烁，一眼可知 Agent 正在操控你的屏幕。"
