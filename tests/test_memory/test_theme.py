@@ -15,6 +15,9 @@ from api.memory.theme import (
     theme_label,
 )
 
+#: 需复核的三主题，独立于实现写死，防止跟着实现一起漂移。
+EXPECTED_REVIEW_THEMES = {"TECH", "PROJECT", "MOMENT"}
+
 
 class TestMemoryTheme:
     """九大主题枚举与标签表的一致性。"""
@@ -59,22 +62,19 @@ class TestValidators:
 class TestReviewThemes:
     """REVIEW_THEMES / needs_review —— 写入后需用户复核的三主题。"""
 
-    #: 需复核的三主题，独立于实现写死，防止跟着实现一起漂移。
-    _EXPECTED = {"TECH", "PROJECT", "MOMENT"}
-
     def test_subset_of_valid_themes(self) -> None:
         """复核主题必须是合法主题的子集，否则 needs_review 会永远返回 False。"""
         assert REVIEW_THEMES <= VALID_THEMES
 
     def test_exact_membership(self) -> None:
-        assert REVIEW_THEMES == frozenset(self._EXPECTED)
+        assert REVIEW_THEMES == frozenset(EXPECTED_REVIEW_THEMES)
 
-    @pytest.mark.parametrize("key", sorted(_EXPECTED))
+    @pytest.mark.parametrize("key", sorted(EXPECTED_REVIEW_THEMES))
     def test_needs_review_true(self, key: str) -> None:
         assert needs_review(key) is True
 
     @pytest.mark.parametrize(
-        "key", sorted(set(THEME_LABELS) - _EXPECTED)
+        "key", sorted(set(THEME_LABELS) - EXPECTED_REVIEW_THEMES)
     )
     def test_needs_review_false_for_other_themes(self, key: str) -> None:
         assert needs_review(key) is False
