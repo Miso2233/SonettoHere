@@ -1,5 +1,5 @@
 import type { SessionChannel } from '@/stores/chatStore'
-import { findTurnByBackendId, findRunningMemoryTool, findMemoryReview } from '@/stores/chatStore'
+import { findTurnByBackendId, findRunningMemoryTool, findMemoryReview, findReviewTurn } from '@/stores/chatStore'
 import { useChatStore } from '@/stores/chatStore'
 import type { ServerEvent, MemoryStartEvent, MemoryToolStartEvent, MemoryToolEndEvent, MemoryToolErrorEvent, MemoryDoneEvent, MemoryReviewRequiredEvent, MemoryReviewResultEvent, MemoryToolEvent, ChatTurn } from '@/types'
 
@@ -112,6 +112,24 @@ function handleMemoryReviewRequired(ch: SessionChannel, sid: string, event: Serv
   if (ch.turns.includes(targetTurn as ChatTurn)) useChatStore().persistTurns(sid)
 }
 
+/**
+ * 把该次 create 对应的记忆工具事件标记为已撤销。
+ *
+ * 事件与复核之间没有显式 ID 关联：create_memory 的输出形如
+ * `已创建 [xxxxxxxx] (TECH): 内容`，故用 `[memoryId]` 反查。
+ * 只匹配 create_memory，避免误伤 output 里恰好提到同一 ID 的 link / merge 事件。
+ */
+function markCreateRevoked(turn: ChatTurn, memoryId: string): void {
+  const marker = `[${memoryId}]`
+  for (const e of turn.memoryEvents ?? []) {
+    if (e.name === 'create_memory' && e.status === 'done' && e.output?.includes(marker)) {
+      e.revoked = true
+      return
+    }
+  }
+  console.log(`[ltm-fe] NO create_memory event matched memory_id=${memoryId}`)
+}
+
 /** 复核决定回执：把卡片改成终态（已保留 / 已撤销 / 已失效 / 撤销失败）。 */
 function handleMemoryReviewResult(ch: SessionChannel, sid: string, event: ServerEvent): void {
   const me = event as MemoryReviewResultEvent
@@ -122,8 +140,12 @@ function handleMemoryReviewResult(ch: SessionChannel, sid: string, event: Server
   target.detail = me.payload.detail
   target.submitting = false
   console.log(`[ltm-fe] memory_review_result review=${me.payload.review_id} status=${me.payload.status}`)
+
+  const owner = findReviewTurn(ch, me.payload.review_id)
+  if (owner && me.payload.status === 'rejected') markCreateRevoked(owner, target.memoryId)
+
   // 仅当卡片归属已归档轮次时才落盘（currentTurn 的快照不完整）
-  if (ch.turns.some(t => (t.memoryReviews ?? []).includes(target))) useChatStore().persistTurns(sid)
+  if (owner && ch.turns.includes(owner)) useChatStore().persistTurns(sid)
 }
 
 /** 记忆事件处理器注册表。新增记忆事件类型只需在此注册，调用方守卫自动覆盖。 */

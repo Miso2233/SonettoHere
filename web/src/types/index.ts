@@ -490,6 +490,11 @@ export interface MemoryToolEvent {
   output: string | null
   elapsed: number | null
   status: 'running' | 'done' | 'error'
+  /**
+   * 用户已在复核卡片上撤销这次写入（目前仅 create_memory）。
+   * 置位后该事件不再计入回调图标的任何小计——记忆库里并不存在这条。
+   */
+  revoked?: boolean
 }
 
 /** 工具间隙注入的用户消息（渲染为工具之间的用户气泡） */

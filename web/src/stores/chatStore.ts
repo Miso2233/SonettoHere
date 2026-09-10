@@ -829,15 +829,19 @@ export function findTurnByBackendId(ch: SessionChannel, turnId: string): ChatTur
 }
 
 /**
- * 按 review_id 定位复核卡片。
+ * 按 review_id 定位持有该复核卡片的轮次（currentTurn 优先，再扫已归档轮次）。
  *
- * 回执事件不带 turn_id（expired 路径上服务端已丢失轮次上下文），
- * 故需跨 currentTurn 与已归档轮次全量扫描。
+ * 回执事件不带 turn_id（expired 路径上服务端已丢失轮次上下文），故需全量扫描。
  */
+export function findReviewTurn(ch: SessionChannel, reviewId: string): ChatTurn | undefined {
+  const owns = (turn: ChatTurn) => (turn.memoryReviews ?? []).some(r => r.reviewId === reviewId)
+  if (ch.currentTurn && owns(ch.currentTurn)) return ch.currentTurn
+  return ch.turns.find(owns)
+}
+
+/** 按 review_id 定位复核卡片本身。 */
 export function findMemoryReview(ch: SessionChannel, reviewId: string): MemoryReview | undefined {
-  const inTurn = (turn: ChatTurn | null | undefined) =>
-    (turn?.memoryReviews ?? []).find(r => r.reviewId === reviewId)
-  return inTurn(ch.currentTurn) ?? inTurn(ch.turns.find(t => (t.memoryReviews ?? []).some(r => r.reviewId === reviewId)))
+  return (findReviewTurn(ch, reviewId)?.memoryReviews ?? []).find(r => r.reviewId === reviewId)
 }
 
 export function findRunningMemoryTool(events: MemoryToolEvent[], toolName: string): MemoryToolEvent | undefined {

@@ -93,6 +93,13 @@
             <template v-else-if="getMemorySummary(turn).state === 'error'">
               <span class="memory-status is-error">记忆更新失败</span>
             </template>
+            <!-- 写入全部未生效：说明原因，而不是谎报「无需修改」 -->
+            <template v-else-if="getMemorySummary(turn).state === 'revoked'">
+              <span class="memory-status">已撤销</span>
+            </template>
+            <template v-else-if="getMemorySummary(turn).state === 'rejected'">
+              <span class="memory-status">已驳回</span>
+            </template>
             <!-- 无变更 -->
             <template v-else>
               <span class="memory-check">&#10003;</span>
@@ -233,7 +240,8 @@ interface MemoryOpCount {
 }
 
 interface MemorySummary {
-  state: 'processing' | 'error' | 'done' | 'none'
+  /** `revoked` / `rejected` 表示本轮写入全部未生效（前者用户撤销，后者系统驳回） */
+  state: 'processing' | 'error' | 'done' | 'none' | 'revoked' | 'rejected'
   total: number
   hasError: boolean
   ops: MemoryOpCount[]
@@ -241,16 +249,41 @@ interface MemorySummary {
   detail: string
 }
 
+/**
+ * 工具是否以自然语言「驳回：/错误：」返回。
+ *
+ * 这类调用并未真正改动记忆库（内容超 75 字被驳回、分区非法、ID 不存在等），
+ * 但工具本身没抛异常，事件状态仍是 done —— 必须靠返回串前缀识别，否则会被算成一次成功写入。
+ */
+function isMemoryToolRejected(output: string | null): boolean {
+  const text = output ?? ''
+  return text.startsWith('驳回：') || text.startsWith('错误：')
+}
+
 /** 汇总单个 turn 的 memoryEvents 为「单行 SVG + 数字」所需结构。 */
 function getMemorySummary(turn: ChatTurn): MemorySummary {
   const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, link: 0 }
   let processing = false
   let hasError = false
+  let revoked = 0
+  let rejected = 0
   const detail: string[] = []
   for (const e of turn.memoryEvents ?? []) {
     if (e.status === 'running') processing = true
     if (e.status === 'error') hasError = true
     if (e.name === 'memory_review' || e.name === 'memory_processing') continue
+    if (e.revoked) {
+      // 用户已撤销这条写入，记忆库里并不存在它 —— 不进任何小计，只在 tooltip 留痕
+      revoked += 1
+      detail.push(`${toolDisplayName(e.name)}: 已撤销`)
+      continue
+    }
+    if (e.status === 'done' && isMemoryToolRejected(e.output)) {
+      // 系统驳回同样没有改动记忆，不计入小计；tooltip 保留驳回原因供排查
+      rejected += 1
+      detail.push(`${toolDisplayName(e.name)}: ${e.output}`)
+      continue
+    }
     const key = OP_KEY_MAP[e.name]
     if (e.status === 'done' && key) {
       counts[key] += 1
@@ -264,7 +297,17 @@ function getMemorySummary(turn: ChatTurn): MemorySummary {
     .filter((k) => counts[k] > 0)
     .map((k) => ({ key: k, count: counts[k] }))
   const total = counts.create + counts.update + counts.delete + counts.merge + counts.link
-  const state: MemorySummary['state'] = processing ? 'processing' : hasError ? 'error' : total > 0 ? 'done' : 'none'
+  const state: MemorySummary['state'] = processing
+    ? 'processing'
+    : hasError
+      ? 'error'
+      : total > 0
+        ? 'done'
+        : revoked > 0
+          ? 'revoked'
+          : rejected > 0
+            ? 'rejected'
+            : 'none'
   return { state, total, hasError, ops, detail: detail.join('\n') }
 }
 
