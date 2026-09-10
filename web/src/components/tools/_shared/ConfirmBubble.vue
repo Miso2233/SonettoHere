@@ -254,11 +254,11 @@ function submitRejection() {
   color: var(--text-primary);
 }
 
-/* sudo 越权：深一档的平铺灰底 + 黑色重边框（灰阶方案下最重的两档信号）。
-   刻意不用斜纹等纹理 —— 底纹压在文字后面会明显干扰阅读。
+/* sudo 越权：白底 + 黑色重边框（灰阶方案下最重的信号）。
+   刻意不用灰底或斜纹 —— 纹理压在文字后面会明显干扰阅读，加粗黑边已足够醒目。
    声明在 .confirm-header 之后，同权重靠源码顺序生效。 */
 .confirm-header-sudo {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: var(--bg-card);
   border-color: var(--text-primary);
 }
 
@@ -364,9 +364,9 @@ function submitRejection() {
   background: var(--bg-secondary);
 }
 
-/* 删除文件 / sudo 越权：与 .confirm-header-sudo 同一套深灰底 + 重边框信号 */
+/* 删除文件 / sudo 越权：与 .confirm-header-sudo 同一套白底 + 重边框信号 */
 .confirm-file-card.tone-danger {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: var(--bg-card);
   border-color: var(--text-primary);
 }
 

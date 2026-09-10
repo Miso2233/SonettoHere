@@ -207,7 +207,7 @@ function copyPath() {
 
 /* ── 多笔编辑 ──
    全灰阶：全部成功走中性（靠 ✓ 与文案表意），有失败才升级为
-   深一档的平铺灰底 + 黑色边框这一档强信号。底纹一律平色，不用纹理。 */
+   白底 + 黑色边框这一档强信号。底纹一律平色、不用纹理。 */
 .multi-summary {
   display: flex;
   align-items: center;
@@ -219,7 +219,7 @@ function copyPath() {
 }
 
 .multi-summary.has-failures {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: var(--bg-card);
   border-color: var(--text-primary);
 }
 

@@ -71,11 +71,11 @@ const blockedPaths = computed<string[]>(() => {
 </script>
 
 <style scoped>
-/* 全灰阶方案：不靠颜色表达「被阻断」，改由平铺灰底 + 全站唯一的 1.5px
-   纯黑重边框承担视觉重量。底纹一律平色 —— 斜纹之类的纹理在正文后面会
-   明显干扰阅读。 */
+/* 全灰阶方案：不靠颜色表达「被阻断」，改由白底 + 全站唯一的 1.5px
+   纯黑重边框承担视觉重量。底色一律纯白、不用纹理 —— 斜纹之类的纹理
+   压在正文后面会明显干扰阅读。 */
 .blocker-banner {
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  background: var(--bg-card);
   border: 1.5px solid var(--text-primary);
   border-radius: 10px;
   overflow: hidden;
@@ -135,10 +135,10 @@ const blockedPaths = computed<string[]>(() => {
   letter-spacing: 0.5px;
 }
 
-/* 在斜纹底上「镂空」出来的卡片 */
+/* 阻断位置卡片：白底 + 细边框，靠描边与横幅区分 */
 .blocker-path-item {
   padding: 8px 10px;
-  background: var(--bg-card);
+  background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 6px;
 }
