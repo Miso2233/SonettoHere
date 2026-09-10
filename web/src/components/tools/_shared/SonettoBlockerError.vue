@@ -1,8 +1,7 @@
 <template>
-  <!-- SonettoBlocker 阻断错误（特殊视觉） -->
-  <div v-if="isBlocked" class="blocker-banner">
+  <!-- SonettoBlocker 阻断错误（特殊视觉：斜纹底 + 全站最重的黑色边框） -->
+  <div v-if="isBlocked" class="blocker-banner semantic-stripes">
     <div class="blocker-header">
-      <span class="blocker-shield">🛡️</span>
       <span class="blocker-title">访问已被安全阻断</span>
     </div>
     <div class="blocker-divider" />
@@ -12,13 +11,11 @@
       <div v-if="blockedPaths.length" class="blocker-section">
         <div class="blocker-label">阻断位置</div>
         <div v-for="(p, i) in blockedPaths" :key="i" class="blocker-path-item">
-          <span class="blocker-path-icon">📁</span>
           <code class="blocker-path-text">{{ p }}</code>
         </div>
       </div>
 
       <div class="blocker-notice">
-        <span class="blocker-notice-icon">⚠️</span>
         <span>Agent 正在尝试访问以上路径，请等待其说明访问原因及下一步计划。</span>
       </div>
     </div>
@@ -74,9 +71,10 @@ const blockedPaths = computed<string[]>(() => {
 </script>
 
 <style scoped>
+/* 全灰阶方案：不靠颜色表达「被阻断」，改由斜纹底（.semantic-stripes，见
+   _shared/shared.css）+ 全站唯一的 1.5px 纯黑重边框承担视觉重量。 */
 .blocker-banner {
-  background: linear-gradient(135deg, #fff5f5 0%, #fff0e6 100%);
-  border: 1.5px solid #e74c3c;
+  border: 1.5px solid var(--text-primary);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -88,20 +86,16 @@ const blockedPaths = computed<string[]>(() => {
   padding: 14px 16px 6px;
 }
 
-.blocker-shield {
-  font-size: 22px;
-  flex-shrink: 0;
-}
-
 .blocker-title {
   font-size: 15px;
   font-weight: 700;
-  color: #c0392b;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
 }
 
 .blocker-divider {
   height: 1px;
-  background: linear-gradient(to right, #e74c3c44, transparent);
+  background: var(--border);
   margin: 2px 16px;
 }
 
@@ -115,12 +109,12 @@ const blockedPaths = computed<string[]>(() => {
 .blocker-intro {
   margin: 0;
   font-size: 13px;
-  color: #7f8c8d;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
 .blocker-intro strong {
-  color: #c0392b;
+  color: var(--text-primary);
   font-weight: 700;
 }
 
@@ -130,33 +124,27 @@ const blockedPaths = computed<string[]>(() => {
   gap: 6px;
 }
 
+/* 微大写标签：对齐 Tavily 系列的区块标题规范 */
 .blocker-label {
   font-size: 10px;
-  font-weight: 600;
-  color: #e67e22;
+  font-weight: 700;
+  color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
+/* 在斜纹底上「镂空」出来的卡片 */
 .blocker-path-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
   padding: 8px 10px;
-  background: rgba(231, 76, 60, 0.06);
-  border: 1px solid rgba(231, 76, 60, 0.15);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 6px;
-}
-
-.blocker-path-icon {
-  font-size: 14px;
-  flex-shrink: 0;
 }
 
 .blocker-path-text {
   font-family: 'SF Mono', 'Consolas', monospace;
   font-size: 12px;
-  color: #c0392b;
+  color: var(--text-primary);
   word-break: break-all;
   background: none;
   padding: 0;
@@ -167,23 +155,18 @@ const blockedPaths = computed<string[]>(() => {
   align-items: flex-start;
   gap: 6px;
   font-size: 12px;
-  color: #e67e22;
+  color: var(--text-secondary);
   line-height: 1.5;
   padding: 8px 10px;
-  background: rgba(230, 126, 34, 0.08);
+  background: var(--bg-secondary);
   border-radius: 6px;
 }
 
-.blocker-notice-icon {
-  flex-shrink: 0;
-  font-size: 14px;
-  line-height: 1.3;
-}
-
-/* ── 普通错误（回退） ── */
+/* ── 普通错误（回退） ──
+   与 Tavily 系列保持一致：正文错误文字走灰阶，而不是全站默认的红。 */
 .bubble-error {
   font-size: 13px;
-  color: #b91c1c;
+  color: var(--text-secondary);
   padding: 4px 0;
 }
 </style>

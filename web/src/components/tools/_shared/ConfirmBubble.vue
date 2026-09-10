@@ -3,14 +3,13 @@
     <!-- 确认表单：question + 可选代码 + 拒绝原因 + 允许/拒绝 -->
     <div v-if="isActive && !submitted" class="confirm-body">
       <div class="confirm-header" :class="isSudo ? 'confirm-header-sudo' : ''">
-        <span class="confirm-icon">{{ isSudo ? '🔓' : '⚙️' }}</span>
         <span class="confirm-title">{{ question || (isSudo ? 'sudo 越权授权' : '执行确认') }}</span>
         <span v-if="isSudo" class="confirm-sudo-tag">sudo 越权</span>
       </div>
 
       <div v-if="code" class="confirm-section">
         <div class="confirm-section-header">
-          <span class="confirm-section-label">📝 代码</span>
+          <span class="confirm-section-label">代码</span>
           <span class="confirm-code-length">{{ code.length }} 字符</span>
         </div>
         <div class="confirm-code-block" v-html="highlightedCode"></div>
@@ -19,7 +18,6 @@
       <!-- 路径卡片：写/编辑/删除/建目录等操作确认，以及任意工具的 sudo 越权授权 -->
       <div v-if="showFileCard" class="confirm-section">
         <div class="confirm-file-card" :class="fileToneClass">
-          <span class="confirm-file-icon">{{ fileIcon }}</span>
           <div class="confirm-file-info">
             <div class="confirm-file-label">{{ fileLabel }}</div>
             <div class="confirm-file-path">{{ targetPath || '（路径缺失）' }}</div>
@@ -30,7 +28,7 @@
         <!-- 写入内容预览（file_write，sudo 授权阶段不展示以减少打扰） -->
         <div v-if="contentPreview !== null && !isSudo" class="confirm-sub-section">
           <div class="confirm-section-header">
-            <span class="confirm-section-label">📄 内容预览</span>
+            <span class="confirm-section-label">内容预览</span>
             <span class="confirm-code-length">{{ payloadContentLength }} 字符</span>
           </div>
           <pre class="confirm-file-preview">{{ contentPreview }}</pre>
@@ -39,7 +37,7 @@
         <!-- 编辑列表（file_edit，sudo 授权阶段不展示） -->
         <div v-if="editsList.length > 0 && !isSudo" class="confirm-sub-section">
           <div class="confirm-section-header">
-            <span class="confirm-section-label">✂️ {{ editsList.length }} 笔编辑</span>
+            <span class="confirm-section-label">{{ editsList.length }} 笔编辑</span>
           </div>
           <div class="confirm-edits-block">
             <EditDiffPair
@@ -57,7 +55,7 @@
 
       <div class="confirm-section">
         <div class="confirm-section-header">
-          <span class="confirm-section-label">✏️ 拒绝原因（可选）</span>
+          <span class="confirm-section-label">拒绝原因（可选）</span>
         </div>
         <textarea
           v-model="rejectionReason"
@@ -150,16 +148,6 @@ const fileLabel = computed(() => {
     case 'file_create_directory': return '创建目录'
     case 'file_rename': return '重命名文件'
     default: return isSudo.value ? '操作路径' : ''
-  }
-})
-
-const fileIcon = computed(() => {
-  switch (props.toolCall.name) {
-    case 'file_write': return '📝'
-    case 'file_edit': return '✂️'
-    case 'file_delete': return '🗑️'
-    case 'file_rename': return '🔀'
-    default: return '📁'
   }
 })
 
@@ -260,33 +248,39 @@ function submitRejection() {
   border: 1px solid var(--border);
 }
 
-.confirm-icon {
-  font-size: 16px;
-}
-
 .confirm-title {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
 }
 
+/* sudo 越权：斜纹底 + 黑色重边框（灰阶方案下最重的两档信号）。
+   此处不能复用 shared.css 的 .semantic-stripes —— 上方 .confirm-header 用了
+   `background` 简写，作用域化后权重高于全局类，会把纹理盖掉；故就地声明。
+   声明位置在 .confirm-header 之后，同权重靠源码顺序生效。 */
 .confirm-header-sudo {
-  background: #fdf6f5;
-  border-color: #f3d3d0;
+  background-color: var(--bg-secondary);
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--accent) 6%, transparent) 0 5px,
+    transparent 5px 10px
+  );
+  border-color: var(--text-primary);
 }
 
 .confirm-header-sudo .confirm-title {
-  color: #b3261e;
-  font-weight: 500;
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
+/* 反相胶囊：全黑白体系里最强的一个标记 */
 .confirm-sudo-tag {
   margin-left: auto;
   flex-shrink: 0;
   font-size: 11px;
   font-weight: 600;
-  color: #fff;
-  background: #b3261e;
+  color: var(--bg-card);
+  background: var(--accent);
   padding: 2px 10px;
   border-radius: 999px;
 }
@@ -306,10 +300,13 @@ function submitRejection() {
   margin-bottom: 6px;
 }
 
+/* 微大写区块标签：对齐 Tavily 系列的标签规范 */
 .confirm-section-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .confirm-code-length {
@@ -373,20 +370,21 @@ function submitRejection() {
   background: var(--bg-secondary);
 }
 
+/* 删除文件 / sudo 越权：与 .confirm-header-sudo 同一套斜纹 + 重边框信号 */
 .confirm-file-card.tone-danger {
-  background: #fcf0ef;
-  border-color: #f3d3d0;
+  background-color: var(--bg-secondary);
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--accent) 6%, transparent) 0 5px,
+    transparent 5px 10px
+  );
+  border-color: var(--text-primary);
 }
 
+/* 创建目录并非危险操作，全灰阶下不再用绿色强调，回归中性 */
 .confirm-file-card.tone-success {
-  background: #e8f5e9;
-  border-color: #b8d8b8;
-}
-
-.confirm-file-icon {
-  font-size: 18px;
-  line-height: 1.3;
-  flex-shrink: 0;
+  background: var(--bg-secondary);
+  border-color: var(--border);
 }
 
 .confirm-file-info {
@@ -403,8 +401,11 @@ function submitRejection() {
   color: var(--text-secondary);
 }
 
-.tone-danger .confirm-file-label { color: #b3261e; }
-.tone-success .confirm-file-label { color: #2d6a2d; }
+.tone-danger .confirm-file-label {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+.tone-success .confirm-file-label { color: var(--text-secondary); }
 
 .confirm-file-path {
   font-family: 'SF Mono', 'Consolas', monospace;
@@ -413,10 +414,11 @@ function submitRejection() {
   word-break: break-all;
 }
 
+/* 「此操作不可撤销」：全灰阶下靠字重而非颜色示警 */
 .confirm-file-note {
   font-size: 11px;
-  color: #b3261e;
-  font-weight: 500;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .confirm-sub-section {
@@ -524,10 +526,10 @@ function submitRejection() {
 
 .btn-approve {
   background: var(--accent);
-  color: #fff;
+  color: var(--bg-card);
 }
 
 .btn-approve:hover {
-  background: color-mix(in srgb, var(--accent) 90%, #fff);
+  background: color-mix(in srgb, var(--accent) 90%, var(--bg-card));
 }
 </style>

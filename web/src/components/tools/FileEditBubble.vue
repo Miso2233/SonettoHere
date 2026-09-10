@@ -26,8 +26,8 @@
           </div>
           <div class="edit-meta">
             <span class="meta-tag">共 {{ td.total_edits }} 笔</span>
-            <span class="meta-tag success-tag">成功 {{ td.success_count }}</span>
-            <span v-if="td.failed_count > 0" class="meta-tag fail-tag">失败 {{ td.failed_count }}</span>
+            <span class="meta-tag">成功 {{ td.success_count }}</span>
+            <span v-if="td.failed_count > 0" class="meta-tag">失败 {{ td.failed_count }}</span>
           </div>
           <div class="edit-results-list" v-if="multiResults.length > 0">
             <div
@@ -57,7 +57,6 @@
         <!-- ===== 文件内容文本搜索（file_search_text） ===== -->
         <template v-else-if="op === 'search'">
           <div class="search-header">
-            <span class="search-icon">&#128269;</span>
             <div class="search-header-text">
               <div class="search-pattern">/{{ td.pattern }}/</div>
               <div class="search-file">{{ td.file_path }}</div>
@@ -127,11 +126,14 @@ const multiResults = computed<Array<Record<string, any>>>(() => {
 
 const multiClass = computed(() => {
   const failed = td.value.failed_count as number
-  return failed > 0 ? 'has-failures' : 'all-success'
+  // 有失败时挂上全局斜纹底（.semantic-stripes，见 _shared/shared.css）；
+  // 本组件没有与之竞争 background 的简写声明，故可直接复用该类
+  return failed > 0 ? 'has-failures semantic-stripes' : 'all-success'
 })
 
 const multiIcon = computed(() => {
-  return (td.value.failed_count as number) > 0 ? '⚠' : '✓'
+  // 用 ASCII 的 ! 而非警告符号：后者在部分平台会以彩色 emoji 形态呈现
+  return (td.value.failed_count as number) > 0 ? '!' : '✓'
 })
 
 const multiTitle = computed(() => {
@@ -204,23 +206,21 @@ function copyPath() {
   font-weight: 500;
 }
 
-/* ── 多笔编辑 ── */
+/* ── 多笔编辑 ──
+   全灰阶：全部成功走中性（靠 ✓ 与文案表意），有失败才升级为
+   斜纹底（.semantic-stripes）+ 黑色边框这一档强信号。 */
 .multi-summary {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-}
-
-.multi-summary.all-success {
-  background: #e8f5e9;
-  border: 1px solid #b8d8b8;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
 }
 
 .multi-summary.has-failures {
-  background: #fff3e0;
-  border: 1px solid #ffe0b2;
+  border-color: var(--text-primary);
 }
 
 .multi-icon {
@@ -279,12 +279,15 @@ function copyPath() {
   margin-left: 24px;
 }
 
+/* 逐笔结果：成功走次级灰，失败加粗 + 左侧黑竖条，行首已有 ✓ / ✗ */
 .edit-result-item.ok {
-  color: #2e7d32;
+  color: var(--text-secondary);
 }
 
 .edit-result-item.error {
-  color: #c0392b;
+  color: var(--text-primary);
+  font-weight: 600;
+  border-left: 2px solid var(--text-primary);
 }
 
 .eri-icon {
@@ -310,12 +313,6 @@ function copyPath() {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-}
-
-.search-icon {
-  font-size: 18px;
-  flex-shrink: 0;
-  line-height: 1.3;
 }
 
 .search-header-text {
@@ -382,7 +379,6 @@ function copyPath() {
 .match-text {
   color: var(--accent);
   word-break: break-all;
-  background: rgba(255, 255, 255, 0.05);
   padding: 1px 4px;
   border-radius: 3px;
 }
