@@ -13,6 +13,7 @@ from langchain_core.tools import tool
 from langgraph.checkpoint.memory import MemorySaver
 
 from api.events import MemorySender
+from api.memory import review
 from api.memory.callback import MemoryToolCallback
 from api.memory.manager import BaseMemoryManager, MAX_DESC_LENGTH
 from api.memory.theme import THEME_LABELS, require_theme, theme_display
@@ -177,6 +178,8 @@ def create_memory(content: str, section: str, related: list[str] | None = None) 
         new_id = _current_mm.add(description=content, theme=section, related=related)
     except ValueError as e:
         return f"驳回：{e}"
+    # TECH/PROJECT/MOMENT 主题的写入需要用户复核；由 consumer 在本轮结束后统一发布
+    review.record_create(new_id, content, section)
     return f"已创建 [{new_id}] ({section}): {content}"
 
 
@@ -301,6 +304,10 @@ class MemoryConsumer:
             session_id, turn_id, len(turn_messages),
         )
 
+        # 上一轮若异常退出，草稿会滞留到本轮，必须先丢弃，避免跨轮串号
+        if review.drain_drafts():
+            _log.warning("丢弃上一轮残留的复核草稿 session=%s", session_id)
+
         # 通知前端开始处理
         sender: MemorySender | None = None
         if session_id:
@@ -308,13 +315,11 @@ class MemoryConsumer:
             if sender is not None:
                 await sender.memory_start(turn_id or "")
 
-        if self._llm is None:
-            _log.warning("no LLM available — skipping memory update")
-            if sender is not None:
-                await sender.memory_done(turn_id or "")
-            return
-
         try:
+            if self._llm is None:
+                _log.warning("no LLM available — skipping memory update")
+                return
+
             items = _current_mm.show()
             messages_text = _format_messages(turn_messages)
 
@@ -358,5 +363,39 @@ class MemoryConsumer:
         except Exception as e:
             _log.error("CRUD agent error: %s", e)
         finally:
+            # 必须在 finally 里发布：agent 中途报错时工具可能已写入记忆库，
+            # 这些条目同样需要用户复核，不能因为异常就丢掉卡片。
+            await self._publish_reviews(sender, session_id, turn_id)
             if sender is not None:
                 await sender.memory_done(turn_id or "")
+
+    @staticmethod
+    async def _publish_reviews(
+        sender: MemorySender | None,
+        session_id: str | None,
+        turn_id: str | None,
+    ) -> None:
+        """发布本轮登记的复核草稿并推送给前端。
+
+        缺任一发送条件时直接丢弃草稿：前端靠 ``turn_id`` 定位卡片，
+        空 ``turn_id`` 永远匹配不到轮次，注册只会留下拿不到的孤儿条目。
+
+        Args:
+            sender: 目标会话的事件发送器；为 None 表示前端不可达。
+            session_id: 目标会话 ID。
+            turn_id: 触发本轮的轮次 ID。
+        """
+        drafts = review.drain_drafts()
+        if not drafts:
+            return
+        if sender is None or not session_id or not turn_id or _current_mm is None:
+            _log.warning("复核草稿无法关联到前端，丢弃 %d 条 session=%s", len(drafts), session_id)
+            return
+        try:
+            for draft in drafts:
+                pending = review.publish(draft, session_id, turn_id, _current_mm)
+                await sender.memory_review_required(review.review_payload(pending))
+        except Exception as e:
+            # 推送失败不能掀翻后台消费者协程；未送达的复核仍留在注册表，
+            # 前端重连时由 websocket_chat 的补推兜底。
+            _log.error("发布复核卡片失败: %s", e)
