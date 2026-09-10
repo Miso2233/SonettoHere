@@ -695,7 +695,8 @@ export interface NewsEntry {
   date: string
   tags: string[]
   version: string
-  pr_number: number
+  /** 关联的 PR 编号；无关联 PR 的条目为 null（后端 NewsEntry 同此定义） */
+  pr_number: number | null
 }
 
 export interface ListNewsResponse {

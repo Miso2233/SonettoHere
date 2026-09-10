@@ -89,7 +89,8 @@ async function loadNews() {
   loading.value = true
   try {
     const res = await api.listNews()
-    news.value = res.news.sort((a, b) => b.pr_number - a.pr_number)
+    // 无关联 PR 的条目（pr_number 为 null）视作 0，排在末尾
+    news.value = res.news.sort((a, b) => (b.pr_number ?? 0) - (a.pr_number ?? 0))
     requestAnimationFrame(updateTimelineBounds)
   } catch (e: any) {
     console.error('加载更新动态失败', e)
