@@ -273,15 +273,14 @@ function getMemorySummary(turn: ChatTurn): MemorySummary {
     if (e.status === 'error') hasError = true
     if (e.name === 'memory_review' || e.name === 'memory_processing') continue
     if (e.revoked) {
-      // 用户已撤销这条写入，记忆库里并不存在它 —— 不进任何小计，只在 tooltip 留痕
+      // 用户已撤销这条写入，记忆库里并不存在它：
+      // 既不进任何小计，也不出现在 hover 明细里 —— 未生效的写入不该在计数器上留痕
       revoked += 1
-      detail.push(`${toolDisplayName(e.name)}: 已撤销`)
       continue
     }
     if (e.status === 'done' && isMemoryToolRejected(e.output)) {
-      // 系统驳回同样没有改动记忆，不计入小计；tooltip 保留驳回原因供排查
+      // 系统驳回（超 75 字、主题非法、ID 不存在）同样没有改动记忆，一律不计数、不上 hover
       rejected += 1
-      detail.push(`${toolDisplayName(e.name)}: ${e.output}`)
       continue
     }
     const key = OP_KEY_MAP[e.name]
