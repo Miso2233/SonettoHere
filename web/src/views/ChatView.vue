@@ -201,6 +201,9 @@ function handleToolAction(payload: { action: string; data?: unknown }) {
   } else if (payload.action === 'run_python_interrupt') {
     const d = payload.data as { callId: string; message: string }
     chatStore.interruptRunPython(sessionId.value, d.callId, d.message ?? '')
+  } else if (payload.action === 'memory_review_decision') {
+    const d = payload.data as { reviewId: string; decision: 'approve' | 'reject' }
+    chatStore.sendMemoryReview(sessionId.value, d.reviewId, d.decision)
   } else if (payload.action === 'undo') {
     handleUndo()
   }

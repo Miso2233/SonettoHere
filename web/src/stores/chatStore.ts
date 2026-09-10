@@ -2,7 +2,7 @@ import { reactive, computed, type Ref } from 'vue'
 import { defineStore } from 'pinia'
 import type {
   ServerEvent, ChatTurn, ToolCall, ThinkingBlock,
-  TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent,
+  TurnEvent, ContextUsage, AskUserEvent, MemoryToolEvent, MemoryReview,
   ClientMessage, TokenEvent, PendingMessage, UserResponse,
   MessageQueuedEvent, PendingConsumedEvent, PendingSyncEvent, PendingCancelledEvent,
 } from '@/types'
@@ -679,6 +679,36 @@ export const useChatStore = defineStore('chat', () => {
     } as ClientMessage))
   }
 
+  /** 复核回执超时（毫秒）：超过则解除按钮禁用，避免 WS 抖动后按钮永久卡死 */
+  const REVIEW_ACK_TIMEOUT_MS = 10_000
+
+  /** 提交记忆复核决定（批准保留 / 拒绝撤销）。拒绝会让后端删除该条记忆。 */
+  function sendMemoryReview(sid: string, reviewId: string, decision: 'approve' | 'reject') {
+    const ch = channels.get(sid)
+    if (!ch) return
+    const target = findMemoryReview(ch, reviewId)
+    if (!target || target.submitting || target.status !== 'pending') return
+
+    const ws = ch.ws
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      target.detail = '连接已断开，请重连后再试'
+      return
+    }
+
+    target.submitting = true
+    target.detail = ''
+    ws.send(JSON.stringify({
+      type: 'memory_review_decision',
+      payload: { review_id: reviewId, decision },
+    } as ClientMessage))
+
+    window.setTimeout(() => {
+      if (!target.submitting) return
+      target.submitting = false
+      target.detail = '未收到回执，请重试'
+    }, REVIEW_ACK_TIMEOUT_MS)
+  }
+
   function removeTurns(sid: string, count: number) {
     const ch = channels.get(sid)
     if (!ch || ch.turns.length === 0) return
@@ -729,6 +759,7 @@ export const useChatStore = defineStore('chat', () => {
     skipMemorySearch,
     interruptRunPython,
     sendUserResponse,
+    sendMemoryReview,
     removeTurns,
     updateAutoApprove,
     updateComputerUse,
@@ -795,6 +826,18 @@ export function findBestMatchingTool(events: TurnEvent[], toolName: string): Too
 export function findTurnByBackendId(ch: SessionChannel, turnId: string): ChatTurn | undefined {
   if (ch.currentTurn?.turnId === turnId) return ch.currentTurn
   return ch.turns.find(t => t.turnId === turnId)
+}
+
+/**
+ * 按 review_id 定位复核卡片。
+ *
+ * 回执事件不带 turn_id（expired 路径上服务端已丢失轮次上下文），
+ * 故需跨 currentTurn 与已归档轮次全量扫描。
+ */
+export function findMemoryReview(ch: SessionChannel, reviewId: string): MemoryReview | undefined {
+  const inTurn = (turn: ChatTurn | null | undefined) =>
+    (turn?.memoryReviews ?? []).find(r => r.reviewId === reviewId)
+  return inTurn(ch.currentTurn) ?? inTurn(ch.turns.find(t => (t.memoryReviews ?? []).some(r => r.reviewId === reviewId)))
 }
 
 export function findRunningMemoryTool(events: MemoryToolEvent[], toolName: string): MemoryToolEvent | undefined {

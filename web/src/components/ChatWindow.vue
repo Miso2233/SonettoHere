@@ -67,6 +67,7 @@
           <div
             v-if="turn.memoryEvents?.length"
             class="memory-tool-log"
+            :class="{ 'has-review': hasPendingReview(turn) }"
             :title="getMemorySummary(turn).detail || undefined"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memory-icon" aria-hidden="true"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4 17.5V8a2.5 2.5 0 0 1 2.54-2.5A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 20 17.5V8a2.5 2.5 0 0 0-2.54-2.5A2.5 2.5 0 0 0 14.5 2Z"/></svg>
@@ -98,6 +99,14 @@
               <span class="memory-status">无需修改</span>
             </template>
           </div>
+          <!-- 记忆复核卡片：TECH/PROJECT/MOMENT 的新建写入，紧贴回调小图标下方。
+               不包 .cite-source —— 卡片不需要右键引用菜单 -->
+          <MemoryReviewCard
+            v-for="rv in (turn.memoryReviews ?? [])"
+            :key="rv.reviewId"
+            :review="rv"
+            @action="forwardAction"
+          />
         </div>
       </template>
 
@@ -162,6 +171,7 @@ import type { ParsedRef } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
+import MemoryReviewCard from './MemoryReviewCard.vue'
 import MessageBubble from './MessageBubble.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
 import ToolBubbleRouter from './ToolBubbleRouter.vue'
@@ -199,6 +209,11 @@ function isNearBottom(): boolean {
 
 function hasAnswerBlock(turn: ChatTurn): boolean {
   return turn.events.some(e => e.kind === 'thinking' && e.becameAnswer)
+}
+
+/** 该轮是否存在待用户处理的记忆复核卡片（用于把默认隐身的回调小图标钉住） */
+function hasPendingReview(turn: ChatTurn): boolean {
+  return (turn.memoryReviews ?? []).some(r => r.status === 'pending')
 }
 
 /** 记忆操作类型 → 汇总计数键（read_memories 已在事件处理器层跳过） */
@@ -645,6 +660,12 @@ function closeContextMenu() {
 }
 
 .assistant-side:hover .memory-tool-log {
+  opacity: 1;
+}
+
+/* 有待处理复核卡片时把回调小图标钉住，否则卡片看起来会悬空。
+   与上面 hover 规则同为 (0,3,0) 权重，必须紧跟在它之后靠源码顺序决胜。 */
+.assistant-side .memory-tool-log.has-review {
   opacity: 1;
 }
 
