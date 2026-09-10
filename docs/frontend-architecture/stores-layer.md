@@ -169,6 +169,7 @@ export const useChatStore = defineStore('chat', () => {
   // ── 消息发送 ──
   function send(sid, text, refs, ...) { /* 构建 ChatTurn + WS.send */ }
   function cancel(sid) { /* WS.send({type: 'cancel'}) */ }
+  function sendMemoryReview(sid, reviewId, decision) { /* 乐观置 submitting + 10s 超时回退 */ }
 
   return { channels, allSessionStatuses, connectSession, ensureConnected, ... }
 })

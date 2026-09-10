@@ -155,6 +155,66 @@ export interface MemoryDoneEvent {
   }
 }
 
+/**
+ * 记忆复核卡片的生命周期状态。
+ *
+ * `pending` 仅前端持有；服务端只在回执里下发后四种。
+ * `error` 表示撤销写入失败（如记忆库不可写），条目仍在，需用户手动处理。
+ */
+export type MemoryReviewStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'error'
+
+/** 记忆复核的操作类型（当前仅「新建」） */
+export type MemoryReviewKind = 'create'
+
+/** 记忆复核卡片在前端持有的状态（比后端 payload 多 submitting / status / detail） */
+export interface MemoryReview {
+  /** 后端分配的复核 ID，批准/拒绝时回传 */
+  reviewId: string
+  kind: MemoryReviewKind
+  /** 涉及的记忆条目 ID */
+  memoryId: string
+  /** 条目正文 */
+  description: string
+  /** 主题 KEY，如 TECH */
+  theme: string
+  /** 主题中文标签，由服务端下发 */
+  themeLabel: string
+  status: MemoryReviewStatus
+  /** 已发出决定、尚未收到回执（用于禁用按钮防重复提交） */
+  submitting: boolean
+  /** 已决状态下的说明文案 */
+  detail: string
+}
+
+/** memory_review_required — 后台记忆写入 TECH/PROJECT/MOMENT，需用户复核 */
+export interface MemoryReviewRequiredEvent {
+  type: 'memory_review_required'
+  payload: {
+    review_id: string
+    turn_id: string
+    kind: MemoryReviewKind
+    memory_id: string
+    description: string
+    theme: string
+    theme_label: string
+  }
+}
+
+/**
+ * memory_review_result — 复核决定的处理回执。
+ *
+ * 无 turn_id：expired 路径上服务端已丢失轮次上下文，前端按 review_id 定位卡片。
+ */
+export interface MemoryReviewResultEvent {
+  type: 'memory_review_result'
+  payload: {
+    review_id: string
+    status: MemoryReviewStatus
+    memory_id: string
+    detail: string
+  }
+}
+
 /** memory_search_start — 前端语义记忆搜索开始 */
 export interface MemorySearchStartEvent {
   type: 'memory_search_start'
@@ -240,6 +300,8 @@ export type ServerEvent =
   | MemoryToolEndEvent
   | MemoryToolErrorEvent
   | MemoryDoneEvent
+  | MemoryReviewRequiredEvent
+  | MemoryReviewResultEvent
   | MemorySearchStartEvent
   | MemorySearchSkippedEvent
   | MemorySearchDoneEvent
@@ -349,7 +411,20 @@ export interface RunPythonInterruptMessage {
   }
 }
 
-export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | ComputerUseMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage
+/**
+ * memory_review_decision — 用户对记忆复核卡片的批准/拒绝。
+ *
+ * 命名避开 `memory_review`：后者已是 MemoryToolEvent.name 的取值。
+ */
+export interface MemoryReviewDecisionMessage {
+  type: 'memory_review_decision'
+  payload: {
+    review_id: string
+    decision: 'approve' | 'reject'
+  }
+}
+
+export type ClientMessage = ChatMessage | CancelMessage | PingMessage | UserResponseMessage | UpdateAutoApproveMessage | ComputerUseMessage | SkipMemorySearchMessage | RemovePendingMessage | ClearPendingMessage | RunPythonInterruptMessage | MemoryReviewDecisionMessage
 
 // === 前端 UI 状态类型 ===
 
@@ -415,6 +490,11 @@ export interface MemoryToolEvent {
   output: string | null
   elapsed: number | null
   status: 'running' | 'done' | 'error'
+  /**
+   * 用户已在复核卡片上撤销这次写入（目前仅 create_memory）。
+   * 置位后该事件不再计入回调图标的任何小计——记忆库里并不存在这条。
+   */
+  revoked?: boolean
 }
 
 /** 工具间隙注入的用户消息（渲染为工具之间的用户气泡） */
@@ -435,6 +515,8 @@ export interface ChatTurn {
   imageRefs?: FileRef[]
   events: TurnEvent[]
   memoryEvents?: MemoryToolEvent[]
+  /** 本轮后台记忆写入触发的复核卡片（仅 TECH/PROJECT/MOMENT 的新建）。取值处一律用 `?? []` */
+  memoryReviews?: MemoryReview[]
   finalAnswer: string | null
   /** 后端生成的 turn_id，用于关联后台记忆 consumer 的事件 */
   turnId?: string
@@ -461,19 +543,11 @@ export interface SessionInfo {
   has_active_agent?: boolean
   is_subagent?: boolean
   auto_approve?: boolean
-  is_const?: boolean
-  const_name?: string
 }
 
 export interface CreateSessionResponse {
   session_id: string
   created_at: number
-}
-
-export interface ConstifyResponse {
-  session_id: string
-  is_const: boolean
-  const_name: string
 }
 
 export interface ListSessionsResponse {
@@ -488,7 +562,8 @@ export interface MomentItem {
   id: string
   description: string
   theme: string
-  history: Array<{ description: string; time: string }>
+  /** 主题的中文标签（后端附加；旧后端缺失时前端回退用 theme） */
+  theme_label?: string
 }
 
 export interface MomentResponse {
@@ -497,21 +572,18 @@ export interface MomentResponse {
 
 // === Vignette：记忆分区瀑布流 ===
 
-export interface MemoryHistoryEntry {
-  description: string
-  time: string
-}
-
 export interface VignetteMemoryItem {
   id: string
   description: string
-  history: MemoryHistoryEntry[]
-  hit: number
+  /** 关联记忆 id（无向边，双向对称；本轮仅下发，暂不展示） */
+  related?: string[]
   _sort_time: string
 }
 
 export interface VignetteSection {
   theme: string
+  /** 主题的中文标签（后端附加；旧后端缺失时前端回退用 theme） */
+  theme_label?: string
   items: VignetteMemoryItem[]
 }
 
@@ -623,7 +695,8 @@ export interface NewsEntry {
   date: string
   tags: string[]
   version: string
-  pr_number: number
+  /** 关联的 PR 编号；无关联 PR 的条目为 null（后端 NewsEntry 同此定义） */
+  pr_number: number | null
 }
 
 export interface ListNewsResponse {

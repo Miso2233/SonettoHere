@@ -59,9 +59,10 @@ paths:
     required_for: "MCP 工具功能"
     gitignored: true
 
-  - path: "config/personas/memory.yaml"
-    description: "AI 长期记忆存储（对话中学习的用户信息）"
-    created_by: "memory/long_term.py LongTermMemory 消费者"
+  # V5 的 config/personas/memory.yaml 已停用（V6 不兼容，不迁移），保留于磁盘但不读写、不入升级拷贝集
+  - path: "config/personas/memory_v6.yaml"
+    description: "AI V6 长期记忆存储（九大固定主题；对话中学习的用户信息）"
+    created_by: "memory/long_term.py LongTermMemory V6 消费者"
     source_template: null
     required_for: "AI 记忆功能"
     gitignored: true
@@ -79,13 +80,6 @@ paths:
     source_template: null
     required_for: "文件浏览工具"
     note: "启动时会自动写入 anthropic_skills/ 和 macros/ 两个默认路径，但用户在 UI 添加的自定义白名单仅在此文件中保存，无法自动重建"
-    gitignored: true
-
-  - path: "api/data/const-sessions/"
-    description: "固定会话持久化快照目录（内含 *.yaml）"
-    created_by: "api/const_session_store.py save_const_session"
-    source_template: null
-    required_for: "Const 固定会话功能"
     gitignored: true
 
   - path: "studios/"

@@ -67,6 +67,7 @@
           <div
             v-if="turn.memoryEvents?.length"
             class="memory-tool-log"
+            :class="{ 'has-review': hasPendingReview(turn) }"
             :title="getMemorySummary(turn).detail || undefined"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="memory-icon" aria-hidden="true"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4 17.5V8a2.5 2.5 0 0 1 2.54-2.5A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44A2.5 2.5 0 0 0 20 17.5V8a2.5 2.5 0 0 0-2.54-2.5A2.5 2.5 0 0 0 14.5 2Z"/></svg>
@@ -82,6 +83,7 @@
                 <svg v-else-if="op.key === 'update'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
                 <svg v-else-if="op.key === 'delete'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
                 <svg v-else-if="op.key === 'merge'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6M18 15c-3 0-6-1-8-4"/></svg>
+                <svg v-else-if="op.key === 'link'" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><path d="M9 12h6"/></svg>
                 <svg v-else width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
                 <span class="memory-count">{{ op.count }}</span>
               </span>
@@ -91,12 +93,27 @@
             <template v-else-if="getMemorySummary(turn).state === 'error'">
               <span class="memory-status is-error">记忆更新失败</span>
             </template>
+            <!-- 写入全部未生效：说明原因，而不是谎报「无需修改」 -->
+            <template v-else-if="getMemorySummary(turn).state === 'revoked'">
+              <span class="memory-status">已撤销</span>
+            </template>
+            <template v-else-if="getMemorySummary(turn).state === 'rejected'">
+              <span class="memory-status">已驳回</span>
+            </template>
             <!-- 无变更 -->
             <template v-else>
               <span class="memory-check">&#10003;</span>
               <span class="memory-status">无需修改</span>
             </template>
           </div>
+          <!-- 记忆复核卡片：TECH/PROJECT/MOMENT 的新建写入，紧贴回调小图标下方。
+               不包 .cite-source —— 卡片不需要右键引用菜单 -->
+          <MemoryReviewCard
+            v-for="rv in (turn.memoryReviews ?? [])"
+            :key="rv.reviewId"
+            :review="rv"
+            @action="forwardAction"
+          />
         </div>
       </template>
 
@@ -161,6 +178,7 @@ import type { ParsedRef } from '@/utils/references'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { ContextMenuItem } from './ContextMenu.vue'
 import ContextMenu from './ContextMenu.vue'
+import MemoryReviewCard from './MemoryReviewCard.vue'
 import MessageBubble from './MessageBubble.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
 import ToolBubbleRouter from './ToolBubbleRouter.vue'
@@ -200,15 +218,20 @@ function hasAnswerBlock(turn: ChatTurn): boolean {
   return turn.events.some(e => e.kind === 'thinking' && e.becameAnswer)
 }
 
+/** 该轮是否存在待用户处理的记忆复核卡片（用于把默认隐身的回调小图标钉住） */
+function hasPendingReview(turn: ChatTurn): boolean {
+  return (turn.memoryReviews ?? []).some(r => r.status === 'pending')
+}
+
 /** 记忆操作类型 → 汇总计数键（read_memories 已在事件处理器层跳过） */
-type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge' | 'hit'
+type MemoryOpKey = 'create' | 'update' | 'delete' | 'merge' | 'link'
 
 const OP_KEY_MAP: Record<string, MemoryOpKey> = {
   create_memory: 'create',
   update_memory: 'update',
   delete_memory: 'delete',
   merge_memories: 'merge',
-  hit_memory: 'hit',
+  link_memories: 'link',
 }
 
 interface MemoryOpCount {
@@ -217,7 +240,8 @@ interface MemoryOpCount {
 }
 
 interface MemorySummary {
-  state: 'processing' | 'error' | 'done' | 'none'
+  /** `revoked` / `rejected` 表示本轮写入全部未生效（前者用户撤销，后者系统驳回） */
+  state: 'processing' | 'error' | 'done' | 'none' | 'revoked' | 'rejected'
   total: number
   hasError: boolean
   ops: MemoryOpCount[]
@@ -225,16 +249,40 @@ interface MemorySummary {
   detail: string
 }
 
+/**
+ * 工具是否以自然语言「驳回：/错误：」返回。
+ *
+ * 这类调用并未真正改动记忆库（内容超 75 字被驳回、分区非法、ID 不存在等），
+ * 但工具本身没抛异常，事件状态仍是 done —— 必须靠返回串前缀识别，否则会被算成一次成功写入。
+ */
+function isMemoryToolRejected(output: string | null): boolean {
+  const text = output ?? ''
+  return text.startsWith('驳回：') || text.startsWith('错误：')
+}
+
 /** 汇总单个 turn 的 memoryEvents 为「单行 SVG + 数字」所需结构。 */
 function getMemorySummary(turn: ChatTurn): MemorySummary {
-  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, hit: 0 }
+  const counts: Record<MemoryOpKey, number> = { create: 0, update: 0, delete: 0, merge: 0, link: 0 }
   let processing = false
   let hasError = false
+  let revoked = 0
+  let rejected = 0
   const detail: string[] = []
   for (const e of turn.memoryEvents ?? []) {
     if (e.status === 'running') processing = true
     if (e.status === 'error') hasError = true
     if (e.name === 'memory_review' || e.name === 'memory_processing') continue
+    if (e.revoked) {
+      // 用户已撤销这条写入，记忆库里并不存在它：
+      // 既不进任何小计，也不出现在 hover 明细里 —— 未生效的写入不该在计数器上留痕
+      revoked += 1
+      continue
+    }
+    if (e.status === 'done' && isMemoryToolRejected(e.output)) {
+      // 系统驳回（超 75 字、主题非法、ID 不存在）同样没有改动记忆，一律不计数、不上 hover
+      rejected += 1
+      continue
+    }
     const key = OP_KEY_MAP[e.name]
     if (e.status === 'done' && key) {
       counts[key] += 1
@@ -243,12 +291,22 @@ function getMemorySummary(turn: ChatTurn): MemorySummary {
       `${toolDisplayName(e.name)}: ${e.output ?? e.input ?? ''}${e.elapsed !== null ? ` (${e.elapsed.toFixed(1)}s)` : ''}`,
     )
   }
-  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge', 'hit']
+  const order: MemoryOpKey[] = ['create', 'update', 'delete', 'merge', 'link']
   const ops: MemoryOpCount[] = order
     .filter((k) => counts[k] > 0)
     .map((k) => ({ key: k, count: counts[k] }))
-  const total = counts.create + counts.update + counts.delete + counts.merge + counts.hit
-  const state: MemorySummary['state'] = processing ? 'processing' : hasError ? 'error' : total > 0 ? 'done' : 'none'
+  const total = counts.create + counts.update + counts.delete + counts.merge + counts.link
+  const state: MemorySummary['state'] = processing
+    ? 'processing'
+    : hasError
+      ? 'error'
+      : total > 0
+        ? 'done'
+        : revoked > 0
+          ? 'revoked'
+          : rejected > 0
+            ? 'rejected'
+            : 'none'
   return { state, total, hasError, ops, detail: detail.join('\n') }
 }
 
@@ -644,6 +702,12 @@ function closeContextMenu() {
 }
 
 .assistant-side:hover .memory-tool-log {
+  opacity: 1;
+}
+
+/* 有待处理复核卡片时把回调小图标钉住，否则卡片看起来会悬空。
+   与上面 hover 规则同为 (0,3,0) 权重，必须紧跟在它之后靠源码顺序决胜。 */
+.assistant-side .memory-tool-log.has-review {
   opacity: 1;
 }
 

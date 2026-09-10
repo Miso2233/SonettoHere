@@ -17,6 +17,7 @@ import AwaitBubble from './AwaitBubble.vue'
 import BackgroundListBubble from './BackgroundListBubble.vue'
 import SubAgentBubble from './SubAgentBubble.vue'
 import MemoryBubble from './MemoryBubble.vue'
+import MemorySearchBubble from './MemorySearchBubble.vue'
 
 /** 工具注册表：tool_name → 专属气泡组件 */
 const registry: Record<string, Component> = {
@@ -68,6 +69,7 @@ const registry: Record<string, Component> = {
   'update_memory': MemoryBubble,
   'delete_memory': MemoryBubble,
   'merge_memories': MemoryBubble,
+  'memory_search': MemorySearchBubble,
 }
 
 export function getBubbleComponent(name: string): Component | null {

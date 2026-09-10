@@ -19,7 +19,7 @@ from api.edge_light import edge_light_activity, edge_light_session_on
 from api.callbacks.websocket_callback import WebSocketCallback
 from api.providers import FALLBACK_CTX
 from api.providers.manager import get_manager, ProviderManager
-from api.session.const_store import flatten_content, save_const_session, serialize_messages
+from api.utils.messages import flatten_content
 from api.session.manager import PendingMessage, SessionState
 from api.memory.short_term import get_checkpointer
 from langchain_core.language_models.chat_models import BaseChatModel
@@ -321,7 +321,6 @@ async def _build_turn_context(
     image_refs: list[str] | None,
     ltm: Any | None = None,
     private_mode: bool = False,
-    skip_recall: bool = False,
     studio_name: str | None = None,
 ) -> _TurnContext:
     """构建 Agent 图、输入消息和执行配置。"""
@@ -371,7 +370,6 @@ async def _build_turn_context(
         "configurable": {
             "thread_id": session.session_id,
             "private_mode": private_mode,
-            "skip_recall": skip_recall,
             "turn_id": turn_id,
             # 供图内 check_pending 计算逐轮上下文用量（answer/done 事件）
             "system_prompt": system_prompt,
@@ -456,24 +454,11 @@ async def _postprocess_turn(
     session: SessionState,
     result: _TurnResult,
 ) -> None:
-    """后处理：Const 会话保存、Sub-agent 结果回调。
+    """后处理：Sub-agent 结果回调。
 
     LTM 持久化已移至图内 ``ltm_write`` 节点；
     消息计数已移至图内 ``check_pending`` 节点（逐轮计数）。
     """
-    # Const 会话持久化
-    if result.final_answer and session.is_const:
-        try:
-            raw_messages = await session.get_messages()
-            metadata = {
-                "created_at": session.created_at,
-                "last_active": session.last_active,
-                "message_count": session.message_count,
-            }
-            save_const_session(session.session_id, session.const_name, metadata, serialize_messages(raw_messages))
-        except Exception as e:
-            _log.warning("自动保存会话 %s 失败: %s", session.session_id[:8], e)
-
     # Sub-agent pending 结果回调
     if session.has_pending_result():
         if result.error:
@@ -513,14 +498,14 @@ async def run_agent_turn(
       1. _resolve_llm        — 解析 LLM 与上下文窗口配置
       2. _build_turn_context  — 构建 Agent 图、多模态输入与运行配置
       3. _execute_agent_turn  — 流式执行、逐轮 answer/done、异常/取消处理
-      4. _postprocess_turn    — Const 保存、Sub-agent 回调
+      4. _postprocess_turn    — Sub-agent 回调
 
     Args:
         queued_pending: 随首轮一起被消费的排队消息列表（_start_turn_from_ws
             合并残留队列时非空），此时需先发 ``pending_consumed(new_turn)`` 让前端
             创建 currentTurn。普通发送为 ``None``。
     """
-    # Sub-agent 跳过长期记忆的读（retrieve_memory）和写（ltm_write）
+    # Sub-agent 跳过长期记忆的读（不发放 memory_search 工具）和写（ltm_write）
     if session.is_subagent:
         private_mode = True
         skip_recall = True
@@ -566,6 +551,7 @@ async def run_agent_turn(
             tools=app_state.tool_manager.get_all(
                 multimodal=llm_conf.multimodal,
                 computer_use=computer_use,
+                skip_recall=skip_recall,
             ),
             session=session,
             llm_conf=llm_conf,
@@ -574,7 +560,6 @@ async def run_agent_turn(
             image_refs=image_refs,
             ltm=app_state.ltm,
             private_mode=private_mode,
-            skip_recall=skip_recall,
             studio_name=studio_name,
         )
 

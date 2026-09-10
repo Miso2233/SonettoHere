@@ -18,7 +18,6 @@
         <!-- ===== 读取文件 ===== -->
         <template v-if="op === 'read_file'">
           <div class="file-header">
-            <span class="file-icon">&#128196;</span>
             <div class="file-header-text">
               <div class="file-name">{{ fileName }}</div>
               <div class="file-path">{{ td.file_path }}</div>
@@ -82,7 +81,6 @@
         <!-- ===== 文件列表 ===== -->
         <template v-else-if="op === 'list_directory' || op === 'search_files'">
           <div class="dir-header">
-            <span class="dir-icon">&#128193;</span>
             <div class="dir-header-text">
               <div class="dir-name">{{ dirName }}</div>
               <div class="dir-path">{{ td.directory_path || td.search_directory }}</div>
@@ -103,8 +101,8 @@
               :key="i"
               class="item-row"
             >
-              <span class="item-icon">{{ item.type === 'directory' ? '📁' : '📄' }}</span>
-              <span class="item-name">{{ item.name }}</span>
+              <!-- 目录以名称后缀 / 标识（shell 惯例），代替原先的彩色图标 -->
+              <span class="item-name">{{ item.name }}{{ item.type === 'directory' ? '/' : '' }}</span>
               <span class="item-size" v-if="item.size_bytes != null">{{ formatSize(item.size_bytes) }}</span>
             </div>
           </div>
@@ -311,13 +309,6 @@ function copyContent() {
   gap: 10px;
 }
 
-.file-icon,
-.dir-icon {
-  font-size: 22px;
-  line-height: 1.2;
-  flex-shrink: 0;
-}
-
 .file-header-text,
 .dir-header-text {
   display: flex;
@@ -358,7 +349,7 @@ function copyContent() {
 
 .search-pattern-value {
   font-family: 'SF Mono', 'Consolas', monospace;
-  background: var(--bg-secondary, #f0f0f0);
+  background: var(--bg-secondary);
   padding: 1px 5px;
   border-radius: 3px;
   color: var(--text-primary);
@@ -447,20 +438,20 @@ function copyContent() {
   padding: 2px 0;
 }
 
-/* ── 写入成功 ── */
+/* ── 写入成功 ──
+   全灰阶：成功的语义由 ✓ 字形与「xx成功」文案承担，不再用绿底绿字 */
 .write-success {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: #eaf6ea;
-  border: 1px solid #b8d8b8;
+  border: 1px solid var(--border);
   border-radius: 6px;
 }
 
 .success-icon {
   font-size: 18px;
-  color: #3d8b3d;
+  color: var(--text-primary);
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -474,12 +465,12 @@ function copyContent() {
 .write-success-title {
   font-size: 14px;
   font-weight: 600;
-  color: #2d5a2d;
+  color: var(--text-primary);
 }
 
 .write-success-detail {
   font-size: 12px;
-  color: #3d7a3d;
+  color: var(--text-secondary);
   word-break: break-all;
 }
 
@@ -517,13 +508,6 @@ function copyContent() {
 
 .item-row:hover {
   background: var(--bg-secondary);
-}
-
-.item-icon {
-  font-size: 15px;
-  flex-shrink: 0;
-  width: 20px;
-  text-align: center;
 }
 
 .item-name {
@@ -588,24 +572,6 @@ function copyContent() {
   padding: 8px 0;
   font-size: 13px;
   color: var(--text-secondary);
-}
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  flex-shrink: 0;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.bubble-error {
-  font-size: 13px;
-  color: #b91c1c;
-  padding: 4px 0;
 }
 
 .raw-output {

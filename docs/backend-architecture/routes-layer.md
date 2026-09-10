@@ -59,6 +59,12 @@ WebSocket 连接的生命周期管理核心文件。定义了 `websocket_chat` �
 | `user_response` | `_handle_user_response` | 处理用户对 Agent 交互请求的响应 |
 | `cancel` | `_handle_cancel` | 取消正在运行的 Agent 任务 |
 | `update_auto_approve` | `_handle_update_auto_approve` | 更新自动批准设置 |
+| `memory_review_decision` | `_handle_memory_review_decision` | 记忆复核卡片的批准/拒绝（拒绝即撤销该次写入） |
+
+`memory_review_decision` 走 `api.memory.review.resolve()`；无论成功与否都必须回推
+`memory_review_result`（含 `expired` / `error`），否则前端卡片会永远停在「待处理」。
+WebSocket 建立时还会对 `review.list_pending(session_id)` 逐条补推未决复核，
+覆盖「发布复核时用户恰好断开」的窗口。
 
 #### `sessions.py` — 会话管理
 

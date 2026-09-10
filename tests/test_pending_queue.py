@@ -8,7 +8,7 @@
 - _handle_cancel 清队列 + pending_cancelled
 - _start_turn_from_ws FIFO 合并
 - InjectPendingNode 独立节点注入（LangGraph 状态持久化 + 工具循环接线）
-- CheckPendingNode 图内多轮循环（队列非空注入并跳回 retrieve_memory）
+- CheckPendingNode 图内多轮循环（队列非空注入并跳回 agent）
 - run_agent_turn 单次图调用（不再 drain 队列）
 """
 
@@ -54,7 +54,12 @@ from api.session.manager import PendingMessage, SessionState, session_manager
 class FakeToolManager:
     """最小工具管理器，get_all 返回空列表。"""
 
-    def get_all(self, multimodal: bool = False, computer_use: bool = False) -> list:
+    def get_all(
+        self,
+        multimodal: bool = False,
+        computer_use: bool = False,
+        skip_recall: bool = False,
+    ) -> list:
         return []
 
 
@@ -586,7 +591,7 @@ async def test_run_agent_turn_cancelled_preserves_queue(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_check_pending_node_loops_turns():
-    """轮末查询点：队列非空时合并注入并跳回 retrieve_memory，形成图内多轮。"""
+    """轮末查询点：队列非空时合并注入并跳回 agent，形成图内多轮。"""
     captured: list = []
 
     def fake_model(messages: list) -> AIMessage:
@@ -595,9 +600,6 @@ async def test_check_pending_node_loops_turns():
 
     model_with_tools = RunnableLambda(fake_model)
 
-    async def retrieve_noop(state: AgentState, config) -> dict:
-        return {}
-
     async def ltm_noop(state: AgentState, config) -> dict:
         return {}
 
@@ -605,13 +607,11 @@ async def test_check_pending_node_loops_turns():
         return {}
 
     builder = StateGraph(AgentState)
-    builder.add_node("retrieve_memory", retrieve_noop)
     builder.add_node("agent", CallAgentNode(SystemMessage(content="sys"), model_with_tools))
     builder.add_node("tools", tools_noop)  # route_after_agent 编译期要求该目标存在
     builder.add_node("ltm_write", ltm_noop)
     builder.add_node("check_pending", CheckPendingNode())
-    builder.add_edge(START, "retrieve_memory")
-    builder.add_edge("retrieve_memory", "agent")
+    builder.add_edge(START, "agent")
     builder.add_conditional_edges("agent", route_after_agent)
     builder.add_edge("ltm_write", "check_pending")
     builder.add_conditional_edges("check_pending", route_after_check)

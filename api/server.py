@@ -6,13 +6,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-import time
-
-from api.session.const_store import (
-    deserialize_messages,
-    load_all_const_sessions,
-)
-from agent import build_agent, build_system_prompt
 from api.core.health import get_health_report
 from api.providers.manager import init_manager, get_manager
 from api.providers.enrich import enrich_all_providers
@@ -28,7 +21,6 @@ from api.routes import news as news_router
 from api.routes import mcp as mcp_router
 from api.routes import restart as restart_router
 from api.routes import env_vars as env_vars_router
-from api.session.manager import SessionState, session_manager
 from api.memory.long_term import MEMORY_PATH, LongTermMemory
 from api.memory.manager import MemoryManagerBuilder, YamlMemoryManager
 from api.tools.manager import ToolManager
@@ -40,72 +32,6 @@ from api.middleware.logging import TraceIdMiddleware
 from api.utils.logger import get_logger
 
 _log = get_logger("server")
-
-
-async def _load_const_sessions(app: FastAPI):
-    """从 YAML 重建所有 const 固定会话到内存 SessionManager。"""
-    sm = session_manager
-    const_list = load_all_const_sessions()
-    if not const_list:
-        _log.debug("没有待加载的固定会话文件")
-        return
-
-    _log.info("发现 %d 个固定会话文件, 正在重建...", len(const_list))
-
-    mgr = get_manager()
-    if mgr is None or mgr.get_default_llm() is None:
-        _log.warning("跳过 %d 个 const session — 无可用 LLM", len(const_list))
-        return
-
-    from api.memory.short_term import get_checkpointer
-
-    loaded = 0
-    for const_data in const_list:
-        sid = const_data.get("session_id")
-        const_name = const_data.get("const_name", "")
-        msg_count = len(const_data.get("messages", []))
-        _log.debug("处理固定会话: id=%s, name=%r, messages=%d", sid, const_name, msg_count)
-
-        if not sid or sm.exists(sid):
-            _log.debug("跳过: sid=%s, 已存在=%s", sid, sm.exists(sid) if sid else "无ID")
-            continue
-
-        metadata = const_data.get("metadata", {})
-        messages = const_data.get("messages", [])
-
-        # 用全局单例 checkpointer 重建
-        try:
-            reconstructed = deserialize_messages(messages)
-            checkpointer = get_checkpointer()
-            if reconstructed:
-                agent = build_agent(
-                    model=mgr.get_default_llm(),
-                    tools=app.state.tool_manager.get_all(),
-                    system_prompt=build_system_prompt(),
-                    checkpointer=checkpointer,
-                )
-                await agent.aupdate_state(
-                    {"configurable": {"thread_id": sid}},
-                    {"messages": reconstructed},
-                )
-                _log.debug("checkpointer 已更新, %d 条消息", len(reconstructed))
-        except Exception as e:
-            _log.warning("重建会话 %s 失败: %s", sid, e)
-            continue
-
-        session = SessionState(
-            session_id=sid,
-            created_at=metadata.get("created_at", time.time()),
-            last_active=metadata.get("last_active", time.time()),
-            message_count=metadata.get("message_count", 0),
-            is_const=True,
-            const_name=const_name,
-        )
-        sm.put(sid, session)
-        loaded += 1
-        _log.debug("SessionState 已放入内存, const_name=%r", const_name)
-
-    _log.info("已加载 %d/%d 个固定会话", loaded, len(const_list))
 
 
 @asynccontextmanager
@@ -134,9 +60,6 @@ async def lifespan(app: FastAPI):
     # 屏幕边缘灯控制器（Computer Use 状态提示）：惰性启动原生覆盖层子进程
     app.state.edge_light = EdgeLightController()
     set_active_controller(app.state.edge_light)
-
-    # 加载 const 固定会话（需要 tools 已就绪）
-    await _load_const_sessions(app)
 
     yield
 

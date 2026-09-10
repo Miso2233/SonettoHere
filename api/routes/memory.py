@@ -4,6 +4,8 @@ import random
 
 from fastapi import APIRouter, HTTPException, Request
 
+from api.memory.theme import theme_label
+
 router = APIRouter()
 
 
@@ -37,12 +39,11 @@ async def get_moment(request: Request) -> dict:
     if not items:
         return {"moment": None}
     chosen = random.choice(items)
-    history = ltm._mm.show_description_history(chosen["id"])
     return {
         "moment": {
             "id": chosen["id"],
             "description": chosen["description"],
             "theme": chosen["theme"],
-            "history": history,
+            "theme_label": theme_label(chosen["theme"]),
         }
     }

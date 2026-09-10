@@ -21,6 +21,7 @@ _NAMES = [
     "computer_scroll",
     "computer_wait",
     "get_weather",
+    "memory_search",
 ]
 _COMPUTER = {
     "computer_screenshot", "computer_click", "computer_virtual_click",
@@ -71,4 +72,23 @@ def test_non_vision_model_defaults() -> None:
     assert "read_image" not in names
     assert "analyze_image" in names
     assert names.isdisjoint(_COMPUTER)
+    assert "get_weather" in names
+
+
+def test_default_grants_memory_search() -> None:
+    """默认（非失忆/回忆模式）：memory_search 正常交付给模型。"""
+    names = _names(_make_manager(), multimodal=False, computer_use=False)
+    assert "memory_search" in names
+
+
+def test_skip_recall_withholds_memory_search() -> None:
+    """失忆模式（skip_recall=True）：memory_search 被剔除，其余普通工具不受影响。"""
+    manager = _make_manager()
+    names = {
+        t.name
+        for t in manager.get_all(
+            multimodal=False, computer_use=False, skip_recall=True
+        )
+    }
+    assert "memory_search" not in names
     assert "get_weather" in names

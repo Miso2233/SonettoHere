@@ -22,8 +22,8 @@
       <span v-for="tag in entry.tags" :key="tag" class="model-tag">{{ tag }}</span>
     </div>
 
-    <!-- 底部：PR -->
-    <div class="news-footer">
+    <!-- 底部：PR（无关联 PR 的条目整段省略，避免渲染出孤立的 #） -->
+    <div v-if="entry.pr_number" class="news-footer">
       <span class="news-pr">#{{ entry.pr_number }}</span>
     </div>
   </div>

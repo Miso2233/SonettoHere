@@ -42,9 +42,6 @@ Thumbs.db
 # Claude Code
 .claude/
 
-# 用户固定会话（Const Session）持久化数据
-api/data/const-sessions/
-
 # Project specific
 botpy.log
 *.dll
@@ -57,6 +54,7 @@ skills/bilibili/cookie.txt
 tools/bilibili/cookie.txt
 output/bilibili/
 config/personas/memory.yaml
+config/personas/memory_v6.yaml
 *.lock
 *.clean
 

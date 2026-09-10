@@ -2,7 +2,7 @@
   <div class="moment-card">
     <div class="moment-header">
       <span class="moment-title">💭 随机记忆</span>
-      <span v-if="moment" class="moment-theme">{{ moment.theme }}</span>
+      <span v-if="moment" class="moment-theme">{{ moment.theme_label ?? moment.theme }}</span>
       <button class="btn-shuffle" @click="fetchMoment" :disabled="loading">
         换一个
       </button>
@@ -13,21 +13,6 @@
       </div>
       <template v-else-if="moment">
         <div class="moment-current">{{ moment.description }}</div>
-        <div v-if="moment.history.length > 1" class="moment-history">
-          <div class="moment-timeline">
-            <div
-              v-for="(h, i) in moment.history.slice(1)"
-              :key="i"
-              class="moment-history-item"
-            >
-              <div class="timeline-dot"></div>
-              <div class="timeline-content">
-                <div class="history-desc">{{ h.description }}</div>
-                <div class="history-time">{{ h.time }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </template>
       <div v-else class="moment-empty">
         暂无记忆条目
@@ -127,60 +112,6 @@ onMounted(() => {
   background: var(--bg-secondary);
   border-radius: 8px;
   border-left: 3px solid var(--accent);
-}
-
-.moment-history {
-  margin-top: 16px;
-}
-
-.moment-timeline {
-  position: relative;
-  padding-left: 20px;
-}
-
-.moment-timeline::before {
-  content: '';
-  position: absolute;
-  left: 5px;
-  top: 4px;
-  bottom: 4px;
-  width: 1px;
-  background: var(--border);
-}
-
-.moment-history-item {
-  display: flex;
-  gap: 10px;
-  padding: 6px 0;
-}
-
-.timeline-dot {
-  flex-shrink: 0;
-  width: 11px;
-  height: 11px;
-  border-radius: 50%;
-  background: var(--bg-card);
-  border: 2px solid var(--accent-light);
-  margin-left: -20px;
-  margin-top: 4px;
-}
-
-.timeline-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.history-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.history-time {
-  font-size: 11px;
-  color: var(--text-secondary);
-  opacity: 0.6;
-  margin-top: 2px;
 }
 
 .moment-loading {
