@@ -215,7 +215,9 @@ function copyPath() {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: var(--bg-secondary);
+  /* 只声明 background-color：用 background 简写会把 background-image 重置为
+     none，从而盖掉 .has-failures 挂上的 .semantic-stripes 斜纹 */
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border);
 }
 
@@ -267,6 +269,8 @@ function copyPath() {
   gap: 2px;
   padding: 5px 10px;
   font-size: 13px;
+  /* 透明左竖条占位：失败行会点亮它，保证两类行的正文左边界对齐 */
+  border-left: 2px solid transparent;
 }
 
 .eri-head {
