@@ -14,7 +14,7 @@
       <!-- 中途停止：与批准执行菜单同构——截止信息整行在下，按钮右下对齐 -->
       <div class="py-section py-stop-section">
         <div class="py-section-header">
-          <span class="py-section-label">✏️ 截止信息（可选）</span>
+          <span class="py-section-label">截止信息（可选）</span>
         </div>
         <input
           v-model="stopMessage"
@@ -51,7 +51,7 @@
 
       <div class="py-section">
         <div class="py-section-header">
-          <span class="py-section-label">📝 代码</span>
+          <span class="py-section-label">代码</span>
           <button class="py-copy-btn" @click.stop="copyCode">复制</button>
         </div>
         <div class="py-code-block" v-html="highlightedCode"></div>
@@ -59,7 +59,7 @@
 
       <div v-if="stdout" class="py-section">
         <div class="py-section-header">
-          <span class="py-section-label">📤 输出</span>
+          <span class="py-section-label">输出</span>
           <span class="py-stdout-lines">{{ stdoutLineCount }} 行</span>
         </div>
         <pre class="py-stdout">{{ stdout }}</pre>

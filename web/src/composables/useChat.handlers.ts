@@ -169,13 +169,19 @@ function handleToolEnd(ch: SessionChannel, sid: string, turn: ChatTurn, event: S
   }
 }
 
-/** tool_error：更新匹配工具调用为 error。 */
+/** tool_error：更新匹配工具调用为 error，并把错误文案落到 output。 */
 function handleToolError(ch: SessionChannel, _sid: string, turn: ChatTurn, event: ServerEvent): void {
   const teEvent = event as { type: 'tool_error'; payload: { call_id: string; tool_name: string; error: string } }
   const tc = findToolByCallId(turn.events, teEvent.payload.call_id)
     ?? findBestMatchingTool(turn.events, teEvent.payload.tool_name)
   if (tc) {
     tc.status = 'error'
+    // 必须把文案写进 output：后端已把 format_error 信封（success:false）
+    // 转成 tool_error 并带上干净的 error 文案（见 websocket_callback.on_tool_end），
+    // 而各气泡的错误分支一律读 output —— SonettoBlockerError 更是靠 output 里
+    // 是否含 "SonettoBlocker" 判定要不要渲染阻断横幅。此前只置 status 不写
+    // output，导致文件类工具的安全阻断退化成通用兜底文案。
+    tc.output = teEvent.payload.error
   }
 }
 
