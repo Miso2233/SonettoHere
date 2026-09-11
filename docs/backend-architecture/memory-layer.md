@@ -17,10 +17,9 @@
 | `manager/base.py` | **BaseMemoryManager** — 抽象基类，定义 _load_all / _save_all / _write_lock 三个原语 + 完整 CRUD 默认实现 + show / get_memories_grouped / _validate_all_items / _generate_id |
 | `manager/yaml.py` | **YamlMemoryManager(BaseMemoryManager)** — YAML 文件持久化，仅实现 _load_all / _save_all / _write_lock + 介质相关 self_check |
 | `manager/builder.py` | **MemoryManagerBuilder** — 构造器，统一建造形式，与后端解耦 |
-| `long_term.py` | **LongTermMemory** — 核心编排器：检索（LLM 语义 / BM25 机械）+ 后台持久化管线 |
+| `long_term.py` | **LongTermMemory** — 核心编排器：后台持久化管线（V6 起记忆读取改由 `memory_search` 工具承担） |
 | `consumer.py` | **MemoryConsumer** — 后台 CRUD Agent 管线 + 模块级 `@tool`（create_memory / read_memories / update_memory / delete_memory / merge_memories / hit_memory）；`set_current_mm()` 公开注入 |
-| `llm_retriever.py` | **LLMRetriever** — LLM 语义检索器，将全量记忆注入 LLM，由 LLM 判定相关条目 |
-| `mechanical_retriever.py` | **MechanicalRetriever** — BM25 机械检索器，零 LLM 调用、毫秒级匹配（替代旧 `retriever.py`） |
+| `search.py` | **记忆精确搜索** — 主题 + 正则命中，并沿 `related` 用多源 BFS 推导多级关联闭包；纯逻辑模块，供 `memory_search` 工具与测试复用 |
 | `callback.py` | MemoryToolCallback — CRUD 工具事件 → WebSocket 前端推送 |
 | `review.py` | **记忆写入复核登记表** — TECH/PROJECT/MOMENT 主题的新建写入登记为待决项，前端弹卡片让用户「批准保留 / 拒绝撤销」 |
 | `theme.py` | V6 九大语义主题的唯一权威源：`MemoryTheme` / `THEME_LABELS` / `VALID_THEMES` / `REVIEW_THEMES` + 校验与展示函数 |
@@ -318,7 +317,7 @@ _consumer_loop()                 — 后台协程，逐条消费
 | REST 路由层 | `LongTermMemory._mm` 方法 | `/api/long-term`、`/api/memories`、`/api/moment` |
 | Vignette 前端 | REST API | `/api/memories` 端点返回分组记忆（`get_memories_grouped`） |
 | Agent 工具层 | `get_narrative()` | 读取完整记忆叙事文本，作为系统提示前缀 |
-| 查询相关 | `get_related_memory_from()` | 双模式检索：LLMRetriever（LLM 语义）或 MechanicalRetriever（BM25 机械） |
+| Agent 工具层 | `memory_search` 工具 → `search.py` | 主题 + 正则精确检索，沿 `related` 补齐多级关联 |
 
 ### 依赖关系
 
@@ -329,8 +328,7 @@ _consumer_loop()                 — 后台协程，逐条消费
 | `long_term.py →` | `api.session.manager` | SessionState（`session.get_messages()` 提取消息） |
 | `long_term.py →` | `api.session.manager` | session_manager（通过 `session_manager.get(sid).ws` 获取 WebSocket） |
 | `long_term.py →` | `consumer.py` | MemoryConsumer + set_current_mm |
-| `long_term.py →` | `llm_retriever.py` | LLMRetriever 语义检索 |
-| `long_term.py →` | `mechanical_retriever.py` | MechanicalRetriever BM25 机械检索 |
+| `tools/system/tool_memory_search.py →` | `search.py` | 记忆精确搜索（`collect_adjacency` / `search_with_closure`） |
 | `callback.py →` | `api.session.manager` | session_manager（通过 `session_manager.get(sid).ws` 获取 WebSocket） |
 | `short_term.py →` | `langgraph.checkpoint.memory` | MemorySaver 全局单例 |
 | `api.session.manager →` | `short_term.py` | `get_checkpointer()` / `delete_thread()` — 会话层倒依赖短期记忆模块 |
