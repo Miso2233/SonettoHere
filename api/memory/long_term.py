@@ -4,16 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import functools
-from enum import Enum
 from pathlib import Path
 
 from api.memory.consumer import MemoryConsumer, set_current_mm
-from api.memory.llm_retriever import LLMRetriever
 from api.memory.manager import BaseMemoryManager
-from api.memory.mechanical_retriever import MechanicalRetriever
 from api.memory.theme import theme_display
 from api.providers.manager import get_manager
-from api.session.manager import SessionState, session_manager
+from api.session.manager import SessionState
 from api.utils.logger import get_logger
 
 _log = get_logger("ltm")
@@ -26,20 +23,6 @@ MEMORY_INJECTION_MARKER = "【相关记忆】"
 PERSONAS_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "personas"
 MEMORY_FILE_NAME = "memory_v6.yaml"  # V6 记忆文件；V5 的 memory.yaml 已不再读取
 MEMORY_PATH = PERSONAS_DIR / MEMORY_FILE_NAME
-
-
-# ── 检索模式枚举 ─────────────────────────────────────
-
-
-class RetrievalMode(Enum):
-    """记忆检索模式。
-
-    Attributes:
-        LLM:        LLM 语义检索（默认，当前生产方案）
-        MECHANICAL: BM25 机械检索（零 LLM 调用，毫秒级）
-    """
-    LLM = "llm"
-    MECHANICAL = "mech"
 
 
 # ── 格式化辅助 ──────────────────────────────────────────────
@@ -83,13 +66,14 @@ def get_narrative() -> str:
 
 
 class LongTermMemory:
-    """长期记忆（LTM）核心编排器 — 检索 + 后台持久化管线。
+    """长期记忆（LTM）核心编排器 — 后台持久化管线。
 
     职责：
-    - **检索** — 通过 :meth:`get_related_memory_from` 按模式（LLM 语义 / BM25 机械）
-      从记忆库中召回相关条目。
     - **持久化** — 通过 ``start()`` / ``send_history()`` / ``stop()``
       管线将逐轮对话异步消费、提炼并写入记忆后端。
+
+    V6 起长期记忆的**读取**不再由图内自动检索：模型按需调用 ``memory_search``
+    工具（见 :mod:`api.memory.search`），本类只负责写入。
 
     用法::
 
@@ -104,9 +88,6 @@ class LongTermMemory:
 
         ltm.start() # 生命周期开始
 
-        # 检索
-        results = ltm.get_related_memory_from("塔罗牌重构", mode=RetrievalMode.LLM)
-
         # 持久化
         await ltm.send_history(messages)
 
@@ -118,9 +99,6 @@ class LongTermMemory:
         memory_manager: BaseMemoryManager,
     ) -> None:
         self._mm = memory_manager
-        self._llm_retriever = LLMRetriever(memory_manager)
-        self._mechanical_retriever = MechanicalRetriever()
-        self._mechanical_retriever.build_index(self._mm.show())
         self._queue: asyncio.Queue | None = None
         self._consumer_task: asyncio.Task | None = None
 
@@ -135,57 +113,6 @@ class LongTermMemory:
         if not items:
             return ""
         return _format_narrative(items)
-
-    def get_related_memory_from(
-        self, prompt: str, mode: RetrievalMode = RetrievalMode.LLM
-    ) -> list[dict[str, str]]:
-        """根据查询提示检索相关记忆条目。
-
-        通过 ``mode`` 参数选择检索策略：
-
-        - ``RetrievalMode.LLM`` → :meth:`_retrieve_llm`（LLM 语义检索）
-        - ``RetrievalMode.MECHANICAL`` → :meth:`_retrieve_mechanical`（BM25 机械检索）
-
-        两种路径的返回格式均为 ``[{id, description, theme}, ...]``。
-
-        Args:
-            prompt: 用户查询文本。
-            mode: 检索模式，默认 LLM 语义检索。
-        """
-        match mode:
-            case RetrievalMode.MECHANICAL:
-                return self._retrieve_mechanical(prompt)
-            case RetrievalMode.LLM:
-                return self._retrieve_llm(prompt)
-            case _:
-                raise ValueError("未定义的记忆提取模式")
-
-    def _retrieve_llm(self, prompt: str) -> list[dict[str, str]]:
-        """LLM 语义检索：委托给 LLMRetriever。"""
-        return self._llm_retriever.retrieve(prompt)
-
-    def _retrieve_mechanical(self, prompt: str) -> list[dict[str, str]]:
-        """BM25 机械检索：零 LLM 调用，毫秒级匹配。"""
-        if self._mechanical_retriever.dirty:
-            self._mechanical_retriever.build_index(self._mm.show())
-        return self._mechanical_retriever.get_related_memory_from(prompt)
-
-    async def get_related_memory_from_async(
-        self, prompt: str, mode: RetrievalMode = RetrievalMode.LLM
-    ) -> list[dict[str, str]]:
-        """异步检索相关记忆条目（可取消）。
-
-        与 :meth:`get_related_memory_from` 功能相同，但：
-        - LLM 模式使用 ``ainvoke``，支持 ``asyncio.Task.cancel()`` 中断
-        - 机械模式仍为同步（BM25 毫秒级，无需取消）
-        """
-        match mode:
-            case RetrievalMode.LLM:
-                return await self._llm_retriever.aretrieve(prompt)
-            case RetrievalMode.MECHANICAL:
-                return self._retrieve_mechanical(prompt)
-            case _:
-                raise ValueError("未定义的记忆提取模式")
 
     def delete_memory(self, id: str) -> str:
         """删除指定 ID 的单条记忆，返回被删除条目的描述。"""
