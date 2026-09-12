@@ -21,14 +21,32 @@ function isValidSessionId(sid: string): boolean {
   return SID_RE.test(sid)
 }
 
+/**
+ * 清理从 localStorage 恢复的记忆事件里的「中途状态」。
+ *
+ * `memory_processing` 占位与 running 工具事件都是**运行时**状态，由后台
+ * consumer 的后续事件（memory_tool_end / memory_done）收尾。这些事件只在
+ * 当前进程的内存里排队：页面刷新、后端重启或连接被换掉后，收尾事件不会
+ * 重发，落盘的 running 条目就成了孤儿——图标会永久显示「处理中」且刷新
+ * 也带着它一起回来。恢复时统一收尾，杜绝这种残留。
+ */
+function settleStaleMemoryState(turn: ChatTurn): ChatTurn {
+  const events = turn.memoryEvents
+  if (!events?.length) return turn
+  const settled = events
+    .filter(e => e.name !== 'memory_processing')
+    .map(e => (e.status === 'running' ? { ...e, status: 'done' as const } : e))
+  return { ...turn, memoryEvents: settled }
+}
+
 function migrateLegacyTurn(turn: any): ChatTurn {
   if (Array.isArray(turn.refs)) {
-    return { memoryEvents: [], ...turn } as ChatTurn
+    return settleStaleMemoryState({ memoryEvents: [], ...turn } as ChatTurn)
   }
   const prevMsg = (turn.userMessage ?? '') as string
   const { cleanText, refs } = parseReferences(prevMsg || '')
   const text = refs.length > 0 ? cleanText : prevMsg.replace(TIME_SUFFIX_RE, '')
-  return { ...turn, userMessage: text, refs, memoryEvents: [] }
+  return settleStaleMemoryState({ ...turn, userMessage: text, refs, memoryEvents: [] })
 }
 
 function loadAllTurnsFromStorage(): Map<string, ChatTurn[]> {

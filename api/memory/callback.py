@@ -23,6 +23,7 @@ class MemoryToolCallback(BaseCallbackHandler):
         # 顶层导入 MemorySender 会触发 api.events.memory → api.events.transport 的循环。
         from api.events.memory import MemorySender  # noqa: PLC0415
 
+        # 绑定 session_id 而非固定 ws：回调可能跨连接重连持续数十秒。
         self._sender = MemorySender.from_session_id(session_id)
         self._turn_id = turn_id
         self._tool_start_time: dict[str, float] = {}

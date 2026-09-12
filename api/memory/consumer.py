@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import functools
+import time
 from datetime import datetime
 from typing import Any
 
@@ -20,6 +22,12 @@ from api.memory.theme import THEME_LABELS, require_theme, theme_display
 from api.utils.logger import get_logger
 
 _log = get_logger("ltm")
+
+#: 单轮记忆处理的看门狗超时（秒）。
+#: 取值只作兜底而非性能目标——正常一轮（含多轮工具调用）在十秒量级，
+#: 一旦超过这个数说明上游 LLM 已挂死。超时后放弃本轮剩余处理并照常发出
+#: 收尾事件，保证前端不会永久停在「处理中」。
+CONSUMER_TIMEOUT_S: float = 180.0
 
 
 # ── 提示词常量 ──────────────────────────────────────
@@ -299,6 +307,7 @@ class MemoryConsumer:
         turn_messages: list[dict[str, str]],
     ) -> None:
         """消费一轮对话。非阻塞——Agent 执行在内部 await。"""
+        _t0 = time.perf_counter()
         _log.info(
             "consumer got session=%s turn_id=%s msgs=%d",
             session_id, turn_id, len(turn_messages),
@@ -308,12 +317,12 @@ class MemoryConsumer:
         if review.drain_drafts():
             _log.warning("丢弃上一轮残留的复核草稿 session=%s", session_id)
 
-        # 通知前端开始处理
+        # 通知前端开始处理。sender 绑定 session_id，每次发送现取当前连接，
+        # 因此本轮的收尾事件不会被中途的重连丢掉（详见 WsTransport.from_session_id）。
         sender: MemorySender | None = None
         if session_id:
             sender = MemorySender.from_session_id(session_id)
-            if sender is not None:
-                await sender.memory_start(turn_id or "")
+            await sender.memory_start(turn_id or "")
 
         try:
             if self._llm is None:
@@ -352,29 +361,53 @@ class MemoryConsumer:
             if session_id:
                 callbacks.append(MemoryToolCallback(session_id, turn_id or ""))
 
-            await agent.ainvoke(
-                {"messages": [HumanMessage(content=user_prompt)]},
-                config={
-                    "configurable": {"thread_id": "ltm-consumer"},
-                    "callbacks": callbacks,
-                },
+            # 看门狗：agent 若因上游 LLM 挂死而无限期不返回，收尾事件（含
+            # memory_done）就永远不会发出，前端会永久停在「处理中」。
+            # 超时即放弃本轮剩余处理——已落盘的记忆与已登记的复核照常发布。
+            await asyncio.wait_for(
+                agent.ainvoke(
+                    {"messages": [HumanMessage(content=user_prompt)]},
+                    config={
+                        "configurable": {"thread_id": "ltm-consumer"},
+                        "callbacks": callbacks,
+                    },
+                ),
+                CONSUMER_TIMEOUT_S,
             )
 
+        except TimeoutError:
+            _log.error(
+                "记忆 agent 超时（>%ds），放弃本轮剩余处理 turn_id=%s",
+                CONSUMER_TIMEOUT_S, turn_id,
+            )
         except Exception as e:
             _log.error("CRUD agent error: %s", e)
         finally:
             # 必须在 finally 里发布：agent 中途报错时工具可能已写入记忆库，
             # 这些条目同样需要用户复核，不能因为异常就丢掉卡片。
-            await self._publish_reviews(sender, session_id, turn_id)
+            cards = 0
+            try:
+                cards = await self._publish_reviews(sender, session_id, turn_id)
+            except Exception as e:
+                # 兜底：发布环节自身出意外（如取草稿时抛）也不得连带跳过
+                # memory_done——收尾事件一旦缺席，前端就永久停在「处理中」，
+                # 且没有任何后续事件能把它解开。循环内的推送失败已由
+                # _publish_reviews 内部消化，这里覆盖的是它之外的部分。
+                _log.error("发布复核卡片失败 turn_id=%s: %r", turn_id, e, exc_info=True)
             if sender is not None:
                 await sender.memory_done(turn_id or "")
+            # 每轮一行汇总：出问题时凭这一行即可判断「consumer 是否跑完」。
+            _log.info(
+                "本轮记忆处理结束 session=%s turn_id=%s 耗时=%.1fs 复核卡片=%d",
+                session_id, turn_id, time.perf_counter() - _t0, cards,
+            )
 
     @staticmethod
     async def _publish_reviews(
         sender: MemorySender | None,
         session_id: str | None,
         turn_id: str | None,
-    ) -> None:
+    ) -> int:
         """发布本轮登记的复核草稿并推送给前端。
 
         缺任一发送条件时直接丢弃草稿：前端靠 ``turn_id`` 定位卡片，
@@ -384,18 +417,28 @@ class MemoryConsumer:
             sender: 目标会话的事件发送器；为 None 表示前端不可达。
             session_id: 目标会话 ID。
             turn_id: 触发本轮的轮次 ID。
+
+        Returns:
+            已发布的复核卡片数量（供调用方汇总日志）。
         """
         drafts = review.drain_drafts()
         if not drafts:
-            return
+            return 0
         if sender is None or not session_id or not turn_id or _current_mm is None:
             _log.warning("复核草稿无法关联到前端，丢弃 %d 条 session=%s", len(drafts), session_id)
-            return
+            return 0
+        published = 0
         try:
             for draft in drafts:
                 pending = review.publish(draft, session_id, turn_id, _current_mm)
                 await sender.memory_review_required(review.review_payload(pending))
+                published += 1
+                _log.info(
+                    "复核卡片已发布 review_id=%s memory_id=%s theme=%s turn_id=%s",
+                    pending.review_id, pending.memory_id, pending.theme, turn_id,
+                )
         except Exception as e:
             # 推送失败不能掀翻后台消费者协程；未送达的复核仍留在注册表，
             # 前端重连时由 websocket_chat 的补推兜底。
             _log.error("发布复核卡片失败: %s", e)
+        return published
