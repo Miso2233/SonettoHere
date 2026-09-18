@@ -1,16 +1,19 @@
 """工具（Tool）基类和共享 HTTP 客户端。"""
 
+import ast
 import asyncio
 import json
 import os
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, final
+from types import UnionType
+from typing import Any, Union, final, get_args, get_origin
 
 import yaml
 
 import requests
 from langchain_core.tools import BaseTool
+from pydantic import BaseModel
 from todoist_api_python.api_async import TodoistAPIAsync
 from uapi import UapiClient
 
@@ -81,6 +84,21 @@ class ToolBase(BaseTool):
         """
         raise NotImplementedError("仅支持异步模式：请覆写 async _arun 并经 arun() 调用")
 
+    def _parse_input(
+        self, tool_input: str | dict[str, Any], tool_call_id: str | None
+    ) -> str | dict[str, Any]:
+        """在 langchain schema 校验前，先还原被序列化成字符串的数组参数。
+
+        这是所有原生工具的唯一入参校验入口（``BaseTool._to_args_and_kwargs``
+        在调 ``_run`` / ``_arun`` 前调用它），故数组容错在此一处即覆盖全部工具：
+        ``'["a", "b"]'`` / ``"['a', 'b']"`` / 单个标量 / 单个对象先按 args_schema
+        的字段注解还原成列表，再交给 pydantic 校验；否则 ``list[...]`` 字段会
+        直接报 "Input should be a valid list"，工具还没来得及执行就失败。
+        """
+        return super()._parse_input(
+            coerce_tool_args(self.args_schema, tool_input), tool_call_id
+        )
+
     def _load_doc(self) -> str:
         """读取同目录下的 TOOL.md，作为领域知识返回给 LLM。"""
         import sys
@@ -120,6 +138,118 @@ def format_success(data: dict) -> str:
 def format_error(message: str) -> str:
     """统一错误响应格式。"""
     return json.dumps({"success": False, "error": message}, ensure_ascii=False)
+
+
+def coerce_list_arg(
+    value: Any,
+    *,
+    wrap_scalar: bool = False,
+    wrap_mapping: bool = False,
+) -> Any:
+    """把被上游序列化成字符串的列表参数还原为 Python list。
+
+    背景：部分模型 / 调用链会把数组参数以文本形式下发（例如
+    ``'[{"content": "a", "status": "pending"}]'`` 或 ``"['a', 'b']"``），
+    使 ``list[...]`` 字段在 Pydantic 校验阶段直接报
+    "Input should be a valid list"，工具还没来得及执行就失败。
+    文本同时按 JSON 与 Python 字面量解析，故元组写法 ``"('a', 'b')"`` 也能还原。
+
+    用法：常规 ``list[...]`` 字段不必逐个处理——``coerce_tool_args`` 按字段注解
+    自动识别并还原，由 ``ToolBase._parse_input`` 统一调用；本函数只在形态特殊的
+    字段（如 file_edit 那个承载 JSON 文本的 str 字段）里被 ``field_validator`` 直接使用。
+
+    Args:
+        value: 待还原的原始入参。
+        wrap_scalar: 解析不出列表且字符串非空时，包成单元素列表。用于
+            ``list[str]`` 这类"传单个值也合理"的字段（labels / urls / options 等）。
+        wrap_mapping: 入参本身是单个 dict（或字符串解析成 dict）时包成单元素列表。
+            用于 ``list[BaseModel]`` 这类字段（如 todos）。
+
+    Returns:
+        还原后的值；无法还原时原样返回，交由 Pydantic 给出准确错误信息。
+    """
+    if isinstance(value, dict):
+        return [value] if wrap_mapping else value
+    if not isinstance(value, str):
+        return value
+    text = value.strip()
+    if not text:
+        return []
+    for parser in (json.loads, ast.literal_eval):
+        try:
+            parsed = parser(text)
+        except (ValueError, SyntaxError, TypeError):
+            continue
+        if isinstance(parsed, (list, tuple)):
+            return list(parsed)
+        if isinstance(parsed, dict):
+            return [parsed] if wrap_mapping else value
+        # 解析出标量（如 '"urgent"'）：按"单个值"处理
+        return [parsed] if wrap_scalar else value
+    return [text] if wrap_scalar else value
+
+
+def _list_item_type(annotation: Any) -> Any | None:
+    """注解形如 ``list[X]`` / ``list[X] | None`` 时返回元素类型 X，否则 None。
+
+    仅识别序列容器（``list`` / ``Sequence`` 等）；``str`` 字段（file_edit 的
+    edits 存 JSON 文本）与标量字段一律返回 None，不被本机制改写。
+    """
+    origin = get_origin(annotation)
+    if origin is Union or origin is UnionType:
+        for arg in get_args(annotation):
+            if arg is type(None):
+                continue
+            return _list_item_type(arg)
+        return None
+    if isinstance(origin, type) and issubclass(origin, Sequence) and origin is not str:
+        args = get_args(annotation)
+        return args[0] if args else Any
+    return None
+
+
+def _is_mapping_item(item_type: Any) -> bool:
+    """元素类型是 BaseModel / dict / Mapping → 单个对象应包成单元素列表。
+
+    对应 ``coerce_list_arg`` 的 ``wrap_mapping``：``list[TodoItem]`` 传单个
+    任务对象也合理。其余元素类型（str / int 等）走 ``wrap_scalar``。
+    """
+    origin = get_origin(item_type) or item_type
+    return isinstance(origin, type) and issubclass(origin, (BaseModel, Mapping))
+
+
+def coerce_tool_args(schema: Any, payload: Any) -> Any:
+    """按 *schema* 的字段注解，还原 *payload* 中被序列化成字符串的数组参数。
+
+    与 ``coerce_list_arg`` 的分工：后者是单字段原语，本函数负责"哪些字段需要
+    还原、按哪种语义还原"的判断，供 ``ToolBase._parse_input`` 一处调用——工具
+    侧因此不再需要各自声明 ``field_validator``。
+
+    非 dict 入参、或 args_schema 不是 pydantic 模型（如 dict 形态的 JSON Schema）
+    时不改写，原样返回；无任何字段需要还原时也返回原对象，避免无谓拷贝。
+    """
+    if not isinstance(payload, dict) or not (
+        isinstance(schema, type) and issubclass(schema, BaseModel)
+    ):
+        return payload
+
+    coerced: dict[str, Any] | None = None
+    for name, field in schema.model_fields.items():
+        if name not in payload:
+            continue
+        item_type = _list_item_type(field.annotation)
+        if item_type is None:
+            continue
+        wrap_mapping = _is_mapping_item(item_type)
+        new_value = coerce_list_arg(
+            payload[name], wrap_scalar=not wrap_mapping, wrap_mapping=wrap_mapping
+        )
+        if new_value is payload[name]:
+            continue
+        if coerced is None:
+            coerced = dict(payload)
+        coerced[name] = new_value
+    return payload if coerced is None else coerced
 
 
 async def off_thread(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

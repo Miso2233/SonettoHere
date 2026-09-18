@@ -37,13 +37,18 @@ class TaskTrackerTool(ToolBase):
         if not todos:
             return format_error("请传入 todos 参数（全量任务清单）")
 
-        total = len(todos)
-        pending = sum(1 for t in todos if t.status == "pending")
-        in_progress_count = sum(1 for t in todos if t.status == "in_progress")
-        completed = sum(1 for t in todos if t.status == "completed")
+        # 兜底：绕过 args_schema 直接调用时，允许传入 dict 形态的任务项
+        items = [
+            t if isinstance(t, TodoItem) else TodoItem.model_validate(t) for t in todos
+        ]
+
+        total = len(items)
+        pending = sum(1 for t in items if t.status == "pending")
+        in_progress_count = sum(1 for t in items if t.status == "in_progress")
+        completed = sum(1 for t in items if t.status == "completed")
 
         current_task = next(
-            (t.content for t in todos if t.status == "in_progress"),
+            (t.content for t in items if t.status == "in_progress"),
             None,
         )
 
@@ -54,6 +59,6 @@ class TaskTrackerTool(ToolBase):
                 "in_progress": in_progress_count,
                 "completed": completed,
                 "current_task": current_task,
-                "todos": [t.model_dump() for t in todos],
+                "todos": [t.model_dump() for t in items],
             }
         )

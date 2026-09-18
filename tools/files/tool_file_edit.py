@@ -9,7 +9,7 @@ import json
 import os
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from tools.base import (
     ToolBase,
@@ -30,6 +30,21 @@ class FileEditInput(BaseModel):
             '"replace_all": false}。单笔替换也需放入数组中。'
         ),
     )
+
+    @field_validator("edits", mode="before")
+    @classmethod
+    def _coerce_edits(cls, value: Any) -> Any:
+        """edits 同时接受 JSON 数组文本、已解析的数组与单笔编辑对象。
+
+        上游调用链若已把数组解析成 ``list``（或把单笔编辑直接下发成 ``dict``），
+        这里统一序列化回文本，由 ``_edit`` 走 ``json.loads`` 解析路径，避免
+        "Input should be a valid string" 之类的校验失败。
+        """
+        if isinstance(value, dict):
+            value = [value]
+        if isinstance(value, (list, tuple)):
+            return json.dumps(list(value), ensure_ascii=False)
+        return value
 
 
 @path_guard(PathSpec("file_path", kind="file"))
@@ -64,10 +79,20 @@ class FileEditTool(ToolBase):
         if not edits_json:
             return format_error("file_edit 需要提供 edits（JSON 数组）")
 
-        try:
-            edit_list = json.loads(edits_json)
-        except (json.JSONDecodeError, TypeError) as e:
-            return format_error(f"edits JSON 解析失败: {e}")
+        # 兜底：绕过 args_schema 直接调用时，允许传入已解析的列表 / 单笔编辑对象
+        if isinstance(edits_json, dict):
+            edit_list: Any = [edits_json]
+        elif isinstance(edits_json, (list, tuple)):
+            edit_list = list(edits_json)
+        else:
+            try:
+                edit_list = json.loads(edits_json)
+            except (json.JSONDecodeError, TypeError) as e:
+                return format_error(f"edits JSON 解析失败: {e}")
+
+        # JSON 对象文本（单笔编辑忘了包数组）同样按单笔处理，与 schema 层一致
+        if isinstance(edit_list, dict):
+            edit_list = [edit_list]
 
         if not isinstance(edit_list, list) or not edit_list:
             return format_error("edits 应为非空 JSON 数组")
