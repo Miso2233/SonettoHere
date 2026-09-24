@@ -20,6 +20,7 @@ class ProviderCreateBody(BaseModel):
     api_key: str
     base_url: str
     models: list[str] = []
+    default_model: str | None = None
     enabled: bool = True
 
 
@@ -56,6 +57,15 @@ async def _refresh_app_llm() -> None:
         mgr.refresh_default_llm()
 
 
+def _ensure_default_model_in_list(default_model: str | None, models: list[str]) -> None:
+    """默认模型必须属于模型列表，否则 400（None 表示不设默认模型，始终合法）。"""
+    if default_model is not None and default_model not in models:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Default model '{default_model}' is not in the provider's model list",
+        )
+
+
 # ── CRUD ────────────────────────────────────────────────
 
 
@@ -84,6 +94,8 @@ async def create_provider(body: ProviderCreateBody, request: Request) -> dict:
             status_code=409, detail=f"Provider '{body.id}' already exists"
         )
 
+    _ensure_default_model_in_list(body.default_model, body.models)
+
     config = ProviderConfig(
         id=body.id,
         provider_type=body.provider_type,
@@ -91,6 +103,7 @@ async def create_provider(body: ProviderCreateBody, request: Request) -> dict:
         api_key=body.api_key,
         base_url=body.base_url,
         models=body.models,
+        default_model=body.default_model,
         enabled=body.enabled,
     )
 
@@ -124,13 +137,9 @@ async def update_provider(provider_id: str, body: ProviderUpdateBody, request: R
 
     # 验证 default_model 在当前 models 列表中
     if "default_model" in update_data:
-        dm = update_data["default_model"]
-        models = update_data.get("models", config.models)
-        if dm is not None and dm not in models:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Default model '{dm}' is not in the provider's model list",
-            )
+        _ensure_default_model_in_list(
+            update_data["default_model"], update_data.get("models", config.models)
+        )
 
     for field, value in update_data.items():
         setattr(config, field, value)
@@ -245,7 +254,10 @@ async def discover_models_for_existing(provider_id: str, request: Request) -> di
         # 检查 default_model 是否还在新列表中（仅提示，不做保存）
         warning = None
         if config.default_model is not None and config.default_model not in model_names:
-            warning = f"Default model '{config.default_model}' is no longer available and has been reset"
+            warning = (
+                f"默认模型「{config.default_model}」已不在新拉取的模型列表中，"
+                "已自动取消其默认设置，请重新选择"
+            )
 
         return {
             "models": model_names,

@@ -150,8 +150,14 @@ async def update_provider(provider_id: str, body: ProviderUpdateBody, request: R
 | 位置 | 组件 | 体现方式 |
 |------|------|---------|
 | 提供商卡片 | `ProvidersView.vue` | 模型名右侧 `image-cog` 🏷️ 图标 |
-| 编辑表单 | `ProvidersView.vue` | 模型复选框右侧 `[视觉]` / `[无视觉]` 文字标签 |
+| 编辑表单 | `ProvidersView.vue` | 模型复选框右侧 `[视觉]` / `[无视觉]` / `[未检测]` 文字标签 |
 | 顶部栏 | `ContextUsageBadge.vue` | 当前模型名右侧 `image-cog` 图标 |
+
+### 编辑表单的徽章状态
+
+检测在保存时才执行，因此编辑表单里的模型有三种状态：已有检测结果的显示 `[视觉]` / `[无视觉]`，还没有结果的显示 `[未检测]`（虚线灰边框，悬停提示「保存后自动检测」）。
+
+重新拉取模型列表后会按新列表重建徽章映射：仍在列表中的模型保留已知结果，已消失模型的记录被丢弃，新出现的模型回到 `[未检测]`。拉取时不会触发检测——整站目录可能上百个模型，逐个发带图请求代价过高。
 
 ### 顶部栏数据流
 
@@ -184,6 +190,7 @@ ContextUsageBadge(hasVision=selectedModelHasVision)
 | provider API key 无效 | 所有模型测试均失败，全部标记为 `false` |
 | 无模型（空列表） | 跳过检测，返回空字典 |
 | 现有配置升级 | 读取 YAML 时 `model_vision` 缺省为空字典，首次保存时执行检测 |
+| 编辑中重新拉取模型列表 | 徽章映射按新列表重建，新模型标记为 `[未检测]`，保存时补齐真实结果 |
 | 并发调用 | `asyncio.gather` 并行测试，`return_exceptions=True` 防止单个失败影响全局 |
 
 ---

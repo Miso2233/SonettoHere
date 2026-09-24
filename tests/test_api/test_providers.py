@@ -7,6 +7,9 @@ import asyncio
 from pathlib import Path
 
 import pytest
+from fastapi import FastAPI
+from httpx import Response
+from starlette.testclient import TestClient
 
 from api.providers import ProviderConfig, build_provider
 from api.providers.anthropic_provider import DEFAULT_BASE_URL, AnthropicProvider
@@ -14,6 +17,7 @@ from api.providers.manager import ProviderManager
 from api.providers.openai_provider import OpenAIProvider
 from api.providers.opencode_headers import is_opencode_gateway, opencode_session_headers
 from api.providers.store import ProviderConfigStore
+from api.routes import providers as providers_route
 
 
 def _config(**overrides: object) -> ProviderConfig:
@@ -304,3 +308,93 @@ class TestOpenCodeHeaderInjection:
         headers = captured.get("default_headers", {})
         assert isinstance(headers, dict)
         assert "x-opencode-session" in headers
+
+
+# ── 路由层 default_model 校验 ────────────────────────────────────────────
+
+
+async def _noop_enrich(config: ProviderConfig) -> None:
+    """enrichment 替身：真实实现会探测视觉能力与上下文窗口（需要网络）。"""
+
+
+@pytest.fixture
+def providers_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """挂载 providers 路由的最小 app，配置读写落在 tmp_path。"""
+    store = ProviderConfigStore(tmp_path / "providers.yaml")
+    manager = ProviderManager(store)
+    manager.load_all()
+    monkeypatch.setattr(providers_route, "get_manager", lambda: manager)
+    monkeypatch.setattr(providers_route, "enrich_provider_config", _noop_enrich)
+    app = FastAPI()
+    app.include_router(providers_route.router)
+    return TestClient(app)
+
+
+class TestDefaultModelValidation:
+    """default_model 必须属于 models：创建与更新两条路径均拒绝越界值。"""
+
+    def _create(self, client: TestClient, **overrides: object) -> Response:
+        body: dict[str, object] = {
+            "id": "p1",
+            "provider_type": "openai",
+            "label": "P1",
+            "api_key": "sk-test",
+            "base_url": "https://api.example.com/v1",
+            "models": ["a-model", "b-model"],
+        }
+        body.update(overrides)
+        return client.post("/providers", json=body)
+
+    def test_create_accepts_default_model_in_list(self, providers_client: TestClient) -> None:
+        res = self._create(providers_client, default_model="b-model")
+        assert res.status_code == 200
+        assert res.json()["default_model"] == "b-model"
+
+    def test_create_without_default_model_leaves_it_unset(
+        self, providers_client: TestClient
+    ) -> None:
+        res = self._create(providers_client)
+        assert res.status_code == 200
+        assert "default_model" not in res.json()
+
+    def test_create_rejects_default_model_not_in_list(
+        self, providers_client: TestClient
+    ) -> None:
+        res = self._create(providers_client, default_model="ghost-model")
+        assert res.status_code == 400
+        assert "not in the provider's model list" in res.json()["detail"]
+
+    def test_update_accepts_default_model_in_sent_models(
+        self, providers_client: TestClient
+    ) -> None:
+        assert self._create(providers_client).status_code == 200
+        res = providers_client.put(
+            "/providers/p1", json={"models": ["b-model"], "default_model": "b-model"}
+        )
+        assert res.status_code == 200
+        assert res.json()["default_model"] == "b-model"
+
+    def test_update_rejects_stale_default_model(
+        self, providers_client: TestClient
+    ) -> None:
+        """重新拉取后默认模型从列表中消失（前端未校正时的服务端兜底）。"""
+        assert (
+            self._create(providers_client, default_model="a-model").status_code == 200
+        )
+        res = providers_client.put(
+            "/providers/p1", json={"models": ["b-model"], "default_model": "a-model"}
+        )
+        assert res.status_code == 400
+        assert "not in the provider's model list" in res.json()["detail"]
+
+    def test_update_clears_stale_default_model(
+        self, providers_client: TestClient
+    ) -> None:
+        assert (
+            self._create(providers_client, default_model="a-model").status_code == 200
+        )
+        res = providers_client.put(
+            "/providers/p1", json={"models": ["b-model"], "default_model": None}
+        )
+        assert res.status_code == 200
+        assert "default_model" not in res.json()
