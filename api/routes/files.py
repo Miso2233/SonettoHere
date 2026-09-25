@@ -50,12 +50,12 @@ async def select_file(type: str = "file") -> dict:
                 path = filedialog.askopenfilename(
                     title="选择要引用的文件",
                     filetypes=[
-                        ("所有文件", "*.*"),
+                        ("所有文件", "*"),
                         ("文本文件", "*.txt"),
-                        ("图片", "*.png;*.jpg;*.jpeg;*.gif;*.bmp"),
+                        ("图片", ("*.png", "*.jpg", "*.jpeg", "*.gif", "*.bmp")),
                         ("PDF", "*.pdf"),
-                        ("文档", "*.doc;*.docx"),
-                        ("代码", "*.py;*.js;*.ts;*.vue;*.html;*.css"),
+                        ("文档", ("*.doc", "*.docx")),
+                        ("代码", ("*.py", "*.js", "*.ts", "*.vue", "*.html", "*.css")),
                     ],
                 )
             root.destroy()

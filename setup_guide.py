@@ -11,6 +11,21 @@ from version import __version__
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
+IS_WINDOWS = sys.platform == "win32"
+START_CMD = "start.bat" if IS_WINDOWS else "./start.sh"
+PERSONAS_DIR = "config\\personas" if IS_WINDOWS else "config/personas"
+
+
+def _venv_python() -> str:
+    """项目 .venv 中 Python 解释器的路径。
+
+    Windows venv 布局是 .venv/Scripts/python.exe，
+    macOS/Linux 是 .venv/bin/python。
+    """
+    if IS_WINDOWS:
+        return os.path.join(PROJECT_ROOT, ".venv", "Scripts", "python.exe")
+    return os.path.join(PROJECT_ROOT, ".venv", "bin", "python")
+
 
 def header():
     print("=" * 48)
@@ -18,7 +33,7 @@ def header():
     print("=" * 48)
     print()
     print("本脚本将自动安装依赖并准备好运行环境。")
-    print("初始化完成后，运行 start.bat 即可启动。")
+    print(f"初始化完成后，运行 {START_CMD} 即可启动。")
     print()
 
 
@@ -75,6 +90,7 @@ def fail(msg):
 
 
 def _npm_cmd():
+    # Windows 的 npm 实际是 npm.cmd，_run 里用 shell=True 解析。
     return ["npm"]
 
 
@@ -82,14 +98,20 @@ def _node_cmd():
     return ["node"]
 
 
+def _run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
+    """跨平台执行外部命令。Windows 需要 shell 解析 .cmd；POSIX 必须不用 shell。"""
+    return subprocess.run(cmd, capture_output=True, text=True,
+                          shell=IS_WINDOWS, **kwargs)
+
+
 def check_nodejs():
     try:
-        r = subprocess.run(
-            _node_cmd() + ["--version"], capture_output=True, text=True, shell=True
-        )
+        r = _run(_node_cmd() + ["--version"])
         if r.returncode != 0:
             return fail("未找到 Node.js，请从 https://nodejs.org/ 下载安装")
         ver = r.stdout.strip()
+        if not ver.startswith("v"):
+            return fail(f"无法解析 Node.js 版本号: {ver!r}")
         major = ver.lstrip("v").split(".")[0]
         if int(major) < 18:
             print(f"  [!] 建议 Node.js v18+（Vite 5 要求），当前 {ver}")
@@ -101,7 +123,7 @@ def check_nodejs():
 
 
 def setup_venv():
-    if os.path.exists(os.path.join(PROJECT_ROOT, ".venv", "Scripts", "python.exe")):
+    if os.path.exists(_venv_python()):
         skip(".venv 已存在")
     else:
         print("  正在创建虚拟环境 ...")
@@ -111,8 +133,10 @@ def setup_venv():
         ok(".venv 已创建")
 
     print("  正在安装 Python 依赖（这可能需要一些时间）...")
-    pip = os.path.join(PROJECT_ROOT, ".venv", "Scripts", "pip")
-    r = subprocess.run([pip, "install", "-r", "requirements.txt"], cwd=PROJECT_ROOT)
+    r = subprocess.run(
+        [_venv_python(), "-m", "pip", "install", "-r", "requirements.txt"],
+        cwd=PROJECT_ROOT,
+    )
     if r.returncode != 0:
         return fail("pip 安装失败，请检查网络连接")
     ok("Python 依赖已安装")
@@ -126,9 +150,7 @@ def setup_frontend():
         return True
 
     print("  正在安装前端 npm 包 ...")
-    r = subprocess.run(
-        _npm_cmd() + ["install"], cwd=os.path.join(PROJECT_ROOT, "web"), shell=True
-    )
+    r = _run(_npm_cmd() + ["install"], cwd=os.path.join(PROJECT_ROOT, "web"))
     if r.returncode != 0:
         return fail("npm install 失败")
     ok("前端依赖已安装")
@@ -322,16 +344,24 @@ def summary():
     print("  接下来：")
     print()
     print("  1. 启动程序：")
-    print("       start.bat")
-    print("     或者在资源管理器中双击 start.bat")
+    if IS_WINDOWS:
+        print("       start.bat")
+        print("     或者在资源管理器中双击 start.bat")
+    else:
+        print("       ./start.sh")
+        print("     （首次运行前若提示无权限，请先执行: chmod +x start.sh）")
     print()
     print("  2. 若未配置 LLM 提供商，启动后访问")
     print("     http://localhost:5173/providers 添加")
     print()
     print("  3.（可选）定制 AI 个性：")
-    print("     编辑 config\\personas\\USER.md  — 你的自我介绍")
-    print("     编辑 config\\personas\\SOUL.md  — AI 人设")
+    print(f"     编辑 {PERSONAS_DIR}/USER.md  — 你的自我介绍")
+    print(f"     编辑 {PERSONAS_DIR}/SOUL.md  — AI 人设")
     print()
+    if not IS_WINDOWS:
+        print("  macOS 提示：屏幕操作/剪贴板等 computer 工具需要授权——")
+        print("     系统设置 → 隐私与安全性 → 辅助功能 & 屏幕录制，勾选你的终端 App")
+        print()
 
 
 def main():

@@ -173,7 +173,8 @@ def _require_venv_python() -> Path:
     """获取 .venv 中的 Python，缺失时给出明确提示并退出。"""
     python = _venv_python()
     if python is None:
-        print("[upgrade] 未找到 .venv 虚拟环境，请先运行 setup.bat 初始化。")
+        setup_cmd = "setup.bat" if sys.platform == "win32" else "./setup.sh"
+        print(f"[upgrade] 未找到 .venv 虚拟环境，请先运行 {setup_cmd} 初始化。")
         sys.exit(1)
     return python
 

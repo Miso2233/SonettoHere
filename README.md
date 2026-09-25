@@ -29,7 +29,10 @@ cd SonettoHere
 python setup_guide.py
 ```
 
-或双击 `setup.bat`（推荐 Windows 用户）。
+或使用平台脚本：
+
+- **Windows**：双击 `setup.bat`
+- **macOS / Linux**：`./setup.sh`（首次运行前先 `chmod +x *.sh`）
 
 脚本会引导你完成全部 6 步：
 
@@ -63,12 +66,19 @@ API Key: sk-你的密钥
 ### 4. 启动
 
 ```bash
+# Windows
 start.bat
+
+# macOS / Linux
+./start.sh
 ```
 
-或双击 `start.bat`，脚本会自动启动后端 + 前端并打开浏览器。
+脚本会自动启动后端 + 前端并打开浏览器。
 
 浏览器访问 `http://localhost:5173`，即可开始与 Sonetto 对话。
+
+> **macOS 用户提示**：屏幕操作、剪贴板等 computer 工具需要授权后才能使用——
+> 系统设置 → 隐私与安全性 → **辅助功能** 与 **屏幕录制**，勾选你运行 SonettoHere 的终端 App。
 
 ## 初次开始对话
 
