@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, final
@@ -10,11 +11,24 @@ from typing import Any, final
 import yaml
 
 import requests
+from langchain_core.callbacks import Callbacks
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import BaseTool
+from langgraph.errors import GraphBubbleUp
+from pydantic import ValidationError
 from todoist_api_python.api_async import TodoistAPIAsync
 from uapi import UapiClient
 
+from api.utils.logger import get_logger
 from config.settings import get_settings
+
+_log = get_logger("tools")
+
+# 工具异常兜底时原样向上抛的异常：它们自带既定语义，被改写就会让上层失能。
+_PASSTHROUGH_EXCEPTIONS: tuple[type[BaseException], ...] = (
+    GraphBubbleUp,  # LangGraph 控制流（interrupt 冒泡），吞掉会破坏中断
+    ValidationError,  # 入参校验错：交给 ToolNode 转成框架标准的错误 ToolMessage
+)
 
 
 class SharedAPIClient:
@@ -81,6 +95,64 @@ class ToolBase(BaseTool):
         """
         raise NotImplementedError("仅支持异步模式：请覆写 async _arun 并经 arun() 调用")
 
+    @final
+    async def arun(
+        self,
+        tool_input: str | dict[str, Any],
+        verbose: bool | None = None,
+        start_color: str | None = "green",
+        color: str | None = "green",
+        callbacks: Callbacks = None,
+        *,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        run_name: str | None = None,
+        run_id: uuid.UUID | None = None,
+        config: RunnableConfig | None = None,
+        tool_call_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """在工具调用链最外层兜住异常，统一转成 ``format_error`` 响应。
+
+        这是所有原生工具的唯一执行入口（``ToolNode`` → ``ainvoke`` →
+        ``arun`` → ``_arun``），故异常兜底在此一处即覆盖全部工具，各工具不必
+        再自己写 ``except Exception``——历史上有工具漏写，底层 HTTP 异常
+        （如 Todoist 返回 400）就直接逃出了 ``_arun``。LangGraph 的 ``ToolNode``
+        默认只接 pydantic 校验错，其余异常会终止整次图运行，在 checkpoint 里
+        留下「带 tool_calls 却没有对应 ToolMessage」的孤儿状态，使该会话之后
+        每条新消息都重跑同一个失败、再也产不出回答。
+
+        只兜 ``Exception``：``asyncio.CancelledError`` 等 ``BaseException``
+        照旧向上抛，取消语义不受影响；入参校验错与 LangGraph 控制流异常见
+        ``_PASSTHROUGH_EXCEPTIONS``。
+        """
+        try:
+            return await super().arun(
+                tool_input,
+                verbose=verbose,
+                start_color=start_color,
+                color=color,
+                callbacks=callbacks,
+                tags=tags,
+                metadata=metadata,
+                run_name=run_name,
+                run_id=run_id,
+                config=config,
+                tool_call_id=tool_call_id,
+                **kwargs,
+            )
+        except _PASSTHROUGH_EXCEPTIONS:
+            raise
+        except Exception as exc:
+            _log.error(
+                "工具 %s 执行异常已兜底为错误响应: %s: %s",
+                self.name,
+                type(exc).__name__,
+                exc,
+                exc_info=True,
+            )
+            return tool_error_message(exc)
+
     def _load_doc(self) -> str:
         """读取同目录下的 TOOL.md，作为领域知识返回给 LLM。"""
         import sys
@@ -120,6 +192,27 @@ def format_success(data: dict) -> str:
 def format_error(message: str) -> str:
     """统一错误响应格式。"""
     return json.dumps({"success": False, "error": message}, ensure_ascii=False)
+
+
+def tool_error_message(exc: Exception) -> str:
+    """把工具执行中逃逸出来的异常转成统一错误响应。
+
+    工具层（``ToolBase.arun``）与图层（``ToolNode(handle_tool_errors=...)``）
+    共用本函数，保证两条兜底路径给模型的错误文本形态一致。
+
+    Args:
+        exc: 工具执行过程中抛出的异常。注解必须是 ``Exception``——
+            LangGraph 按处理函数的首个形参注解推断它接哪些异常类型。
+
+    Returns:
+        与 :func:`format_error` 同构的 JSON 文本，可直接作为 ToolMessage 内容。
+    """
+    return format_error(
+        f"工具执行失败：{type(exc).__name__}: {exc}。"
+        "该工具本次没有产出结果，请不要原样重发同一个调用；"
+        "先根据上面的错误判断是参数无效、凭证失效还是服务端/网络异常，"
+        "再换一种做法，或如实告知用户。"
+    )
 
 
 async def off_thread(fn: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:

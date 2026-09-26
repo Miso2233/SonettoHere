@@ -8,7 +8,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
 
 from agent import Sonetto, build_agent, build_system_prompt
 from agent.studio import render_studio_by_name
@@ -226,6 +226,86 @@ async def _inject_cancel_tool_messages(session: SessionState, config: dict[str, 
         raise
 
 
+def _find_orphan_tool_calls(messages: list[BaseMessage]) -> list[AIMessage]:
+    """返回历史中所有「带 tool_calls 却没有对应 ToolMessage」的 AIMessage。
+
+    这类「无应答的工具调用」只在图运行被异常中断时出现（工具异常逃出图、
+    进程被杀、取消未收尾），且会随每条新消息累积。
+    """
+    answered = {m.tool_call_id for m in messages if isinstance(m, ToolMessage)}
+    return [
+        m
+        for m in messages
+        if isinstance(m, AIMessage)
+        and m.tool_calls
+        and any(tc["id"] not in answered for tc in m.tool_calls)
+    ]
+
+
+def _strip_tool_calls(message: AIMessage) -> AIMessage:
+    """就地清空一条 AIMessage 的 tool_calls（字段与 additional_kwargs 双清）。
+
+    保留 message id 与文本内容，故 ``add_messages`` 会按 id 原地替换，
+    历史顺序不受影响。
+    """
+    extra = {
+        key: value
+        for key, value in message.additional_kwargs.items()
+        if key not in ("tool_calls", "function_call")
+    }
+    return message.model_copy(
+        update={"tool_calls": [], "invalid_tool_calls": [], "additional_kwargs": extra}
+    )
+
+
+async def _repair_orphan_tool_calls(
+    session: SessionState, config: dict[str, Any]
+) -> int:
+    """修复 checkpoint 中无应答的 tool_calls，返回修复条数。
+
+    图运行被中断后，checkpoint 会停在一个不自洽的状态上：最后一条 AIMessage
+    带着 tool_calls，却没有任何 ToolMessage 回应它。这种历史有两种后果——
+    模型看到没有结果的工具调用，倾向于原样重发；且多数 OpenAI 兼容接口会
+    直接判为非法请求。二者都会让该会话此后每条新消息都重复同一个失败，
+    所以每轮开跑前先把它修干净（幂等：没有孤儿时零开销）。
+
+    修复方式是清空这些 AIMessage 的 tool_calls（见 :func:`_strip_tool_calls`），
+    而不是补写假的 ToolMessage——历史里可能同时存在多条孤儿（用户连发几次
+    「继续」就会累积），补写只会追加到消息列表末尾，无法与各自的 AIMessage
+    相邻，仍然是非法序列。
+    """
+    graph = session.get_graph()
+    if graph is None:
+        return 0
+
+    try:
+        state = await graph.aget_state(config)
+    except Exception as e:
+        _log.warning("孤儿 tool_call 修复：读取 checkpoint 失败: %s", e)
+        return 0
+
+    orphans = _find_orphan_tool_calls(state.values.get("messages", []))
+    if not orphans:
+        return 0
+
+    try:
+        await graph.aupdate_state(
+            config,
+            {"messages": [_strip_tool_calls(m) for m in orphans]},
+            as_node="tools",
+        )
+    except Exception as e:
+        _log.warning("孤儿 tool_call 修复：写回 checkpoint 失败: %s", e)
+        return 0
+
+    _log.warning(
+        "会话 %s 修复了 %d 条无应答的工具调用（上一轮运行被中断）",
+        session.session_id[:8],
+        len(orphans),
+    )
+    return len(orphans)
+
+
 async def _stream_turn(
     graph: Sonetto,
     inputs: dict[str, list[HumanMessage]],
@@ -403,6 +483,10 @@ async def _execute_agent_turn(
     error: str | None = None
 
     try:
+        # 上一轮若被中断（工具异常逃出图、进程被杀、取消未收尾），checkpoint 里会
+        # 残留无应答的 tool_calls；先修掉，否则本轮只会重跑同一个失败。
+        await _repair_orphan_tool_calls(session, ctx.config)
+
         # 推送初始上下文用量（含刚加入的 user message）
         initial_usage = await estimate_context_usage_from_session(
             session, ctx.system_prompt,
@@ -437,12 +521,21 @@ async def _execute_agent_turn(
     finally:
         # 兜底 done：若最后一轮未达 ltm_write（异常/取消中断）则补发收尾；
         # 正常完成时前端 currentTurn 已为 null，重复 done 被前端静默忽略。
-        context_usage = await estimate_context_usage_from_session(
-            session, ctx.system_prompt,
-            max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
-            studio_name=ctx.studio_name,
-        )
-        await sender.done(ctx.turn_id, context_usage)
+        # done 是前端唯一的收尾信号（error 只清流式标记、不清 currentTurn），
+        # 故此处任何失败都必须吞掉并照常下发，否则前端永久停在生成中。
+        try:
+            context_usage = await estimate_context_usage_from_session(
+                session, ctx.system_prompt,
+                max_tokens=llm_conf.max_tokens, model_name=llm_conf.model_name,
+                studio_name=ctx.studio_name,
+            )
+        except Exception as e:
+            _log.warning("收尾用量估算失败，仍照常发送 done: %s", e)
+            context_usage = {}
+        try:
+            await sender.done(ctx.turn_id, context_usage)
+        except Exception as e:
+            _log.warning("done 事件发送失败: %s", e)
 
     return _TurnResult(final_answer=final_answer, error=error)
 
@@ -571,6 +664,16 @@ async def run_agent_turn(
             session=session,
             result=result,
         )
+    except Exception as e:
+        # 编排层兜底：本函数由 asyncio.create_task 启动且无人 await，异常逃出去
+        # 会被静默丢弃（Task exception was never retrieved），前端既收不到 error
+        # 也收不到 done，只能永久转圈。_resolve_llm / _build_turn_context /
+        # pending_consumed / _postprocess_turn 都在这段 try 内。
+        _log.error("run_agent_turn 编排层异常: %s", e, exc_info=True)
+        try:
+            await sender.error("AGENT_ERROR", str(e))
+        except Exception as send_err:
+            _log.warning("编排层异常回执发送失败: %s", send_err)
     finally:
         session.clear_active_task(current_task)
         # 兜底：整轮结束/取消后清除流式标记，避免边缘灯持续闪烁

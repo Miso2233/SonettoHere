@@ -44,6 +44,8 @@ from langgraph.graph.message import add_messages
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
+from tools.base import tool_error_message
+
 
 # 彩蛋：Sonetto 就是这个 CompiledStateGraph ✨
 Sonetto = CompiledStateGraph
@@ -309,7 +311,11 @@ def build_agent(
     inject_pending_node = InjectPendingNode()
     ltm_write_node = LtmWriteNode(ltm)
     check_pending_node = CheckPendingNode()
-    tool_node = ToolNode(tools)
+    # 工具异常兜底：ToolNode 默认只把 pydantic 校验错转成错误消息，其余异常
+    # 会终止整次图运行并在 checkpoint 留下无应答的 tool_calls（见
+    # tools/base.py 的 tool_error_message）。这里显式接管，覆盖非 ToolBase 的
+    # 工具（如 MCP 工具）以及工具层之外抛出的异常。
+    tool_node = ToolNode(tools, handle_tool_errors=tool_error_message)
 
     # ── 组装图 ────────────────────────────────────────
     builder = StateGraph(AgentState)

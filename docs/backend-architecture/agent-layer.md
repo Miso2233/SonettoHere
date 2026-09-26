@@ -303,6 +303,24 @@ run_agent_turn()                    ← 顶层编排入口
   3. 通知前端对应工具气泡进入错误状态
 - `_inject_cancel_tool_messages()` 确保下一条消息不会触发 `"tool_calls without corresponding ToolMessage"` 错误
 
+### 工具异常的四道防线
+
+工具内部的异常（HTTP 400、SDK 报错等）曾经能逃出整张图：`ToolNode` 默认只把
+pydantic 校验错转成错误消息，其余异常会中止本次图运行，在 checkpoint 留下
+「带 `tool_calls` 却没有对应 `ToolMessage`」的孤儿状态——此后该会话每条新消息
+都会重跑同一个失败、再也产不出回答，上下文用量被单调刷满。现在按四层挡住：
+
+| 层 | 位置 | 作用 |
+| --- | --- | --- |
+| 工具层 | `tools/base.py` 的 `ToolBase.arun` | 把 `_arun` 抛出的异常转成 `format_error` 响应；放行 `ValidationError`（交给框架报校验错）与 `GraphBubbleUp`（中断控制流），`CancelledError` 照旧上抛 |
+| 图层 | `agent/graph.py` 的 `ToolNode(handle_tool_errors=tool_error_message)` | 兜住非 `ToolBase` 工具（如 MCP 工具）与工具层之外的异常，产出 `status="error"` 的 `ToolMessage` |
+| 会话层 | `api/agent/turn.py` 的 `_repair_orphan_tool_calls()` | 每轮开跑前清掉历史里无应答的 `tool_calls`，把已被中断污染的会话救回来（幂等，无孤儿时零开销） |
+| 收尾层 | `_execute_agent_turn()` 的 `finally` + `run_agent_turn()` 的 `except` | 保证 `done` 一定下发——`done` 是前端唯一的收尾信号 |
+
+工具侧因此不必再各自写 `except Exception`（历史上漏写正是本问题的来源）；
+两条兜底路径共用 `tool_error_message()`，错误文本形态一致，前端按
+`success=false` 路由成 `tool_error` 气泡（见 callbacks-layer）。
+
 ### 关注点分离
 
 - `run_agent_turn()` 为唯一公共入口，内部按 4 个阶段分步执行
@@ -361,10 +379,9 @@ def get_all(self, multimodal: bool | None = None) -> list[BaseTool]:
 
 **约定**：编排层应捕获所有异常，不向上抛裸异常。
 
-**评估结果**：合规。`_execute_agent_turn()` 中：
-- `CancelledError` → 优雅取消流程
-- `Exception` → 捕获后 `sender.error()`，存入 `_TurnResult.error`
-- `finally` → 始终清理 `active_task` 并推送 `done` 事件
+**评估结果**：合规，两层都已落实：
+- `_execute_agent_turn()`：`CancelledError` → 优雅取消流程；`Exception` → `sender.error()` 并存入 `_TurnResult.error`；`finally` → 即使用量估算失败也照常推送 `done`（估算异常只记日志）
+- `run_agent_turn()`：`except Exception` → 补发 `sender.error()`。本函数由 `asyncio.create_task` 启动且无人 `await`，异常逃出去会被静默丢弃（`Task exception was never retrieved`），前端既收不到 `error` 也收不到 `done`，只能永久停在生成中
 
 ### 数据流完整性
 
